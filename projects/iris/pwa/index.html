@@ -329,7 +329,7 @@
     transition: background 0.15s;
   }
   .btn-action:hover { background: rgba(0, 212, 255, 0.25); }
-  .btn-correct {
+  .btn-correct, .btn-read {
     background: transparent;
     border: 1px solid var(--border);
     color: var(--text-dim);
@@ -337,7 +337,63 @@
     padding: 6px 12px;
     font-size: 0.82rem;
   }
-  .btn-correct:hover { border-color: var(--text); color: var(--text); }
+  .btn-correct:hover, .btn-read:hover { border-color: var(--text); color: var(--text); }
+
+  /* Read modal: full body, monospace, scrollable */
+  .read-modal {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 720px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .read-modal header {
+    padding: 0 0 14px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+    position: static;
+    background: transparent;
+    backdrop-filter: none;
+    display: block;
+  }
+  .read-modal .read-sender {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .read-modal .read-subject {
+    font-size: 1rem;
+    color: var(--accent);
+    margin-top: 4px;
+  }
+  .read-modal .read-meta {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .read-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    background: #05050f;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: "Menlo", "Consolas", "Courier New", monospace;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: #f5f5ff;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .read-body.empty {
+    color: var(--text-dim);
+    font-style: italic;
+  }
 
   /* Category badge colors */
   .cat-RICHIESTA_INTERVENTO .dot { background: var(--cat-richiesta); }
@@ -499,6 +555,21 @@
         <button type="submit" class="btn-primary" style="width:auto;">Salva correzione</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Read email modal -->
+<div id="readBackdrop" class="modal-backdrop">
+  <div class="read-modal" role="dialog" aria-labelledby="readSubject">
+    <header>
+      <div id="readSender" class="read-sender">—</div>
+      <div id="readSubject" class="read-subject">—</div>
+      <div id="readMeta" class="read-meta">—</div>
+    </header>
+    <div id="readBody" class="read-body">Caricamento…</div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="readClose" style="width:auto;">Chiudi</button>
+    </div>
   </div>
 </div>
 
@@ -706,6 +777,7 @@ function renderEmailCard(e) {
       ${renderEntities(e.entities)}
       <div class="email-actions">
         <button class="btn-action" data-action="${escapeHtml(e.action)}">${escapeHtml(ACTION_LABELS[e.action] || e.action)}</button>
+        <button class="btn-read" data-read="${escapeHtml(e.id)}">Leggi email</button>
         <button class="btn-correct" data-correct="${escapeHtml(e.id)}">Correggi</button>
       </div>
     </div>
@@ -736,6 +808,9 @@ function render(emails) {
   $$(".btn-correct", list).forEach(btn => {
     btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
   });
+  $$(".btn-read", list).forEach(btn => {
+    btn.addEventListener("click", () => openReadModal(btn.dataset.read));
+  });
 }
 
 function populateSelect(sel, entries) {
@@ -762,6 +837,46 @@ function closeCorrectionModal() {
   currentCorrectionId = null;
 }
 
+// --- Read email modal ---
+function formatReceivedForDisplay(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("it-IT", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return iso; }
+}
+
+function openReadModal(id) {
+  const email = ACTIVE_EMAILS.find(e => e.id === id);
+  if (!email) return;
+  $("#readSender").textContent = email.sender || "(sconosciuto)";
+  $("#readSubject").textContent = email.subject || "(nessun oggetto)";
+  const metaParts = [];
+  if (email.received) metaParts.push(formatReceivedForDisplay(email.received));
+  if (email.category) metaParts.push(CATEGORY_LABELS[email.category] || email.category);
+  $("#readMeta").textContent = metaParts.join(" · ") || "—";
+
+  const body = email.bodyText;
+  const bodyEl = $("#readBody");
+  if (body && body.trim()) {
+    bodyEl.classList.remove("empty");
+    bodyEl.textContent = body;
+    bodyEl.scrollTop = 0;
+  } else {
+    bodyEl.classList.add("empty");
+    bodyEl.textContent = "(corpo email non disponibile — per le email mock il body non è salvato)";
+  }
+  $("#readBackdrop").classList.add("open");
+}
+
+function closeReadModal() {
+  $("#readBackdrop").classList.remove("open");
+}
+
 // Emails currently displayed. Swapped in-place once Firestore loads.
 let ACTIVE_EMAILS = MOCK_EMAILS;
 
@@ -782,6 +897,16 @@ async function initUI() {
   $("#modalCancel").addEventListener("click", closeCorrectionModal);
   $("#modalBackdrop").addEventListener("click", (e) => {
     if (e.target === $("#modalBackdrop")) closeCorrectionModal();
+  });
+  $("#readClose").addEventListener("click", closeReadModal);
+  $("#readBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#readBackdrop")) closeReadModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeReadModal();
+      closeCorrectionModal();
+    }
   });
   $("#correctionForm").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -865,6 +990,7 @@ async function loadEmailsFromFirestore() {
         summary: cls.summary || "",
         entities: cls.entities || {},
         action: cls.suggestedAction || "ARCHIVIA",
+        bodyText: raw.body_text || "",
       });
     });
     return emails;
