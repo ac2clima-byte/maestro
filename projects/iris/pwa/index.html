@@ -748,7 +748,7 @@ function populateSelect(sel, entries) {
 // --- Correction modal ---
 let currentCorrectionId = null;
 function openCorrectionModal(id) {
-  const email = MOCK_EMAILS.find(e => e.id === id);
+  const email = ACTIVE_EMAILS.find(e => e.id === id);
   if (!email) return;
   currentCorrectionId = id;
   $("#modalSub").textContent = `${email.sender} — ${email.subject}`;
@@ -762,7 +762,10 @@ function closeCorrectionModal() {
   currentCorrectionId = null;
 }
 
-function initUI() {
+// Emails currently displayed. Swapped in-place once Firestore loads.
+let ACTIVE_EMAILS = MOCK_EMAILS;
+
+async function initUI() {
   // Populate category filter + modal selects
   const catEntries = Object.entries(CATEGORY_LABELS);
   const actionEntries = Object.entries(ACTION_LABELS);
@@ -772,9 +775,9 @@ function initUI() {
   $("#corrCategory").innerHTML = catEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
   $("#corrAction").innerHTML = actionEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
 
-  $("#filterCategory").addEventListener("change", () => render(MOCK_EMAILS));
-  $("#filterConfidence").addEventListener("change", () => render(MOCK_EMAILS));
-  $("#filterDate").addEventListener("change", () => render(MOCK_EMAILS));
+  $("#filterCategory").addEventListener("change", () => render(ACTIVE_EMAILS));
+  $("#filterConfidence").addEventListener("change", () => render(ACTIVE_EMAILS));
+  $("#filterDate").addEventListener("change", () => render(ACTIVE_EMAILS));
 
   $("#modalCancel").addEventListener("click", closeCorrectionModal);
   $("#modalBackdrop").addEventListener("click", (e) => {
@@ -791,8 +794,18 @@ function initUI() {
     closeCorrectionModal();
   });
 
-  renderStats(MOCK_EMAILS);
-  render(MOCK_EMAILS);
+  // First render with mock data so the UI is never empty.
+  renderStats(ACTIVE_EMAILS);
+  render(ACTIVE_EMAILS);
+
+  // Then try to swap in real data from Firestore (public rules in v0.1).
+  const real = await loadEmailsFromFirestore();
+  if (real && real.length > 0) {
+    ACTIVE_EMAILS = real;
+    renderStats(ACTIVE_EMAILS);
+    render(ACTIVE_EMAILS);
+    $("#userEmail").textContent = `${$("#userEmail").textContent} · Firestore live (${real.length})`;
+  }
 }
 
 function showApp(userEmail) {
@@ -808,18 +821,57 @@ function showLogin() {
 }
 
 // --- Firebase config (inlined to avoid CORS on file://) ---
-// TODO: compilare con i valori reali del progetto nexo-hub-15f2d.
 const FIREBASE_CONFIG = {
-  apiKey: "REPLACE_ME",
+  apiKey: "AIzaSyBqm4XYaSlq2yUFdpcsL0wtSOpn48cOHoo",
   authDomain: "nexo-hub-15f2d.firebaseapp.com",
   projectId: "nexo-hub-15f2d",
-  storageBucket: "nexo-hub-15f2d.appspot.com",
-  messagingSenderId: "REPLACE_ME",
-  appId: "REPLACE_ME",
+  storageBucket: "nexo-hub-15f2d.firebasestorage.app",
+  messagingSenderId: "272099489624",
+  appId: "1:272099489624:web:10d17611b19031757d172d",
 };
 
 function isFirebaseConfigured() {
   return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "REPLACE_ME";
+}
+
+// Try to load real emails from Firestore. On any failure (offline, file://
+// fetch blocked, permission denied) fall back to MOCK_EMAILS transparently.
+async function loadEmailsFromFirestore() {
+  try {
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+    const fsMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    const db = fsMod.getFirestore(app);
+    const q = fsMod.query(
+      fsMod.collection(db, "iris_emails"),
+      fsMod.orderBy("raw.received_time", "desc"),
+      fsMod.limit(50),
+    );
+    const snap = await fsMod.getDocs(q);
+    const emails = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      const raw = d.raw || {};
+      const cls = d.classification || {};
+      emails.push({
+        id: doc.id,
+        received: raw.received_time || "",
+        sender: raw.sender_name
+          ? `${raw.sender_name} <${raw.sender}>`
+          : (raw.sender || "(sconosciuto)"),
+        subject: raw.subject || "(nessun oggetto)",
+        category: cls.category || "ALTRO",
+        confidence: cls.confidence || "low",
+        summary: cls.summary || "",
+        entities: cls.entities || {},
+        action: cls.suggestedAction || "ARCHIVIA",
+      });
+    });
+    return emails;
+  } catch (err) {
+    console.warn("[IRIS] Firestore load failed, using mock data:", err.message || err);
+    return null;
+  }
 }
 
 // --- Auth flow ---

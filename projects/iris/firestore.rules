@@ -1,0 +1,25 @@
+rules_version = '2';
+
+// IRIS v0.1 — TEMP rules.
+// TODO (v0.2): richiedere auth, limitare ogni utente ai propri documenti
+// (request.auth != null && resource.data.userId == request.auth.uid).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // iris_emails: lettura pubblica in v0.1 per la PWA senza login.
+    // La scrittura resta bloccata a client; scrive solo il backend via Admin SDK.
+    match /iris_emails/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // iris_corrections: blocca lettura/scrittura client in v0.1.
+    match /iris_corrections/{docId} {
+      allow read, write: if false;
+    }
+
+    // Default deny per ogni altra collection.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
