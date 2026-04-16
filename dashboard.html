@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO — MAESTRO Live</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0f0f23;
+    color: #fff;
+    font-family: 'Courier New', Consolas, monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-size: 2.8rem;
+    text-align: center;
+    margin-bottom: 40px;
+    letter-spacing: 2px;
+    font-weight: 300;
+  }
+  h1 .accent { color: #00ff88; }
+  .box {
+    border: 2px solid #00ff88;
+    border-radius: 12px;
+    padding: 30px 40px;
+    max-width: 600px;
+    width: 100%;
+    background: rgba(0, 255, 136, 0.04);
+    animation: glow 2.2s ease-in-out infinite alternate;
+  }
+  .box h2 {
+    color: #00ff88;
+    font-size: 1.1rem;
+    margin-bottom: 18px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .box ul {
+    list-style: none;
+  }
+  .box li {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 255, 136, 0.15);
+    font-size: 1rem;
+  }
+  .box li:last-child { border-bottom: none; }
+  .box li::before {
+    content: "▸ ";
+    color: #00ff88;
+  }
+  .timestamp {
+    margin-top: 30px;
+    color: #888;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+  }
+  .timestamp span { color: #00ff88; }
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 8px rgba(0, 255, 136, 0.3),
+                  0 0 16px rgba(0, 255, 136, 0.15);
+    }
+    to {
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.6),
+                  0 0 40px rgba(0, 255, 136, 0.3);
+    }
+  }
+</style>
+</head>
+<body>
+  <h1>NEXO <span class="accent">—</span> MAESTRO Live</h1>
+  <div class="box">
+    <h2>File .md nel repo</h2>
+    <ul>
+      <li>README.md</li>
+      <li>auto-mode-ok.md</li>
+      <li>benvenuto.md</li>
+      <li>ciao-da-claude-chat.md</li>
+      <li>dialogue.md</li>
+      <li>full-auto.md</li>
+    </ul>
+  </div>
+  <div class="timestamp">Ultimo aggiornamento: <span>2026-04-16 20:18:33</span></div>
+</body>
+</html>
