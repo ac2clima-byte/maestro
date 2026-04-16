@@ -290,6 +290,19 @@
   .badge.conf.medium .pip { background: var(--warn); }
   .badge.conf.low .pip { background: var(--err); }
 
+  /* Sentiment badge — soft surface + coloured dot, same language as confidence */
+  .badge.sent {
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    border-color: var(--border);
+  }
+  .badge.sent .sent-emoji { font-size: 0.9em; line-height: 1; }
+  .badge.sent-positivo    { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
+  .badge.sent-neutro      { color: #6b7280; border-color: #e5e7eb; background: #f9fafb; }
+  .badge.sent-frustrato   { color: #a16207; border-color: #fde68a; background: #fefce8; }
+  .badge.sent-arrabbiato  { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+  .badge.sent-disperato   { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+
   .card-actions { display: flex; gap: 6px; }
   .btn-link {
     background: transparent;
@@ -524,6 +537,13 @@ const ACTION_LABELS = {
   URGENTE_CHIAMA: "Urgente — chiama",
 };
 const CONFIDENCE_LABELS = { high: "Alta", medium: "Media", low: "Bassa" };
+const SENTIMENT_LABELS = {
+  positivo:   { label: "Positivo",    emoji: "😊" },
+  neutro:     { label: "Neutro",      emoji: "😐" },
+  frustrato:  { label: "Frustrato",   emoji: "😤" },
+  arrabbiato: { label: "Arrabbiato",  emoji: "😡" },
+  disperato:  { label: "Disperato",   emoji: "😰" },
+};
 const URGENT_CATEGORIES = new Set(["GUASTO_URGENTE", "PEC_UFFICIALE"]);
 
 // --- Firebase config ---
@@ -571,6 +591,8 @@ async function loadEmailsFromFirestore() {
         entities: cls.entities || {},
         action: cls.suggestedAction || "ARCHIVIA",
         bodyText: raw.body_text || "",
+        sentiment: cls.sentiment || "neutro",
+        sentimentReason: cls.sentimentReason || "",
       });
     });
     return emails;
@@ -592,6 +614,7 @@ const MOCK_EMAILS = [
     entities: { condominio: "Via Dante 5, Voghera", urgenza: "critica", impianto: "Riello RTC 90" },
     action: "URGENTE_CHIAMA",
     bodyText: "Buongiorno, caldaia in blocco da stamattina. Intervenite appena possibile.",
+    sentiment: "disperato", sentimentReason: "14 appartamenti senza riscaldamento.",
   },
   {
     id: "m2", received: "2026-04-16T08:15:00+02:00",
@@ -603,6 +626,7 @@ const MOCK_EMAILS = [
     entities: { cliente: "Mario Rossi", impianto: "Vaillant ecoTEC plus", indirizzo: "Via Marsala 12, Alessandria" },
     action: "APRI_INTERVENTO",
     bodyText: "Vorrei prenotare la manutenzione annuale della mia Vaillant. Grazie, Mario Rossi",
+    sentiment: "neutro", sentimentReason: "Richiesta cordiale di manutenzione ordinaria.",
   },
   {
     id: "m3", received: "2026-04-16T08:58:00+02:00",
@@ -614,6 +638,7 @@ const MOCK_EMAILS = [
     entities: { cliente: "Vaillant Group Italia SpA", importo: "1.250,00" },
     action: "VERIFICA_PAGAMENTO",
     bodyText: "In allegato fattura n. 4521 del 15/04/2026, importo 1.250,00 EUR, scadenza 30 giorni.",
+    sentiment: "neutro", sentimentReason: "Comunicazione amministrativa di routine.",
   },
 ];
 
@@ -666,6 +691,15 @@ function renderEntities(ent) {
     <span class="chip"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(ent[k])}</span>
   `).join("")}</div>`;
 }
+
+function renderSentimentBadge(e) {
+  const s = e.sentiment || "neutro";
+  const meta = SENTIMENT_LABELS[s] || SENTIMENT_LABELS.neutro;
+  const title = e.sentimentReason ? `title="${escapeHtml(e.sentimentReason)}"` : "";
+  return `<span class="badge sent sent-${escapeHtml(s)}" ${title}>` +
+    `<span class="sent-emoji" aria-hidden="true">${meta.emoji}</span>` +
+    `${escapeHtml(meta.label)}</span>`;
+}
 function renderEmailCard(e) {
   const senderDisplay = e.senderName || e.sender;
   return `
@@ -681,6 +715,7 @@ function renderEmailCard(e) {
         <div class="badges">
           <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
           <span class="badge conf ${escapeHtml(e.confidence)}"><span class="pip"></span>${escapeHtml(CONFIDENCE_LABELS[e.confidence] || e.confidence)}</span>
+          ${renderSentimentBadge(e)}
         </div>
         <div class="card-actions">
           <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>

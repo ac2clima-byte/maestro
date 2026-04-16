@@ -11,10 +11,12 @@ import type {
   SuggestedAction,
   ConfidenceLevel,
   ExtractedEntities,
+  SentimentLevel,
 } from "../types/classification.js";
 import {
   CLASSIFICATION_TYPES,
   SUGGESTED_ACTIONS,
+  SENTIMENT_LEVELS,
 } from "../types/classification.js";
 
 export const DEFAULT_MODEL = "claude-haiku-4-5";
@@ -234,6 +236,16 @@ function validateClassification(
   const reasoning = typeof obj.reasoning === "string" ? obj.reasoning : "";
   const entities = normalizeEntities(obj.entities);
 
+  // Sentiment: default to "neutro" when missing or invalid — additive field.
+  const rawSentiment = obj.sentiment;
+  const sentiment: SentimentLevel =
+    typeof rawSentiment === "string" &&
+    (SENTIMENT_LEVELS as readonly string[]).includes(rawSentiment)
+      ? (rawSentiment as SentimentLevel)
+      : "neutro";
+  const sentimentReason =
+    typeof obj.sentimentReason === "string" ? obj.sentimentReason : "";
+
   return {
     category: category as ClassificationType,
     summary,
@@ -241,6 +253,8 @@ function validateClassification(
     suggestedAction: suggestedAction as SuggestedAction,
     confidence: confidence as ConfidenceLevel,
     reasoning,
+    sentiment,
+    sentimentReason,
   };
 }
 

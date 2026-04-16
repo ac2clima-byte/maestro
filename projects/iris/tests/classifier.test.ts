@@ -63,6 +63,8 @@ describe("Classifier.classify", () => {
       suggestedAction: "APRI_INTERVENTO",
       confidence: "high",
       reasoning: "Richiesta esplicita di manutenzione ordinaria.",
+      sentiment: "neutro",
+      sentimentReason: "Richiesta cordiale senza urgenza.",
     };
     const { client, create } = makeClient(expected);
 
@@ -98,6 +100,8 @@ describe("Classifier.classify", () => {
       suggestedAction: "VERIFICA_PAGAMENTO",
       confidence: "high",
       reasoning: "Email da fornitore noto con fattura allegata.",
+      sentiment: "neutro",
+      sentimentReason: "Comunicazione amministrativa di routine.",
     };
     const { client } = makeClient(expected);
 
@@ -131,6 +135,8 @@ describe("Classifier.classify", () => {
       suggestedAction: "URGENTE_CHIAMA",
       confidence: "high",
       reasoning: "Blocco caldaia condominiale richiede intervento immediato.",
+      sentiment: "disperato",
+      sentimentReason: "'URGENTE' in oggetto + condòmini senza riscaldamento.",
     };
     const { client } = makeClient(expected);
 
@@ -223,6 +229,8 @@ describe("Classifier.classify", () => {
       suggestedAction: "ARCHIVIA",
       confidence: "high",
       reasoning: "Mittente noto di newsletter.",
+      sentiment: "neutro",
+      sentimentReason: "Comunicazione commerciale standard.",
     };
     const create = vi.fn().mockResolvedValue({
       content: [
@@ -241,5 +249,55 @@ describe("Classifier.classify", () => {
     const result = await classifier.classify(makeEmail());
 
     expect(result).toEqual(payload);
+  });
+
+  it("defaults sentiment to 'neutro' when the model omits it", async () => {
+    const create = vi.fn().mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            category: "RICHIESTA_INTERVENTO",
+            summary: "x",
+            entities: {},
+            suggestedAction: "APRI_INTERVENTO",
+            confidence: "medium",
+            reasoning: "x",
+            // sentiment intentionally missing
+          }),
+        },
+      ],
+    });
+    const client: AnthropicLike = { messages: { create } };
+    const classifier = new Classifier({ client, systemPromptPath: promptPath });
+    const result = await classifier.classify(makeEmail());
+    expect(result.sentiment).toBe("neutro");
+    expect(result.sentimentReason).toBe("");
+  });
+
+  it("defaults sentiment to 'neutro' when the model returns an invalid value", async () => {
+    const create = vi.fn().mockResolvedValue({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            category: "RICHIESTA_INTERVENTO",
+            summary: "x",
+            entities: {},
+            suggestedAction: "APRI_INTERVENTO",
+            confidence: "medium",
+            reasoning: "x",
+            sentiment: "rabbioso",
+            sentimentReason: "nope",
+          }),
+        },
+      ],
+    });
+    const client: AnthropicLike = { messages: { create } };
+    const classifier = new Classifier({ client, systemPromptPath: promptPath });
+    const result = await classifier.classify(makeEmail());
+    expect(result.sentiment).toBe("neutro");
+    // sentimentReason is preserved even if sentiment itself was invalid.
+    expect(result.sentimentReason).toBe("nope");
   });
 });

@@ -53,6 +53,9 @@ VALID_ACTIONS = {
     "RISPONDI", "APRI_INTERVENTO", "INOLTRA", "ARCHIVIA",
     "PREPARA_PREVENTIVO", "VERIFICA_PAGAMENTO", "URGENTE_CHIAMA",
 }
+VALID_SENTIMENTS = {
+    "positivo", "neutro", "frustrato", "arrabbiato", "disperato",
+}
 
 
 def load_env() -> None:
@@ -159,6 +162,10 @@ def validate_classification(obj: dict) -> dict:
     }
     obj.setdefault("summary", "")
     obj.setdefault("reasoning", "")
+    sentiment = obj.get("sentiment")
+    if sentiment not in VALID_SENTIMENTS:
+        obj["sentiment"] = "neutro"
+    obj.setdefault("sentimentReason", "")
     return obj
 
 
@@ -255,6 +262,7 @@ def main() -> int:
             results.append({"email": em, "classification": cls, "usage": usage})
             print(
                 f"  #{i}  {cls['category']:<28}  {cls['confidence']:<6}  "
+                f"{cls.get('sentiment','neutro'):<11}  "
                 f"{em['sender'][:40]:<40}  → {cls['suggestedAction']}",
                 flush=True,
             )

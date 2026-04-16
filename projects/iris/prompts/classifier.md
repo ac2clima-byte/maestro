@@ -29,7 +29,9 @@ Classifica ogni email ricevuta restituendo **ESCLUSIVAMENTE un oggetto JSON vali
   },
   "suggestedAction": "<una delle azioni sotto>",
   "confidence": "<high|medium|low>",
-  "reasoning": "<perché hai scelto questa categoria, 1-2 frasi>"
+  "reasoning": "<perché hai scelto questa categoria, 1-2 frasi>",
+  "sentiment": "<positivo|neutro|frustrato|arrabbiato|disperato>",
+  "sentimentReason": "<1 frase sul tono rilevato>"
 }
 ```
 
@@ -74,6 +76,26 @@ Se il mittente è un amministratore di condominio MA l'email chiede un intervent
 - **Importo**: solo se esplicitamente citato in €.
 - **Tecnico**: nome tecnico ACG/Guazzotti citato nell'email.
 - **Indirizzo**: via/corso/piazza + città, se presente.
+
+## Sentiment (`sentiment`)
+
+Valuta il **tono complessivo** dell'email, non solo le parole. Un "Gentilissimi" seguito da una lamentela dettagliata è **frustrato**, non **positivo**. Le formule di cortesia iniziali/finali non contano, guarda il *contenuto*.
+
+| Livello        | Quando usarlo                                                                                 |
+|----------------|------------------------------------------------------------------------------------------------|
+| `positivo`     | Ringraziamenti esplicit*i*, soddisfazione dichiarata, conferme positive, "ottimo lavoro".      |
+| `neutro`       | Richieste normali, comunicazioni di routine, fatture, preventivi standard, newsletter.         |
+| `frustrato`    | Tono impaziente, sollecito ("è la seconda volta che scrivo…"), lamentele moderate, sarcasmo.   |
+| `arrabbiato`   | Tono aggressivo, minacce (legali, di cambio fornitore), MAIUSCOLE prolungate, !!!, insulti.    |
+| `disperato`    | Richieste supplicanti, emergenze percepite ("vi prego, non abbiamo più acqua calda con due bambini piccoli"), ansia palpabile. |
+
+Segnali utili:
+- Più punti esclamativi consecutivi (`!!!`) o parole in MAIUSCOLO → `arrabbiato`.
+- Riferimenti a solleciti precedenti, a tempi ("da 3 giorni", "ancora niente") → `frustrato`.
+- Bambini piccoli / anziani / freddo / allagamenti citati esplicitamente → spesso `disperato`.
+- Assenza di segnali emotivi → `neutro` (non forzare un sentiment se il contenuto è piatto).
+
+Popola sempre anche `sentimentReason`: una frase breve che cita la *prova* nel testo (es. "solleciti 'è la terza mail che vi mando'", "minaccia di rivolgersi ad altro installatore").
 
 ## Livello di confidenza (`confidence`)
 

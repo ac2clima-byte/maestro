@@ -30,6 +30,21 @@ export type SuggestedAction =
 
 export type ConfidenceLevel = "high" | "medium" | "low";
 
+export type SentimentLevel =
+  | "positivo"
+  | "neutro"
+  | "frustrato"
+  | "arrabbiato"
+  | "disperato";
+
+export const SENTIMENT_LEVELS: readonly SentimentLevel[] = [
+  "positivo",
+  "neutro",
+  "frustrato",
+  "arrabbiato",
+  "disperato",
+];
+
 export interface ExtractedEntities {
   cliente?: string;
   condominio?: string;
@@ -47,6 +62,8 @@ export interface EmailClassification {
   suggestedAction: SuggestedAction;
   confidence: ConfidenceLevel;
   reasoning: string;
+  sentiment: SentimentLevel;
+  sentimentReason: string;
 }
 
 export const CLASSIFICATION_TYPES: readonly ClassificationType[] =
