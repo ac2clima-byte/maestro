@@ -55,27 +55,27 @@ function tmuxSessionExists() {
 }
 
 function sendToTmux(text) {
-  // Manda il testo come singola stringa, poi C-m separatamente dopo una pausa
   const escaped = text.replace(/'/g, "'\\''");
+  // Manda testo literal, pausa, poi C-m separato
   execSync(`tmux send-keys -t ${TMUX_SESSION} -l '${escaped}'`);
-  // Pausa per dare tempo a tmux di processare il testo
   execSync('sleep 1');
-  // Manda Enter separatamente
   execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
 }
 
-function getTmuxLastLine() {
+function getTmuxPane() {
   try {
-    const output = execSync(`tmux capture-pane -t ${TMUX_SESSION} -p`, { encoding: 'utf-8' });
-    const lines = output.trim().split('\n');
-    for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim();
-      if (line.length > 0) return line;
-    }
-    return '';
+    return execSync(`tmux capture-pane -t ${TMUX_SESSION} -p`, { encoding: 'utf-8' });
   } catch {
     return '';
   }
+}
+
+function isClaudeAtPrompt() {
+  const pane = getTmuxPane();
+  // Cerca ❯ nelle ultime 10 righe del pannello
+  const lines = pane.trim().split('\n');
+  const lastLines = lines.slice(-10);
+  return lastLines.some(line => line.includes('❯'));
 }
 
 async function waitForPrompt() {
@@ -83,8 +83,7 @@ async function waitForPrompt() {
   const start = Date.now();
   
   while (Date.now() - start < PROMPT_TIMEOUT) {
-    const lastLine = getTmuxLastLine();
-    if (lastLine.includes('❯')) {
+    if (isClaudeAtPrompt()) {
       console.log(`[READY] Claude Code è al prompt`);
       return true;
     }
@@ -99,16 +98,17 @@ async function waitForCompletion() {
   console.log(`[ATTESA] Claude Code sta lavorando...`);
   const start = Date.now();
   
-  // Aspetta che parta
+  // Aspetta che Claude Code inizi (non sia più al prompt vuoto)
   await new Promise(r => setTimeout(r, 5_000));
   
   let stableCount = 0;
-  let lastLine = '';
+  let lastPane = '';
   
   while (Date.now() - start < RESULT_TIMEOUT) {
-    const currentLine = getTmuxLastLine();
+    const currentPane = getTmuxPane();
     
-    if (currentLine.includes('❯') && currentLine === lastLine) {
+    // Se il pannello non cambia E contiene il prompt, Claude ha finito
+    if (currentPane === lastPane && isClaudeAtPrompt()) {
       stableCount++;
       if (stableCount >= 3) {
         console.log(`[COMPLETATO] Claude Code ha finito`);
@@ -118,7 +118,7 @@ async function waitForCompletion() {
       stableCount = 0;
     }
     
-    lastLine = currentLine;
+    lastPane = currentPane;
     await new Promise(r => setTimeout(r, 2_000));
   }
   
