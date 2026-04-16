@@ -56,7 +56,7 @@ function tmuxSessionExists() {
 function sendToTmux(text) {
   // Escape singoli apici per shell
   const escaped = text.replace(/'/g, "'\\''");
-  execSync(`tmux send-keys -t ${TMUX_SESSION} '${escaped}' Enter`);
+  execSync(`tmux send-keys -t ${TMUX_SESSION} '${escaped}' C-m`);
 }
 
 function getTmuxOutput() {
