@@ -506,7 +506,11 @@
 // Firebase Auth is loaded only when NOT in mock mode. This lets us take
 // screenshots and run the app UI without Firebase credentials.
 const params = new URLSearchParams(location.search);
-const MOCK_MODE = params.get("mock") === "1";
+
+// --- TEMP v0.1: login disabilitato, la dashboard parte subito con i dati mock.
+// Ripristinare `params.get("mock") === "1"` quando Firebase Auth sarà configurato
+// sul progetto nexo-hub-15f2d e l'utente Alberto sarà registrato.
+const MOCK_MODE = true;
 
 const CATEGORY_LABELS = {
   RICHIESTA_INTERVENTO: "Richiesta intervento",
