@@ -803,19 +803,35 @@ function showLogin() {
   $("#appView").classList.remove("active");
 }
 
+// --- Firebase config (inlined to avoid CORS on file://) ---
+// TODO: compilare con i valori reali del progetto nexo-hub-15f2d.
+const FIREBASE_CONFIG = {
+  apiKey: "REPLACE_ME",
+  authDomain: "nexo-hub-15f2d.firebaseapp.com",
+  projectId: "nexo-hub-15f2d",
+  storageBucket: "nexo-hub-15f2d.appspot.com",
+  messagingSenderId: "REPLACE_ME",
+  appId: "REPLACE_ME",
+};
+
+function isFirebaseConfigured() {
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "REPLACE_ME";
+}
+
 // --- Auth flow ---
 async function bootAuth() {
   if (MOCK_MODE) {
     showApp("alberto@acgclima.it");
+    $("#logoutBtn").addEventListener("click", showLogin);
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      showApp("alberto@acgclima.it");
+    });
     return;
   }
 
-  let fb;
-  try {
-    fb = await import("./firebase-config.js");
-  } catch (err) {
-    // Firebase module not reachable (e.g. file:// load, offline, no config).
-    // Keep the login view usable; surface the hint only on submit attempt.
+  if (!isFirebaseConfigured()) {
+    // No credentials yet — keep the login usable, hint on submit.
     $("#loginForm").addEventListener("submit", (e) => {
       e.preventDefault();
       $("#loginError").textContent = "Firebase non configurato. Apri con ?mock=1 per la demo.";
@@ -823,10 +839,25 @@ async function bootAuth() {
     return;
   }
 
-  const { initFirebase, signInWithEmailAndPassword, signOut, onAuthStateChanged } = fb;
-  const { auth } = initFirebase();
+  // Load Firebase modules from the official CDN. These URLs are CORS-enabled
+  // and work from file:// loads. We import dynamically so offline file:// use
+  // (where fetch is blocked) can still show the login view.
+  let firebaseApp, firebaseAuth;
+  try {
+    firebaseApp = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+    firebaseAuth = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");
+  } catch (err) {
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      $("#loginError").textContent = "Firebase SDK non raggiungibile. Controlla la connessione.";
+    });
+    return;
+  }
 
-  onAuthStateChanged(auth, (user) => {
+  const app = firebaseApp.initializeApp(FIREBASE_CONFIG);
+  const auth = firebaseAuth.getAuth(app);
+
+  firebaseAuth.onAuthStateChanged(auth, (user) => {
     if (user) showApp(user.email);
     else showLogin();
   });
@@ -835,24 +866,13 @@ async function bootAuth() {
     e.preventDefault();
     $("#loginError").textContent = "";
     try {
-      await signInWithEmailAndPassword(auth, $("#email").value, $("#password").value);
+      await firebaseAuth.signInWithEmailAndPassword(auth, $("#email").value, $("#password").value);
     } catch (err) {
       $("#loginError").textContent = "Credenziali non valide.";
     }
   });
 
-  $("#logoutBtn").addEventListener("click", () => signOut(auth));
-}
-
-// In mock mode, hook logout to just show login again.
-if (MOCK_MODE) {
-  document.addEventListener("DOMContentLoaded", () => {
-    $("#logoutBtn").addEventListener("click", showLogin);
-    $("#loginForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      showApp("alberto@acgclima.it");
-    });
-  });
+  $("#logoutBtn").addEventListener("click", () => firebaseAuth.signOut(auth));
 }
 
 bootAuth();
