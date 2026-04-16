@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f0f23">
+<title>IRIS — Collega Email di NEXO</title>
+<style>
+  :root {
+    --bg: #0f0f23;
+    --bg-elev: #1a1a30;
+    --bg-elev-2: #232340;
+    --border: #2a2a4a;
+    --border-strong: #3a3a5c;
+    --text: #e8e8f0;
+    --text-dim: #8a8ab0;
+    --accent: #00d4ff;
+    --accent-dim: rgba(0, 212, 255, 0.15);
+    --ok: #00ff88;
+    --warn: #ffb020;
+    --err: #ff4d6d;
+    --cat-richiesta: #00d4ff;
+    --cat-guasto: #ff4d6d;
+    --cat-preventivo: #b070ff;
+    --cat-conferma: #00ff88;
+    --cat-fattura: #ffb020;
+    --cat-interna: #7a7aa8;
+    --cat-pec: #ff9040;
+    --cat-admin: #40c0ff;
+    --cat-risposta: #00e0a0;
+    --cat-spam: #505070;
+    --cat-altro: #808090;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; cursor: pointer; }
+  input, select, textarea { font: inherit; color: inherit; }
+
+  /* --- Login view --- */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .login-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+  .login-card h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .login-card h1 .accent { color: var(--accent); }
+  .login-card .subtitle {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 28px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    transition: border-color 0.15s;
+  }
+  .field input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #001824;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: filter 0.15s;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .login-error {
+    color: var(--err);
+    font-size: 0.85rem;
+    margin-top: 12px;
+    min-height: 1.2em;
+  }
+
+  /* --- App shell --- */
+  .app { display: none; }
+  .app.active { display: block; }
+  .login-wrap.hidden { display: none; }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(15, 15, 35, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header h1 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .header h1 .accent { color: var(--accent); }
+  .header .user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header .user-email {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    transition: border-color 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--accent); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+  /* --- Stats --- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .stat-card .label {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .stat-card .value {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .stat-card .sub {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+  .badges-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .cat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+  }
+  .cat-badge .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  /* --- Filters --- */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .filters select, .filters input[type="date"] {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.85rem;
+  }
+  .filters select:focus, .filters input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .filters .count {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  /* --- Email cards --- */
+  .email-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .email-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    transition: border-color 0.15s;
+  }
+  .email-card:hover { border-color: var(--border-strong); }
+  .email-card .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .email-card .meta .sender {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .email-card .meta .subject {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: 2px;
+  }
+  .email-card .right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .confidence {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+  .confidence .pip {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .confidence.high .pip { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .confidence.medium .pip { background: var(--warn); }
+  .confidence.low .pip { background: var(--err); }
+  .summary {
+    color: var(--text);
+    font-size: 0.9rem;
+    margin: 10px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .entities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .chip {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .chip strong { color: var(--text); font-weight: 500; }
+  .email-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .btn-action {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .btn-action:hover { background: rgba(0, 212, 255, 0.25); }
+  .btn-correct {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+  }
+  .btn-correct:hover { border-color: var(--text); color: var(--text); }
+
+  /* Category badge colors */
+  .cat-RICHIESTA_INTERVENTO .dot { background: var(--cat-richiesta); }
+  .cat-GUASTO_URGENTE .dot { background: var(--cat-guasto); }
+  .cat-PREVENTIVO .dot { background: var(--cat-preventivo); }
+  .cat-CONFERMA_APPUNTAMENTO .dot { background: var(--cat-conferma); }
+  .cat-FATTURA_FORNITORE .dot { background: var(--cat-fattura); }
+  .cat-COMUNICAZIONE_INTERNA .dot { background: var(--cat-interna); }
+  .cat-PEC_UFFICIALE .dot { background: var(--cat-pec); }
+  .cat-AMMINISTRATORE_CONDOMINIO .dot { background: var(--cat-admin); }
+  .cat-RISPOSTA_CLIENTE .dot { background: var(--cat-risposta); }
+  .cat-NEWSLETTER_SPAM .dot { background: var(--cat-spam); }
+  .cat-ALTRO .dot { background: var(--cat-altro); }
+
+  /* --- Modal --- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 5, 15, 0.7);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 {
+    font-size: 1.2rem;
+    margin-bottom: 6px;
+  }
+  .modal .modal-sub {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+  .modal .field select, .modal .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+  }
+  .modal .field textarea {
+    min-height: 80px;
+    resize: vertical;
+    font-family: inherit;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 600px) {
+    .header { padding: 12px 16px; }
+    .header h1 { font-size: 1rem; }
+    .header .user-email { display: none; }
+    main { padding: 14px; }
+    .email-card .top { flex-direction: column; align-items: flex-start; }
+    .email-card .right { flex-direction: row; align-items: center; }
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--text-dim);
+    padding: 40px 20px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Login view -->
+<div id="loginView" class="login-wrap">
+  <div class="login-card">
+    <h1>IRIS <span class="accent">—</span> Collega Email</h1>
+    <div class="subtitle">NEXO · il tuo triage email HVAC</div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" placeholder="nome@acgclima.it" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary">Accedi</button>
+      <div id="loginError" class="login-error"></div>
+    </form>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="appView" class="app">
+  <header class="header">
+    <h1>IRIS <span class="accent">—</span> Collega Email</h1>
+    <div class="user">
+      <span id="userEmail" class="user-email">—</span>
+      <button id="logoutBtn" class="btn-ghost">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="stats" id="statsGrid"></section>
+
+    <div class="filters">
+      <select id="filterCategory">
+        <option value="">Tutte le categorie</option>
+      </select>
+      <select id="filterConfidence">
+        <option value="">Tutte le confidenze</option>
+        <option value="high">Alta</option>
+        <option value="medium">Media</option>
+        <option value="low">Bassa</option>
+      </select>
+      <input type="date" id="filterDate">
+      <span class="count" id="filterCount">0 email</span>
+    </div>
+
+    <section class="email-list" id="emailList"></section>
+  </main>
+</div>
+
+<!-- Correction modal -->
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2>Correggi classificazione</h2>
+    <div class="modal-sub" id="modalSub">—</div>
+    <form id="correctionForm">
+      <div class="field">
+        <label for="corrCategory">Categoria corretta</label>
+        <select id="corrCategory" required></select>
+      </div>
+      <div class="field">
+        <label for="corrAction">Azione suggerita</label>
+        <select id="corrAction" required></select>
+      </div>
+      <div class="field">
+        <label for="corrNotes">Note (opzionale)</label>
+        <textarea id="corrNotes" placeholder="Spiega brevemente perché..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="modalCancel">Annulla</button>
+        <button type="submit" class="btn-primary" style="width:auto;">Salva correzione</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+// Firebase Auth is loaded only when NOT in mock mode. This lets us take
+// screenshots and run the app UI without Firebase credentials.
+const params = new URLSearchParams(location.search);
+const MOCK_MODE = params.get("mock") === "1";
+
+const CATEGORY_LABELS = {
+  RICHIESTA_INTERVENTO: "Richiesta intervento",
+  GUASTO_URGENTE: "Guasto urgente",
+  PREVENTIVO: "Preventivo",
+  CONFERMA_APPUNTAMENTO: "Conferma appuntamento",
+  FATTURA_FORNITORE: "Fattura fornitore",
+  COMUNICAZIONE_INTERNA: "Comunicazione interna",
+  PEC_UFFICIALE: "PEC ufficiale",
+  AMMINISTRATORE_CONDOMINIO: "Amministratore condominio",
+  RISPOSTA_CLIENTE: "Risposta cliente",
+  NEWSLETTER_SPAM: "Newsletter / spam",
+  ALTRO: "Altro",
+};
+
+const ACTION_LABELS = {
+  RISPONDI: "Rispondi",
+  APRI_INTERVENTO: "Apri intervento",
+  INOLTRA: "Inoltra",
+  ARCHIVIA: "Archivia",
+  PREPARA_PREVENTIVO: "Prepara preventivo",
+  VERIFICA_PAGAMENTO: "Verifica pagamento",
+  URGENTE_CHIAMA: "Urgente — chiama",
+};
+
+const CONFIDENCE_LABELS = { high: "Alta", medium: "Media", low: "Bassa" };
+
+// --- Mock data: 10 email realistiche ACG Clima Service ---
+const MOCK_EMAILS = [
+  {
+    id: "m1", received: "2026-04-16T07:42:00+02:00",
+    sender: "admin@studiorossibianchi.it", subject: "URGENTE caldaia condominio Via Dante 5",
+    category: "GUASTO_URGENTE", confidence: "high",
+    summary: "Caldaia condominiale in blocco dalle 6, 14 appartamenti senza riscaldamento. Amministratore chiede intervento immediato.",
+    entities: { condominio: "Condominio Via Dante 5", indirizzo: "Via Dante 5, Voghera", urgenza: "critica", impianto: "Riello RTC 90" },
+    action: "URGENTE_CHIAMA",
+  },
+  {
+    id: "m2", received: "2026-04-16T08:15:00+02:00",
+    sender: "mario.rossi@gmail.com", subject: "Manutenzione annuale caldaia",
+    category: "RICHIESTA_INTERVENTO", confidence: "high",
+    summary: "Sig. Rossi richiede la manutenzione annuale della sua Vaillant ecoTEC plus. Disponibile lunedì e martedì mattina.",
+    entities: { cliente: "Mario Rossi", impianto: "Vaillant ecoTEC plus VMW 246", indirizzo: "Via Marsala 12, Alessandria", urgenza: "bassa" },
+    action: "APRI_INTERVENTO",
+  },
+  {
+    id: "m3", received: "2026-04-16T08:58:00+02:00",
+    sender: "amministrazione@vaillant.it", subject: "Fattura n. 4521/2026",
+    category: "FATTURA_FORNITORE", confidence: "high",
+    summary: "Fattura ricambi n. 4521 del 15/04/2026. Importo 1.250,00 EUR, scadenza 30 giorni.",
+    entities: { cliente: "Vaillant Group Italia SpA", importo: "1.250,00" },
+    action: "VERIFICA_PAGAMENTO",
+  },
+  {
+    id: "m4", received: "2026-04-16T09:20:00+02:00",
+    sender: "info@immobiliarecastello.it", subject: "Richiesta preventivo sostituzione caldaia",
+    category: "PREVENTIVO", confidence: "high",
+    summary: "Richiesta preventivo per sostituzione caldaia murale in appartamento in affitto. Preferenza per modello a condensazione classe A.",
+    entities: { cliente: "Immobiliare Castello", indirizzo: "Corso Roma 87, Tortona", urgenza: "bassa" },
+    action: "PREPARA_PREVENTIVO",
+  },
+  {
+    id: "m5", received: "2026-04-16T09:45:00+02:00",
+    sender: "luca.bianchi@acgclima.it", subject: "Re: Giro tecnici di oggi",
+    category: "COMUNICAZIONE_INTERNA", confidence: "high",
+    summary: "Luca conferma il giro di oggi: Alessandria mattina, Tortona pomeriggio. Chiede se Paolo può coprire l'intervento di emergenza a Voghera.",
+    entities: { tecnico: "Luca Bianchi" },
+    action: "RISPONDI",
+  },
+  {
+    id: "m6", received: "2026-04-16T10:12:00+02:00",
+    sender: "giulia.verdi@libero.it", subject: "Re: Preventivo climatizzatore",
+    category: "RISPOSTA_CLIENTE", confidence: "medium",
+    summary: "La cliente conferma il preventivo e chiede quando è possibile effettuare l'installazione del condizionatore Daikin.",
+    entities: { cliente: "Giulia Verdi", impianto: "Daikin Stylish 12000 BTU", importo: "1.800,00" },
+    action: "RISPONDI",
+  },
+  {
+    id: "m7", received: "2026-04-16T10:38:00+02:00",
+    sender: "postacert@pec.comunealessandria.it", subject: "Richiesta documentazione impianto termico",
+    category: "PEC_UFFICIALE", confidence: "high",
+    summary: "PEC dal Comune di Alessandria: richiesta dichiarazione di conformità impianto termico installato in Via Verdi 8. Scadenza 30 giorni.",
+    entities: { indirizzo: "Via Verdi 8, Alessandria" },
+    action: "RISPONDI",
+  },
+  {
+    id: "m8", received: "2026-04-16T11:05:00+02:00",
+    sender: "studio.ferrari@amministrazione.it", subject: "Rendiconto impianti 2025 Condominio Aurora",
+    category: "AMMINISTRATORE_CONDOMINIO", confidence: "high",
+    summary: "L'amministrazione chiede il rendiconto degli interventi 2025 sul Condominio Aurora per l'assemblea di maggio.",
+    entities: { condominio: "Condominio Aurora", indirizzo: "Via Galimberti 4, Alessandria" },
+    action: "RISPONDI",
+  },
+  {
+    id: "m9", received: "2026-04-16T11:22:00+02:00",
+    sender: "paolo.neri@hotmail.com", subject: "Conferma appuntamento giovedì",
+    category: "CONFERMA_APPUNTAMENTO", confidence: "high",
+    summary: "Il cliente conferma l'appuntamento di giovedì 18 aprile alle 14:30 per il controllo della caldaia.",
+    entities: { cliente: "Paolo Neri", indirizzo: "Strada Savonesa 22, Rivalta Scrivia" },
+    action: "ARCHIVIA",
+  },
+  {
+    id: "m10", received: "2026-04-16T11:48:00+02:00",
+    sender: "newsletter@tecnologiehvac.it", subject: "Le novità di aprile nel mondo HVAC",
+    category: "NEWSLETTER_SPAM", confidence: "high",
+    summary: "Newsletter mensile con novità di prodotto, webinar e offerte fornitori.",
+    entities: {},
+    action: "ARCHIVIA",
+  },
+];
+
+// --- DOM helpers ---
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function categoryBadge(cat) {
+  return `<span class="cat-badge cat-${cat}"><span class="dot"></span>${escapeHtml(CATEGORY_LABELS[cat] || cat)}</span>`;
+}
+
+function renderStats(emails) {
+  const total = emails.length;
+  const byCat = {};
+  const byConf = { high: 0, medium: 0, low: 0 };
+  for (const e of emails) {
+    byCat[e.category] = (byCat[e.category] || 0) + 1;
+    byConf[e.confidence] = (byConf[e.confidence] || 0) + 1;
+  }
+  const highPct = total ? Math.round((byConf.high / total) * 100) : 0;
+  const urgentCount = (byCat.GUASTO_URGENTE || 0) + (byCat.PEC_UFFICIALE || 0);
+  const intervCount = byCat.RICHIESTA_INTERVENTO || 0;
+
+  const grid = $("#statsGrid");
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="label">Email oggi</div>
+      <div class="value">${total}</div>
+      <div class="sub">classificate da IRIS</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Urgenti</div>
+      <div class="value" style="color: var(--err);">${urgentCount}</div>
+      <div class="sub">guasti + PEC</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Richieste intervento</div>
+      <div class="value" style="color: var(--cat-richiesta);">${intervCount}</div>
+      <div class="sub">da aprire in COSMINA</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Confidenza alta</div>
+      <div class="value" style="color: var(--ok);">${highPct}%</div>
+      <div class="sub">${byConf.high}/${total} email</div>
+    </div>
+    <div class="stat-card" style="grid-column: 1 / -1;">
+      <div class="label">Distribuzione categorie</div>
+      <div class="badges-row">
+        ${Object.entries(byCat).map(([c, n]) => `
+          <span class="cat-badge cat-${c}"><span class="dot"></span>${escapeHtml(CATEGORY_LABELS[c] || c)} · ${n}</span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderEntities(ent) {
+  const keys = Object.keys(ent || {});
+  if (!keys.length) return "";
+  return `<div class="entities">${keys.map(k => `
+    <span class="chip"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(ent[k])}</span>
+  `).join("")}</div>`;
+}
+
+function renderEmailCard(e) {
+  return `
+    <div class="email-card" data-id="${escapeHtml(e.id)}">
+      <div class="top">
+        <div class="meta">
+          <div class="sender">${escapeHtml(e.sender)}</div>
+          <div class="subject">${escapeHtml(e.subject)}</div>
+        </div>
+        <div class="right">
+          ${categoryBadge(e.category)}
+          <span class="confidence ${e.confidence}"><span class="pip"></span>${CONFIDENCE_LABELS[e.confidence]}</span>
+        </div>
+      </div>
+      <div class="summary">${escapeHtml(e.summary)}</div>
+      ${renderEntities(e.entities)}
+      <div class="email-actions">
+        <button class="btn-action" data-action="${escapeHtml(e.action)}">${escapeHtml(ACTION_LABELS[e.action] || e.action)}</button>
+        <button class="btn-correct" data-correct="${escapeHtml(e.id)}">Correggi</button>
+      </div>
+    </div>
+  `;
+}
+
+function applyFilters(emails) {
+  const cat = $("#filterCategory").value;
+  const conf = $("#filterConfidence").value;
+  const date = $("#filterDate").value;
+  return emails.filter(e => {
+    if (cat && e.category !== cat) return false;
+    if (conf && e.confidence !== conf) return false;
+    if (date && !e.received.startsWith(date)) return false;
+    return true;
+  });
+}
+
+function render(emails) {
+  const filtered = applyFilters(emails);
+  $("#filterCount").textContent = `${filtered.length} email`;
+  const list = $("#emailList");
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty">Nessuna email corrisponde ai filtri.</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(renderEmailCard).join("");
+  $$(".btn-correct", list).forEach(btn => {
+    btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
+  });
+}
+
+function populateSelect(sel, entries) {
+  sel.innerHTML = Array.from(sel.children)
+    .filter(o => o.value === "")
+    .map(o => o.outerHTML)
+    .join("") + entries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+}
+
+// --- Correction modal ---
+let currentCorrectionId = null;
+function openCorrectionModal(id) {
+  const email = MOCK_EMAILS.find(e => e.id === id);
+  if (!email) return;
+  currentCorrectionId = id;
+  $("#modalSub").textContent = `${email.sender} — ${email.subject}`;
+  $("#corrCategory").value = email.category;
+  $("#corrAction").value = email.action;
+  $("#corrNotes").value = "";
+  $("#modalBackdrop").classList.add("open");
+}
+function closeCorrectionModal() {
+  $("#modalBackdrop").classList.remove("open");
+  currentCorrectionId = null;
+}
+
+function initUI() {
+  // Populate category filter + modal selects
+  const catEntries = Object.entries(CATEGORY_LABELS);
+  const actionEntries = Object.entries(ACTION_LABELS);
+  const catFilter = $("#filterCategory");
+  catFilter.innerHTML = `<option value="">Tutte le categorie</option>` +
+    catEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+  $("#corrCategory").innerHTML = catEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+  $("#corrAction").innerHTML = actionEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+
+  $("#filterCategory").addEventListener("change", () => render(MOCK_EMAILS));
+  $("#filterConfidence").addEventListener("change", () => render(MOCK_EMAILS));
+  $("#filterDate").addEventListener("change", () => render(MOCK_EMAILS));
+
+  $("#modalCancel").addEventListener("click", closeCorrectionModal);
+  $("#modalBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#modalBackdrop")) closeCorrectionModal();
+  });
+  $("#correctionForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    // TODO: POST /api/emails/:id/correct
+    console.log("Correzione:", currentCorrectionId, {
+      category: $("#corrCategory").value,
+      suggestedAction: $("#corrAction").value,
+      notes: $("#corrNotes").value,
+    });
+    closeCorrectionModal();
+  });
+
+  renderStats(MOCK_EMAILS);
+  render(MOCK_EMAILS);
+}
+
+function showApp(userEmail) {
+  $("#loginView").classList.add("hidden");
+  $("#appView").classList.add("active");
+  $("#userEmail").textContent = userEmail || "—";
+  initUI();
+}
+
+function showLogin() {
+  $("#loginView").classList.remove("hidden");
+  $("#appView").classList.remove("active");
+}
+
+// --- Auth flow ---
+async function bootAuth() {
+  if (MOCK_MODE) {
+    showApp("alberto@acgclima.it");
+    return;
+  }
+
+  let fb;
+  try {
+    fb = await import("./firebase-config.js");
+  } catch (err) {
+    // Firebase module not reachable (e.g. file:// load, offline, no config).
+    // Keep the login view usable; surface the hint only on submit attempt.
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      $("#loginError").textContent = "Firebase non configurato. Apri con ?mock=1 per la demo.";
+    });
+    return;
+  }
+
+  const { initFirebase, signInWithEmailAndPassword, signOut, onAuthStateChanged } = fb;
+  const { auth } = initFirebase();
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) showApp(user.email);
+    else showLogin();
+  });
+
+  $("#loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#loginError").textContent = "";
+    try {
+      await signInWithEmailAndPassword(auth, $("#email").value, $("#password").value);
+    } catch (err) {
+      $("#loginError").textContent = "Credenziali non valide.";
+    }
+  });
+
+  $("#logoutBtn").addEventListener("click", () => signOut(auth));
+}
+
+// In mock mode, hook logout to just show login again.
+if (MOCK_MODE) {
+  document.addEventListener("DOMContentLoaded", () => {
+    $("#logoutBtn").addEventListener("click", showLogin);
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      showApp("alberto@acgclima.it");
+    });
+  });
+}
+
+bootAuth();
+</script>
+</body>
+</html>
