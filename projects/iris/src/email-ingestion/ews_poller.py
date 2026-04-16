@@ -7,7 +7,8 @@ fetches unread emails received in the last POLL_INTERVAL_MS window from the
 Inbox, and emits each message as a JSON Lines record on stdout.
 
 Env vars:
-    EWS_URL, EWS_USERNAME, EWS_PASSWORD, EWS_DOMAIN, POLL_INTERVAL_MS
+    EWS_URL, EWS_USERNAME, EWS_PASSWORD, EWS_DOMAIN, POLL_INTERVAL_MS,
+    EWS_MAX_RESULTS (default: 30)
 """
 from __future__ import annotations
 
@@ -53,6 +54,7 @@ def main() -> int:
     password = _required_env("EWS_PASSWORD")
     domain = os.environ.get("EWS_DOMAIN", "")
     poll_ms = int(os.environ.get("POLL_INTERVAL_MS", "30000"))
+    max_results = int(os.environ.get("EWS_MAX_RESULTS", "30"))
 
     principal = f"{domain}\\{username}" if domain else username
     credentials = Credentials(username=principal, password=password)
@@ -72,7 +74,7 @@ def main() -> int:
     qs = (
         account.inbox
         .filter(is_read=False, datetime_received__gt=cutoff_ews)
-        .order_by("-datetime_received")
+        .order_by("-datetime_received")[:max_results]
     )
 
     out = sys.stdout

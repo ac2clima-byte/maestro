@@ -10,7 +10,7 @@ Read-only on EWS (`.all().order_by('-datetime_received')[:N]`) — no flags
 modified, no replies, no deletions. Idempotent on Firestore (document id is
 the Exchange message_id, so re-runs UPDATE the same doc).
 
-Usage: python3 pipeline.py [N]  (default N=3)
+Usage: python3 pipeline.py [N]  (default N=30)
 """
 from __future__ import annotations
 
@@ -235,7 +235,7 @@ def write_email_doc(db, email: dict, classification: dict) -> str:
 
 def main() -> int:
     load_env()
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 3
+    n = int(sys.argv[1]) if len(sys.argv) > 1 else 30
 
     api_key = os.environ["ANTHROPIC_API_KEY"]
     project_id = os.environ.get("FIREBASE_PROJECT_ID", "nexo-hub-15f2d")
