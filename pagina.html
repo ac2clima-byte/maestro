@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MAESTRO Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 3rem;
+    font-weight: 200;
+    letter-spacing: 0.3rem;
+    margin-bottom: 3rem;
+    text-align: center;
+    background: linear-gradient(90deg, #00d4ff, #fff, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .box {
+    border: 2px solid #00d4ff;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 3rem 4rem;
+    box-shadow: 0 0 40px rgba(0, 212, 255, 0.3);
+    text-align: center;
+    max-width: 600px;
+  }
+  .message {
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: #fff;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05rem;
+  }
+  .timestamp {
+    font-size: 1rem;
+    color: #00d4ff;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 2.5rem;
+    opacity: 0.9;
+  }
+  .heart {
+    width: 60px;
+    height: 60px;
+    background: #00d4ff;
+    margin: 0 auto;
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+    box-shadow: 0 0 20px #00d4ff;
+    position: relative;
+  }
+  .heart::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    background: #1a1a2e;
+    border-radius: 50%;
+  }
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 20px #00d4ff, 0 0 40px rgba(0, 212, 255, 0.5);
+    }
+    50% {
+      transform: scale(1.2);
+      box-shadow: 0 0 40px #00d4ff, 0 0 80px rgba(0, 212, 255, 0.8);
+    }
+  }
+</style>
+</head>
+<body>
+  <h1>MAESTRO Dashboard</h1>
+  <div class="box">
+    <div class="message">Claude Chat e Claude Code comunicano</div>
+    <div class="timestamp">2026-04-16 19:45 GMT+2</div>
+    <div class="heart"></div>
+  </div>
+</body>
+</html>
