@@ -254,3 +254,4 @@ Comando custom: `~/.claude/statusline.sh` (backup `statusline.sh.bak-suite-monit
 5. **Hook hermes-review.sh** può rallentare/bloccare alcuni `Edit`/`Write` su file sensibili — se un edit sembra pendere, controlla `/mnt/c/HERMES/pending-review/`.
 6. **Browser MCP `acg-browser`** è disponibile *solo* nei progetti ACG configurati, non in `maestro-bridge`. Per automazione web qui usa Playwright locale.
 7. **SuperCycle skill** obbligatorio: prima di qualsiasi task → Predictive Shield report + brainstorming. Per task triviali (es. creare file fisso come questo) si applica con buon senso.
+8. **NEXO Firebase project**: il Project ID reale è **`nexo-hub-15f2d`** (region `us-central1`). Usare questo valore in `.env*`, CLI `firebase --project nexo-hub-15f2d`, ecc. Non usare `nexo-hub` (non esiste).
