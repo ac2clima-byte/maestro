@@ -3,12 +3,13 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { join } from 'path';
 
 // === CONFIG ===
-const POLL_INTERVAL = 15_000; // 15 secondi
+const POLL_INTERVAL = 15_000;
 const REPO_DIR = process.cwd();
 const TASKS_DIR = join(REPO_DIR, 'tasks');
 const RESULTS_DIR = join(REPO_DIR, 'results');
 const TMUX_SESSION = 'claude-code';
-const RESULT_TIMEOUT = 300_000; // 5 minuti max attesa risultato
+const PROMPT_TIMEOUT = 300_000; // 5 min max attesa prompt
+const RESULT_TIMEOUT = 300_000; // 5 min max attesa risultato
 
 // === ENSURE DIRS ===
 [TASKS_DIR, RESULTS_DIR].forEach(d => { if (!existsSync(d)) mkdirSync(d, { recursive: true }); });
@@ -30,7 +31,7 @@ function pull() {
   }
 }
 
-function pushFile(filePath, message) {
+function pushFile(message) {
   git('add -A');
   try {
     git(`commit -m "${message}"`);
@@ -54,14 +55,75 @@ function tmuxSessionExists() {
 }
 
 function sendToTmux(text) {
-  // Escape singoli apici per shell
   const escaped = text.replace(/'/g, "'\\''");
   execSync(`tmux send-keys -t ${TMUX_SESSION} '${escaped}' C-m`);
 }
 
-function getTmuxOutput() {
-  // Cattura il contenuto visibile del pannello tmux
-  return execSync(`tmux capture-pane -t ${TMUX_SESSION} -p -S -50`, { encoding: 'utf-8' });
+function getTmuxLastLine() {
+  try {
+    const output = execSync(`tmux capture-pane -t ${TMUX_SESSION} -p`, { encoding: 'utf-8' });
+    const lines = output.trim().split('\n');
+    // Cerca dal basso verso l'alto la prima riga non vuota
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (line.length > 0) return line;
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+async function waitForPrompt() {
+  console.log(`[WAIT] Attendo che Claude Code sia al prompt...`);
+  const start = Date.now();
+  
+  while (Date.now() - start < PROMPT_TIMEOUT) {
+    const lastLine = getTmuxLastLine();
+    
+    // Claude Code mostra ❯ quando è pronto per input
+    if (lastLine.includes('❯')) {
+      console.log(`[READY] Claude Code è al prompt`);
+      return true;
+    }
+    
+    await new Promise(r => setTimeout(r, 2_000));
+  }
+  
+  console.log(`[TIMEOUT] Claude Code non è tornato al prompt in ${PROMPT_TIMEOUT/1000}s`);
+  return false;
+}
+
+async function waitForCompletion() {
+  console.log(`[ATTESA] Claude Code sta lavorando...`);
+  const start = Date.now();
+  
+  // Aspetta che Claude Code inizi a lavorare (non sia più al prompt con il testo inviato)
+  await new Promise(r => setTimeout(r, 5_000));
+  
+  let stableCount = 0;
+  let lastLine = '';
+  
+  while (Date.now() - start < RESULT_TIMEOUT) {
+    const currentLine = getTmuxLastLine();
+    
+    if (currentLine.includes('❯') && currentLine === lastLine) {
+      stableCount++;
+      // Se il prompt è stabile per 6 secondi (3 check), Claude Code ha finito
+      if (stableCount >= 3) {
+        console.log(`[COMPLETATO] Claude Code ha finito`);
+        return true;
+      }
+    } else {
+      stableCount = 0;
+    }
+    
+    lastLine = currentLine;
+    await new Promise(r => setTimeout(r, 2_000));
+  }
+  
+  console.log(`[TIMEOUT] Claude Code non ha finito in ${RESULT_TIMEOUT/1000}s`);
+  return false;
 }
 
 // === TASK PROCESSING ===
@@ -79,73 +141,42 @@ async function processTask(taskId) {
 
   console.log(`\n${'='.repeat(60)}`);
   console.log(`[TASK] ${taskId}`);
-  console.log(`[INVIO A CLAUDE CODE via tmux]`);
   console.log('='.repeat(60));
 
-  // Invia il prompt a Claude Code nella sessione tmux
+  // 1. Aspetta che Claude Code sia al prompt
+  const ready = await waitForPrompt();
+  if (!ready) {
+    const errorContent = `# Timeout: ${taskId}\n> Claude Code non era al prompt\n`;
+    writeFileSync(join(RESULTS_DIR, `${taskId}.md`), errorContent, 'utf-8');
+    pushFile(`timeout: ${taskId}`);
+    return;
+  }
+
+  // 2. Invia il prompt
+  console.log(`[INVIO] Mando a Claude Code via tmux...`);
   sendToTmux(content);
 
-  // Aspetta che Claude Code finisca (polling sul pannello tmux)
-  console.log(`[ATTESA] Claude Code sta lavorando...`);
+  // 3. Aspetta che Claude Code finisca
+  const completed = await waitForCompletion();
+
+  // 4. Cattura output e salva risultato
+  const output = execSync(`tmux capture-pane -t ${TMUX_SESSION} -p -S -100`, { encoding: 'utf-8' });
   
-  // Aspettiamo che Claude Code torni al prompt (❯ o >)
-  const startTime = Date.now();
-  let lastOutput = '';
-  
-  // Aspetta un po' prima di iniziare a controllare
-  await new Promise(r => setTimeout(r, 5_000));
-  
-  while (Date.now() - startTime < RESULT_TIMEOUT) {
-    await new Promise(r => setTimeout(r, 3_000));
-    
-    const currentOutput = getTmuxOutput();
-    
-    // Se l'output non cambia da 10 secondi e contiene il prompt, Claude ha finito
-    if (currentOutput === lastOutput && currentOutput.length > 0) {
-      // Cerchiamo indicatori che Claude Code ha finito
-      const lines = currentOutput.trim().split('\n');
-      const lastLine = lines[lines.length - 1].trim();
-      
-      // Claude Code mostra ❯ o > quando è in attesa di input
-      if (lastLine.includes('❯') || lastLine.match(/^>\s*$/)) {
-        console.log(`[COMPLETATO] Claude Code ha finito`);
-        
-        // Salva il risultato
-        const resultContent = [
-          `# Risultato: ${taskId}`,
-          `> Eseguito: ${new Date().toISOString()}`,
-          '',
-          '## Output Claude Code',
-          '',
-          '```',
-          currentOutput,
-          '```',
-        ].join('\n');
-        
-        writeFileSync(join(RESULTS_DIR, `${taskId}.md`), resultContent, 'utf-8');
-        pushFile(join(RESULTS_DIR, `${taskId}.md`), `result: ${taskId}`);
-        return;
-      }
-    }
-    
-    lastOutput = currentOutput;
-  }
-  
-  // Timeout
-  console.log(`[TIMEOUT] Claude Code non ha risposto in ${RESULT_TIMEOUT/1000}s`);
-  const timeoutContent = [
-    `# Timeout: ${taskId}`,
-    `> Timeout: ${new Date().toISOString()}`,
+  const resultContent = [
+    `# Risultato: ${taskId}`,
+    `> Eseguito: ${new Date().toISOString()}`,
+    `> Completato: ${completed ? 'sì' : 'timeout'}`,
     '',
-    '## Ultimo output visibile',
+    '## Output Claude Code',
     '',
     '```',
-    lastOutput,
+    output.trim(),
     '```',
   ].join('\n');
-  
-  writeFileSync(join(RESULTS_DIR, `${taskId}.md`), timeoutContent, 'utf-8');
-  pushFile(join(RESULTS_DIR, `${taskId}.md`), `timeout: ${taskId}`);
+
+  writeFileSync(join(RESULTS_DIR, `${taskId}.md`), resultContent, 'utf-8');
+  pushFile(`result: ${taskId}`);
+  console.log(`[DONE] Task ${taskId} ${completed ? 'completato' : 'timeout'}`);
 }
 
 // === MAIN LOOP ===
@@ -154,18 +185,16 @@ async function main() {
   console.log('║   MAESTRO — Ponte Claude Chat ↔ Claude Code     ║');
   console.log('║   Via tmux + GitHub                              ║');
   console.log('╚══════════════════════════════════════════════════╝');
-  
-  // Verifica sessione tmux
+
   if (!tmuxSessionExists()) {
     console.error(`\n[ERRORE] Sessione tmux "${TMUX_SESSION}" non trovata!`);
     console.error(`\nAvvia prima Claude Code in tmux:`);
-    console.error(`  tmux new-session -d -s ${TMUX_SESSION} 'claude'`);
-    console.error(`  tmux attach -t ${TMUX_SESSION}`);
-    console.error(`\nPoi in un altro terminale lancia:`);
+    console.error(`  tmux new-session -d -s ${TMUX_SESSION} 'claude --permission-mode acceptEdits'`);
+    console.error(`\nPoi lancia:`);
     console.error(`  node maestro.mjs`);
     process.exit(1);
   }
-  
+
   console.log(`Sessione tmux: ${TMUX_SESSION} ✓`);
   console.log(`Repo: ${REPO_DIR}`);
   console.log(`Poll: ogni ${POLL_INTERVAL/1000}s`);
