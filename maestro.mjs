@@ -35,6 +35,7 @@ function pushFile(message) {
   git('add -A');
   try {
     git(`commit -m "${message}"`);
+    try { git('pull --rebase origin main'); } catch {}
     git('push origin main');
     console.log(`[PUSH] ${message}`);
   } catch (e) {
