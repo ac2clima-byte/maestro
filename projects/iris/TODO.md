@@ -70,3 +70,9 @@ _Ultimo aggiornamento: 2026-04-17_
 - [ ] Il comando vocale viene interpretato da Claude e tradotto in azione
 - [ ] L'azione viene scritta sulla nexo_lavagna se coinvolge un altro Collega
 - [ ] Integrazione con HERMES per comandi vocali da desktop (bidirezionale)
+
+## Funzione Vocale (da HERMES)
+- [ ] Integrare STT (Speech-to-Text) nella PWA usando Web Speech API o Whisper
+- [ ] Bottone microfono accanto al campo "Dev request" per dettare invece di scrivere
+- [ ] Riferimento codice HERMES: /mnt/c/HERMES/src/ contiene implementazione Whisper STT + edge-tts già funzionante
+- [ ] Possibilità futura: comandare IRIS a voce ("classifica questa come urgente", "passa a Efesto")
