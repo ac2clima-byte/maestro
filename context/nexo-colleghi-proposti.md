@@ -1,10 +1,31 @@
 # NEXO — Proposta Colleghi
 
-_Analisi ecosistema ACG Suite + HERMES + IRIS — 2026-04-17_
+_Analisi ecosistema ACG Suite + ECHO + IRIS — 2026-04-17_
+
+## Nomi definitivi — approvati da Alberto il 17/04/2026
+
+| Collega    | Ruolo                                           | Nome precedente (scartato) |
+|------------|-------------------------------------------------|----------------------------|
+| IRIS       | Comunicazione email in ingresso                 | —                          |
+| ECHO       | Comunicazione: WA, Telegram, notifiche, voce    | HERMES                     |
+| ARES       | Operativo / Interventi                          | EFESTO                     |
+| CHRONOS    | Pianificatore / Calendario                      | —                          |
+| MEMO       | Memoria / Storico cliente                       | MNEMOSYNE                  |
+| CHARTA     | Amministrativo / Fatturazione                   | CARONTE                    |
+| EMPORION   | Magazzino / Ricambi                             | EOLO                       |
+| DIKEA      | Compliance / Normative                          | TEMIDE                     |
+| DELPHI     | Analisi / BI                                    | PLUTO                      |
+| PHARO      | Monitoring / Alert                              | ARGOS                      |
+| CALLIOPE   | Content / Comunicazione in uscita               | —                          |
+
+Nota: "HERMES" continua a esistere come **prodotto** (l'app Electron su
+Windows già funzionante); **ECHO** è il nome del Collega NEXO che
+comunica verso l'utente — tra cui gestirà il canale voce fornito
+da HERMES stesso. Sono due cose diverse, non confondere.
 
 ## Criterio di scelta
 
-HERMES è l'interfaccia (messaggero, voce). IRIS è il gateway inbound
+ECHO è l'interfaccia (messaggero, voce). IRIS è il gateway inbound
 (email → classificazione → bus). Gli altri Colleghi devono essere
 **specialisti verticali** che coprono un dominio operativo dell'azienda,
 NON generalisti. Ognuno possiede la sua collection Firestore / area di
@@ -17,7 +38,7 @@ netta.
 
 ---
 
-## 1. EFESTO — Il Tecnico / Gestore Interventi
+## 1. ARES — Il Tecnico / Gestore Interventi
 
 **Dominio**
 Officina digitale. Prende in carico richieste operative (guasti,
@@ -39,8 +60,8 @@ CosminaMobile · Guazzotti TEC (`rti`, `tickets`).
 - `cercaStoricoInterventi(impiantoId)` — per diagnosi
 
 **Interagisce con**
-IRIS (riceve `GUASTO_URGENTE` / `RICHIESTA_INTERVENTO`) → MNEMOSYNE
-(storico impianto) → CHRONOS (agenda tecnico) → scrive a HERMES
+IRIS (riceve `GUASTO_URGENTE` / `RICHIESTA_INTERVENTO`) → MEMO
+(storico impianto) → CHRONOS (agenda tecnico) → scrive a ECHO
 (notifica vocale).
 
 ---
@@ -64,15 +85,15 @@ COSMINA (`cosmina_interventi_pianificati`, `cosmina_impianti`,
 - `trovaConflitti(data, tecnico)`
 - `riprogramma(interventoId, nuovaData, motivo)`
 - `avvisaScadenzaContratto(clienteId, giorniAnticipo)`
-- `agendaGiornaliera(tecnico, data)` — JSON per briefing HERMES
+- `agendaGiornaliera(tecnico, data)` — JSON per briefing ECHO
 
 **Interagisce con**
-EFESTO (gli passa slot per nuovi interventi), HERMES (legge agenda a
-voce), TEMIDE (scadenze normative CURIT/CIT).
+ARES (gli passa slot per nuovi interventi), ECHO (legge agenda a
+voce), DIKEA (scadenze normative CURIT/CIT).
 
 ---
 
-## 3. MNEMOSYNE — La Memoria / Storico Cliente
+## 3. MEMO — La Memoria / Storico Cliente
 
 **Dominio**
 Dossier unico per cliente/condominio/impianto: unisce Firestore, disco N
@@ -95,12 +116,12 @@ COSMINA (`crm_clienti`, `cosmina_impianti`, `trello_boards`,
 - `matchAnagrafica(nome)` — dedup cross-COSMINA/CRM/Condominium
 
 **Interagisce con**
-IRIS (chi è il mittente?), EFESTO (storico per diagnosi), CARONTE
-(situazione pagamenti), PLUTO (margini storici).
+IRIS (chi è il mittente?), ARES (storico per diagnosi), CHARTA
+(situazione pagamenti), DELPHI (margini storici).
 
 ---
 
-## 4. CARONTE — L'Amministrativo / Fatturazione e Incassi
+## 4. CHARTA — L'Amministrativo / Fatturazione e Incassi
 
 **Dominio**
 Soldi in entrata e in uscita. Fatture emesse, fatture ricevute,
@@ -121,12 +142,12 @@ API) · Fatture in Cloud (SaaS esterno) · dischi L/M.
 - `reportMensile(mese)` — emesso/incassato/da incassare
 
 **Interagisce con**
-IRIS (`FATTURA_FORNITORE` → deposita qui), MNEMOSYNE (esposizione
-cliente), TEMIDE (PEC di sollecito/diffida).
+IRIS (`FATTURA_FORNITORE` → deposita qui), MEMO (esposizione
+cliente), DIKEA (PEC di sollecito/diffida).
 
 ---
 
-## 5. EOLO — Il Magazziniere / Ricambi e Approvvigionamento
+## 5. EMPORION — Il Magazziniere / Ricambi e Approvvigionamento
 
 **Dominio**
 Articoli, giacenze, furgoni dei tecnici, ordini a fornitori. Sa se un
@@ -146,12 +167,12 @@ COSMINA (`magazzino`, `magazzino_giacenze`, `magazzino_movimenti`,
 - `ocrDDT(pdf)` — riconosce articoli, carica magazzino
 
 **Interagisce con**
-EFESTO (il tecnico chiede "c'è il pezzo?"), CARONTE (ordini = debito),
-MNEMOSYNE (cosa abbiamo montato al cliente X).
+ARES (il tecnico chiede "c'è il pezzo?"), CHARTA (ordini = debito),
+MEMO (cosa abbiamo montato al cliente X).
 
 ---
 
-## 6. TEMIDE — Il Compliance / Normative e CURIT
+## 6. DIKEA — Il Compliance / Normative e CURIT
 
 **Dominio**
 Normative, scadenze legali, CURIT, DiCo, DM 37/2008, PEC ufficiali. Il
@@ -171,12 +192,12 @@ Python CURIT · IRIS (categoria `PEC_UFFICIALE`) · compilatore DiCo.
 - `checkF-gas(impiantoId)` — certificazioni valide?
 
 **Interagisce con**
-IRIS (riceve PEC), EFESTO (DiCo a fine intervento), CHRONOS (scadenze),
-MNEMOSYNE (storico conformità impianto).
+IRIS (riceve PEC), ARES (DiCo a fine intervento), CHRONOS (scadenze),
+MEMO (storico conformità impianto).
 
 ---
 
-## 7. PLUTO — L'Analista / Diogene + BI
+## 7. DELPHI — L'Analista / Diogene + BI
 
 **Dominio**
 Numeri. Margini, KPI, trend, proiezioni. Non genera azioni: risponde a
@@ -196,14 +217,14 @@ TEC (commesse) · dati `cost`/`ai_usage`.
 - `dashboard(preset)` — genera report HTML/PDF
 
 **Interagisce con**
-Tutti (read-only). Spesso HERMES ("Alberto vuole i numeri del mese").
+Tutti (read-only). Spesso ECHO ("Alberto vuole i numeri del mese").
 
 ---
 
-## 8. ARGOS — Il Watchman / Scadenze, Monitoring, Alert
+## 8. PHARO — Il Watchman / Scadenze, Monitoring, Alert
 
 **Dominio**
-Sorveglianza proattiva. Mentre gli altri Colleghi fanno, ARGOS guarda:
+Sorveglianza proattiva. Mentre gli altri Colleghi fanno, PHARO guarda:
 quote cost-alert, worker Python offline, scadenze dimenticate, pattern
 sospetti. Il "cento occhi" della Suite.
 
@@ -221,7 +242,7 @@ Trasversale (`cosmina_workers` heartbeat, `audit_log`,
 - `statoSuite()` — health check consolidato per dashboard
 
 **Interagisce con**
-Esce verso TUTTI con notifiche. Primo fruitore: HERMES (briefing
+Esce verso TUTTI con notifiche. Primo fruitore: ECHO (briefing
 mattutino), IRIS (segnala anomalie email).
 
 ---
@@ -243,24 +264,24 @@ vivrebbe qui come Collega autonomo).
 - `comunicazioneCondominio(condominioId, motivo, dati)`
 - `preventivoFormale(impiantoId, lavoro)` — da template + listino
 - `newsletterTecnici(mese)` — riepilogo per il team
-- `rispostaPECtono(pecId)` — su richiesta di TEMIDE
-- `lettereSollecito(clienteId)` — su richiesta di CARONTE
+- `rispostaPECtono(pecId)` — su richiesta di DIKEA
+- `lettereSollecito(clienteId)` — su richiesta di CHARTA
 - `trascriviRiunione(audio)` — con Whisper
 
 **Interagisce con**
-IRIS, CARONTE, TEMIDE come clienti principali; HERMES per dettatura;
-usa MNEMOSYNE per conoscere il destinatario.
+IRIS, CHARTA, DIKEA come clienti principali; ECHO per dettatura;
+usa MEMO per conoscere il destinatario.
 
 ---
 
 ## Altri nomi candidati (non inclusi nei 9)
 
 - **ATLANTE** — reggerebbe infrastruttura/DevOps (deploy, monitoring
-  tecnico). L'ho fuso dentro ARGOS in questa proposta perché per
+  tecnico). L'ho fuso dentro PHARO in questa proposta perché per
   l'azienda vale come uno. Scorporalo se e quando l'infra cresce.
 - **MORFEO** — automazione notturna / batch (backup, sync worker,
   scraping CURIT di massa). Di fatto è un modo di operare, non un
-  Collega con dominio proprio. Può essere un "aspetto" di ARGOS.
+  Collega con dominio proprio. Può essere un "aspetto" di PHARO.
 - **DEMETRA** — "coltivatore" clienti: onboarding, upsell,
   fidelizzazione (CRM sales). Oggi la suite non fa sales attivo, quindi
   è prematuro. Candidato per v0.3 quando partirà la parte commerciale.
@@ -270,31 +291,31 @@ usa MNEMOSYNE per conoscere il destinatario.
 ## Grafo sintetico delle relazioni
 
 ```
-                      ┌──────────┐
-                      │  HERMES  │ (voce, I/O)
-                      └────┬─────┘
-                           │
-      ┌────────┐      ┌────┴─────┐      ┌──────────┐
-      │  IRIS  │◀────▶│ LAVAGNA  │◀────▶│  ARGOS   │
-      │ email  │      │ (bus)    │      │ watcher  │
-      └───┬────┘      └─────┬────┘      └──────────┘
-          │                 │
-          ▼                 ▼
-    ┌─────────┐      ┌──────────┐      ┌──────────┐
-    │ EFESTO  │◀────▶│ CHRONOS  │      │ MNEMOSYNE│
-    │ tecnico │      │ agenda   │      │ storico  │
-    └─────────┘      └──────────┘      └────┬─────┘
-                                            │
-    ┌─────────┐      ┌──────────┐      ┌────┴─────┐
-    │ CARONTE │◀────▶│  EOLO    │      │  TEMIDE  │
-    │ soldi   │      │ magazzino│      │ norme    │
-    └────┬────┘      └──────────┘      └──────────┘
-         │
-         ▼
-    ┌─────────┐           ┌──────────┐
-    │  PLUTO  │           │ CALLIOPE │
-    │ analisi │           │  content │
-    └─────────┘           └──────────┘
+                        ┌────────────┐
+                        │    ECHO    │ (voce, chat, I/O)
+                        └──────┬─────┘
+                               │
+      ┌────────────┐    ┌──────┴─────┐    ┌────────────┐
+      │    IRIS    │◀──▶│  LAVAGNA   │◀──▶│   PHARO    │
+      │   email    │    │   (bus)    │    │  watcher   │
+      └──────┬─────┘    └──────┬─────┘    └────────────┘
+             │                 │
+             ▼                 ▼
+      ┌────────────┐    ┌────────────┐    ┌────────────┐
+      │    ARES    │◀──▶│  CHRONOS   │    │    MEMO    │
+      │  tecnico   │    │   agenda   │    │  storico   │
+      └────────────┘    └────────────┘    └──────┬─────┘
+                                                 │
+      ┌────────────┐    ┌────────────┐    ┌──────┴─────┐
+      │   CHARTA   │◀──▶│  EMPORION  │    │   DIKEA    │
+      │   soldi    │    │  magazzino │    │   norme    │
+      └──────┬─────┘    └────────────┘    └────────────┘
+             │
+             ▼
+      ┌────────────┐                      ┌────────────┐
+      │   DELPHI   │                      │  CALLIOPE  │
+      │  analisi   │                      │   content  │
+      └────────────┘                      └────────────┘
 ```
 
 ---
@@ -302,20 +323,20 @@ usa MNEMOSYNE per conoscere il destinatario.
 ## Ordine di implementazione suggerito
 
 **Tier 1** (abilitano tutto il resto):
-1. **EFESTO** — già "cliente" di IRIS via la regola
+1. **ARES** — già "cliente" di IRIS via la regola
    `RICHIESTA_INTERVENTO`/`GUASTO_URGENTE` → Lavagna. Va solo
    formalizzato come Collega con UI.
-2. **MNEMOSYNE** — il "contesto cliente" serve a EFESTO, CARONTE, IRIS.
-3. **CHRONOS** — senza agenda EFESTO non sa schedulare.
+2. **MEMO** — il "contesto cliente" serve a ARES, CHARTA, IRIS.
+3. **CHRONOS** — senza agenda ARES non sa schedulare.
 
 **Tier 2** (alto valore operativo):
-4. **CARONTE** — liberare Alberto dall'amministrativo è il ROI più alto.
-5. **EOLO** — magazzino è lavoro ripetitivo quotidiano.
-6. **ARGOS** — inizia come semplice cron + notifica, cresce.
+4. **CHARTA** — liberare Alberto dall'amministrativo è il ROI più alto.
+5. **EMPORION** — magazzino è lavoro ripetitivo quotidiano.
+6. **PHARO** — inizia come semplice cron + notifica, cresce.
 
 **Tier 3** (quando Tier 1/2 generano dati):
-7. **TEMIDE** — utile quando le PEC e le DiCo diventano volume.
-8. **PLUTO** — ha senso dopo 3-6 mesi di dati puliti.
+7. **DIKEA** — utile quando le PEC e le DiCo diventano volume.
+8. **DELPHI** — ha senso dopo 3-6 mesi di dati puliti.
 9. **CALLIOPE** — dipende dallo sblocco del piano Blaze (F7).
 
 **Principio**: ogni Collega aggiunto deve ridurre il numero di volte al
