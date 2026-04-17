@@ -1,9 +1,15 @@
 Implementa F4 — Smart Digest per IRIS.
 
-1. Crea funzione generateDigest(timeRange) che produce un riassunto delle email nel periodo
-2. Tre preset: mattina (email dalla sera prima), pranzo (email della mattina), sera (riepilogo giornata)
-3. Il digest include: totale email, urgenti, in attesa di risposta, nuovi mittenti, highlight importanti
-4. Nella PWA: card speciale "Digest" in cima alla dashboard con il riassunto, generato da Haiku
-5. Bottone "Genera digest" nella sidebar per crearlo on-demand
-6. Rideploya PWA, apri nel browser
-7. Committa con "feat(iris): F4 smart digest"
+Aggiungi alla PWA (projects/iris/pwa/index.html) una sezione "Digest" in cima alla dashboard:
+
+1. Card speciale in cima che mostra un riassunto generato:
+   - "Oggi X email. Y urgenti. Z senza risposta da più di 48h."
+   - Top 3 email per priorità con riassunto di una riga ciascuna
+   - Ultimo aggiornamento: timestamp
+
+2. Il digest viene calcolato lato client leggendo le email da Firestore e aggregando i dati.
+
+3. Stile: card con bordo sinistro colorato (blu), sfondo leggermente diverso dalle email normali, icona 📋
+
+Rideploya su Firebase Hosting. Apri nel browser.
+Committa con "feat(iris): F4 smart digest"
