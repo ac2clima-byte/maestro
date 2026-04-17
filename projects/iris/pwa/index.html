@@ -346,6 +346,88 @@
     border-radius: 10px;
   }
 
+  /* --- Attachments (F6) --- */
+  .attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .att-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    line-height: 1.4;
+    max-width: 100%;
+  }
+  .att-chip strong { color: var(--text); font-weight: 500; }
+  .att-chip.t-fattura       { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .att-chip.t-ddt           { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+  .att-chip.t-preventivo    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .att-chip.t-scheda_tecnica{ background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+  .att-chip.t-contratto     { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .att-chip.t-foto          { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .att-chip.t-altro         { background: var(--surface-soft); color: var(--text-muted); border-color: var(--border); }
+
+  .read-attachments {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .read-attachments h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .read-att-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    background: var(--surface-soft);
+  }
+  .read-att-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .read-att-name {
+    font-size: 0.88rem;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .read-att-meta {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .read-att-text {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
   /* --- Similar emails section (F12) --- */
   .similar-section {
     margin-top: 14px;
@@ -1000,6 +1082,7 @@
       <div id="readMeta" class="read-meta">—</div>
     </header>
     <div id="readBody" class="read-body">Caricamento…</div>
+    <div id="readAttachments"></div>
     <div id="readSimilar" class="similar-section" style="display:none">
       <h4>Casi simili</h4>
       <div id="readSimilarList"></div>
@@ -1045,6 +1128,15 @@ const SENTIMENT_LABELS = {
   frustrato:  { label: "Frustrato",   emoji: "😤" },
   arrabbiato: { label: "Arrabbiato",  emoji: "😡" },
   disperato:  { label: "Disperato",   emoji: "😰" },
+};
+const ATTACHMENT_LABELS = {
+  fattura:        { label: "Fattura",        icon: "🧾" },
+  ddt:            { label: "DDT",            icon: "📦" },
+  preventivo:     { label: "Preventivo",     icon: "💰" },
+  scheda_tecnica: { label: "Scheda tecnica", icon: "📘" },
+  contratto:      { label: "Contratto",      icon: "📜" },
+  foto:           { label: "Foto",           icon: "📷" },
+  altro:          { label: "Allegato",       icon: "📎" },
 };
 const URGENT_CATEGORIES = new Set(["GUASTO_URGENTE", "PEC_UFFICIALE"]);
 
@@ -1112,6 +1204,7 @@ async function loadEmailsFromFirestore() {
           needsAttention: !!fu.needsAttention,
         } : null,
         similarEmails: Array.isArray(d.similarEmails) ? d.similarEmails : [],
+        attachments: Array.isArray(d.attachments) ? d.attachments : [],
       });
     });
     return emails;
@@ -1253,6 +1346,71 @@ function updateHeaderStats(emails) {
 }
 
 // --- Card rendering ---
+function formatBytes(n) {
+  if (!n || !Number.isFinite(n)) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function renderAttachmentChips(atts) {
+  if (!atts || !atts.length) return "";
+  // Aggrega: foto le raggruppiamo (es. "📷 4 foto"), gli altri li mostriamo
+  // singolarmente per evidenziare metadati (es. importo).
+  const photos = atts.filter(a => a.detectedType === "foto");
+  const others = atts.filter(a => a.detectedType !== "foto");
+  const chips = [];
+
+  for (const a of others) {
+    const meta = ATTACHMENT_LABELS[a.detectedType] || ATTACHMENT_LABELS.altro;
+    const ext = a.filename ? a.filename.split(".").pop().toUpperCase() : "";
+    let extra = "";
+    if (a.detectedType === "fattura" && a.amount) {
+      extra = ` ${a.amount.replace(/^EUR\s*/, "€")}`;
+    }
+    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
+    chips.push(
+      `<span class="att-chip t-${escapeHtml(a.detectedType)}" title="${escapeHtml(tooltip)}">` +
+      `${meta.icon} <strong>${escapeHtml(meta.label)}${escapeHtml(extra)}</strong>` +
+      (ext ? ` <span style="opacity:.65">(${escapeHtml(ext)})</span>` : "") +
+      `</span>`
+    );
+  }
+
+  if (photos.length === 1) {
+    const a = photos[0];
+    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
+    chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">📷 <strong>1 foto</strong></span>`);
+  } else if (photos.length > 1) {
+    const totalSize = photos.reduce((s, a) => s + (a.size || 0), 0);
+    const tooltip = totalSize ? `Totale ${formatBytes(totalSize)}` : "";
+    chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">📷 <strong>${photos.length} foto</strong></span>`);
+  }
+
+  return `<div class="attachments">${chips.join("")}</div>`;
+}
+
+function renderReadAttachments(atts) {
+  if (!atts || !atts.length) return "";
+  const items = atts.map(a => {
+    const meta = ATTACHMENT_LABELS[a.detectedType] || ATTACHMENT_LABELS.altro;
+    const sizeStr = a.size ? formatBytes(a.size) : "";
+    const mime = a.mimeType || "";
+    const text = a.extractedText ? `<div class="read-att-text">${escapeHtml(a.extractedText)}</div>` : "";
+    const amountStr = a.amount ? ` · ${escapeHtml(a.amount.replace(/^EUR\s*/, "€"))}` : "";
+    return `
+      <div class="read-att-item">
+        <div class="read-att-head">
+          <div class="read-att-name">${meta.icon} <strong>${escapeHtml(meta.label)}</strong>${amountStr} — ${escapeHtml(a.filename || "")}</div>
+          <div class="read-att-meta">${escapeHtml([mime, sizeStr].filter(Boolean).join(" · "))}</div>
+        </div>
+        ${text}
+      </div>
+    `;
+  }).join("");
+  return `<div class="read-attachments"><h4>Allegati (${atts.length})</h4>${items}</div>`;
+}
+
 function renderEntities(ent) {
   const keys = Object.keys(ent || {});
   if (!keys.length) return "";
@@ -1305,6 +1463,7 @@ function renderEmailCard(e) {
       <div class="subject">${escapeHtml(e.subject)}</div>
       <div class="summary">${escapeHtml(e.summary || "—")}</div>
       ${renderEntities(e.entities)}
+      ${renderAttachmentChips(e.attachments)}
       <div class="card-bottom">
         <div class="badges">
           <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
@@ -1588,6 +1747,7 @@ function openReadModal(id) {
     bodyEl.classList.add("empty-body");
     bodyEl.textContent = "(corpo email non disponibile)";
   }
+  $("#readAttachments").innerHTML = renderReadAttachments(email.attachments);
   renderSimilarSection(email);
   $("#readBackdrop").classList.add("open");
 }

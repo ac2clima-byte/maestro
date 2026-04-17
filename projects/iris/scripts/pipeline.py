@@ -33,6 +33,11 @@ from firebase_admin import credentials as fb_credentials, firestore
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from thread_detector import ThreadDetector  # noqa: E402
 from followup_detector import FollowupDetector  # noqa: E402
+from attachment_tagger import (  # noqa: E402
+    detect_type as tag_attachment_type,
+    extract_amount as tag_extract_amount,
+    extract_pdf_text as tag_extract_pdf_text,
+)
 
 
 # --- TLS: self-signed EWS cert accepted for now (pinning TODO) ---
@@ -48,6 +53,11 @@ API_URL = "https://api.anthropic.com/v1/messages"
 COLLECTION = "iris_emails"
 THREADS_COLLECTION = "iris_threads"
 USER_ID = "alberto"
+
+# Limite dimensione PDF da scaricare per estrarre testo (2MB).
+MAX_PDF_BYTES = 2_000_000
+# Lunghezza max testo estratto persistito su Firestore.
+MAX_EXTRACTED_TEXT = 600
 
 VALID_CATEGORIES = {
     "RICHIESTA_INTERVENTO", "GUASTO_URGENTE", "PREVENTIVO",
@@ -96,6 +106,66 @@ def _make_account():
     )
 
 
+def _extract_attachments(item) -> list[dict]:
+    """
+    Read-only extraction. Per ogni allegato:
+      - filename, mimeType, size sempre.
+      - Se PDF e size <= MAX_PDF_BYTES: scarica content, estrai prime righe.
+      - Classifica detectedType. Se fattura, prova ad estrarre importo.
+
+    Salta inline-only (cid embedded) per evitare rumore — manteniamo solo
+    quelli con filename utile.
+    """
+    out = []
+    if not item.has_attachments:
+        return out
+    try:
+        atts = list(item.attachments or [])
+    except Exception:
+        return out
+
+    for a in atts:
+        try:
+            filename = getattr(a, "name", None) or "(senza nome)"
+            mime = getattr(a, "content_type", None)
+            size = getattr(a, "size", None)
+            is_inline = getattr(a, "is_inline", False)
+            if is_inline and not filename:
+                continue
+
+            extracted_text = ""
+            amount = None
+            if (mime or "").lower() == "application/pdf" and (size or 0) <= MAX_PDF_BYTES:
+                try:
+                    raw_content = getattr(a, "content", None)
+                    if raw_content:
+                        extracted_text = tag_extract_pdf_text(
+                            raw_content, max_pages=2, max_chars=1500,
+                        )
+                except Exception:
+                    extracted_text = ""
+
+            detected = tag_attachment_type(filename, mime, extracted_text)
+            if detected == "fattura" and extracted_text:
+                amount = tag_extract_amount(extracted_text)
+
+            entry = {
+                "filename": filename,
+                "mimeType": mime or "",
+                "size": int(size) if isinstance(size, int) else None,
+                "detectedType": detected,
+                "isInline": bool(is_inline),
+            }
+            if extracted_text:
+                entry["extractedText"] = extracted_text[:MAX_EXTRACTED_TEXT]
+            if amount:
+                entry["amount"] = amount
+            out.append(entry)
+        except Exception:
+            continue
+    return out
+
+
 def fetch_emails(n: int) -> list[dict]:
     account = _make_account()
     items = list(account.inbox.all().order_by("-datetime_received")[:n])
@@ -135,6 +205,7 @@ def fetch_emails(n: int) -> list[dict]:
             "in_reply_to": in_reply_to or None,
             "references": refs,
             "to_recipients": to_recipients,
+            "attachments": _extract_attachments(item),
         })
     return out
 
@@ -294,6 +365,7 @@ def write_email_doc(
             "references": email.get("references") or [],
             "to_recipients": email.get("to_recipients") or [],
         },
+        "attachments": email.get("attachments") or [],
         "classification": classification,
         "status": "classified",
         "updatedAt": now,
