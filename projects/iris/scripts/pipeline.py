@@ -38,6 +38,7 @@ from attachment_tagger import (  # noqa: E402
     extract_amount as tag_extract_amount,
     extract_pdf_text as tag_extract_pdf_text,
 )
+from score_calculator import compute_score  # noqa: E402
 
 
 # --- TLS: self-signed EWS cert accepted for now (pinning TODO) ---
@@ -348,6 +349,15 @@ def write_email_doc(
     classification: dict,
     followup: dict | None = None,
 ) -> str:
+    # Score derivato (idempotente, ricalcolato a ogni run).
+    score = compute_score({
+        "classification": classification,
+        "raw": {
+            "has_attachments": email.get("has_attachments"),
+        },
+        "followup": followup or {},
+        "attachments": email.get("attachments") or [],
+    })
     doc_id = doc_id_for(email["message_id"])
     now = firestore.SERVER_TIMESTAMP
     data = {
@@ -367,6 +377,7 @@ def write_email_doc(
         },
         "attachments": email.get("attachments") or [],
         "classification": classification,
+        "score": score,
         "status": "classified",
         "updatedAt": now,
     }

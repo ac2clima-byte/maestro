@@ -346,6 +346,28 @@
     border-radius: 10px;
   }
 
+  /* --- Score badge (F8) --- */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .score-badge.s-low    { background: var(--surface-soft); color: var(--text-muted); border-color: var(--border); }
+  .score-badge.s-mid    { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .score-badge.s-high   { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .card-top .score-badge { margin-left: auto; }
+
   /* --- Attachments (F6) --- */
   .attachments {
     display: flex;
@@ -1027,6 +1049,10 @@
         <button id="viewEmailsBtn" class="active" role="tab" aria-selected="true">Email</button>
         <button id="viewThreadsBtn" role="tab" aria-selected="false">Thread</button>
       </div>
+      <div class="view-toggle" role="tablist" aria-label="Ordinamento">
+        <button id="sortDateBtn" class="active" role="tab" aria-selected="true" title="Ordina cronologicamente">📅 Data</button>
+        <button id="sortPriorityBtn" role="tab" aria-selected="false" title="Ordina per score di priorità">🔥 Priorità</button>
+      </div>
       <select id="filterCategory" aria-label="Filtro per categoria">
         <option value="">Tutte le categorie</option>
       </select>
@@ -1205,6 +1231,7 @@ async function loadEmailsFromFirestore() {
         } : null,
         similarEmails: Array.isArray(d.similarEmails) ? d.similarEmails : [],
         attachments: Array.isArray(d.attachments) ? d.attachments : [],
+        score: typeof d.score === "number" ? d.score : 0,
       });
     });
     return emails;
@@ -1452,6 +1479,12 @@ function renderSentimentBadge(e) {
     `<span class="sent-emoji" aria-hidden="true">${meta.emoji}</span>` +
     `${escapeHtml(meta.label)}</span>`;
 }
+function renderScoreBadge(score) {
+  const s = typeof score === "number" ? score : 0;
+  const cls = s >= 60 ? "s-high" : s >= 30 ? "s-mid" : "s-low";
+  return `<span class="score-badge ${cls}" title="Priorità calcolata (0-100)">${s}</span>`;
+}
+
 function renderEmailCard(e) {
   const senderHtml = renderSenderInline(e.senderEmail || e.sender, e.senderName);
   return `
@@ -1459,6 +1492,7 @@ function renderEmailCard(e) {
       <div class="card-top">
         <div class="sender">${senderHtml}</div>
         <div class="received" title="${escapeHtml(formatReceivedFull(e.received))}">${escapeHtml(formatReceived(e.received))}</div>
+        ${renderScoreBadge(e.score)}
       </div>
       <div class="subject">${escapeHtml(e.subject)}</div>
       <div class="summary">${escapeHtml(e.summary || "—")}</div>
@@ -1483,7 +1517,7 @@ function renderEmailCard(e) {
 function applyFilters(emails) {
   const cat = $("#filterCategory").value;
   const q = ($("#filterSearch").value || "").trim().toLowerCase();
-  return emails.filter(e => {
+  const filtered = emails.filter(e => {
     if (cat && e.category !== cat) return false;
     if (q) {
       const hay = `${e.sender} ${e.subject} ${e.summary} ${e.bodyText || ""}`.toLowerCase();
@@ -1491,6 +1525,16 @@ function applyFilters(emails) {
     }
     return true;
   });
+  if (CURRENT_SORT === "priority") {
+    return [...filtered].sort((a, b) => {
+      const sa = typeof a.score === "number" ? a.score : 0;
+      const sb = typeof b.score === "number" ? b.score : 0;
+      if (sb !== sa) return sb - sa;
+      // tiebreaker: data desc
+      return (b.received || "").localeCompare(a.received || "");
+    });
+  }
+  return filtered;
 }
 
 function wireFollowupClicks(root) {
@@ -1760,6 +1804,7 @@ let ACTIVE_EMAILS = MOCK_EMAILS;
 let ACTIVE_THREADS = [];
 let SENDER_PROFILES = new Map(); // email → profile
 let CURRENT_VIEW = "emails"; // "emails" | "threads"
+let CURRENT_SORT = "date";    // "date" | "priority"
 
 // --- Sender profile popover (F5) ---
 function getSenderProfile(email) {
@@ -2001,6 +2046,16 @@ function setView(view) {
   refreshView();
 }
 
+function setSort(sort) {
+  CURRENT_SORT = sort;
+  const isPriority = sort === "priority";
+  $("#sortDateBtn").classList.toggle("active", !isPriority);
+  $("#sortPriorityBtn").classList.toggle("active", isPriority);
+  $("#sortDateBtn").setAttribute("aria-selected", String(!isPriority));
+  $("#sortPriorityBtn").setAttribute("aria-selected", String(isPriority));
+  refreshView();
+}
+
 async function initUI() {
   const catEntries = Object.entries(CATEGORY_LABELS);
   const actionEntries = Object.entries(ACTION_LABELS);
@@ -2013,6 +2068,8 @@ async function initUI() {
   $("#filterSearch").addEventListener("input", refreshView);
   $("#viewEmailsBtn").addEventListener("click", () => setView("emails"));
   $("#viewThreadsBtn").addEventListener("click", () => setView("threads"));
+  $("#sortDateBtn").addEventListener("click", () => setSort("date"));
+  $("#sortPriorityBtn").addEventListener("click", () => setSort("priority"));
 
   $("#modalCancel").addEventListener("click", closeCorrectionModal);
   $("#modalBackdrop").addEventListener("click", (e) => {
