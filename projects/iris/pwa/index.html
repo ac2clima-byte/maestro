@@ -346,6 +346,162 @@
     border-radius: 10px;
   }
 
+  /* --- Dev requests / "Idea" (build IRIS from IRIS) --- */
+  .btn-idea {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    line-height: 1.2;
+  }
+  .btn-idea:hover {
+    border-color: #fbbf24;
+    color: #b45309;
+    background: #fffbeb;
+  }
+  .btn-idea-global {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+  .btn-idea-global:hover {
+    background: #fde68a;
+    border-color: #fbbf24;
+  }
+
+  .idea-modal { max-width: 520px; }
+  .idea-context {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    line-height: 1.45;
+  }
+  .idea-context strong { color: var(--text); font-weight: 600; }
+  .idea-context.empty { font-style: italic; color: var(--text-dim); }
+  .idea-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text);
+    user-select: none;
+  }
+  .idea-checkbox-row input { margin-top: 3px; cursor: pointer; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #1a1a1f;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    transition: opacity 0.18s, transform 0.18s;
+    z-index: 300;
+    pointer-events: none;
+    max-width: 90vw;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.error { background: #b91c1c; }
+
+  /* Dev requests panel */
+  .requests-modal { max-width: 700px; }
+  .requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .request-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--surface);
+  }
+  .request-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .request-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .request-status.pending      { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .request-status.in_progress  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .request-status.completed    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .request-status.rejected     { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .request-date { font-size: 0.78rem; color: var(--text-dim); }
+  .request-body { font-size: 0.9rem; color: var(--text); white-space: pre-wrap; line-height: 1.5; }
+  .request-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .request-empty {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .requests-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .requests-tab {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .requests-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+  .requests-tab .count {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    background: var(--surface-soft);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
   /* --- Multi-intent (F9) --- */
   .intents-section {
     margin-top: 14px;
@@ -1096,6 +1252,8 @@
       <div class="header-stat attention"><strong id="statAttention">0</strong> senza risposta</div>
     </div>
     <div class="header-actions">
+      <button id="requestsBtn" class="btn-ghost" title="Mostra le richieste di sviluppo inviate">📋 Richieste</button>
+      <button id="ideaGlobalBtn" class="btn-idea btn-idea-global" title="Suggerisci una nuova feature per IRIS">💡 Idea generale</button>
       <span id="userEmail" class="header-stat" style="font-size: 0.8rem;">—</span>
       <button id="logoutBtn" class="btn-ghost">Logout</button>
     </div>
@@ -1160,6 +1318,49 @@
     </form>
   </div>
 </div>
+
+<!-- Idea modal (dev requests) -->
+<div id="ideaBackdrop" class="modal-backdrop">
+  <div class="modal idea-modal">
+    <h2 id="ideaTitle">Cosa vorresti che IRIS facesse?</h2>
+    <div id="ideaContext" class="idea-context empty">Idea generale (non legata a una email specifica).</div>
+    <form id="ideaForm">
+      <div class="field">
+        <label for="ideaText">La tua richiesta in linguaggio naturale</label>
+        <textarea id="ideaText" rows="6" placeholder="Es: 'Quando ricevo una fattura da Cambielli, suggeriscimi automaticamente quale ordine corrisponde'…" required></textarea>
+      </div>
+      <label class="idea-checkbox-row" id="ideaCategoryRow" style="display:none">
+        <input type="checkbox" id="ideaApplyCategory" checked>
+        <span>Applica a tutte le email di questa categoria (<strong id="ideaCategoryLabel">—</strong>), non solo a questa</span>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="ideaCancel">Annulla</button>
+        <button type="submit" class="btn-primary" id="ideaSubmit">Invia richiesta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Dev requests list modal -->
+<div id="requestsBackdrop" class="modal-backdrop">
+  <div class="modal requests-modal">
+    <h2>Richieste di sviluppo</h2>
+    <div class="modal-sub">Le idee inviate da te diventano task per il team che sviluppa IRIS.</div>
+    <div class="requests-tabs" id="requestsTabs">
+      <button class="requests-tab active" data-rstatus="all">Tutte <span class="count" id="rcAll">0</span></button>
+      <button class="requests-tab" data-rstatus="pending">In attesa <span class="count" id="rcPending">0</span></button>
+      <button class="requests-tab" data-rstatus="in_progress">In corso <span class="count" id="rcProgress">0</span></button>
+      <button class="requests-tab" data-rstatus="completed">Completate <span class="count" id="rcCompleted">0</span></button>
+    </div>
+    <div class="requests-list" id="requestsList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="requestsClose">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
 
 <!-- Sender profile popover (F5) -->
 <div id="senderPopover" class="sender-popover" role="dialog" aria-labelledby="popName">
@@ -1613,6 +1814,7 @@ function renderEmailCard(e) {
         <div class="card-actions">
           <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
           <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+          <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Suggerisci come IRIS dovrebbe gestire questo tipo di email">💡 Idea</button>
         </div>
       </div>
     </article>
@@ -1669,6 +1871,7 @@ function render(emails) {
   });
   wireFollowupClicks(list);
   wireSenderClicks(list);
+  wireIdeaClicks(list);
 }
 
 // --- Thread rendering ---
@@ -1736,6 +1939,7 @@ function renderThreadCard(t, emailById) {
           <div class="thread-email-actions">
             <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
             <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+            <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Suggerisci come IRIS dovrebbe gestire questo tipo di email">💡 Idea</button>
           </div>
         </div>
       `;
@@ -1788,6 +1992,7 @@ function renderThreads(threads, emails) {
   });
   wireFollowupClicks(list);
   wireSenderClicks(list);
+  wireIdeaClicks(list);
 }
 
 // --- Correction modal ---
@@ -1905,6 +2110,196 @@ function closeReadModal() {
   $("#readBackdrop").classList.remove("open");
 }
 
+// --- Toast utility ---
+let TOAST_TIMER = null;
+function showToast(msg, type = "info") {
+  const t = $("#toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.toggle("error", type === "error");
+  t.classList.add("show");
+  if (TOAST_TIMER) clearTimeout(TOAST_TIMER);
+  TOAST_TIMER = setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+// --- Dev requests (build IRIS from IRIS) ---
+const DEV_REQUESTS_COLLECTION = "nexo_dev_requests";
+let DEV_REQUESTS_CACHE = [];
+let DEV_REQUESTS_FILTER = "all";
+let CURRENT_IDEA_EMAIL = null;
+
+function openIdeaModal(emailId) {
+  const email = emailId ? ACTIVE_EMAILS.find(e => e.id === emailId) : null;
+  CURRENT_IDEA_EMAIL = email || null;
+  const ctx = $("#ideaContext");
+  const catRow = $("#ideaCategoryRow");
+  if (email) {
+    const sender = email.senderName || email.senderEmail || email.sender;
+    const cat = CATEGORY_LABELS[email.category] || email.category;
+    ctx.classList.remove("empty");
+    ctx.innerHTML =
+      `<div><strong>Email:</strong> ${escapeHtml(email.subject || "(nessun oggetto)")}</div>` +
+      `<div><strong>Da:</strong> ${escapeHtml(sender)}</div>` +
+      `<div><strong>Categoria:</strong> ${escapeHtml(cat)}</div>`;
+    $("#ideaCategoryLabel").textContent = cat;
+    $("#ideaApplyCategory").checked = true;
+    catRow.style.display = "";
+  } else {
+    ctx.classList.add("empty");
+    ctx.textContent = "Idea generale (non legata a una email specifica).";
+    catRow.style.display = "none";
+  }
+  $("#ideaText").value = "";
+  $("#ideaBackdrop").classList.add("open");
+  setTimeout(() => $("#ideaText").focus(), 50);
+}
+function closeIdeaModal() {
+  $("#ideaBackdrop").classList.remove("open");
+  CURRENT_IDEA_EMAIL = null;
+}
+
+async function submitIdea(ev) {
+  ev.preventDefault();
+  const submitBtn = $("#ideaSubmit");
+  const text = $("#ideaText").value.trim();
+  if (!text) {
+    showToast("Scrivi qualcosa prima di inviare.", "error");
+    return;
+  }
+  if (text.length > 4000) {
+    showToast("Richiesta troppo lunga (max 4000 caratteri).", "error");
+    return;
+  }
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Invio…";
+  try {
+    const { db, fsMod } = await getFirestore();
+    const e = CURRENT_IDEA_EMAIL;
+    const payload = {
+      request: text,
+      status: "pending",
+      createdAt: fsMod.serverTimestamp(),
+    };
+    if (e) {
+      payload.emailId = e.id;
+      payload.emailCategory = e.category || "ALTRO";
+      payload.emailSender = e.senderEmail || e.sender || "";
+      payload.emailSubject = (e.subject || "").slice(0, 500);
+      payload.applyToCategory = !!$("#ideaApplyCategory").checked;
+    } else {
+      payload.applyToCategory = false;
+    }
+    const ref = await fsMod.addDoc(fsMod.collection(db, DEV_REQUESTS_COLLECTION), payload);
+    closeIdeaModal();
+    showToast("Richiesta inviata! Verrà implementata a breve.");
+    // refresh cache
+    loadDevRequestsFromFirestore().then(list => {
+      DEV_REQUESTS_CACHE = list;
+      renderRequestsList();
+    });
+    return ref;
+  } catch (err) {
+    console.error("submit idea failed", err);
+    showToast("Errore: " + (err.message || err), "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Invia richiesta";
+  }
+}
+
+async function loadDevRequestsFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, DEV_REQUESTS_COLLECTION),
+      fsMod.orderBy("createdAt", "desc"),
+      fsMod.limit(100),
+    );
+    const snap = await fsMod.getDocs(q);
+    const out = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      out.push({
+        id: doc.id,
+        request: d.request || "",
+        status: d.status || "pending",
+        emailId: d.emailId || null,
+        emailCategory: d.emailCategory || null,
+        emailSender: d.emailSender || null,
+        emailSubject: d.emailSubject || null,
+        applyToCategory: !!d.applyToCategory,
+        createdAt: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null,
+      });
+    });
+    return out;
+  } catch (err) {
+    console.warn("[IRIS] dev requests load failed:", err.message || err);
+    return [];
+  }
+}
+
+function renderRequestsList() {
+  const list = $("#requestsList");
+  const items = DEV_REQUESTS_CACHE;
+
+  // Update counters
+  const counts = { all: items.length, pending: 0, in_progress: 0, completed: 0 };
+  for (const r of items) {
+    if (counts[r.status] !== undefined) counts[r.status]++;
+  }
+  $("#rcAll").textContent = counts.all;
+  $("#rcPending").textContent = counts.pending;
+  $("#rcProgress").textContent = counts.in_progress;
+  $("#rcCompleted").textContent = counts.completed;
+
+  const filtered = DEV_REQUESTS_FILTER === "all"
+    ? items
+    : items.filter(r => r.status === DEV_REQUESTS_FILTER);
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="request-empty">Nessuna richiesta in questa vista.</div>`;
+    return;
+  }
+
+  const STATUS_LABELS = {
+    pending: "In attesa",
+    in_progress: "In corso",
+    completed: "Completata",
+    rejected: "Rifiutata",
+  };
+
+  list.innerHTML = filtered.map(r => {
+    const statusLabel = STATUS_LABELS[r.status] || r.status;
+    const date = r.createdAt
+      ? r.createdAt.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+      : "—";
+    const meta = [];
+    if (r.emailCategory) meta.push(`Categoria: <strong>${escapeHtml(CATEGORY_LABELS[r.emailCategory] || r.emailCategory)}</strong>`);
+    if (r.applyToCategory) meta.push("📌 applica a tutta la categoria");
+    if (r.emailSender) meta.push(`Mittente: ${escapeHtml(r.emailSender)}`);
+    return `
+      <div class="request-item">
+        <div class="request-head">
+          <span class="request-status ${escapeHtml(r.status)}">${escapeHtml(statusLabel)}</span>
+          <span class="request-date">${escapeHtml(date)}</span>
+        </div>
+        <div class="request-body">${escapeHtml(r.request)}</div>
+        ${meta.length ? `<div class="request-meta">${meta.join(" · ")}</div>` : ""}
+      </div>
+    `;
+  }).join("");
+}
+
+async function openRequestsModal() {
+  $("#requestsBackdrop").classList.add("open");
+  $("#requestsList").innerHTML = `<div class="request-empty">Caricamento…</div>`;
+  DEV_REQUESTS_CACHE = await loadDevRequestsFromFirestore();
+  renderRequestsList();
+}
+function closeRequestsModal() {
+  $("#requestsBackdrop").classList.remove("open");
+}
+
 // --- UI init ---
 let ACTIVE_EMAILS = MOCK_EMAILS;
 let ACTIVE_THREADS = [];
@@ -2014,6 +2409,15 @@ function openSenderPopover(email, anchorEl) {
 
 function closeSenderPopover() {
   $("#senderPopover").classList.remove("open");
+}
+
+function wireIdeaClicks(root) {
+  $$("[data-idea]", root).forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openIdeaModal(btn.dataset.idea);
+    });
+  });
 }
 
 function wireSenderClicks(root) {
@@ -2186,7 +2590,29 @@ async function initUI() {
     if (e.target === $("#readBackdrop")) closeReadModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closeReadModal(); closeCorrectionModal(); closeSenderPopover(); }
+    if (e.key === "Escape") { closeReadModal(); closeCorrectionModal(); closeSenderPopover(); closeIdeaModal(); closeRequestsModal(); }
+  });
+
+  // Idea modal wiring
+  $("#ideaGlobalBtn").addEventListener("click", () => openIdeaModal(null));
+  $("#ideaCancel").addEventListener("click", closeIdeaModal);
+  $("#ideaBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#ideaBackdrop")) closeIdeaModal();
+  });
+  $("#ideaForm").addEventListener("submit", submitIdea);
+
+  // Requests modal wiring
+  $("#requestsBtn").addEventListener("click", openRequestsModal);
+  $("#requestsClose").addEventListener("click", closeRequestsModal);
+  $("#requestsBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#requestsBackdrop")) closeRequestsModal();
+  });
+  $$(".requests-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      DEV_REQUESTS_FILTER = tab.dataset.rstatus;
+      $$(".requests-tab").forEach(t => t.classList.toggle("active", t === tab));
+      renderRequestsList();
+    });
   });
   document.addEventListener("click", (e) => {
     const pop = $("#senderPopover");
