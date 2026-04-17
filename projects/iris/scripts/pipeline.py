@@ -273,6 +273,54 @@ def extract_json(text: str) -> str | None:
     return candidate[start:end + 1]
 
 
+_ALLOWED_ENTITY_KEYS = {"cliente", "condominio", "impianto", "urgenza",
+                        "importo", "tecnico", "indirizzo"}
+
+
+def _normalize_entities(ent: dict | None) -> dict:
+    ent = ent or {}
+    return {
+        k: v.strip() for k, v in ent.items()
+        if k in _ALLOWED_ENTITY_KEYS and isinstance(v, str) and v.strip()
+    }
+
+
+def _normalize_intents(raw_intents, top_level: dict) -> list[dict]:
+    """
+    Returns a clean list of {category, summary, suggestedAction, entities}.
+    Always at least 1 element (top_level fallback).
+    """
+    out = []
+    if isinstance(raw_intents, list):
+        for it in raw_intents:
+            if not isinstance(it, dict):
+                continue
+            cat = it.get("category")
+            if cat not in VALID_CATEGORIES:
+                continue  # skip intent with invalid category
+            act = it.get("suggestedAction")
+            if act not in VALID_ACTIONS:
+                act = "ARCHIVIA"
+            summary = it.get("summary") or ""
+            if not isinstance(summary, str):
+                summary = str(summary)
+            out.append({
+                "category": cat,
+                "summary": summary[:240],
+                "suggestedAction": act,
+                "entities": _normalize_entities(it.get("entities")),
+            })
+    if not out:
+        # Fallback: derive single intent from top-level fields.
+        out.append({
+            "category": top_level.get("category", "ALTRO"),
+            "summary": (top_level.get("summary") or "")[:240],
+            "suggestedAction": top_level.get("suggestedAction", "ARCHIVIA"),
+            "entities": top_level.get("entities") or {},
+        })
+    return out
+
+
 def validate_classification(obj: dict) -> dict:
     cat = obj.get("category")
     act = obj.get("suggestedAction")
@@ -283,20 +331,14 @@ def validate_classification(obj: dict) -> dict:
         obj["suggestedAction"] = "ARCHIVIA"
     if conf not in ("high", "medium", "low"):
         obj["confidence"] = "low"
-    # Normalize entities: keep only strings in the 7 allowed keys.
-    allowed = {"cliente", "condominio", "impianto", "urgenza",
-               "importo", "tecnico", "indirizzo"}
-    ent = obj.get("entities") or {}
-    obj["entities"] = {
-        k: v.strip() for k, v in ent.items()
-        if k in allowed and isinstance(v, str) and v.strip()
-    }
+    obj["entities"] = _normalize_entities(obj.get("entities"))
     obj.setdefault("summary", "")
     obj.setdefault("reasoning", "")
     sentiment = obj.get("sentiment")
     if sentiment not in VALID_SENTIMENTS:
         obj["sentiment"] = "neutro"
     obj.setdefault("sentimentReason", "")
+    obj["intents"] = _normalize_intents(obj.get("intents"), obj)
     return obj
 
 

@@ -346,6 +346,76 @@
     border-radius: 10px;
   }
 
+  /* --- Multi-intent (F9) --- */
+  .intents-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .intents-section h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .intent-card {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface-soft);
+  }
+  .intent-card:last-child { margin-bottom: 0; }
+  .intent-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .intent-head .intent-num {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-right: 4px;
+  }
+  .intent-summary {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.45;
+    margin-bottom: 6px;
+  }
+  .intent-entities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .intent-entities .chip { font-size: 0.74rem; padding: 1px 7px; }
+  .intent-card .badge.act {
+    font-size: 0.72rem;
+    padding: 1px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 999px;
+  }
+  .multi-intent-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    margin-left: 6px;
+    line-height: 1.2;
+  }
+
   /* --- Score badge (F8) --- */
   .score-badge {
     display: inline-flex;
@@ -1108,6 +1178,7 @@
       <div id="readMeta" class="read-meta">—</div>
     </header>
     <div id="readBody" class="read-body">Caricamento…</div>
+    <div id="readIntents"></div>
     <div id="readAttachments"></div>
     <div id="readSimilar" class="similar-section" style="display:none">
       <h4>Casi simili</h4>
@@ -1232,6 +1303,7 @@ async function loadEmailsFromFirestore() {
         similarEmails: Array.isArray(d.similarEmails) ? d.similarEmails : [],
         attachments: Array.isArray(d.attachments) ? d.attachments : [],
         score: typeof d.score === "number" ? d.score : 0,
+        intents: Array.isArray(cls.intents) ? cls.intents : null,
       });
     });
     return emails;
@@ -1479,6 +1551,38 @@ function renderSentimentBadge(e) {
     `<span class="sent-emoji" aria-hidden="true">${meta.emoji}</span>` +
     `${escapeHtml(meta.label)}</span>`;
 }
+function isMultiIntent(e) {
+  return Array.isArray(e.intents) && e.intents.length > 1;
+}
+
+function renderIntentsSection(email) {
+  const intents = email.intents;
+  if (!Array.isArray(intents) || intents.length <= 1) return "";
+  const cards = intents.map((it, i) => {
+    const cat = it.category || "ALTRO";
+    const act = it.suggestedAction || "ARCHIVIA";
+    const ents = it.entities || {};
+    const entKeys = Object.keys(ents);
+    const entHtml = entKeys.length
+      ? `<div class="intent-entities">${entKeys.map(k =>
+          `<span class="chip"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(ents[k])}</span>`
+        ).join("")}</div>`
+      : "";
+    return `
+      <div class="intent-card">
+        <div class="intent-head">
+          <span class="intent-num">#${i + 1}</span>
+          <span class="badge cat-${escapeHtml(cat)}">${escapeHtml(CATEGORY_LABELS[cat] || cat)}</span>
+          <span class="badge act">→ ${escapeHtml(ACTION_LABELS[act] || act)}</span>
+        </div>
+        <div class="intent-summary">${escapeHtml(it.summary || "—")}</div>
+        ${entHtml}
+      </div>
+    `;
+  }).join("");
+  return `<div class="intents-section"><h4>Intent rilevati (${intents.length})</h4>${cards}</div>`;
+}
+
 function renderScoreBadge(score) {
   const s = typeof score === "number" ? score : 0;
   const cls = s >= 60 ? "s-high" : s >= 30 ? "s-mid" : "s-low";
@@ -1501,6 +1605,7 @@ function renderEmailCard(e) {
       <div class="card-bottom">
         <div class="badges">
           <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
+          ${isMultiIntent(e) ? `<span class="multi-intent-badge" title="Email con più richieste — apri per vedere tutti gli intent">⚡ ${e.intents.length} intent</span>` : ""}
           <span class="badge conf ${escapeHtml(e.confidence)}"><span class="pip"></span>${escapeHtml(CONFIDENCE_LABELS[e.confidence] || e.confidence)}</span>
           ${renderSentimentBadge(e)}
           ${renderFollowupBadges(e)}
@@ -1791,6 +1896,7 @@ function openReadModal(id) {
     bodyEl.classList.add("empty-body");
     bodyEl.textContent = "(corpo email non disponibile)";
   }
+  $("#readIntents").innerHTML = renderIntentsSection(email);
   $("#readAttachments").innerHTML = renderReadAttachments(email.attachments);
   renderSimilarSection(email);
   $("#readBackdrop").classList.add("open");

@@ -55,6 +55,13 @@ export interface ExtractedEntities {
   indirizzo?: string;
 }
 
+export interface EmailIntent {
+  category: ClassificationType;
+  summary: string;
+  suggestedAction: SuggestedAction;
+  entities: ExtractedEntities;
+}
+
 export interface EmailClassification {
   category: ClassificationType;
   summary: string;
@@ -64,6 +71,8 @@ export interface EmailClassification {
   reasoning: string;
   sentiment: SentimentLevel;
   sentimentReason: string;
+  /** Multi-intent recognition (F9). Almeno 1 elemento (l'intent primario). */
+  intents?: EmailIntent[];
 }
 
 export const CLASSIFICATION_TYPES: readonly ClassificationType[] =
