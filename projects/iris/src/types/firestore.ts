@@ -1,6 +1,7 @@
 import type {
   ClassificationType,
   EmailClassification,
+  SentimentLevel,
   SuggestedAction,
 } from "./classification.js";
 
@@ -50,7 +51,22 @@ export interface IrisCorrectionDoc {
   createdAt: FirestoreTimestamp;
 }
 
+export interface IrisThreadDoc {
+  id: string;
+  userId: string;
+  normalizedSubject: string;
+  emailIds: string[];
+  participants: string[];
+  messageCount: number;
+  firstMessageAt: string | null;
+  lastMessageAt: string | null;
+  sentiment_evolution: SentimentLevel[];
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
+}
+
 export const IRIS_COLLECTIONS = {
   emails: "iris_emails",
   corrections: "iris_corrections",
+  threads: "iris_threads",
 } as const;

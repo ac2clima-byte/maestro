@@ -8,4 +8,7 @@ export interface Email {
   body_text: string;
   has_attachments: boolean;
   importance: EmailImportance;
+  in_reply_to?: string | null;
+  references?: string[];
+  to_recipients?: string[];
 }

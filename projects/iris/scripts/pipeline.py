@@ -29,6 +29,10 @@ from exchangelib.protocol import BaseProtocol, NoVerifyHTTPAdapter
 import firebase_admin
 from firebase_admin import credentials as fb_credentials, firestore
 
+# Local module: ThreadDetector (Python port of src/threads/ThreadDetector.ts)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from thread_detector import ThreadDetector  # noqa: E402
+
 
 # --- TLS: self-signed EWS cert accepted for now (pinning TODO) ---
 BaseProtocol.HTTP_ADAPTER_CLS = NoVerifyHTTPAdapter
@@ -41,6 +45,7 @@ ENV_PATH = PROJECT_DIR / ".env"
 MODEL = os.environ.get("IRIS_MODEL", "claude-haiku-4-5")
 API_URL = "https://api.anthropic.com/v1/messages"
 COLLECTION = "iris_emails"
+THREADS_COLLECTION = "iris_threads"
 USER_ID = "alberto"
 
 VALID_CATEGORIES = {
@@ -92,6 +97,24 @@ def fetch_emails(n: int) -> list[dict]:
 
     out = []
     for item in items:
+        # Reference headers (read-only). exchangelib exposes these as fields.
+        in_reply_to = getattr(item, "in_reply_to", None)
+        refs_field = getattr(item, "references", None)
+        if isinstance(refs_field, str):
+            refs = [r.strip() for r in refs_field.split() if r.strip()]
+        elif isinstance(refs_field, (list, tuple)):
+            refs = [str(r).strip() for r in refs_field if r]
+        else:
+            refs = []
+        # to recipients (only addresses)
+        to_recipients = []
+        try:
+            for r in (item.to_recipients or []):
+                addr = getattr(r, "email_address", None)
+                if addr:
+                    to_recipients.append(addr)
+        except Exception:
+            pass
         out.append({
             "message_id": item.message_id or str(item.id),
             "subject": item.subject or "",
@@ -104,6 +127,9 @@ def fetch_emails(n: int) -> list[dict]:
             "body_text": clip(item.text_body or ""),
             "has_attachments": bool(item.has_attachments),
             "importance": str(item.importance) if item.importance else "Normal",
+            "in_reply_to": in_reply_to or None,
+            "references": refs,
+            "to_recipients": to_recipients,
         })
     return out
 
@@ -226,6 +252,9 @@ def write_email_doc(db, email: dict, classification: dict) -> str:
             "received_time": email["received_time"],
             "has_attachments": email["has_attachments"],
             "importance": email["importance"],
+            "in_reply_to": email.get("in_reply_to"),
+            "references": email.get("references") or [],
+            "to_recipients": email.get("to_recipients") or [],
         },
         "classification": classification,
         "status": "classified",
@@ -233,6 +262,33 @@ def write_email_doc(db, email: dict, classification: dict) -> str:
     }
     ref = db.collection(COLLECTION).document(doc_id)
     # Preserve createdAt on re-runs.
+    snap = ref.get()
+    if not snap.exists:
+        data["createdAt"] = now
+    ref.set(data, merge=True)
+    return doc_id
+
+
+def write_thread_doc(db, thread: dict) -> str:
+    """Idempotent: thread doc id is deterministic from subject+participants."""
+    doc_id = thread["id"]
+    now = firestore.SERVER_TIMESTAMP
+    # Map email message_ids → Firestore doc ids (so the PWA can join).
+    email_doc_ids = [doc_id_for(mid) for mid in thread["emailIds"]]
+    data = {
+        "id": doc_id,
+        "userId": USER_ID,
+        "normalizedSubject": thread["normalizedSubject"],
+        "emailIds": thread["emailIds"],
+        "emailDocIds": email_doc_ids,
+        "participants": thread["participants"],
+        "messageCount": thread["messageCount"],
+        "firstMessageAt": thread["firstMessageAt"],
+        "lastMessageAt": thread["lastMessageAt"],
+        "sentiment_evolution": thread["sentiment_evolution"],
+        "updatedAt": now,
+    }
+    ref = db.collection(THREADS_COLLECTION).document(doc_id)
     snap = ref.get()
     if not snap.exists:
         data["createdAt"] = now
@@ -270,7 +326,7 @@ def main() -> int:
             print(f"  #{i}  FAILED: {e}", flush=True)
     print()
 
-    print("[step 3/3] Writing to Firestore…", flush=True)
+    print("[step 3/4] Writing emails to Firestore…", flush=True)
     db = init_firestore(project_id)
     written = []
     for r in results:
@@ -279,10 +335,29 @@ def main() -> int:
         print(f"           ✓ iris_emails/{doc_id}", flush=True)
     print()
 
+    print("[step 4/4] Detecting threads + writing to Firestore…", flush=True)
+    detector_input = [
+        {"email": r["email"], "classification": r["classification"]} for r in results
+    ]
+    threads = ThreadDetector().detect(detector_input)
+    thread_ids = []
+    for t in threads:
+        tid = write_thread_doc(db, t)
+        thread_ids.append(tid)
+        # short summary line
+        evo = "→".join(t["sentiment_evolution"]) if t["sentiment_evolution"] else "—"
+        print(
+            f"           ✓ iris_threads/{tid[:60]:<60}  "
+            f"msgs={t['messageCount']:<2} sent={evo}",
+            flush=True,
+        )
+    print()
+
     total_input = sum(r["usage"].get("input_tokens", 0) for r in results)
     total_output = sum(r["usage"].get("output_tokens", 0) for r in results)
+    multi_msg_threads = sum(1 for t in threads if t["messageCount"] > 1)
     print("=" * 60)
-    print(f"Summary: {len(emails)} read, {len(results)} classified, {len(written)} written.")
+    print(f"Summary: {len(emails)} read, {len(results)} classified, {len(written)} email docs, {len(thread_ids)} threads ({multi_msg_threads} multi-msg).")
     print(f"Tokens:  input={total_input}  output={total_output}")
     print(f"Console: https://console.firebase.google.com/project/{project_id}/firestore")
     print("=" * 60)

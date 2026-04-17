@@ -324,6 +324,147 @@
     border-radius: 10px;
   }
 
+  /* --- View toggle (email / thread) --- */
+  .view-toggle {
+    display: inline-flex;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .view-toggle button {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: background 0.12s, color 0.12s;
+  }
+  .view-toggle button.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* --- Thread cards --- */
+  .thread-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.12s;
+    overflow: hidden;
+  }
+  .thread-card:hover { border-color: var(--border-strong); }
+  .thread-head {
+    padding: 16px 20px;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    align-items: baseline;
+    user-select: none;
+  }
+  .thread-head:hover { background: var(--surface-soft); }
+  .thread-subject {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+    grid-column: 1;
+  }
+  .thread-meta {
+    grid-column: 2;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .thread-info {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .thread-count {
+    background: var(--cat-richiesta-bg);
+    color: var(--cat-richiesta-fg);
+    border: 1px solid var(--cat-richiesta-bd);
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .thread-participants {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .sentiment-evolution {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+  .sentiment-evolution .arrow {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin: 0 1px;
+  }
+  .thread-toggle-icon {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    color: var(--text-dim);
+    transition: transform 0.15s;
+    margin-right: 6px;
+  }
+  .thread-card.open .thread-toggle-icon {
+    transform: rotate(90deg);
+  }
+  .thread-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    background: var(--surface-soft);
+  }
+  .thread-card.open .thread-body { display: block; }
+  .thread-emails {
+    display: flex;
+    flex-direction: column;
+  }
+  .thread-email {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .thread-email:last-child { border-bottom: none; }
+  .thread-email-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .thread-email-sender { font-weight: 600; font-size: 0.92rem; color: var(--text); }
+  .thread-email-date { color: var(--text-dim); font-size: 0.78rem; white-space: nowrap; }
+  .thread-email-summary { color: var(--text-muted); font-size: 0.88rem; }
+  .thread-email-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+  @media (max-width: 640px) {
+    .thread-head { grid-template-columns: 1fr; }
+    .thread-meta { grid-column: 1; }
+    .thread-info { gap: 8px; }
+  }
+
   /* --- Modal (correzione + lettura) --- */
   .modal-backdrop {
     position: fixed;
@@ -456,6 +597,10 @@
 
   <main>
     <div class="filter-bar">
+      <div class="view-toggle" role="tablist" aria-label="Modalità visualizzazione">
+        <button id="viewEmailsBtn" class="active" role="tab" aria-selected="true">Email</button>
+        <button id="viewThreadsBtn" role="tab" aria-selected="false">Thread</button>
+      </div>
       <select id="filterCategory" aria-label="Filtro per categoria">
         <option value="">Tutte le categorie</option>
       </select>
@@ -464,6 +609,7 @@
     </div>
 
     <section class="email-list" id="emailList"></section>
+    <section class="email-list" id="threadList" style="display:none"></section>
   </main>
 </div>
 
@@ -559,12 +705,20 @@ function isFirebaseConfigured() {
   return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "REPLACE_ME";
 }
 
+let _firestoreCache = null;
+async function getFirestore() {
+  if (_firestoreCache) return _firestoreCache;
+  const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+  const fsMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+  const app = appMod.initializeApp(FIREBASE_CONFIG);
+  const db = fsMod.getFirestore(app);
+  _firestoreCache = { db, fsMod };
+  return _firestoreCache;
+}
+
 async function loadEmailsFromFirestore() {
   try {
-    const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
-    const fsMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
-    const app = appMod.initializeApp(FIREBASE_CONFIG);
-    const db = fsMod.getFirestore(app);
+    const { db, fsMod } = await getFirestore();
     const q = fsMod.query(
       fsMod.collection(db, "iris_emails"),
       fsMod.orderBy("raw.received_time", "desc"),
@@ -598,6 +752,37 @@ async function loadEmailsFromFirestore() {
     return emails;
   } catch (err) {
     console.warn("[IRIS] Firestore load failed, using mock data:", err.message || err);
+    return null;
+  }
+}
+
+async function loadThreadsFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "iris_threads"),
+      fsMod.orderBy("lastMessageAt", "desc"),
+      fsMod.limit(100),
+    );
+    const snap = await fsMod.getDocs(q);
+    const threads = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      threads.push({
+        id: doc.id,
+        normalizedSubject: d.normalizedSubject || "",
+        emailIds: d.emailIds || [],
+        emailDocIds: d.emailDocIds || [],
+        participants: d.participants || [],
+        messageCount: d.messageCount || (d.emailIds || []).length,
+        firstMessageAt: d.firstMessageAt || null,
+        lastMessageAt: d.lastMessageAt || null,
+        sentimentEvolution: d.sentiment_evolution || [],
+      });
+    });
+    return threads;
+  } catch (err) {
+    console.warn("[IRIS] Threads load failed:", err.message || err);
     return null;
   }
 }
@@ -741,18 +926,134 @@ function applyFilters(emails) {
 
 function render(emails) {
   const filtered = applyFilters(emails);
-  $("#filterCount").textContent = `${filtered.length} email`;
   const list = $("#emailList");
   if (!filtered.length) {
+    $("#filterCount").textContent = `0 email`;
     list.innerHTML = `<div class="empty">Nessuna email corrisponde ai filtri.</div>`;
     return;
   }
+  $("#filterCount").textContent = `${filtered.length} email`;
   list.innerHTML = filtered.map(renderEmailCard).join("");
   $$("[data-read]", list).forEach(btn => {
     btn.addEventListener("click", () => openReadModal(btn.dataset.read));
   });
   $$("[data-correct]", list).forEach(btn => {
     btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
+  });
+}
+
+// --- Thread rendering ---
+function applyThreadFilters(threads, emailById) {
+  const cat = $("#filterCategory").value;
+  const q = ($("#filterSearch").value || "").trim().toLowerCase();
+  return threads.filter(t => {
+    const emailsInThread = (t.emailDocIds.length ? t.emailDocIds : t.emailIds)
+      .map(id => emailById.get(id))
+      .filter(Boolean);
+    if (cat) {
+      // keep thread if any email matches the category
+      if (!emailsInThread.some(e => e.category === cat)) return false;
+    }
+    if (q) {
+      const hay = (
+        t.normalizedSubject + " " +
+        t.participants.join(" ") + " " +
+        emailsInThread.map(e => `${e.sender} ${e.subject} ${e.summary} ${e.bodyText || ""}`).join(" ")
+      ).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderSentimentEvolution(seq) {
+  if (!seq || !seq.length) {
+    return `<span class="sentiment-evolution" title="Nessun sentiment disponibile">—</span>`;
+  }
+  const parts = seq.map((s, i) => {
+    const meta = SENTIMENT_LABELS[s] || SENTIMENT_LABELS.neutro;
+    const arrow = i > 0 ? `<span class="arrow">›</span>` : "";
+    return `${arrow}<span title="${escapeHtml(meta.label)}">${meta.emoji}</span>`;
+  });
+  return `<span class="sentiment-evolution" aria-label="Evoluzione sentiment">${parts.join("")}</span>`;
+}
+
+function renderThreadCard(t, emailById) {
+  const subject = t.normalizedSubject || "(nessun oggetto)";
+  const last = t.lastMessageAt;
+  const firstParticipants = t.participants.slice(0, 3).join(", ");
+  const moreCount = t.participants.length > 3 ? ` +${t.participants.length - 3}` : "";
+  const partsLine = `${escapeHtml(firstParticipants)}${escapeHtml(moreCount)}`;
+
+  const emailsHtml = (t.emailDocIds.length ? t.emailDocIds : t.emailIds)
+    .map(id => emailById.get(id))
+    .filter(Boolean)
+    .sort((a, b) => (a.received || "").localeCompare(b.received || ""))
+    .map(e => {
+      const meta = SENTIMENT_LABELS[e.sentiment] || SENTIMENT_LABELS.neutro;
+      return `
+        <div class="thread-email" data-thread-email-id="${escapeHtml(e.id)}">
+          <div class="thread-email-top">
+            <div class="thread-email-sender">${escapeHtml(e.senderName || e.sender)}</div>
+            <div class="thread-email-date" title="${escapeHtml(formatReceivedFull(e.received))}">${escapeHtml(formatReceivedFull(e.received))}</div>
+          </div>
+          <div class="thread-email-summary">${escapeHtml(e.summary || "—")}</div>
+          <div class="badges" style="margin-top:4px">
+            <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
+            <span class="badge sent sent-${escapeHtml(e.sentiment || "neutro")}"><span class="sent-emoji">${meta.emoji}</span>${escapeHtml(meta.label)}</span>
+          </div>
+          <div class="thread-email-actions">
+            <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
+            <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  return `
+    <article class="thread-card" data-thread-id="${escapeHtml(t.id)}">
+      <div class="thread-head" data-thread-toggle="${escapeHtml(t.id)}">
+        <div class="thread-subject"><span class="thread-toggle-icon">▶</span>${escapeHtml(subject)}</div>
+        <div class="thread-meta" title="${escapeHtml(formatReceivedFull(last))}">${escapeHtml(formatReceived(last))}</div>
+        <div class="thread-info">
+          <span class="thread-count">${t.messageCount} msg</span>
+          ${renderSentimentEvolution(t.sentimentEvolution)}
+          <span class="thread-participants" title="${escapeHtml(t.participants.join(", "))}">${partsLine}</span>
+        </div>
+      </div>
+      <div class="thread-body">
+        <div class="thread-emails">${emailsHtml}</div>
+      </div>
+    </article>
+  `;
+}
+
+function renderThreads(threads, emails) {
+  const emailById = new Map(emails.map(e => [e.id, e]));
+  const filtered = applyThreadFilters(threads, emailById);
+  const list = $("#threadList");
+  $("#filterCount").textContent = `${filtered.length} thread (${emails.length} email totali)`;
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty">Nessun thread corrisponde ai filtri.</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(t => renderThreadCard(t, emailById)).join("");
+  $$("[data-thread-toggle]", list).forEach(head => {
+    head.addEventListener("click", () => {
+      head.closest(".thread-card").classList.toggle("open");
+    });
+  });
+  $$("[data-read]", list).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openReadModal(btn.dataset.read);
+    });
+  });
+  $$("[data-correct]", list).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openCorrectionModal(btn.dataset.correct);
+    });
   });
 }
 
@@ -800,6 +1101,30 @@ function closeReadModal() {
 
 // --- UI init ---
 let ACTIVE_EMAILS = MOCK_EMAILS;
+let ACTIVE_THREADS = [];
+let CURRENT_VIEW = "emails"; // "emails" | "threads"
+
+function refreshView() {
+  if (CURRENT_VIEW === "threads") {
+    $("#emailList").style.display = "none";
+    $("#threadList").style.display = "";
+    renderThreads(ACTIVE_THREADS, ACTIVE_EMAILS);
+  } else {
+    $("#emailList").style.display = "";
+    $("#threadList").style.display = "none";
+    render(ACTIVE_EMAILS);
+  }
+}
+
+function setView(view) {
+  CURRENT_VIEW = view;
+  const isThreads = view === "threads";
+  $("#viewEmailsBtn").classList.toggle("active", !isThreads);
+  $("#viewThreadsBtn").classList.toggle("active", isThreads);
+  $("#viewEmailsBtn").setAttribute("aria-selected", String(!isThreads));
+  $("#viewThreadsBtn").setAttribute("aria-selected", String(isThreads));
+  refreshView();
+}
 
 async function initUI() {
   const catEntries = Object.entries(CATEGORY_LABELS);
@@ -809,8 +1134,10 @@ async function initUI() {
   $("#corrCategory").innerHTML = catEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
   $("#corrAction").innerHTML = actionEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
 
-  $("#filterCategory").addEventListener("change", () => render(ACTIVE_EMAILS));
-  $("#filterSearch").addEventListener("input", () => render(ACTIVE_EMAILS));
+  $("#filterCategory").addEventListener("change", refreshView);
+  $("#filterSearch").addEventListener("input", refreshView);
+  $("#viewEmailsBtn").addEventListener("click", () => setView("emails"));
+  $("#viewThreadsBtn").addEventListener("click", () => setView("threads"));
 
   $("#modalCancel").addEventListener("click", closeCorrectionModal);
   $("#modalBackdrop").addEventListener("click", (e) => {
@@ -836,15 +1163,19 @@ async function initUI() {
   });
 
   updateHeaderStats(ACTIVE_EMAILS);
-  render(ACTIVE_EMAILS);
+  refreshView();
 
   const real = await loadEmailsFromFirestore();
   if (real && real.length > 0) {
     ACTIVE_EMAILS = real;
     updateHeaderStats(ACTIVE_EMAILS);
-    render(ACTIVE_EMAILS);
     $("#userEmail").textContent = `Firestore live (${real.length})`;
   }
+  const threads = await loadThreadsFromFirestore();
+  if (threads && threads.length > 0) {
+    ACTIVE_THREADS = threads;
+  }
+  refreshView();
 }
 
 function showApp(userEmail) {
