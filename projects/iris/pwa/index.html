@@ -290,6 +290,28 @@
   .badge.conf.medium .pip { background: var(--warn); }
   .badge.conf.low .pip { background: var(--err); }
 
+  /* Attention / followup badges — F3 */
+  .badge.attn {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .badge.attn.warn {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+  }
+  .badge.followup {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border-color: #ddd6fe;
+    cursor: pointer;
+    transition: filter 0.12s;
+  }
+  .badge.followup:hover { filter: brightness(0.95); }
+
+  .header-stat.attention strong { color: #c2410c; }
+
   /* Sentiment badge — soft surface + coloured dot, same language as confidence */
   .badge.sent {
     background: var(--surface-soft);
@@ -588,6 +610,7 @@
     <div class="header-stats">
       <div class="header-stat"><strong id="statTotal">0</strong> email</div>
       <div class="header-stat urgent"><strong id="statUrgent">0</strong> urgenti</div>
+      <div class="header-stat attention"><strong id="statAttention">0</strong> senza risposta</div>
     </div>
     <div class="header-actions">
       <span id="userEmail" class="header-stat" style="font-size: 0.8rem;">—</span>
@@ -730,6 +753,7 @@ async function loadEmailsFromFirestore() {
       const d = doc.data();
       const raw = d.raw || {};
       const cls = d.classification || {};
+      const fu = d.followup || null;
       emails.push({
         id: doc.id,
         received: raw.received_time || "",
@@ -747,6 +771,13 @@ async function loadEmailsFromFirestore() {
         bodyText: raw.body_text || "",
         sentiment: cls.sentiment || "neutro",
         sentimentReason: cls.sentimentReason || "",
+        followup: fu ? {
+          isFollowup: !!fu.isFollowup,
+          originalEmailId: fu.originalEmailId || null,
+          originalDocId: fu.originalDocId || null,
+          daysWithoutReply: Number(fu.daysWithoutReply || 0),
+          needsAttention: !!fu.needsAttention,
+        } : null,
       });
     });
     return emails;
@@ -864,8 +895,10 @@ function formatReceivedFull(iso) {
 function updateHeaderStats(emails) {
   const total = emails.length;
   const urgent = emails.filter(e => URGENT_CATEGORIES.has(e.category)).length;
+  const attention = emails.filter(e => e.followup && e.followup.needsAttention).length;
   $("#statTotal").textContent = total;
   $("#statUrgent").textContent = urgent;
+  $("#statAttention").textContent = attention;
 }
 
 // --- Card rendering ---
@@ -875,6 +908,31 @@ function renderEntities(ent) {
   return `<div class="entities">${keys.map(k => `
     <span class="chip"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(ent[k])}</span>
   `).join("")}</div>`;
+}
+
+function renderFollowupBadges(e) {
+  const fu = e.followup;
+  if (!fu) return "";
+  const parts = [];
+  if (fu.needsAttention) {
+    const days = fu.daysWithoutReply;
+    const cls = days >= 7 ? "" : "warn";
+    const label = days <= 0
+      ? "In attesa di risposta"
+      : `In attesa da ${days} ${days === 1 ? "giorno" : "giorni"}`;
+    parts.push(
+      `<span class="badge attn ${cls}" title="Nessuna risposta inviata da Alberto">⏰ ${escapeHtml(label)}</span>`
+    );
+  }
+  if (fu.isFollowup) {
+    const orig = fu.originalDocId || fu.originalEmailId;
+    const attr = orig ? `data-followup-original="${escapeHtml(orig)}"` : "";
+    const title = orig ? "Apri l'email originale" : "Sollecito (originale non in elenco)";
+    parts.push(
+      `<span class="badge followup" ${attr} title="${escapeHtml(title)}">🔄 Sollecito</span>`
+    );
+  }
+  return parts.join("");
 }
 
 function renderSentimentBadge(e) {
@@ -901,6 +959,7 @@ function renderEmailCard(e) {
           <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
           <span class="badge conf ${escapeHtml(e.confidence)}"><span class="pip"></span>${escapeHtml(CONFIDENCE_LABELS[e.confidence] || e.confidence)}</span>
           ${renderSentimentBadge(e)}
+          ${renderFollowupBadges(e)}
         </div>
         <div class="card-actions">
           <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
@@ -924,6 +983,15 @@ function applyFilters(emails) {
   });
 }
 
+function wireFollowupClicks(root) {
+  $$("[data-followup-original]", root).forEach(badge => {
+    badge.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openReadModal(badge.dataset.followupOriginal);
+    });
+  });
+}
+
 function render(emails) {
   const filtered = applyFilters(emails);
   const list = $("#emailList");
@@ -940,6 +1008,7 @@ function render(emails) {
   $$("[data-correct]", list).forEach(btn => {
     btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
   });
+  wireFollowupClicks(list);
 }
 
 // --- Thread rendering ---
@@ -1001,6 +1070,7 @@ function renderThreadCard(t, emailById) {
           <div class="badges" style="margin-top:4px">
             <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
             <span class="badge sent sent-${escapeHtml(e.sentiment || "neutro")}"><span class="sent-emoji">${meta.emoji}</span>${escapeHtml(meta.label)}</span>
+            ${renderFollowupBadges(e)}
           </div>
           <div class="thread-email-actions">
             <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
@@ -1055,6 +1125,7 @@ function renderThreads(threads, emails) {
       openCorrectionModal(btn.dataset.correct);
     });
   });
+  wireFollowupClicks(list);
 }
 
 // --- Correction modal ---

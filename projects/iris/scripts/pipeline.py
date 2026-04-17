@@ -29,9 +29,10 @@ from exchangelib.protocol import BaseProtocol, NoVerifyHTTPAdapter
 import firebase_admin
 from firebase_admin import credentials as fb_credentials, firestore
 
-# Local module: ThreadDetector (Python port of src/threads/ThreadDetector.ts)
+# Local modules.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from thread_detector import ThreadDetector  # noqa: E402
+from followup_detector import FollowupDetector  # noqa: E402
 
 
 # --- TLS: self-signed EWS cert accepted for now (pinning TODO) ---
@@ -78,7 +79,7 @@ def clip(text: str | None, limit: int = 2000) -> str:
     return (text or "")[:limit]
 
 
-def fetch_emails(n: int) -> list[dict]:
+def _make_account():
     url = os.environ["EWS_URL"]
     user = os.environ["EWS_USERNAME"]
     password = os.environ["EWS_PASSWORD"]
@@ -87,12 +88,16 @@ def fetch_emails(n: int) -> list[dict]:
 
     creds = Credentials(username=principal, password=password)
     config = Configuration(service_endpoint=url, credentials=creds)
-    account = Account(
+    return Account(
         primary_smtp_address=user,
         config=config,
         autodiscover=False,
         access_type=DELEGATE,
     )
+
+
+def fetch_emails(n: int) -> list[dict]:
+    account = _make_account()
     items = list(account.inbox.all().order_by("-datetime_received")[:n])
 
     out = []
@@ -130,6 +135,34 @@ def fetch_emails(n: int) -> list[dict]:
             "in_reply_to": in_reply_to or None,
             "references": refs,
             "to_recipients": to_recipients,
+        })
+    return out
+
+
+def fetch_sent(n: int) -> list[dict]:
+    """Read-only fetch of last N items from Sent Items, used as 'reply oracle'."""
+    account = _make_account()
+    items = list(account.sent.all().order_by("-datetime_sent")[:n])
+    out = []
+    for item in items:
+        try:
+            recipients = []
+            for r in (item.to_recipients or []):
+                addr = getattr(r, "email_address", None)
+                if addr:
+                    recipients.append(addr)
+        except Exception:
+            recipients = []
+        sent_time = None
+        try:
+            if item.datetime_sent:
+                sent_time = item.datetime_sent.isoformat()
+        except Exception:
+            pass
+        out.append({
+            "to": recipients,
+            "subject": item.subject or "",
+            "sent_time": sent_time,
         })
     return out
 
@@ -238,7 +271,12 @@ def init_firestore(project_id: str):
     return firestore.client()
 
 
-def write_email_doc(db, email: dict, classification: dict) -> str:
+def write_email_doc(
+    db,
+    email: dict,
+    classification: dict,
+    followup: dict | None = None,
+) -> str:
     doc_id = doc_id_for(email["message_id"])
     now = firestore.SERVER_TIMESTAMP
     data = {
@@ -260,6 +298,20 @@ def write_email_doc(db, email: dict, classification: dict) -> str:
         "status": "classified",
         "updatedAt": now,
     }
+    if followup is not None:
+        # Map original message_id → Firestore doc id so the PWA can link.
+        original_doc_id = (
+            doc_id_for(followup["originalEmailId"])
+            if followup.get("originalEmailId")
+            else None
+        )
+        data["followup"] = {
+            "isFollowup": bool(followup.get("isFollowup")),
+            "originalEmailId": followup.get("originalEmailId"),
+            "originalDocId": original_doc_id,
+            "daysWithoutReply": int(followup.get("daysWithoutReply") or 0),
+            "needsAttention": bool(followup.get("needsAttention")),
+        }
     ref = db.collection(COLLECTION).document(doc_id)
     # Preserve createdAt on re-runs.
     snap = ref.get()
@@ -306,11 +358,11 @@ def main() -> int:
 
     print(f"[pipeline] project={project_id} model={MODEL} n={n}\n", flush=True)
 
-    print("[step 1/3] Fetching emails from EWS…", flush=True)
+    print("[step 1/5] Fetching inbox emails from EWS…", flush=True)
     emails = fetch_emails(n)
     print(f"           OK, {len(emails)} emails.\n", flush=True)
 
-    print("[step 2/3] Classifying with Haiku…", flush=True)
+    print("[step 2/5] Classifying with Haiku…", flush=True)
     results = []
     for i, em in enumerate(emails, 1):
         try:
@@ -326,16 +378,51 @@ def main() -> int:
             print(f"  #{i}  FAILED: {e}", flush=True)
     print()
 
-    print("[step 3/4] Writing emails to Firestore…", flush=True)
+    print("[step 3/5] Fetching Sent Items from EWS (reply oracle)…", flush=True)
+    # Sample size 2x inbox so we cover the same time window even if Sent has more traffic.
+    sent_n = max(50, n * 3)
+    try:
+        sent_items = fetch_sent(sent_n)
+        print(f"           OK, {len(sent_items)} sent items.\n", flush=True)
+    except Exception as e:
+        print(f"           WARN: could not fetch Sent Items ({e}). Skipping followup.\n", flush=True)
+        sent_items = []
+
+    print("[step 4/5] Computing follow-up / needs-attention…", flush=True)
+    incoming_for_fu = [
+        {
+            "id": r["email"]["message_id"],
+            "sender": r["email"]["sender"],
+            "subject": r["email"]["subject"],
+            "received_time": r["email"]["received_time"],
+            "category": r["classification"].get("category"),
+            "suggestedAction": r["classification"].get("suggestedAction"),
+        }
+        for r in results
+    ]
+    followups = FollowupDetector(attention_after_hours=48).detect(
+        incoming_for_fu, sent_items,
+    )
+    n_followup = sum(1 for v in followups.values() if v["isFollowup"])
+    n_attention = sum(1 for v in followups.values() if v["needsAttention"])
+    print(f"           {n_followup} follow-up rilevati, {n_attention} email senza risposta (>48h).\n", flush=True)
+
+    print("[step 5/5] Writing emails + threads to Firestore…", flush=True)
     db = init_firestore(project_id)
     written = []
     for r in results:
-        doc_id = write_email_doc(db, r["email"], r["classification"])
+        fu = followups.get(r["email"]["message_id"])
+        doc_id = write_email_doc(db, r["email"], r["classification"], followup=fu)
         written.append(doc_id)
-        print(f"           ✓ iris_emails/{doc_id}", flush=True)
+        marker = ""
+        if fu:
+            if fu["needsAttention"]:
+                marker += f" ⏰{fu['daysWithoutReply']}d"
+            if fu["isFollowup"]:
+                marker += " 🔄"
+        print(f"           ✓ iris_emails/{doc_id[:70]:<70}{marker}", flush=True)
     print()
 
-    print("[step 4/4] Detecting threads + writing to Firestore…", flush=True)
     detector_input = [
         {"email": r["email"], "classification": r["classification"]} for r in results
     ]
@@ -344,7 +431,6 @@ def main() -> int:
     for t in threads:
         tid = write_thread_doc(db, t)
         thread_ids.append(tid)
-        # short summary line
         evo = "→".join(t["sentiment_evolution"]) if t["sentiment_evolution"] else "—"
         print(
             f"           ✓ iris_threads/{tid[:60]:<60}  "
@@ -358,6 +444,7 @@ def main() -> int:
     multi_msg_threads = sum(1 for t in threads if t["messageCount"] > 1)
     print("=" * 60)
     print(f"Summary: {len(emails)} read, {len(results)} classified, {len(written)} email docs, {len(thread_ids)} threads ({multi_msg_threads} multi-msg).")
+    print(f"         Follow-up: {n_followup}   Senza risposta (>48h): {n_attention}")
     print(f"Tokens:  input={total_input}  output={total_output}")
     print(f"Console: https://console.firebase.google.com/project/{project_id}/firestore")
     print("=" * 60)

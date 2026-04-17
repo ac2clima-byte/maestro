@@ -28,6 +28,13 @@ export interface IrisEmailCorrection {
   correctedAt: FirestoreTimestamp;
 }
 
+export interface IrisEmailFollowup {
+  isFollowup: boolean;
+  originalEmailId?: string;
+  daysWithoutReply?: number;
+  needsAttention: boolean;
+}
+
 export interface IrisEmailDoc {
   id: string;
   userId: string;
@@ -35,6 +42,7 @@ export interface IrisEmailDoc {
   classification: EmailClassification;
   status: IrisEmailStatus;
   correction?: IrisEmailCorrection;
+  followup?: IrisEmailFollowup;
   createdAt: FirestoreTimestamp;
   updatedAt: FirestoreTimestamp;
 }
