@@ -346,6 +346,109 @@
     border-radius: 10px;
   }
 
+  /* --- Sender profile popover (F5) --- */
+  .sender-clickable {
+    cursor: pointer;
+    border-bottom: 1px dotted var(--text-dim);
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .sender-clickable:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .frequent-star {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fef3c7;
+    color: #b45309;
+    font-size: 0.7rem;
+    margin-left: 6px;
+    cursor: help;
+    border: 1px solid #fde68a;
+    line-height: 1;
+  }
+  .sender-popover {
+    position: fixed;
+    z-index: 200;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    padding: 14px 16px;
+    min-width: 280px;
+    max-width: 360px;
+    font-size: 0.88rem;
+    color: var(--text);
+    display: none;
+  }
+  .sender-popover.open { display: block; }
+  .sender-popover h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    word-break: break-word;
+  }
+  .sender-popover .pop-email {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+  .sender-popover .pop-line {
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .sender-popover .pop-line strong { font-weight: 600; }
+  .sender-popover .pop-cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .sender-popover .pop-cats .badge {
+    font-size: 0.72rem;
+    padding: 1px 7px;
+  }
+  .sender-popover .pop-condos {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .sender-popover .pop-frequent {
+    display: inline-block;
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .sender-popover .pop-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+  }
+  .sender-popover .pop-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+  }
+  .sender-popover .pop-close:hover { color: var(--text); }
+
   /* --- Digest card (F4) --- */
   .digest {
     background: linear-gradient(180deg, #f0f7ff 0%, #f8fbff 100%);
@@ -787,6 +890,14 @@
   </div>
 </div>
 
+<!-- Sender profile popover (F5) -->
+<div id="senderPopover" class="sender-popover" role="dialog" aria-labelledby="popName">
+  <button class="pop-close" id="popClose" aria-label="Chiudi">×</button>
+  <h3 id="popName">—</h3>
+  <div id="popEmail" class="pop-email">—</div>
+  <div id="popBody"></div>
+</div>
+
 <!-- Read email modal -->
 <div id="readBackdrop" class="modal-backdrop">
   <div class="read-modal" role="dialog" aria-labelledby="readSubject">
@@ -909,6 +1020,23 @@ async function loadEmailsFromFirestore() {
   } catch (err) {
     console.warn("[IRIS] Firestore load failed, using mock data:", err.message || err);
     return null;
+  }
+}
+
+async function loadSenderProfilesFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const snap = await fsMod.getDocs(fsMod.collection(db, "iris_sender_profiles"));
+    const map = new Map();
+    snap.forEach((doc) => {
+      const d = doc.data();
+      const email = (d.email || "").toLowerCase();
+      if (email) map.set(email, d);
+    });
+    return map;
+  } catch (err) {
+    console.warn("[IRIS] sender profiles load failed:", err.message || err);
+    return new Map();
   }
 }
 
@@ -1069,11 +1197,11 @@ function renderSentimentBadge(e) {
     `${escapeHtml(meta.label)}</span>`;
 }
 function renderEmailCard(e) {
-  const senderDisplay = e.senderName || e.sender;
+  const senderHtml = renderSenderInline(e.senderEmail || e.sender, e.senderName);
   return `
     <article class="email-card" data-id="${escapeHtml(e.id)}">
       <div class="card-top">
-        <div class="sender">${escapeHtml(senderDisplay)}</div>
+        <div class="sender">${senderHtml}</div>
         <div class="received" title="${escapeHtml(formatReceivedFull(e.received))}">${escapeHtml(formatReceived(e.received))}</div>
       </div>
       <div class="subject">${escapeHtml(e.subject)}</div>
@@ -1134,6 +1262,7 @@ function render(emails) {
     btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
   });
   wireFollowupClicks(list);
+  wireSenderClicks(list);
 }
 
 // --- Thread rendering ---
@@ -1185,10 +1314,11 @@ function renderThreadCard(t, emailById) {
     .sort((a, b) => (a.received || "").localeCompare(b.received || ""))
     .map(e => {
       const meta = SENTIMENT_LABELS[e.sentiment] || SENTIMENT_LABELS.neutro;
+      const senderHtml = renderSenderInline(e.senderEmail || e.sender, e.senderName);
       return `
         <div class="thread-email" data-thread-email-id="${escapeHtml(e.id)}">
           <div class="thread-email-top">
-            <div class="thread-email-sender">${escapeHtml(e.senderName || e.sender)}</div>
+            <div class="thread-email-sender">${senderHtml}</div>
             <div class="thread-email-date" title="${escapeHtml(formatReceivedFull(e.received))}">${escapeHtml(formatReceivedFull(e.received))}</div>
           </div>
           <div class="thread-email-summary">${escapeHtml(e.summary || "—")}</div>
@@ -1251,6 +1381,7 @@ function renderThreads(threads, emails) {
     });
   });
   wireFollowupClicks(list);
+  wireSenderClicks(list);
 }
 
 // --- Correction modal ---
@@ -1298,7 +1429,130 @@ function closeReadModal() {
 // --- UI init ---
 let ACTIVE_EMAILS = MOCK_EMAILS;
 let ACTIVE_THREADS = [];
+let SENDER_PROFILES = new Map(); // email → profile
 let CURRENT_VIEW = "emails"; // "emails" | "threads"
+
+// --- Sender profile popover (F5) ---
+function getSenderProfile(email) {
+  if (!email) return null;
+  return SENDER_PROFILES.get(String(email).toLowerCase()) || null;
+}
+
+function isFrequentSender(email) {
+  const p = getSenderProfile(email);
+  return !!(p && p.isFrequent);
+}
+
+function renderSenderInline(email, displayName) {
+  const safeEmail = String(email || "").toLowerCase();
+  const p = getSenderProfile(safeEmail);
+  const name = displayName || (p && p.displayName) || safeEmail || "(sconosciuto)";
+  const star = (p && p.isFrequent)
+    ? `<span class="frequent-star" title="Mittente frequente (${p.totalEmails} email)" aria-label="Mittente frequente">⭐</span>`
+    : "";
+  const dataAttr = p ? `data-sender-email="${escapeHtml(safeEmail)}"` : "";
+  const cls = p ? "sender-clickable" : "";
+  return `<span class="${cls}" ${dataAttr}>${escapeHtml(name)}</span>${star}`;
+}
+
+function formatLastContact(days) {
+  if (days === null || days === undefined) return "—";
+  if (days <= 0) return "oggi";
+  if (days === 1) return "ieri";
+  if (days < 30) return `${days} giorni fa`;
+  if (days < 365) return `${Math.round(days / 30)} mesi fa`;
+  return `${Math.round(days / 365)} anni fa`;
+}
+
+function formatFrequency(p) {
+  // "X email in Y giorni/mesi" + media settimanale
+  const total = p.totalEmails || 0;
+  const days = p.daysActive || 1;
+  let span;
+  if (days < 30) span = `${days} ${days === 1 ? "giorno" : "giorni"}`;
+  else if (days < 365) span = `${Math.round(days / 30)} mesi`;
+  else span = `${Math.round(days / 365)} anni`;
+  const avg = p.avgPerWeek || 0;
+  const avgStr = avg >= 1 ? `~${avg.toFixed(1)}/sett.` : `~${(avg * 4).toFixed(1)}/mese`;
+  return `${total} email in ${span} (${avgStr})`;
+}
+
+function openSenderPopover(email, anchorEl) {
+  const profile = getSenderProfile(email);
+  const pop = $("#senderPopover");
+  if (!profile) {
+    pop.classList.remove("open");
+    return;
+  }
+
+  $("#popName").innerHTML = escapeHtml(profile.displayName || profile.email) +
+    (profile.isFrequent ? `<span class="pop-frequent">⭐ Frequente</span>` : "");
+  $("#popEmail").textContent = profile.email;
+
+  const body = $("#popBody");
+  const lines = [];
+  lines.push(`<div class="pop-line"><strong>Frequenza:</strong> ${escapeHtml(formatFrequency(profile))}</div>`);
+  lines.push(`<div class="pop-line"><strong>Ultimo contatto:</strong> ${escapeHtml(formatLastContact(profile.lastContactDaysAgo))}</div>`);
+
+  const sentMeta = SENTIMENT_LABELS[profile.avgSentiment] || SENTIMENT_LABELS.neutro;
+  lines.push(`<div class="pop-line"><strong>Sentiment medio:</strong> ${sentMeta.emoji} ${escapeHtml(sentMeta.label.toLowerCase())}</div>`);
+
+  const cats = profile.topCategoriesPct || {};
+  const catEntries = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  if (catEntries.length) {
+    const chips = catEntries.map(([k, pct]) =>
+      `<span class="badge cat-${escapeHtml(k)}">${escapeHtml(CATEGORY_LABELS[k] || k)} ${pct}%</span>`
+    ).join("");
+    lines.push(`<div class="pop-line"><strong>Categorie:</strong></div><div class="pop-cats">${chips}</div>`);
+  }
+
+  const condos = profile.condominiosMentioned || [];
+  if (condos.length) {
+    const list = condos.slice(0, 4).map(c => escapeHtml(c)).join(" · ");
+    const more = condos.length > 4 ? ` +${condos.length - 4}` : "";
+    lines.push(`<div class="pop-condos"><strong>Condomini citati:</strong> ${list}${escapeHtml(more)}</div>`);
+  }
+
+  body.innerHTML = lines.join("");
+
+  // position next to anchor (clamp inside viewport)
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.visibility = "hidden";
+  pop.classList.add("open");
+  const pw = pop.offsetWidth;
+  const ph = pop.offsetHeight;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  if (left < 12) left = 12;
+  if (top + ph > window.innerHeight - 12) top = rect.top - ph - 6;
+  if (top < 12) top = 12;
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.visibility = "";
+}
+
+function closeSenderPopover() {
+  $("#senderPopover").classList.remove("open");
+}
+
+function wireSenderClicks(root) {
+  $$("[data-sender-email]", root).forEach(el => {
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const email = el.dataset.senderEmail;
+      const pop = $("#senderPopover");
+      const isOpenForSame = pop.classList.contains("open") && pop.dataset.currentEmail === email;
+      if (isOpenForSame) {
+        closeSenderPopover();
+        pop.dataset.currentEmail = "";
+      } else {
+        openSenderPopover(email, el);
+        pop.dataset.currentEmail = email;
+      }
+    });
+  });
+}
 
 // --- Digest (F4) ---
 function isToday(iso) {
@@ -1440,8 +1694,17 @@ async function initUI() {
     if (e.target === $("#readBackdrop")) closeReadModal();
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closeReadModal(); closeCorrectionModal(); }
+    if (e.key === "Escape") { closeReadModal(); closeCorrectionModal(); closeSenderPopover(); }
   });
+  document.addEventListener("click", (e) => {
+    const pop = $("#senderPopover");
+    if (!pop.classList.contains("open")) return;
+    if (pop.contains(e.target) || e.target.closest("[data-sender-email]")) return;
+    closeSenderPopover();
+  });
+  $("#popClose").addEventListener("click", closeSenderPopover);
+  window.addEventListener("scroll", closeSenderPopover, { passive: true });
+  window.addEventListener("resize", closeSenderPopover);
 
   $("#correctionForm").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -1463,10 +1726,12 @@ async function initUI() {
     updateHeaderStats(ACTIVE_EMAILS);
     $("#userEmail").textContent = `Firestore live (${real.length})`;
   }
-  const threads = await loadThreadsFromFirestore();
-  if (threads && threads.length > 0) {
-    ACTIVE_THREADS = threads;
-  }
+  const [threads, profiles] = await Promise.all([
+    loadThreadsFromFirestore(),
+    loadSenderProfilesFromFirestore(),
+  ]);
+  if (threads && threads.length > 0) ACTIVE_THREADS = threads;
+  if (profiles && profiles.size > 0) SENDER_PROFILES = profiles;
   refreshView();
 }
 

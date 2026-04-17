@@ -24,6 +24,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // iris_sender_profiles: stessa policy (read pubblico per la PWA,
+    // write riservato al backend via Admin SDK).
+    match /iris_sender_profiles/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny per ogni altra collection.
     match /{document=**} {
       allow read, write: if false;
