@@ -46,6 +46,12 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // iris_rate_suggest_reply: counter rate-limit della Cloud Function
+    // suggestReply. Solo backend (Admin SDK) può accedere.
+    match /iris_rate_suggest_reply/{docId} {
+      allow read, write: if false;
+    }
+
     // Default deny per ogni altra collection.
     match /{document=**} {
       allow read, write: if false;
