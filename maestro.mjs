@@ -8,8 +8,8 @@ const REPO_DIR = process.cwd();
 const TASKS_DIR = join(REPO_DIR, 'tasks');
 const RESULTS_DIR = join(REPO_DIR, 'results');
 const TMUX_SESSION = 'claude-code';
-const PROMPT_TIMEOUT = 300_000;
-const RESULT_TIMEOUT = 300_000;
+const PROMPT_TIMEOUT = 600_000;
+const RESULT_TIMEOUT = 600_000;
 
 // === ENSURE DIRS ===
 [TASKS_DIR, RESULTS_DIR].forEach(d => { if (!existsSync(d)) mkdirSync(d, { recursive: true }); });
@@ -146,8 +146,7 @@ async function processTask(taskId) {
 
   const ready = await waitForPrompt();
   if (!ready) {
-    writeFileSync(join(RESULTS_DIR, `${taskId}.md`), `# Timeout: prompt non disponibile\n`, 'utf-8');
-    pushFile(`timeout: ${taskId}`);
+    console.log(`[SKIP] Claude Code non è al prompt, riprovo al prossimo ciclo`);
     return;
   }
 
