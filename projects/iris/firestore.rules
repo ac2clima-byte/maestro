@@ -31,6 +31,21 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // iris_watchlist: in v0.1 (no auth) la PWA scrive direttamente. Validiamo
+    // i campi minimi e limitiamo dimensione per evitare abuso.
+    // TODO (v0.2): require request.auth != null e legare a userId.
+    match /iris_watchlist/{docId} {
+      allow read: if true;
+      allow create, update: if
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 320 &&
+        (request.resource.data.motivo == null || request.resource.data.motivo is string) &&
+        (request.resource.data.nota == null || request.resource.data.nota is string) &&
+        (!('motivo' in request.resource.data) || request.resource.data.motivo.size() <= 80) &&
+        (!('nota' in request.resource.data) || request.resource.data.nota.size() <= 1000);
+      allow delete: if true;
+    }
+
     // Default deny per ogni altra collection.
     match /{document=**} {
       allow read, write: if false;
