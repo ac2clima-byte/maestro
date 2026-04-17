@@ -346,6 +346,119 @@
     border-radius: 10px;
   }
 
+  /* --- Digest card (F4) --- */
+  .digest {
+    background: linear-gradient(180deg, #f0f7ff 0%, #f8fbff 100%);
+    border: 1px solid var(--cat-richiesta-bd);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+  }
+  .digest-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .digest-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+  }
+  .digest-title .digest-icon { font-size: 1.15rem; line-height: 1; }
+  .digest-updated {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .digest-summary {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .digest-summary .num {
+    font-weight: 600;
+  }
+  .digest-summary .num.urgent { color: var(--err); }
+  .digest-summary .num.attn { color: #c2410c; }
+  .digest-top {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid var(--cat-richiesta-bd);
+    padding-top: 10px;
+  }
+  .digest-top-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
+  }
+  .digest-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    text-align: left;
+    background: transparent;
+    border: none;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+  }
+  .digest-item:hover { background: rgba(37, 99, 235, 0.08); }
+  .digest-item-rank {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    min-width: 18px;
+  }
+  .digest-item-text {
+    overflow: hidden;
+    min-width: 0;
+  }
+  .digest-item-sender {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .digest-item-summary {
+    font-size: 0.9rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .digest-item-badge {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .digest-empty {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-style: italic;
+    padding: 4px 8px;
+  }
+
   /* --- View toggle (email / thread) --- */
   .view-toggle {
     display: inline-flex;
@@ -619,6 +732,18 @@
   </header>
 
   <main>
+    <section class="digest" id="digestCard" aria-label="Digest del giorno">
+      <div class="digest-head">
+        <div class="digest-title"><span class="digest-icon" aria-hidden="true">📋</span>Digest</div>
+        <div class="digest-updated" id="digestUpdated">—</div>
+      </div>
+      <div class="digest-summary" id="digestSummary">Caricamento…</div>
+      <div class="digest-top">
+        <div class="digest-top-label">Top priorità</div>
+        <div id="digestTop"></div>
+      </div>
+    </section>
+
     <div class="filter-bar">
       <div class="view-toggle" role="tablist" aria-label="Modalità visualizzazione">
         <button id="viewEmailsBtn" class="active" role="tab" aria-selected="true">Email</button>
@@ -1175,7 +1300,103 @@ let ACTIVE_EMAILS = MOCK_EMAILS;
 let ACTIVE_THREADS = [];
 let CURRENT_VIEW = "emails"; // "emails" | "threads"
 
+// --- Digest (F4) ---
+function isToday(iso) {
+  if (!iso) return false;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear()
+      && d.getMonth() === now.getMonth()
+      && d.getDate() === now.getDate();
+  } catch { return false; }
+}
+
+function priorityScore(e) {
+  // Higher = more important. Used to pick top 3.
+  let s = 0;
+  if (URGENT_CATEGORIES.has(e.category)) s += 100;
+  if (e.sentiment === "disperato") s += 60;
+  else if (e.sentiment === "arrabbiato") s += 40;
+  else if (e.sentiment === "frustrato") s += 15;
+  if (e.followup) {
+    if (e.followup.needsAttention) s += 25 + Math.min(20, (e.followup.daysWithoutReply || 0) * 2);
+    if (e.followup.isFollowup) s += 10;
+  }
+  if (e.action === "URGENTE_CHIAMA") s += 30;
+  else if (e.action === "APRI_INTERVENTO") s += 15;
+  else if (e.action === "RISPONDI") s += 8;
+  // Recency tiebreaker.
+  const t = e.received ? new Date(e.received).getTime() : 0;
+  return s + Math.min(5, (t / 1e12));
+}
+
+function renderDigest(emails) {
+  const total = emails.length;
+  const today = emails.filter(e => isToday(e.received)).length;
+  const urgent = emails.filter(e => URGENT_CATEGORIES.has(e.category)).length;
+  const attention = emails.filter(e => e.followup && e.followup.needsAttention).length;
+
+  const sumEl = $("#digestSummary");
+  if (!total) {
+    sumEl.innerHTML = "Nessuna email caricata.";
+  } else {
+    const todayLabel = today === 1 ? "email ricevuta oggi" : "email ricevute oggi";
+    const urgentLabel = urgent === 1 ? "urgente" : "urgenti";
+    const attnLabel = attention === 1 ? "senza risposta da più di 48h" : "senza risposta da più di 48h";
+    sumEl.innerHTML =
+      `Oggi <span class="num">${today}</span> ${todayLabel}. ` +
+      `<span class="num urgent">${urgent}</span> ${urgentLabel}. ` +
+      `<span class="num attn">${attention}</span> ${attnLabel}.`;
+  }
+
+  const top = [...emails]
+    .map(e => ({ e, score: priorityScore(e) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(x => x.e);
+
+  const topEl = $("#digestTop");
+  if (!top.length) {
+    topEl.innerHTML = `<div class="digest-empty">Nessuna email da segnalare.</div>`;
+  } else {
+    topEl.innerHTML = top.map((e, i) => {
+      const sender = e.senderName || e.senderEmail || e.sender || "(sconosciuto)";
+      const summary = e.summary || e.subject || "—";
+      let badgeHtml = "";
+      if (URGENT_CATEGORIES.has(e.category)) {
+        badgeHtml = `<span class="digest-item-badge badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>`;
+      } else if (e.followup && e.followup.needsAttention) {
+        const days = e.followup.daysWithoutReply;
+        badgeHtml = `<span class="digest-item-badge badge attn">⏰ ${days}g</span>`;
+      } else if (e.followup && e.followup.isFollowup) {
+        badgeHtml = `<span class="digest-item-badge badge followup">🔄 Sollecito</span>`;
+      } else {
+        badgeHtml = `<span class="digest-item-badge badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>`;
+      }
+      return `
+        <button class="digest-item" type="button" data-digest-open="${escapeHtml(e.id)}">
+          <span class="digest-item-rank">#${i + 1}</span>
+          <span class="digest-item-text">
+            <div class="digest-item-sender">${escapeHtml(sender)}</div>
+            <div class="digest-item-summary">${escapeHtml(summary)}</div>
+          </span>
+          ${badgeHtml}
+        </button>
+      `;
+    }).join("");
+    $$("[data-digest-open]", topEl).forEach(btn => {
+      btn.addEventListener("click", () => openReadModal(btn.dataset.digestOpen));
+    });
+  }
+
+  $("#digestUpdated").textContent =
+    "Aggiornato " + new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
 function refreshView() {
+  renderDigest(ACTIVE_EMAILS);
   if (CURRENT_VIEW === "threads") {
     $("#emailList").style.display = "none";
     $("#threadList").style.display = "";
