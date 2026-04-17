@@ -1252,8 +1252,8 @@
       <div class="header-stat attention"><strong id="statAttention">0</strong> senza risposta</div>
     </div>
     <div class="header-actions">
-      <button id="requestsBtn" class="btn-ghost" title="Mostra le richieste di sviluppo inviate">📋 Richieste</button>
-      <button id="ideaGlobalBtn" class="btn-idea btn-idea-global" title="Suggerisci una nuova feature per IRIS">💡 Idea generale</button>
+      <button id="requestsBtn" class="btn-ghost" title="Mostra le Dev Requests inviate">📋 Dev Requests</button>
+      <button id="ideaGlobalBtn" class="btn-idea btn-idea-global" title="Apri una nuova richiesta di sviluppo IRIS">🛠️ Nuova richiesta dev</button>
       <span id="userEmail" class="header-stat" style="font-size: 0.8rem;">—</span>
       <button id="logoutBtn" class="btn-ghost">Logout</button>
     </div>
@@ -1319,20 +1319,16 @@
   </div>
 </div>
 
-<!-- Idea modal (dev requests) -->
+<!-- Dev request modal -->
 <div id="ideaBackdrop" class="modal-backdrop">
   <div class="modal idea-modal">
-    <h2 id="ideaTitle">Cosa vorresti che IRIS facesse?</h2>
-    <div id="ideaContext" class="idea-context empty">Idea generale (non legata a una email specifica).</div>
+    <h2 id="ideaTitle">Richiesta sviluppo</h2>
+    <div id="ideaContext" class="idea-context empty">Richiesta generale (non legata a una email specifica).</div>
     <form id="ideaForm">
       <div class="field">
-        <label for="ideaText">La tua richiesta in linguaggio naturale</label>
-        <textarea id="ideaText" rows="6" placeholder="Es: 'Quando ricevo una fattura da Cambielli, suggeriscimi automaticamente quale ordine corrisponde'…" required></textarea>
+        <label for="ideaText">Descrivi cosa vorresti implementare</label>
+        <textarea id="ideaText" rows="6" placeholder="Es: Aggiungi un bottone che inoltra automaticamente a Malvicino quando la categoria è GUASTO_URGENTE" required></textarea>
       </div>
-      <label class="idea-checkbox-row" id="ideaCategoryRow" style="display:none">
-        <input type="checkbox" id="ideaApplyCategory" checked>
-        <span>Applica a tutte le email di questa categoria (<strong id="ideaCategoryLabel">—</strong>), non solo a questa</span>
-      </label>
       <div class="modal-actions">
         <button type="button" class="btn-ghost" id="ideaCancel">Annulla</button>
         <button type="submit" class="btn-primary" id="ideaSubmit">Invia richiesta</button>
@@ -1814,7 +1810,7 @@ function renderEmailCard(e) {
         <div class="card-actions">
           <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
           <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
-          <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Suggerisci come IRIS dovrebbe gestire questo tipo di email">💡 Idea</button>
+          <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Apri una richiesta di sviluppo per questo tipo di email">🛠️ Dev</button>
         </div>
       </div>
     </article>
@@ -1939,7 +1935,7 @@ function renderThreadCard(t, emailById) {
           <div class="thread-email-actions">
             <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
             <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
-            <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Suggerisci come IRIS dovrebbe gestire questo tipo di email">💡 Idea</button>
+            <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Apri una richiesta di sviluppo per questo tipo di email">🛠️ Dev</button>
           </div>
         </div>
       `;
@@ -2132,22 +2128,20 @@ function openIdeaModal(emailId) {
   const email = emailId ? ACTIVE_EMAILS.find(e => e.id === emailId) : null;
   CURRENT_IDEA_EMAIL = email || null;
   const ctx = $("#ideaContext");
-  const catRow = $("#ideaCategoryRow");
+  const title = $("#ideaTitle");
   if (email) {
     const sender = email.senderName || email.senderEmail || email.sender;
     const cat = CATEGORY_LABELS[email.category] || email.category;
+    title.textContent = "Richiesta sviluppo per questa email";
     ctx.classList.remove("empty");
     ctx.innerHTML =
-      `<div><strong>Email:</strong> ${escapeHtml(email.subject || "(nessun oggetto)")}</div>` +
+      `<div><strong>Oggetto:</strong> ${escapeHtml(email.subject || "(nessun oggetto)")}</div>` +
       `<div><strong>Da:</strong> ${escapeHtml(sender)}</div>` +
       `<div><strong>Categoria:</strong> ${escapeHtml(cat)}</div>`;
-    $("#ideaCategoryLabel").textContent = cat;
-    $("#ideaApplyCategory").checked = true;
-    catRow.style.display = "";
   } else {
+    title.textContent = "Nuova richiesta di sviluppo";
     ctx.classList.add("empty");
-    ctx.textContent = "Idea generale (non legata a una email specifica).";
-    catRow.style.display = "none";
+    ctx.textContent = "Richiesta generale (non legata a una email specifica).";
   }
   $("#ideaText").value = "";
   $("#ideaBackdrop").classList.add("open");
@@ -2176,22 +2170,23 @@ async function submitIdea(ev) {
     const { db, fsMod } = await getFirestore();
     const e = CURRENT_IDEA_EMAIL;
     const payload = {
-      request: text,
+      description: text,
       status: "pending",
       createdAt: fsMod.serverTimestamp(),
     };
     if (e) {
-      payload.emailId = e.id;
-      payload.emailCategory = e.category || "ALTRO";
-      payload.emailSender = e.senderEmail || e.sender || "";
-      payload.emailSubject = (e.subject || "").slice(0, 500);
-      payload.applyToCategory = !!$("#ideaApplyCategory").checked;
+      payload.emailRef = {
+        id: e.id,
+        sender: e.senderEmail || e.sender || "",
+        subject: (e.subject || "").slice(0, 500),
+        category: e.category || "ALTRO",
+      };
     } else {
-      payload.applyToCategory = false;
+      payload.emailRef = null;
     }
     const ref = await fsMod.addDoc(fsMod.collection(db, DEV_REQUESTS_COLLECTION), payload);
     closeIdeaModal();
-    showToast("Richiesta inviata! Verrà implementata a breve.");
+    showToast("✅ Richiesta inviata");
     // refresh cache
     loadDevRequestsFromFirestore().then(list => {
       DEV_REQUESTS_CACHE = list;
@@ -2219,15 +2214,24 @@ async function loadDevRequestsFromFirestore() {
     const out = [];
     snap.forEach((doc) => {
       const d = doc.data();
+      // Accept both new shape (description + emailRef) and legacy shape
+      // (request + flat emailId/emailSender/... from the previous sibling
+      // commit 628918e) for backward compat.
+      const description = d.description || d.request || "";
+      let emailRef = d.emailRef || null;
+      if (!emailRef && (d.emailId || d.emailSender || d.emailSubject || d.emailCategory)) {
+        emailRef = {
+          id: d.emailId || "",
+          sender: d.emailSender || "",
+          subject: d.emailSubject || "",
+          category: d.emailCategory || "",
+        };
+      }
       out.push({
         id: doc.id,
-        request: d.request || "",
+        description,
         status: d.status || "pending",
-        emailId: d.emailId || null,
-        emailCategory: d.emailCategory || null,
-        emailSender: d.emailSender || null,
-        emailSubject: d.emailSubject || null,
-        applyToCategory: !!d.applyToCategory,
+        emailRef,
         createdAt: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null,
       });
     });
@@ -2274,16 +2278,20 @@ function renderRequestsList() {
       ? r.createdAt.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
       : "—";
     const meta = [];
-    if (r.emailCategory) meta.push(`Categoria: <strong>${escapeHtml(CATEGORY_LABELS[r.emailCategory] || r.emailCategory)}</strong>`);
-    if (r.applyToCategory) meta.push("📌 applica a tutta la categoria");
-    if (r.emailSender) meta.push(`Mittente: ${escapeHtml(r.emailSender)}`);
+    if (r.emailRef) {
+      if (r.emailRef.subject) meta.push(`📧 ${escapeHtml(r.emailRef.subject)}`);
+      if (r.emailRef.category) meta.push(`Categoria: <strong>${escapeHtml(CATEGORY_LABELS[r.emailRef.category] || r.emailRef.category)}</strong>`);
+      if (r.emailRef.sender) meta.push(`Da: ${escapeHtml(r.emailRef.sender)}`);
+    } else {
+      meta.push("🛠️ Richiesta generale");
+    }
     return `
       <div class="request-item">
         <div class="request-head">
           <span class="request-status ${escapeHtml(r.status)}">${escapeHtml(statusLabel)}</span>
           <span class="request-date">${escapeHtml(date)}</span>
         </div>
-        <div class="request-body">${escapeHtml(r.request)}</div>
+        <div class="request-body">${escapeHtml(r.description)}</div>
         ${meta.length ? `<div class="request-meta">${meta.join(" · ")}</div>` : ""}
       </div>
     `;

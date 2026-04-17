@@ -60,12 +60,14 @@ def task_filename(request_id: str, created_at: datetime | None, request_text: st
 
 
 def render_task_md(request_id: str, data: dict, created_at: datetime | None) -> str:
-    text = (data.get("request") or "").strip()
-    email_id = data.get("emailId")
-    email_subj = data.get("emailSubject")
-    email_sender = data.get("emailSender")
-    email_cat = data.get("emailCategory")
-    apply_to_cat = bool(data.get("applyToCategory"))
+    # Accept both the current shape (description + emailRef: {...}) and the
+    # legacy flat shape (request + emailId/emailSender/emailSubject/emailCategory).
+    text = (data.get("description") or data.get("request") or "").strip()
+    ref = data.get("emailRef") or {}
+    email_id = ref.get("id") or data.get("emailId")
+    email_subj = ref.get("subject") or data.get("emailSubject")
+    email_sender = ref.get("sender") or data.get("emailSender")
+    email_cat = ref.get("category") or data.get("emailCategory")
     ts = (created_at or datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M UTC")
 
     lines = []
@@ -84,7 +86,6 @@ def render_task_md(request_id: str, data: dict, created_at: datetime | None) -> 
         if email_sender: lines.append(f"- **Mittente:** {email_sender}")
         if email_cat: lines.append(f"- **Categoria IRIS:** `{email_cat}`")
         if email_id: lines.append(f"- **Email doc id:** `{email_id}`")
-        lines.append(f"- **Applica a tutta la categoria:** {'sì' if apply_to_cat else 'no (solo questa email)'}")
         lines.append("")
 
     lines.append("## Note per chi implementa")

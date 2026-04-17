@@ -52,23 +52,29 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // nexo_dev_requests: dev requests scritte dalla PWA (in-app feedback).
-    // v0.1 no-auth: client può create + read; update/delete solo Admin SDK
-    // (per evitare che chiunque cancelli o cambi status di richieste altrui).
-    // Validazione campi minimi e dimensioni per evitare abuso.
+    // nexo_dev_requests: dev requests scritte dalla PWA (in-app feedback
+    // / "build IRIS from IRIS"). Shape standard:
+    //   { description: string, status: "pending",
+    //     emailRef: { id, sender, subject, category }? | null,
+    //     createdAt: timestamp }
+    // v0.1 no-auth: client può create + read; update/delete solo Admin SDK.
     // TODO (v0.2): require request.auth != null.
     match /nexo_dev_requests/{docId} {
       allow read: if true;
       allow create: if
-        request.resource.data.request is string &&
-        request.resource.data.request.size() > 0 &&
-        request.resource.data.request.size() <= 4000 &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() > 0 &&
+        request.resource.data.description.size() <= 4000 &&
         request.resource.data.status == "pending" &&
-        (!('emailSubject' in request.resource.data) || request.resource.data.emailSubject.size() <= 500) &&
-        (!('emailSender' in request.resource.data) || request.resource.data.emailSender.size() <= 320) &&
-        (!('emailCategory' in request.resource.data) || request.resource.data.emailCategory.size() <= 60) &&
-        (!('emailId' in request.resource.data) || request.resource.data.emailId.size() <= 200) &&
-        (!('applyToCategory' in request.resource.data) || request.resource.data.applyToCategory is bool);
+        (!('emailRef' in request.resource.data) ||
+           request.resource.data.emailRef == null ||
+           (
+             request.resource.data.emailRef is map &&
+             (!('id' in request.resource.data.emailRef) || request.resource.data.emailRef.id.size() <= 200) &&
+             (!('sender' in request.resource.data.emailRef) || request.resource.data.emailRef.sender.size() <= 320) &&
+             (!('subject' in request.resource.data.emailRef) || request.resource.data.emailRef.subject.size() <= 500) &&
+             (!('category' in request.resource.data.emailRef) || request.resource.data.emailRef.category.size() <= 60)
+           ));
       allow update, delete: if false;
     }
 
