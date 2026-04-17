@@ -156,18 +156,10 @@ async function processTask(taskId) {
 
   const completed = await waitForCompletion();
 
-  const output = execSync(`tmux capture-pane -t ${TMUX_SESSION} -p -S -100`, { encoding: 'utf-8' });
-  
   const resultContent = [
     `# Risultato: ${taskId}`,
     `> Eseguito: ${new Date().toISOString()}`,
     `> Completato: ${completed ? 'sì' : 'timeout'}`,
-    '',
-    '## Output',
-    '',
-    '```',
-    output.trim(),
-    '```',
   ].join('\n');
 
   writeFileSync(join(RESULTS_DIR, `${taskId}.md`), resultContent, 'utf-8');
