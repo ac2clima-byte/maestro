@@ -373,6 +373,51 @@
     border-color: #fbbf24;
   }
 
+  /* Voice input (STT via Web Speech API) */
+  .voice-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .voice-row textarea { flex: 1; min-width: 0; }
+  .btn-mic {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    color: var(--text-muted);
+  }
+  .btn-mic:hover { border-color: var(--border-strong); color: var(--text); }
+  .btn-mic[hidden] { display: none !important; }
+  .btn-mic.recording {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+    animation: mic-pulse 1.1s infinite;
+  }
+  @keyframes mic-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+    70%  { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  }
+  .voice-status {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+    min-height: 1.1em;
+  }
+  .voice-status.error { color: var(--err); }
+  .voice-status.recording { color: #b91c1c; }
+
   .idea-modal { max-width: 520px; }
   .idea-context {
     background: var(--surface-soft);
@@ -1327,7 +1372,11 @@
     <form id="ideaForm">
       <div class="field">
         <label for="ideaText">Descrivi cosa vorresti implementare</label>
-        <textarea id="ideaText" rows="6" placeholder="Es: Aggiungi un bottone che inoltra automaticamente a Malvicino quando la categoria è GUASTO_URGENTE" required></textarea>
+        <div class="voice-row">
+          <textarea id="ideaText" rows="6" placeholder="Es: Aggiungi un bottone che inoltra automaticamente a Malvicino quando la categoria è GUASTO_URGENTE" required></textarea>
+          <button type="button" id="ideaMicBtn" class="btn-mic" aria-label="Detta la richiesta" title="Detta la richiesta (italiano)" hidden>🎤</button>
+        </div>
+        <div id="ideaVoiceStatus" class="voice-status" aria-live="polite"></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn-ghost" id="ideaCancel">Annulla</button>
@@ -2124,6 +2173,171 @@ let DEV_REQUESTS_CACHE = [];
 let DEV_REQUESTS_FILTER = "all";
 let CURRENT_IDEA_EMAIL = null;
 
+// --- Voice input (Web Speech API) ---
+const VOICE_SILENCE_TIMEOUT_MS = 30000; // stop auto dopo 30s senza parlato
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+const voiceState = {
+  recognition: null,
+  active: false,
+  baseText: "",      // testo già presente nella textarea prima di iniziare
+  interim: "",
+  silenceTimer: null,
+};
+
+function voiceSupported() {
+  return !!SpeechRecognition;
+}
+
+function setVoiceStatus(msg, variant = "") {
+  const el = $("#ideaVoiceStatus");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "voice-status" + (variant ? ` ${variant}` : "");
+}
+
+function resetSilenceTimer() {
+  if (voiceState.silenceTimer) clearTimeout(voiceState.silenceTimer);
+  voiceState.silenceTimer = setTimeout(() => {
+    if (voiceState.active) {
+      setVoiceStatus("Dettatura interrotta: nessuna voce rilevata per 30 secondi.", "error");
+      stopVoice();
+    }
+  }, VOICE_SILENCE_TIMEOUT_MS);
+}
+
+function updateTextareaFromVoice() {
+  const ta = $("#ideaText");
+  if (!ta) return;
+  // baseText + pezzi "final" già accumulati in baseText, interim in coda
+  ta.value = voiceState.baseText + (voiceState.interim ? " " + voiceState.interim : "");
+}
+
+function startVoice() {
+  if (!voiceSupported()) {
+    setVoiceStatus("Il tuo browser non supporta la dettatura vocale. Usa Chrome o Edge.", "error");
+    return;
+  }
+  if (voiceState.active) return;
+
+  const rec = new SpeechRecognition();
+  rec.lang = "it-IT";
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  const ta = $("#ideaText");
+  voiceState.baseText = (ta.value || "").trim();
+  if (voiceState.baseText) voiceState.baseText += "\n";
+  voiceState.interim = "";
+
+  rec.onstart = () => {
+    voiceState.active = true;
+    $("#ideaMicBtn").classList.add("recording");
+    $("#ideaMicBtn").setAttribute("aria-label", "Ferma la dettatura");
+    setVoiceStatus("🔴 Sto ascoltando… parla in italiano.", "recording");
+    resetSilenceTimer();
+  };
+
+  rec.onresult = (ev) => {
+    let interim = "";
+    let finalChunk = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const result = ev.results[i];
+      const transcript = result[0].transcript;
+      if (result.isFinal) finalChunk += transcript;
+      else interim += transcript;
+    }
+    if (finalChunk) {
+      voiceState.baseText = (voiceState.baseText + " " + finalChunk).trim() + " ";
+    }
+    voiceState.interim = interim.trim();
+    updateTextareaFromVoice();
+    resetSilenceTimer();
+  };
+
+  rec.onerror = (ev) => {
+    const err = ev.error || "unknown";
+    let msg;
+    switch (err) {
+      case "not-allowed":
+      case "service-not-allowed":
+        msg = "Permesso microfono negato. Autorizza il microfono nel browser e riprova.";
+        break;
+      case "no-speech":
+        msg = "Non ho sentito nulla. Riprova.";
+        break;
+      case "audio-capture":
+        msg = "Nessun microfono rilevato.";
+        break;
+      case "network":
+        msg = "Errore di rete durante la dettatura.";
+        break;
+      case "aborted":
+        // stop manuale, non è un vero errore
+        return;
+      default:
+        msg = `Errore dettatura: ${err}`;
+    }
+    setVoiceStatus(msg, "error");
+    stopVoice(); // garantisce cleanup UI
+  };
+
+  rec.onend = () => {
+    // ripulisci lo stato UI. Se active è rimasto true (es. silence timeout
+    // ha già chiamato stop), è già gestito.
+    voiceState.active = false;
+    voiceState.recognition = null;
+    if (voiceState.silenceTimer) {
+      clearTimeout(voiceState.silenceTimer);
+      voiceState.silenceTimer = null;
+    }
+    $("#ideaMicBtn")?.classList.remove("recording");
+    $("#ideaMicBtn")?.setAttribute("aria-label", "Detta la richiesta");
+    // consolida interim in baseText e pulisci
+    if (voiceState.interim) {
+      voiceState.baseText = (voiceState.baseText + " " + voiceState.interim).trim();
+      voiceState.interim = "";
+      updateTextareaFromVoice();
+    }
+    // status: se non è stato impostato un messaggio di errore, mostra ok/pulisci
+    const st = $("#ideaVoiceStatus");
+    if (st && !st.classList.contains("error")) {
+      setVoiceStatus("");
+    }
+  };
+
+  voiceState.recognition = rec;
+  try {
+    rec.start();
+  } catch (e) {
+    setVoiceStatus("Impossibile avviare la dettatura: " + (e.message || e), "error");
+    voiceState.active = false;
+    voiceState.recognition = null;
+  }
+}
+
+function stopVoice() {
+  const rec = voiceState.recognition;
+  if (!rec) {
+    voiceState.active = false;
+    $("#ideaMicBtn")?.classList.remove("recording");
+    return;
+  }
+  try {
+    rec.stop();
+  } catch {
+    try { rec.abort(); } catch {}
+  }
+  // onend farà il resto del cleanup
+}
+
+function toggleVoice() {
+  if (voiceState.active) stopVoice();
+  else startVoice();
+}
+
 function openIdeaModal(emailId) {
   const email = emailId ? ACTIVE_EMAILS.find(e => e.id === emailId) : null;
   CURRENT_IDEA_EMAIL = email || null;
@@ -2144,10 +2358,15 @@ function openIdeaModal(emailId) {
     ctx.textContent = "Richiesta generale (non legata a una email specifica).";
   }
   $("#ideaText").value = "";
+  setVoiceStatus("");
+  // Mostra il bottone 🎤 solo se il browser supporta STT.
+  const micBtn = $("#ideaMicBtn");
+  if (micBtn) micBtn.hidden = !voiceSupported();
   $("#ideaBackdrop").classList.add("open");
   setTimeout(() => $("#ideaText").focus(), 50);
 }
 function closeIdeaModal() {
+  if (voiceState.active) stopVoice();
   $("#ideaBackdrop").classList.remove("open");
   CURRENT_IDEA_EMAIL = null;
 }
@@ -2608,6 +2827,7 @@ async function initUI() {
     if (e.target === $("#ideaBackdrop")) closeIdeaModal();
   });
   $("#ideaForm").addEventListener("submit", submitIdea);
+  $("#ideaMicBtn").addEventListener("click", toggleVoice);
 
   // Requests modal wiring
   $("#requestsBtn").addEventListener("click", openRequestsModal);
