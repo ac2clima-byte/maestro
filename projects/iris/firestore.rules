@@ -52,6 +52,19 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // iris_rules: regole declarative del RuleEngine.
+    // Read pubblico (la PWA mostra l'elenco). Create/delete solo Admin SDK
+    // (le regole vengono seed-ate dallo script seed_rules.py).
+    // Update consentito al client SOLO se modifica unicamente il campo
+    // `enabled` (toggle on/off dalla PWA in /settings/regole).
+    match /iris_rules/{ruleId} {
+      allow read: if true;
+      allow create, delete: if false;
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enabled', 'updatedAt']) &&
+        request.resource.data.enabled is bool;
+    }
+
     // nexo_dev_requests: dev requests scritte dalla PWA (in-app feedback
     // / "build IRIS from IRIS"). Shape standard:
     //   { description: string, status: "pending",

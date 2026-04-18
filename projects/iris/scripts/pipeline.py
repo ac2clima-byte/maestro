@@ -39,6 +39,7 @@ from attachment_tagger import (  # noqa: E402
     extract_pdf_text as tag_extract_pdf_text,
 )
 from score_calculator import compute_score  # noqa: E402
+from rule_engine import RuleEngine  # noqa: E402
 
 
 # --- TLS: self-signed EWS cert accepted for now (pinning TODO) ---
@@ -53,6 +54,9 @@ MODEL = os.environ.get("IRIS_MODEL", "claude-haiku-4-5")
 API_URL = "https://api.anthropic.com/v1/messages"
 COLLECTION = "iris_emails"
 THREADS_COLLECTION = "iris_threads"
+RULES_COLLECTION = "iris_rules"
+LAVAGNA_COLLECTION = "nexo_lavagna"
+ECHO_NOTIF_COLLECTION = "echo_notifications"  # consumed by ECHO when ready
 USER_ID = "alberto"
 
 # Limite dimensione PDF da scaricare per estrarre testo (2MB).
@@ -446,6 +450,87 @@ def write_email_doc(
     return doc_id
 
 
+class FirestoreActionRunner:
+    """
+    Concreto: esegue le azioni del RuleEngine scrivendo su:
+      - nexo_lavagna (write_lavagna)
+      - echo_notifications (notify_echo) — collection consumata da ECHO
+        quando esisterà; per ora è un journal append-only.
+      - iris_emails (archive/tag/set_priority/mark_applied)
+    """
+
+    def __init__(self, db):
+        self.db = db
+
+    def write_lavagna(self, to, message_type, payload, priority, source_email_id):
+        ref = self.db.collection(LAVAGNA_COLLECTION).document()
+        now = firestore.SERVER_TIMESTAMP
+        data = {
+            "from": "iris",
+            "to": to,
+            "type": message_type,
+            "priority": priority,
+            "status": "pending",
+            "payload": payload,
+            "sourceEmailId": source_email_id,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        ref.set(data)
+        return ref.id
+
+    def notify_echo(self, channel, text, source_email_id):
+        ref = self.db.collection(ECHO_NOTIF_COLLECTION).document()
+        now = firestore.SERVER_TIMESTAMP
+        ref.set({
+            "channel": channel,
+            "text": text,
+            "sourceEmailId": source_email_id,
+            "status": "pending",
+            "createdAt": now,
+        })
+        return ref.id
+
+    def archive_email(self, email_id):
+        # email_id qui è il message_id originale → mappa al doc id
+        doc_id = doc_id_for(email_id)
+        self.db.collection(COLLECTION).document(doc_id).set(
+            {"status": "archived", "updatedAt": firestore.SERVER_TIMESTAMP},
+            merge=True,
+        )
+
+    def tag_email(self, email_id, tags):
+        if not tags:
+            return
+        doc_id = doc_id_for(email_id)
+        self.db.collection(COLLECTION).document(doc_id).set(
+            {"tags": firestore.ArrayUnion(list(tags)), "updatedAt": firestore.SERVER_TIMESTAMP},
+            merge=True,
+        )
+
+    def set_priority(self, email_id, priority):
+        doc_id = doc_id_for(email_id)
+        self.db.collection(COLLECTION).document(doc_id).set(
+            {"emailPriority": priority, "updatedAt": firestore.SERVER_TIMESTAMP},
+            merge=True,
+        )
+
+    def mark_rule_applied(self, email_id, rule_id):
+        doc_id = doc_id_for(email_id)
+        self.db.collection(COLLECTION).document(doc_id).set(
+            {
+                "appliedRules": firestore.ArrayUnion([rule_id]),
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            },
+            merge=True,
+        )
+
+
+def load_rules_from_firestore(db) -> list[dict]:
+    snaps = list(db.collection(RULES_COLLECTION).stream())
+    return [s.to_dict() | {"id": s.id} for s in snaps]
+
+
 def write_thread_doc(db, thread: dict) -> str:
     """Idempotent: thread doc id is deterministic from subject+participants."""
     doc_id = thread["id"]
@@ -483,11 +568,11 @@ def main() -> int:
 
     print(f"[pipeline] project={project_id} model={MODEL} n={n}\n", flush=True)
 
-    print("[step 1/5] Fetching inbox emails from EWS…", flush=True)
+    print("[step 1/6] Fetching inbox emails from EWS…", flush=True)
     emails = fetch_emails(n)
     print(f"           OK, {len(emails)} emails.\n", flush=True)
 
-    print("[step 2/5] Classifying with Haiku…", flush=True)
+    print("[step 2/6] Classifying with Haiku…", flush=True)
     results = []
     for i, em in enumerate(emails, 1):
         try:
@@ -503,7 +588,7 @@ def main() -> int:
             print(f"  #{i}  FAILED: {e}", flush=True)
     print()
 
-    print("[step 3/5] Fetching Sent Items from EWS (reply oracle)…", flush=True)
+    print("[step 3/6] Fetching Sent Items from EWS (reply oracle)…", flush=True)
     # Sample size 2x inbox so we cover the same time window even if Sent has more traffic.
     sent_n = max(50, n * 3)
     try:
@@ -513,7 +598,7 @@ def main() -> int:
         print(f"           WARN: could not fetch Sent Items ({e}). Skipping followup.\n", flush=True)
         sent_items = []
 
-    print("[step 4/5] Computing follow-up / needs-attention…", flush=True)
+    print("[step 4/6] Computing follow-up / needs-attention…", flush=True)
     incoming_for_fu = [
         {
             "id": r["email"]["message_id"],
@@ -532,7 +617,7 @@ def main() -> int:
     n_attention = sum(1 for v in followups.values() if v["needsAttention"])
     print(f"           {n_followup} follow-up rilevati, {n_attention} email senza risposta (>48h).\n", flush=True)
 
-    print("[step 5/5] Writing emails + threads to Firestore…", flush=True)
+    print("[step 5/6] Writing emails + threads to Firestore…", flush=True)
     db = init_firestore(project_id)
     written = []
     for r in results:
@@ -564,12 +649,42 @@ def main() -> int:
         )
     print()
 
+    print("[step 6/6] Esecuzione RuleEngine…", flush=True)
+    rules_loaded = load_rules_from_firestore(db)
+    enabled_count = sum(1 for r in rules_loaded if r.get("enabled"))
+    print(f"           {len(rules_loaded)} regole in iris_rules ({enabled_count} attive).", flush=True)
+    runner = FirestoreActionRunner(db)
+    engine = RuleEngine(runner)
+    engine.set_rules(rules_loaded)
+    n_matched = 0
+    for r in results:
+        # Re-fetch del doc (per leggere appliedRules già presente)
+        doc_id = doc_id_for(r["email"]["message_id"])
+        snap = db.collection(COLLECTION).document(doc_id).get()
+        doc_data = snap.to_dict() or {}
+        email_for_rules = {
+            "id": r["email"]["message_id"],
+            "raw": doc_data.get("raw") or {},
+            "classification": r["classification"],
+            "attachments": doc_data.get("attachments") or [],
+            "score": doc_data.get("score"),
+            "appliedRules": doc_data.get("appliedRules") or [],
+        }
+        ev = engine.evaluate(email_for_rules)
+        if ev["matchedRule"]:
+            n_matched += 1
+            out = engine.execute(email_for_rules, ev["matchedRule"], ev.get("extractedData"))
+            ok = "✓" if out["ok"] else "✗"
+            print(f"           {ok} rule={ev['matchedRule']['id']:<32} "
+                  f"actions={len(out['results'])}  email={doc_id[:50]}", flush=True)
+    print(f"           {n_matched} email matchate da una regola.\n", flush=True)
+
     total_input = sum(r["usage"].get("input_tokens", 0) for r in results)
     total_output = sum(r["usage"].get("output_tokens", 0) for r in results)
     multi_msg_threads = sum(1 for t in threads if t["messageCount"] > 1)
     print("=" * 60)
     print(f"Summary: {len(emails)} read, {len(results)} classified, {len(written)} email docs, {len(thread_ids)} threads ({multi_msg_threads} multi-msg).")
-    print(f"         Follow-up: {n_followup}   Senza risposta (>48h): {n_attention}")
+    print(f"         Follow-up: {n_followup}   Senza risposta (>48h): {n_attention}   Rules matched: {n_matched}")
     print(f"Tokens:  input={total_input}  output={total_output}")
     print(f"Console: https://console.firebase.google.com/project/{project_id}/firestore")
     print("=" * 60)

@@ -1297,6 +1297,7 @@
       <div class="header-stat attention"><strong id="statAttention">0</strong> senza risposta</div>
     </div>
     <div class="header-actions">
+      <button id="rulesBtn" class="btn-ghost" title="Vedi e attiva/disattiva le regole IRIS">⚙️ Regole</button>
       <button id="requestsBtn" class="btn-ghost" title="Mostra le Dev Requests inviate">📋 Dev Requests</button>
       <button id="ideaGlobalBtn" class="btn-idea btn-idea-global" title="Apri una nuova richiesta di sviluppo IRIS">🛠️ Nuova richiesta dev</button>
       <span id="userEmail" class="header-stat" style="font-size: 0.8rem;">—</span>
@@ -1383,6 +1384,22 @@
         <button type="submit" class="btn-primary" id="ideaSubmit">Invia richiesta</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Rules modal -->
+<div id="rulesBackdrop" class="modal-backdrop">
+  <div class="modal requests-modal">
+    <h2>Regole IRIS</h2>
+    <div class="modal-sub">
+      Quando una nuova email viene classificata, IRIS valuta le regole in ordine
+      di priorità e applica le azioni della prima che matcha. Toggle per
+      attivare/disattivare.
+    </div>
+    <div class="requests-list" id="rulesList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="rulesClose">Chiudi</button>
+    </div>
   </div>
 </div>
 
