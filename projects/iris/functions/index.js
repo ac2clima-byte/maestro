@@ -811,6 +811,85 @@ async function handleAresInterventiAperti(parametri) {
   return { content: `${header}\n\n${lines}`, data: { count: top.length } };
 }
 
+// ─── PHARO — monitoring (lettura NEXO) ─────────────────────────
+
+async function handlePharoStatoSuite() {
+  let pending = 0, errori = 0, emailAttesa = 0, emails = 0, firestoreOk = true;
+
+  try {
+    const snap = await db.collection("nexo_lavagna")
+      .orderBy("createdAt", "desc").limit(100).get();
+    snap.forEach(d => {
+      const s = (d.data() || {}).status;
+      if (s === "pending" || s === "in_progress") pending++;
+      else if (s === "failed" || s === "error" || s === "errore") errori++;
+    });
+  } catch { firestoreOk = false; }
+
+  try {
+    const snap = await db.collection("iris_emails")
+      .orderBy("raw.received_time", "desc").limit(500).get();
+    snap.forEach(d => {
+      emails++;
+      const f = (d.data() || {}).followup;
+      if (f && f.needsAttention) emailAttesa++;
+    });
+  } catch { firestoreOk = false; }
+
+  const punteggio = firestoreOk
+    ? Math.max(0, Math.min(100, 100 - pending * 2 - errori * 5 - emailAttesa))
+    : 0;
+
+  const emoji = punteggio >= 80 ? "✅" : punteggio >= 50 ? "⚠️" : "🚨";
+  const lines = [
+    `${emoji} **Stato Suite NEXO** — punteggio: ${punteggio}/100`,
+    ``,
+    `  · Firestore: ${firestoreOk ? "✅ OK" : "❌ down"}`,
+    `  · Email indicizzate: ${emails}`,
+    `  · Email senza risposta >48h: ${emailAttesa}`,
+    `  · Lavagna pending: ${pending}`,
+    `  · Lavagna errori: ${errori}`,
+  ];
+  return {
+    content: lines.join("\n"),
+    data: { punteggio, pending, errori, emailAttesa, emails, firestoreOk },
+  };
+}
+
+async function handlePharoProblemiAperti() {
+  // Query email senza risposta + lavagna failed
+  const emails = await fetchIrisEmails(500);
+  const att = emails.filter(e => (e.followup || {}).needsAttention);
+
+  let lavFailed = [];
+  try {
+    const snap = await db.collection("nexo_lavagna")
+      .orderBy("createdAt", "desc").limit(50).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      if (["failed", "error", "errore"].includes(v.status)) {
+        lavFailed.push(`${v.from || "?"} → ${v.to || "?"}: ${v.type || "?"}`);
+      }
+    });
+  } catch {}
+
+  const parts = ["🔎 **Problemi aperti PHARO**\n"];
+  if (!att.length && !lavFailed.length) {
+    return { content: "✅ Nessun problema aperto al momento!" };
+  }
+  if (att.length) {
+    const lines = att.slice(0, 6).map((e, i) => {
+      const days = e.followup.daysWithoutReply || 0;
+      return `  ${i + 1}. ⏰ ${days}g — ${e.senderName || e.sender}: ${e.subject}`;
+    }).join("\n");
+    parts.push(`**Email senza risposta** (${att.length}):\n${lines}`);
+  }
+  if (lavFailed.length) {
+    parts.push(`\n**Lavagna errori** (${lavFailed.length}):\n  · ${lavFailed.slice(0, 5).join("\n  · ")}`);
+  }
+  return { content: parts.join("\n"), data: { emailCount: att.length, lavFailedCount: lavFailed.length } };
+}
+
 // ─── DELPHI — KPI e costo AI ───────────────────────────────────
 
 async function handleDelphiKpi(parametri) {
@@ -1366,6 +1445,9 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
   // ARES — interventi (lettura COSMINA bacheca_cards)
   { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
+  // PHARO — monitoring
+  { match: (col, az) => col === "pharo" && /(problem|alert|error|aperti|senza_ris|follow_up)/.test(az), fn: handlePharoProblemiAperti },
+  { match: (col, az) => col === "pharo" && /(stato|health|heartbeat|salute|suite|monitor)/.test(az), fn: handlePharoStatoSuite },
   // DELPHI — KPI e costo AI
   { match: (col, az) => col === "delphi" && /(costo.*ai|ai.*costo|token|spesa.*ai|budget)/.test(az), fn: handleDelphiCostoAI },
   { match: (col, az) => col === "delphi" && /(kpi|dashboard|andament|sintes|riassunto|come.*siamo|come.*andat)/.test(az), fn: handleDelphiKpi },
