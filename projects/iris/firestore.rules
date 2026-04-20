@@ -91,7 +91,55 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Default deny per ogni altra collection.
+    // ─── Collections NEXO (Lavagna + altri Colleghi) ──────────────
+    // Read pubblica per la PWA (dashboard "Stato Lavagna", "Alert
+    // PHARO", ecc.). Write riservata al backend (Admin SDK) in v0.1.
+
+    match /nexo_lavagna/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /pharo_alerts/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /pharo_heartbeat/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /pharo_checks/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /pharo_budget/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // echo_notifications: la PWA le mostra come stand-in per gli alert
+    // PHARO finché PHARO non è attivo.
+    match /echo_notifications/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // nexo_budget: la PWA potrebbe mostrare lo stato consumi.
+    match /nexo_budget/{docId=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // nexo_logs: lettura diagnostica (nessun dato sensibile in v0.1).
+    match /nexo_logs/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Default deny per ogni altra collection (Colleghi futuri:
+    // ares_*, chronos_*, memo_*, charta_*, emporion_*, dikea_*,
+    // delphi_*, calliope_* → aggiungili qui quando servono read
+    // pubbliche alla PWA).
     match /{document=**} {
       allow read, write: if false;
     }
