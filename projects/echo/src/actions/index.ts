@@ -144,15 +144,27 @@ function isDryRun(): boolean {
     .toLowerCase() === "true";
 }
 
+/** Strip dei campi undefined: Firestore Admin non li accetta. */
+function stripUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(obj)) {
+    const v = obj[k];
+    if (v !== undefined) out[k] = v;
+  }
+  return out as Partial<T>;
+}
+
 async function persistEchoMessage(msg: EchoMessage): Promise<void> {
   // best-effort: errore di scrittura non blocca la consegna
   try {
+    const clean = stripUndefined(msg as unknown as Record<string, unknown>);
     await nexoDb()
       .collection("echo_messages")
       .doc(msg.id)
-      .set({ ...msg, _serverTime: FieldValue.serverTimestamp() });
-  } catch {
-    /* swallow */
+      .set({ ...clean, _serverTime: FieldValue.serverTimestamp() });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`[echo] persistEchoMessage failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 
