@@ -704,6 +704,113 @@ async function handleStatoLavagna() {
   };
 }
 
+// ─── ARES — interventi (lettura COSMINA) ───────────────────────
+//
+// Legge bacheca_cards (listName=INTERVENTI, inBacheca=true) da
+// garbymobile-f89ac. Il SA della Cloud Function potrebbe non avere
+// `roles/datastore.user` su garbymobile-f89ac → in quel caso intercetto
+// l'errore e rispondo con un placeholder utile invece di crashare.
+
+let _cosminaApp = null;
+function getCosminaDb() {
+  if (_cosminaApp) return getFirestore(_cosminaApp);
+  const existing = getApps().find((a) => a.name === "cosmina");
+  if (existing) {
+    _cosminaApp = existing;
+    return getFirestore(_cosminaApp);
+  }
+  _cosminaApp = initializeApp({ projectId: "garbymobile-f89ac" }, "cosmina");
+  return getFirestore(_cosminaApp);
+}
+
+async function handleAresInterventiAperti(parametri) {
+  const limit = Math.min(Number(parametri.limit) || 20, 50);
+  const tecnicoFilter = String(parametri.tecnico || "").trim().toLowerCase();
+  const oggiFlag = /oggi|today|giorno/.test(JSON.stringify(parametri).toLowerCase());
+
+  let snap;
+  try {
+    let q = getCosminaDb().collection("bacheca_cards")
+      .where("listName", "==", "INTERVENTI")
+      .where("inBacheca", "==", true)
+      .limit(limit * 3); // overfetch per filtri client-side
+    snap = await q.get();
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (/permission|denied|UNAUTHENTICATED|403/i.test(msg)) {
+      return {
+        content:
+          `ARES non riesce a leggere COSMINA dalla Cloud Function: il Service ` +
+          `Account non ha ancora i permessi cross-progetto su garbymobile-f89ac. ` +
+          `Per attivare:\n\n  gcloud projects add-iam-policy-binding garbymobile-f89ac \\\n` +
+          `    --member=serviceAccount:272099489624-compute@developer.gserviceaccount.com \\\n` +
+          `    --role=roles/datastore.user`,
+      };
+    }
+    throw e;
+  }
+
+  const items = [];
+  snap.forEach((d) => {
+    const data = d.data() || {};
+    const stato = String(data.stato || "").toLowerCase();
+    if (stato.includes("complet") || stato.includes("annul")) return;
+    let tecnico = data.techName;
+    if (!tecnico && Array.isArray(data.techNames) && data.techNames.length) {
+      tecnico = String(data.techNames[0]);
+    }
+    if (tecnicoFilter && !String(tecnico || "").toLowerCase().includes(tecnicoFilter)) return;
+
+    let due;
+    if (data.due) {
+      try {
+        const v = data.due.toDate ? data.due.toDate() : new Date(data.due);
+        if (!Number.isNaN(v.getTime())) due = v;
+      } catch {}
+    }
+    if (oggiFlag && due) {
+      const today = new Date();
+      const sameDay = due.getFullYear() === today.getFullYear()
+        && due.getMonth() === today.getMonth()
+        && due.getDate() === today.getDate();
+      if (!sameDay) return;
+    }
+    items.push({
+      id: d.id,
+      condominio: data.boardName || "?",
+      stato: stato || "aperto",
+      tecnico: tecnico || "-",
+      due,
+      name: data.name || "(senza titolo)",
+    });
+  });
+
+  // Ordina per data crescente (i scaduti prima)
+  items.sort((a, b) => {
+    if (!a.due) return 1;
+    if (!b.due) return -1;
+    return a.due.getTime() - b.due.getTime();
+  });
+  const top = items.slice(0, limit);
+
+  if (!top.length) {
+    return { content: oggiFlag
+      ? "Nessun intervento programmato per oggi."
+      : "Non ho trovato interventi attivi nella bacheca COSMINA." };
+  }
+
+  const lines = top.map((i, idx) => {
+    const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
+    const tag = i.tecnico !== "-" ? `tecnico=${i.tecnico}` : "non assegnato";
+    return `${idx + 1}. [${data}] ${i.condominio.slice(0, 50)} — ${i.stato} · ${tag}`;
+  }).join("\n");
+
+  const header = oggiFlag
+    ? `🔧 Interventi di **oggi** (${top.length}):`
+    : `🔧 **${top.length}** interventi attivi su COSMINA${items.length > top.length ? ` (mostro i primi ${top.length} di ${items.length})` : ""}:`;
+  return { content: `${header}\n\n${lines}`, data: { count: top.length } };
+}
+
 async function handleFattureScadute() {
   // CHARTA non esiste. Cerco almeno le email classificate FATTURA_FORNITORE
   // come segnale di quello che arriverà.
@@ -734,6 +841,8 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "memo" && /(dossier|cliente|condominio|tutto_su|storico)/.test(az), fn: handleEmailPerCliente },
   { match: (col, az) => /lavagna/.test(az) || (col === "pharo" && /stato/.test(az)), fn: handleStatoLavagna },
   { match: (col, az) => col === "charta" && /(fattura|scadut)/.test(az), fn: handleFattureScadute },
+  // ARES — interventi (lettura COSMINA bacheca_cards)
+  { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
 ];
 
 async function tryDirectAnswer(intent) {
