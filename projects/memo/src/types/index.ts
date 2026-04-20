@@ -135,3 +135,41 @@ export interface MatchAnagraficaResult {
     fonte: "cosmina" | "guazzotti" | "condominium";
   }>;
 }
+
+// ─── v0.2 input/output types (usati come stub oggi) ────────────
+
+export interface NuovoClienteInput {
+  nome: string;
+  tipo: TipoCliente;
+  indirizzo?: string;
+  comune?: string;
+  email?: string;
+  telefono?: string;
+  piva?: string;
+  cf?: string;
+  amministratoreId?: string;
+  note?: string;
+}
+
+export interface RicercaDocumentiQuery {
+  testo?: string;
+  clienteAssociato?: string;
+  estensioni?: string[];
+  dischi?: Array<DocumentoDisco["disco"]>;
+  categorie?: string[];
+  limit?: number;
+}
+
+export interface ConsumiMediResult {
+  condominioId: string;
+  anniConsiderati: number[];
+  consumi: Array<{ anno: number; gas_smc?: number; calore_kwh?: number; acs_litri?: number }>;
+  mediaAnnua?: { gas_smc?: number; calore_kwh?: number; acs_litri?: number };
+}
+
+export interface RischioChurnResult {
+  clienteId: string;
+  score: number;       // 0-100
+  livello: "basso" | "medio" | "alto";
+  segnali: Array<{ tipo: string; peso: number; descrizione: string }>;
+}
