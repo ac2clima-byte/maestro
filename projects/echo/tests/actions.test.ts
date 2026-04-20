@@ -7,11 +7,17 @@ import * as actions from "../src/actions/index.js";
  * con uno reale (mock dei provider esterni, asserzioni sull'output).
  */
 describe("ECHO actions (stubs)", () => {
-  it("sendMessage throws Not implemented", async () => {
-    await expect(actions.sendMessage("whatsapp", "+39...", "ciao")).rejects.toThrow(/Not implemented/);
+  it("sendMessage(whatsapp, ...) is now wired to sendWhatsApp (smoke)", async () => {
+    // sendWhatsApp è implementata ma il numero "+39..." non è valido →
+    // throw "Numero WhatsApp non valido". Verifica solo che NON lanci
+    // più "Not implemented".
+    await expect(actions.sendMessage("whatsapp", "+39...", "ciao")).rejects.not.toThrow(/Not implemented/);
   });
-  it("sendWhatsApp throws Not implemented", async () => {
-    await expect(actions.sendWhatsApp("+39...", "ciao")).rejects.toThrow(/Not implemented/);
+  it("sendWhatsApp is implemented (function export)", () => {
+    expect(typeof actions.sendWhatsApp).toBe("function");
+  });
+  it("sendWhatsApp(invalid number) throws clear validation error", async () => {
+    await expect(actions.sendWhatsApp("not-a-number", "ciao")).rejects.toThrow(/non valido/);
   });
   it("sendTelegram throws Not implemented", async () => {
     await expect(actions.sendTelegram("123", "ciao")).rejects.toThrow(/Not implemented/);
