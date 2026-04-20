@@ -131,7 +131,7 @@ export class Lavagna {
       updatedAt: ts,
     };
 
-    await this.collection().doc(id).set(doc);
+    await this.collection().doc(id).set(doc as unknown as Record<string, unknown>);
     return doc;
   }
 

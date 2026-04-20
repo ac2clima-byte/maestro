@@ -1,0 +1,23 @@
+{
+  "name": "nexo-core",
+  "version": "0.1.0",
+  "description": "NEXO core — Lavagna + moduli condivisi (budget, logger, dry-run, firebase-multi).",
+  "private": true,
+  "type": "module",
+  "main": "shared/index.ts",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}
