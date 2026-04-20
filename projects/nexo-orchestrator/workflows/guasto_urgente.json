@@ -1,0 +1,58 @@
+{
+  "id": "wf_guasto_urgente",
+  "nome": "Guasto urgente — apri intervento e notifica",
+  "descrizione": "IRIS classifica GUASTO_URGENTE → ARES apre intervento → CHRONOS slot critico → ECHO notifica Alberto su WA + chiamata.",
+  "versione": 1,
+  "attivo": true,
+  "trigger": {
+    "tipo": "messaggio_lavagna",
+    "messageType": "guasto_urgente",
+    "fromOptional": ["iris"]
+  },
+  "modalitaFine": "tutti_completati",
+  "steps": [
+    {
+      "id": "ares_apri",
+      "nome": "ARES — apri intervento urgente",
+      "to": "ares",
+      "messageType": "richiesta_intervento",
+      "payloadTemplate": {
+        "tipo": "riparazione",
+        "urgenza": "critica",
+        "indirizzo": "{{contesto.indirizzo}}",
+        "condominio": "{{contesto.condominio}}",
+        "impiantoTarga": "{{contesto.impiantoTarga}}",
+        "note": "{{contesto.summary}}",
+        "sourceEmailId": "{{contesto.sourceEmailId}}"
+      },
+      "timeoutMin": 5
+    },
+    {
+      "id": "chronos_slot",
+      "nome": "CHRONOS — slot critico oggi",
+      "to": "chronos",
+      "messageType": "richiesta_slot",
+      "dipendeDa": ["ares_apri"],
+      "payloadTemplate": {
+        "interventoId": "{{contesto.ares_apri.interventoId}}",
+        "urgenza": "critica",
+        "durataMin": "120",
+        "preferiscaOggi": "true"
+      },
+      "timeoutMin": 10
+    },
+    {
+      "id": "echo_notifica",
+      "nome": "ECHO — notifica Alberto su WhatsApp",
+      "to": "echo",
+      "messageType": "notifica",
+      "dipendeDa": ["ares_apri"],
+      "payloadTemplate": {
+        "channel": "whatsapp",
+        "priority": "critical",
+        "text": "🚨 GUASTO URGENTE: {{contesto.condominio}} — intervento aperto ({{contesto.ares_apri.interventoId}}). Chiamata in corso al cliente.",
+        "sourceEmailId": "{{contesto.sourceEmailId}}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "id": "wf_incassi_email",
+  "nome": "Incassi via email — estrai e riconcilia",
+  "descrizione": "IRIS rileva email incassi (es. da Malvicino) → CHARTA estrae righe (testo o Excel) → CHARTA riconcilia → ECHO conferma su WA.",
+  "versione": 1,
+  "attivo": true,
+  "trigger": {
+    "tipo": "messaggio_lavagna",
+    "messageType": "incassi_ricevuti",
+    "fromOptional": ["iris"]
+  },
+  "modalitaFine": "tutti_completati",
+  "steps": [
+    {
+      "id": "charta_estrai",
+      "nome": "CHARTA — estrai incassi da email/Excel",
+      "to": "charta",
+      "messageType": "incassi_ricevuti",
+      "payloadTemplate": {
+        "sourceEmailId": "{{contesto.sourceEmailId}}",
+        "fonteSuggerita": "{{contesto.fonteSuggerita}}",
+        "autoRegistra": "true"
+      },
+      "timeoutMin": 10
+    },
+    {
+      "id": "charta_riconcilia",
+      "nome": "CHARTA — riconcilia con fatture",
+      "to": "charta",
+      "messageType": "richiesta_riconciliazione",
+      "dipendeDa": ["charta_estrai"],
+      "payloadTemplate": {
+        "incassoIds": "{{contesto.charta_estrai.incassoIds}}",
+        "soglia": "0.85"
+      },
+      "timeoutMin": 10
+    },
+    {
+      "id": "echo_conferma",
+      "nome": "ECHO — conferma ad Alberto",
+      "to": "echo",
+      "messageType": "notifica",
+      "dipendeDa": ["charta_riconcilia"],
+      "payloadTemplate": {
+        "channel": "whatsapp",
+        "priority": "normal",
+        "text": "💰 Incassi processati: {{contesto.charta_estrai.totaleEur}} su {{contesto.charta_estrai.numeroIncassi}} righe. Riconciliati: {{contesto.charta_riconcilia.match}}/{{contesto.charta_riconcilia.scansionati}}.",
+        "sourceEmailId": "{{contesto.sourceEmailId}}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "id": "wf_pec_ricevuta",
+  "nome": "PEC ufficiale — analizza, bozza, approva, invia",
+  "descrizione": "IRIS classifica PEC_UFFICIALE → DIKEA gestisce e classifica priorità → CALLIOPE genera bozza risposta formale → Alberto approva → ECHO invia PEC.",
+  "versione": 1,
+  "attivo": true,
+  "trigger": {
+    "tipo": "messaggio_lavagna",
+    "messageType": "pec_ricevuta",
+    "fromOptional": ["iris"]
+  },
+  "modalitaFine": "tutti_completati",
+  "steps": [
+    {
+      "id": "dikea_gestisci",
+      "nome": "DIKEA — registra PEC e classifica priorità",
+      "to": "dikea",
+      "messageType": "pec_ricevuta",
+      "payloadTemplate": {
+        "sourceEmailId": "{{contesto.sourceEmailId}}",
+        "mittente": "{{contesto.mittente}}",
+        "oggetto": "{{contesto.oggetto}}"
+      },
+      "timeoutMin": 10
+    },
+    {
+      "id": "calliope_bozza",
+      "nome": "CALLIOPE — bozza risposta formale",
+      "to": "calliope",
+      "messageType": "richiesta_pec",
+      "dipendeDa": ["dikea_gestisci"],
+      "payloadTemplate": {
+        "pecId": "{{contesto.dikea_gestisci.pecId}}",
+        "tono": "ultimativo"
+      },
+      "timeoutMin": 15
+    },
+    {
+      "id": "alberto_approva",
+      "nome": "Alberto — approvazione bozza PEC",
+      "to": "alberto",
+      "messageType": "richiesta_approvazione",
+      "dipendeDa": ["calliope_bozza"],
+      "payloadTemplate": {
+        "bozzaId": "{{contesto.calliope_bozza.bozzaId}}",
+        "tipo": "risposta_pec",
+        "scadenzaApprovazione": "{{contesto.dikea_gestisci.scadenzaRisposta}}"
+      },
+      "timeoutMin": 1440
+    },
+    {
+      "id": "echo_invia",
+      "nome": "ECHO — invio PEC formale",
+      "to": "echo",
+      "messageType": "bozza_approvata",
+      "dipendeDa": ["alberto_approva"],
+      "payloadTemplate": {
+        "bozzaId": "{{contesto.calliope_bozza.bozzaId}}",
+        "channel": "pec",
+        "to": "{{contesto.mittente}}"
+      }
+    }
+  ]
+}

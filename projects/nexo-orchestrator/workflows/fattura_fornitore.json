@@ -1,0 +1,51 @@
+{
+  "id": "wf_fattura_fornitore",
+  "nome": "Fattura fornitore — parse e registra",
+  "descrizione": "IRIS classifica FATTURA_FORNITORE → CHARTA parsa l'allegato → CHARTA registra → DELPHI (opz.) aggiorna esposizione fornitori.",
+  "versione": 1,
+  "attivo": true,
+  "trigger": {
+    "tipo": "messaggio_lavagna",
+    "messageType": "fattura_ricevuta",
+    "fromOptional": ["iris"]
+  },
+  "modalitaFine": "tutti_completati",
+  "steps": [
+    {
+      "id": "charta_parse",
+      "nome": "CHARTA — parsa fattura fornitore",
+      "to": "charta",
+      "messageType": "fattura_ricevuta",
+      "payloadTemplate": {
+        "sourceEmailId": "{{contesto.sourceEmailId}}",
+        "allegatoUrl": "{{contesto.allegatoUrl}}",
+        "fornitoreSuggerito": "{{contesto.fornitoreSuggerito}}"
+      },
+      "timeoutMin": 10
+    },
+    {
+      "id": "charta_registra",
+      "nome": "CHARTA — registra fattura",
+      "to": "charta",
+      "messageType": "registra_fattura",
+      "dipendeDa": ["charta_parse"],
+      "payloadTemplate": {
+        "fatturaParsed": "{{contesto.charta_parse.fattura}}",
+        "confidence": "{{contesto.charta_parse.confidence}}"
+      },
+      "timeoutMin": 5
+    },
+    {
+      "id": "delphi_aggiorna",
+      "nome": "DELPHI — aggiorna esposizione fornitori (opzionale)",
+      "to": "delphi",
+      "messageType": "richiesta_analisi",
+      "dipendeDa": ["charta_registra"],
+      "opzionale": true,
+      "payloadTemplate": {
+        "metrica": "esposizione_fornitori",
+        "fornitoreId": "{{contesto.charta_registra.fornitoreId}}"
+      }
+    }
+  ]
+}
