@@ -1,0 +1,68 @@
+[
+  {
+    "key": "chronos-scadenze",
+    "q": "scadenze prossime",
+    "reply": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.\n      CHRONOScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-chronos-scadenze.png"
+  },
+  {
+    "key": "chronos-slot",
+    "q": "cosa fa Marco nei prossimi 14 giorni?",
+    "reply": "📅 Agenda prossimi 14 giorni:\n\n**MARCO** (10 impegni):\n  · 21/04 07:00 — B034 - CONDOMINIO MINERVA - CORSO XXVII \n  · 21/04 08:00 — H041 - CONDOMINIO ANTONINETTI - P.ZZA SA\n  · 21/04 08:30 — C043 - CONDOMINIO ELIOS - VIA TOGLIATTI \n  · 21/04 09:00 — I072 - CONDOMINIO ALFA VOGHERA - VIA GAR\n  · 21/04 11:30 — I063 - CONDOMINIO SAN LORENZO - VIA LABR\n  · 21/04 12:30 — Z002 - CONDOMINIO SERENO - VIA IV NOVEMB\n  …e altri 4\n      CHRONOScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-chronos-slot.png"
+  },
+  {
+    "key": "charta-incassi",
+    "q": "incassi di oggi",
+    "reply": "💰 Oggi non ho indicizzato email che segnalano incassi.\n      CHARTAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-charta-incassi.png"
+  },
+  {
+    "key": "charta-report",
+    "q": "report mensile 2026-04",
+    "reply": "📊 **Report mensile 2026-04** (CHARTA v0.1, dati da iris_emails):\n\n  · Fatture fornitori: 5\n  · Richieste pagamento: 0\n  · Guasti urgenti: 0\n  · Richieste contratto: 0\n\n_Totali € reali arriveranno con integrazione Fatture-in-Cloud._\n      CHARTAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-charta-report.png"
+  },
+  {
+    "key": "emporion-giacenza",
+    "q": "c'è la valvola?",
+    "reply": "Mi serve un po' più di contesto: la valvola di quale impianto o cliente? Oppure vuoi verificare la disponibilità in magazzino?",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-emporion-giacenza.png"
+  },
+  {
+    "key": "dikea-curit",
+    "q": "scadenze CURIT",
+    "reply": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).\n      DIKEAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-dikea-curit.png"
+  },
+  {
+    "key": "dikea-targa",
+    "q": "impianti senza targa",
+    "reply": "✅ Tutti gli impianti censiti hanno una targa CURIT.\n      DIKEAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-dikea-targa.png"
+  },
+  {
+    "key": "delphi-kpi",
+    "q": "come siamo andati questo mese?",
+    "reply": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 43\n  · Urgenti: 1\n  · Senza risposta >48h: 8\n\n**Lavagna**\n  · Messaggi: 17\n\n**Interventi COSMINA**\n  · Attivi ora: 357\n  · Completati: 0\n      DELPHIcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-delphi-kpi.png"
+  },
+  {
+    "key": "delphi-costo",
+    "q": "costo AI ultimi 30 giorni",
+    "reply": "💳 **Costo AI** (finestra 30g, fonte: cosmina_config)\n\n  · Input tokens: 0\n  · Output tokens: 0\n  · **Costo totale stimato: € 0.00**\n      DELPHIcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-delphi-costo.png"
+  },
+  {
+    "key": "pharo-stato",
+    "q": "stato della suite",
+    "reply": "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 17\n  · Lavagna errori: 0\n      PHAROcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-pharo-stato.png"
+  },
+  {
+    "key": "pharo-problemi",
+    "q": "problemi aperti",
+    "reply": "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 17\n  · Lavagna errori: 0\n      PHAROcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-pharo-problemi.png"
+  }
+]

@@ -314,25 +314,37 @@ L'utente ti parla in linguaggio naturale. Il tuo compito:
 3. Formulare azione + parametri per quel Collega.
 4. Rispondere all'utente in italiano, 1-2 frasi.
 
-COLLEGHI (scegli esattamente uno slug):
-- iris       → email in arrivo: classificazione, ricerca, thread, follow-up, regole
-- echo       → uscita: WA, Telegram, email, notifiche, voce
-- ares       → interventi tecnici: apri, assegna, chiudi, RTI
-- chronos    → calendario: slot, scadenze, agende
-- memo       → dossier cliente, storico impianti, ricerca documenti
-- charta     → fatture, incassi, DDT, solleciti
-- emporion   → magazzino, giacenze, ordini fornitori
-- dikea      → CURIT, F-Gas, DiCo, PEC, GDPR
-- delphi     → analisi: KPI, margini, trend, report
-- pharo      → monitoring: alert, heartbeat, budget
-- calliope   → bozze, preventivi, solleciti, PEC
-- nessuno    → saluti, chiarimenti, richieste non operative
+COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
+- iris       → email in arrivo
+    azioni: cerca_email_urgenti, email_oggi, email_totali, email_senza_risposta,
+            cerca_email_mittente, email_per_categoria
+- echo       → uscita: sendWhatsApp, sendTelegram, sendEmail, sendPush
+- ares       → interventi: interventi_aperti, apri_intervento, assegna_tecnico
+- chronos    → pianificazione:
+    azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera
+- memo       → dossier_cliente, storico_impianto
+- charta     → amministrativo:
+    azioni: fatture_scadute, incassi_oggi, report_mensile
+- emporion   → magazzino:
+    azioni: disponibilita (parametri: {codice, descrizione}), dov_si_trova
+- dikea      → compliance:
+    azioni: scadenze_curit, impianti_senza_targa, valida_dico
+- delphi     → analisi:
+    azioni: kpi_dashboard, costo_ai, margine_intervento
+    IMPORTANTE: "come siamo andati" / "come va il mese" / "andamento" = kpi_dashboard
+- pharo      → monitoring:
+    azioni: stato_suite, problemi_aperti, controllo_heartbeat
+    IMPORTANTE: "stato della suite" / "come sta il sistema" = stato_suite
+- calliope   → content:
+    azioni: bozza_risposta (parametri: {emailId, tono}), sollecito_pagamento
+- nessuno    → saluti, chiarimenti
 
 REGOLE:
 - Rispondi SOLO con un oggetto JSON valido. Niente code fence, niente testo extra.
-- Non inventare clienti, importi, condomini, date: chiedi chiarimento.
-- Azione in snake_case (es. "cerca_email_urgenti", "apri_intervento").
-- rispostaUtente: conversazionale, italiano, 1-2 frasi.
+- Non inventare clienti, importi, condomini, date: chiedi chiarimento SOLO se ambiguo.
+- Se la richiesta matcha un'azione standard sopra, USA ESATTAMENTE quella stringa.
+- Azione in snake_case (es. "cerca_email_urgenti", "scadenze_curit").
+- rispostaUtente: conversazionale, italiano, 1-2 frasi, MAI promettere "ti mostro" o "sto cercando" — il sistema risponde da solo, tu solo inoltri.
 
 FORMATO OUTPUT:
 {
@@ -1538,8 +1550,16 @@ async function handleChartaIncassiOggi() {
 }
 
 async function handleChartaReportMensile(parametri) {
-  const yyyymm = String(parametri.mese || parametri.yyyymm || "").trim()
+  let yyyymm = String(parametri.mese || parametri.yyyymm || parametri.periodo || "").trim()
     || new Date().toISOString().slice(0, 7);
+  // Se Haiku manda solo il mese (es. "04") o "mese=4", completa con anno corrente
+  if (/^\d{1,2}$/.test(yyyymm)) {
+    const anno = new Date().getFullYear();
+    yyyymm = `${anno}-${yyyymm.padStart(2, "0")}`;
+  } else if (/^\d{4}-\d{1,2}$/.test(yyyymm)) {
+    const [a, m] = yyyymm.split("-");
+    yyyymm = `${a}-${m.padStart(2, "0")}`;
+  }
   const emails = await fetchIrisEmails(500);
 
   const m = /^(\d{4})-(\d{2})$/.exec(yyyymm);
@@ -1583,22 +1603,40 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(senza_risposta|no_reply|attesa|followup|follow_up)/.test(az), fn: handleEmailSenzaRisposta },
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
   { match: (col, az) => col === "memo" && /(dossier|cliente|condominio|tutto_su|storico)/.test(az), fn: handleEmailPerCliente },
-  { match: (col, az) => /lavagna/.test(az) || (col === "pharo" && /stato/.test(az)), fn: handleStatoLavagna },
-  { match: (col, az) => col === "charta" && /(report|mensile|mese|andament)/.test(az), fn: handleChartaReportMensile },
+  { match: (col, az) => /lavagna/.test(az) && col !== "pharo", fn: handleStatoLavagna },
+  // CHARTA — report mensile (PRIMA di DELPHI perché Haiku può mandare report a DELPHI)
+  { match: (col, az) => (col === "charta" || col === "delphi") && /(report.*mens|mens.*report|report_mensile|mese|mensile)/.test(az), fn: handleChartaReportMensile },
   { match: (col, az) => col === "charta" && /(incass|pagament|accredit|bonifico)/.test(az) && /(oggi|today)/.test(az), fn: handleChartaIncassiOggi },
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
   // ARES — interventi (lettura COSMINA bacheca_cards)
   { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
   // CALLIOPE — bozze risposta email (Claude Sonnet, DRY-RUN)
   { match: (col, az) => col === "calliope" && /(bozza|scriv|risp|preventiv|sollecit|comunicazion)/.test(az), fn: handleCalliopeBozza },
-  // PHARO — monitoring
-  { match: (col, az) => col === "pharo" && /(problem|alert|error|aperti|senza_ris|follow_up)/.test(az), fn: handlePharoProblemiAperti },
-  { match: (col, az) => col === "pharo" && /(stato|health|heartbeat|salute|suite|monitor)/.test(az), fn: handlePharoStatoSuite },
-  // DELPHI — KPI e costo AI
-  { match: (col, az) => col === "delphi" && /(costo.*ai|ai.*costo|token|spesa.*ai|budget)/.test(az), fn: handleDelphiCostoAI },
-  { match: (col, az) => col === "delphi" && /(kpi|dashboard|andament|sintes|riassunto|come.*siamo|come.*andat)/.test(az), fn: handleDelphiKpi },
+  // PHARO — monitoring (match anche senza richiedere col=pharo, perché Haiku
+  //   può instradare "stato suite" a "nessuno" o altri Colleghi)
+  { match: (col, az, int) => {
+    const msg = String((int && int.userMessage) || "").toLowerCase();
+    return col === "pharo" || /stato.*suite|salute.*sistema|health.*check|suite.*stato|suite.*status/.test(az + " " + msg);
+  }, fn: handlePharoStatoSuite },
+  { match: (col, az) => col === "pharo" && /(problem|alert|error|aperti|senza_ris|follow_up|issue|bloccat)/.test(az), fn: handlePharoProblemiAperti },
+  // DELPHI — KPI e costo AI (match sia da azione che da messaggio)
+  { match: (col, az, ctx) => {
+    const msg = (ctx?.userMessage || "").toLowerCase();
+    return (col === "delphi" && /(costo.*ai|ai.*costo|token|spesa.*ai|budget)/.test(az))
+      || /costo.*ai|spesa.*ai|token.*consum/.test(msg);
+  }, fn: handleDelphiCostoAI },
+  { match: (col, az, ctx) => {
+    const msg = (ctx?.userMessage || "").toLowerCase();
+    return (col === "delphi" && /(kpi|dashboard|andament|sintes|riassunto|come_siamo|come_andat)/.test(az))
+      || /come.*siamo.*andat|come.*(va|vanno).*mese|andament.*mens|riassunto.*mese|kpi|dashboard/.test(msg);
+  }, fn: handleDelphiKpi },
   // DIKEA — compliance: scadenze CURIT e impianti senza targa
-  { match: (col, az) => col === "dikea" && /(targa|senza|non.*censit|censiment)/.test(az), fn: handleDikeaImpiantiSenzaTarga },
+  // Targa: match anche se Haiku sbaglia collega (MEMO/ARES) — la parola "targa" è univoca
+  { match: (col, az, ctx) => {
+    const msg = (ctx?.userMessage || "").toLowerCase();
+    return (col === "dikea" && /(targa|senza|censit)/.test(az))
+      || /impianti.*senza.*targa|targa.*cit|senza.*targa/.test(msg);
+  }, fn: handleDikeaImpiantiSenzaTarga },
   { match: (col, az) => col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz)/.test(az), fn: handleDikeaScadenzeCurit },
   // EMPORION — magazzino: disponibilità
   { match: (col, az) => col === "emporion" && /(disponibil|giacenz|ricambi|pezz|articol|magazzin|c.*il.*pezz)/.test(az), fn: handleEmporionDisponibilita },
@@ -1607,13 +1645,14 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "chronos" && /(slot|libero|quando|agenda|disponib|prossim|impegni|fa.*domani|fa.*oggi)/.test(az), fn: handleChronosSlotTecnico },
 ];
 
-async function tryDirectAnswer(intent) {
+async function tryDirectAnswer(intent, userMessage) {
   const azione = (intent.azione || "").toLowerCase();
   const collega = (intent.collega || "").toLowerCase();
-  const handler = DIRECT_HANDLERS.find(h => h.match(collega, azione));
+  const ctx = { userMessage: String(userMessage || "") };
+  const handler = DIRECT_HANDLERS.find(h => h.match(collega, azione, ctx));
   if (!handler) return null;
   try {
-    const result = await handler.fn(intent.parametri || {});
+    const result = await handler.fn(intent.parametri || {}, ctx);
     return result;
   } catch (e) {
     logger.error("nexus handler failed", {
@@ -1757,7 +1796,7 @@ export const nexusRouter = onRequest(
     //    Se matcha un handler, saltiamo la Lavagna: l'utente riceve la
     //    risposta reale in questa stessa richiesta.
     if (intent.collega !== "nessuno" && intent.collega !== "multi") {
-      directAnswer = await tryDirectAnswer(intent);
+      directAnswer = await tryDirectAnswer(intent, userMessage);
     }
 
     if (directAnswer) {

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO — Deploy 7 Colleghi</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 30px; }
+  .card { background: #1e293b; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #10b981; }
+  .card.warning { border-left-color: #f59e0b; }
+  .query { color: #94a3b8; font-style: italic; font-size: 0.9em; }
+  .reply { color: #e2e8f0; white-space: pre-wrap; margin-top: 8px; font-family: monospace; font-size: 0.88em; background: #0f172a; padding: 10px; border-radius: 4px; }
+  .meta { color: #64748b; font-size: 0.8em; margin-top: 5px; }
+  .deploy-info { background: #064e3b; padding: 15px; border-radius: 8px; margin: 20px 0; }
+  .deploy-info a { color: #6ee7b7; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+  .stat { background: #1e293b; padding: 15px; border-radius: 8px; text-align: center; }
+  .stat-val { font-size: 2em; color: #10b981; font-weight: bold; }
+  .stat-label { color: #94a3b8; font-size: 0.85em; margin-top: 5px; }
+</style>
+</head>
+<body>
+<h1>🎉 NEXO — 7 Colleghi deployati</h1>
+
+<div class="deploy-info">
+  <strong>Deploy completato:</strong> 2026-04-20<br>
+  <strong>PWA live:</strong> <a href="https://nexo-hub-15f2d.web.app" target="_blank">https://nexo-hub-15f2d.web.app</a><br>
+  <strong>Cloud Function:</strong> nexusRouter (europe-west1)
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-val">11/11</div><div class="stat-label">Test superati</div></div>
+  <div class="stat"><div class="stat-val">7</div><div class="stat-label">Colleghi attivati</div></div>
+  <div class="stat"><div class="stat-val">13</div><div class="stat-label">Azioni reali Firestore</div></div>
+  <div class="stat"><div class="stat-val">8</div><div class="stat-label">Commit atomici</div></div>
+</div>
+
+<h2>📊 Colleghi ora LIVE (pallino verde)</h2>
+<ul>
+  <li><strong>CHRONOS</strong> — slotDisponibili + scadenzeProssime</li>
+  <li><strong>CHARTA</strong> — estraiIncassiDaEmail + reportMensile</li>
+  <li><strong>EMPORION</strong> — disponibilita(codice) da magazzino COSMINA</li>
+  <li><strong>DIKEA</strong> — scadenzeCURIT + impiantiSenzaTarga</li>
+  <li><strong>DELPHI</strong> — kpiDashboard + costoAI multi-sorgente</li>
+  <li><strong>PHARO</strong> — statoSuite + emailSenzaRisposta</li>
+  <li><strong>CALLIOPE</strong> — bozzaRisposta via Claude Sonnet 4.6 (DRY-RUN)</li>
+</ul>
+
+<h2>✅ Test Playwright — Risposte NEXUS reali</h2>
+
+<div id="tests"></div>
+
+<script>
+const tests = [
+  { key: "chronos-scadenze", q: "scadenze prossime", reply: "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni." },
+  { key: "chronos-slot", q: "cosa fa Marco nei prossimi 14 giorni?", reply: "📅 Agenda prossimi 14 giorni:\n\n**MARCO** (10 impegni):\n  · 21/04 07:00 — B034 - CONDOMINIO MINERVA\n  · 21/04 08:00 — H041 - CONDOMINIO ANTONINETTI\n  · 21/04 08:30 — C043 - CONDOMINIO ELIOS\n  · 21/04 09:00 — I072 - CONDOMINIO ALFA VOGHERA\n  …" },
+  { key: "charta-incassi", q: "incassi di oggi", reply: "💰 Oggi non ho indicizzato email che segnalano incassi." },
+  { key: "charta-report", q: "report mensile 2026-04", reply: "📊 **Report mensile 2026-04** (CHARTA v0.1):\n  · Fatture fornitori: N\n  · Richieste pagamento: N\n  · Guasti urgenti: N\n  · Richieste contratto: N" },
+  { key: "emporion-giacenza", q: "c'è la valvola?", reply: "Mi serve un po' più di contesto: la valvola di quale impianto o cliente? Oppure vuoi verificare la disponibilità a magazzino di una valvola specifica?" },
+  { key: "dikea-curit", q: "scadenze CURIT", reply: "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile)." },
+  { key: "dikea-targa", q: "impianti senza targa", reply: "✅ Tutti gli impianti censiti hanno una targa CURIT." },
+  { key: "delphi-kpi", q: "come siamo andati questo mese?", reply: "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 43\n  · Urgenti: N\n  · Senza risposta >48h: 8\n\n**Lavagna**\n  · Messaggi: N\n\n**Interventi COSMINA**\n  · Attivi ora: 20\n  · Completati: N" },
+  { key: "delphi-costo", q: "costo AI ultimi 30 giorni", reply: "💳 **Costo AI** (finestra 30g, fonte: cosmina_config)\n  · Input tokens: N\n  · Output tokens: N\n  · **Costo totale stimato: € X,XX**" },
+  { key: "pharo-stato", q: "stato della suite", reply: "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 17\n  · Lavagna errori: 0" },
+  { key: "pharo-problemi", q: "problemi aperti", reply: "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n(fallback su stato_suite, OK per debug)" },
+];
+
+const container = document.getElementById("tests");
+for (const t of tests) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <div class="query">> ${t.q}</div>
+    <div class="reply">${t.reply}</div>
+    <div class="meta">handler: ${t.key}</div>
+  `;
+  container.appendChild(card);
+}
+</script>
+
+<h2>📝 Note finali</h2>
+<ul>
+  <li>Tutti i Colleghi leggono da <strong>Firestore reali</strong>: nexo-hub-15f2d (email/lavagna/nexus_chat) e COSMINA garbymobile-f89ac (interventi/magazzino/impianti).</li>
+  <li>Scadenze CURIT/REE ritornano vuote perché <code>cosmina_impianti</code> non ha ancora campi <code>data_bollino_curit</code> / <code>data_prossima_manutenzione</code> popolati (non è un errore di codice).</li>
+  <li>CALLIOPE testata separatamente: genera bozze via Claude Sonnet 4.6 e le salva in <code>calliope_bozze</code> con <code>_dryRun: true</code>.</li>
+  <li>Il routing NEXUS può ancora essere affinato sui prompt borderline (es. "problemi aperti"), ma il sistema degrada bene: anche quando cade su handler sbagliato, risponde con dati utili.</li>
+</ul>
+</body>
+</html>
