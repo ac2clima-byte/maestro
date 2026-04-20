@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>NEXO — Hub dei Colleghi</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-soft: #f1f5f9;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+    --accent: #2563eb;
+    --ok: #059669;
+    --warn: #d97706;
+    --err: #dc2626;
+
+    --sidebar-bg: #0f172a;
+    --sidebar-bg-hover: #1e293b;
+    --sidebar-bg-active: #334155;
+    --sidebar-text: #cbd5e1;
+    --sidebar-text-muted: #64748b;
+    --sidebar-text-active: #ffffff;
+    --sidebar-border: #1e293b;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.10);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+  }
+  button { font: inherit; cursor: pointer; color: inherit; }
+  a { color: inherit; }
+
+  /* ── Layout ──────────────────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    grid-template-rows: 100vh;
+    height: 100vh;
+  }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 56px 1fr; }
+    .sidebar.collapsed { display: none; }
+  }
+
+  /* ── Sidebar ─────────────────────────────────────────── */
+  .sidebar {
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--sidebar-border);
+    overflow-y: auto;
+  }
+  .sidebar-header {
+    padding: 20px 18px 14px;
+    border-bottom: 1px solid var(--sidebar-border);
+  }
+  .sidebar-brand {
+    color: var(--sidebar-text-active);
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .sidebar-tag {
+    color: var(--sidebar-text-muted);
+    font-size: 0.78rem;
+    margin-top: 2px;
+  }
+  .sidebar-section {
+    padding: 14px 8px 8px;
+  }
+  .sidebar-section-label {
+    color: var(--sidebar-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-size: 0.68rem;
+    padding: 0 10px 6px;
+    font-weight: 600;
+  }
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    margin-bottom: 1px;
+    border: none;
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    color: var(--sidebar-text);
+    font-size: 0.92rem;
+  }
+  .sidebar-link:hover { background: var(--sidebar-bg-hover); color: var(--sidebar-text-active); }
+  .sidebar-link.active { background: var(--sidebar-bg-active); color: var(--sidebar-text-active); font-weight: 500; }
+  .sidebar-link .icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    background: var(--sidebar-bg-active);
+    color: var(--sidebar-text-active);
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+  .sidebar-link .name { flex: 1; min-width: 0; }
+  .sidebar-link .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--sidebar-text-muted);
+    flex-shrink: 0;
+  }
+  .sidebar-link .status-dot.live { background: #22c55e; }
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 14px 18px;
+    border-top: 1px solid var(--sidebar-border);
+    font-size: 0.78rem;
+    color: var(--sidebar-text-muted);
+  }
+  .sidebar-footer .user { color: var(--sidebar-text); }
+
+  /* Mobile topbar */
+  .topbar {
+    display: none;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text-active);
+    align-items: center;
+    padding: 0 14px;
+    gap: 10px;
+    border-bottom: 1px solid var(--sidebar-border);
+  }
+  @media (max-width: 760px) {
+    .topbar { display: flex; }
+    .app { grid-template-rows: auto 1fr; }
+    .sidebar { position: fixed; inset: 0; top: 56px; z-index: 50; width: 240px; height: calc(100vh - 56px); }
+  }
+  .menu-btn {
+    background: transparent; border: none; color: inherit; font-size: 1.4rem; padding: 4px 8px;
+  }
+
+  /* ── Content area ────────────────────────────────────── */
+  .content {
+    overflow-y: auto;
+    background: var(--bg);
+    position: relative;
+  }
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 24px 60px;
+  }
+  .page-head { margin-bottom: 22px; }
+  .page-title { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+  .page-sub { color: var(--text-muted); margin-top: 4px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ── Dashboard grid ──────────────────────────────────── */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+  }
+  .widget {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    min-height: 180px;
+  }
+  .widget-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .widget-title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+  .widget-icon { font-size: 1.1rem; }
+  .widget-body { flex: 1; min-height: 0; }
+  .widget-empty { color: var(--text-muted); font-style: italic; font-size: 0.88rem; padding: 16px 0; }
+  .widget-error { color: var(--err); font-size: 0.85rem; padding: 8px 0; }
+
+  /* Lavagna list */
+  .lav-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.86rem;
+  }
+  .lav-row:first-child { border-top: none; padding-top: 4px; }
+  .lav-arrow { color: var(--text-dim); font-weight: 500; white-space: nowrap; font-size: 0.78rem; }
+  .lav-arrow strong { color: var(--text); font-weight: 600; }
+  .lav-type { color: var(--text); }
+  .lav-meta { color: var(--text-dim); font-size: 0.78rem; white-space: nowrap; }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    margin-left: 4px;
+  }
+  .pill.pending      { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .pill.picked_up    { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .pill.completed    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .pill.failed       { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .pill.priority-critical { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .pill.priority-high     { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+
+  /* Digest widget */
+  .digest-summary { font-size: 0.92rem; line-height: 1.55; margin-bottom: 10px; color: var(--text); }
+  .digest-summary .num { font-weight: 700; }
+  .digest-summary .num.urgent { color: var(--err); }
+  .digest-summary .num.attn { color: var(--warn); }
+  .digest-top-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: baseline;
+    padding: 6px 0;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .digest-top-row:first-child { border-top: none; }
+  .digest-top-rank { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; }
+  .digest-top-text { overflow: hidden; }
+  .digest-top-sender { color: var(--text-muted); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .digest-top-summary { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Stat row */
+  .stat-row {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .stat-row .stat { display: flex; flex-direction: column; }
+  .stat-row .stat strong {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-row .stat span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .stat-row .stat.urgent strong { color: var(--err); }
+  .stat-row .stat.attn strong { color: var(--warn); }
+
+  /* Open intervention placeholder */
+  .placeholder-block {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 18px;
+    background: var(--surface-soft);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  /* ── Collega page (placeholder + iframe) ─────────────── */
+  .collega-wip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 36px 32px;
+    text-align: center;
+    box-shadow: var(--shadow-md);
+  }
+  .collega-wip-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+  }
+  .collega-wip h2 {
+    font-size: 1.6rem;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .collega-wip .subtitle {
+    color: var(--text-muted);
+    margin-bottom: 22px;
+  }
+  .collega-wip .badge-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 22px;
+  }
+  .collega-wip .readme {
+    text-align: left;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--text);
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+  .collega-wip .readme h3 { font-size: 0.92rem; font-weight: 600; margin-bottom: 8px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; }
+  .collega-wip .readme p { margin-bottom: 8px; color: var(--text-muted); }
+  .collega-wip .readme ul { margin: 8px 0 8px 18px; color: var(--text-muted); }
+  .collega-wip .readme li { margin-bottom: 4px; }
+
+  /* Iris iframe wrapper */
+  .iris-frame-wrap {
+    height: 100%;
+    background: var(--surface);
+  }
+  .iris-frame {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  .content.fullbleed { padding: 0; }
+  .content.fullbleed .page { display: none; }
+  .content:not(.fullbleed) .iris-frame-wrap { display: none; }
+
+  /* ── NEXUS chat ───────────────────────────────────────── */
+  --nexus-accent: #00d4ff;
+  --nexus-accent-dark: #0284c7;
+  }
+  /* Trick: il blocco sopra chiude il :root per injectare le variabili extra.
+     Ripeto :root per restare valido. */
+  :root { color-scheme: light; }
+
+  .nexus-fab {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: var(--nexus-accent);
+    color: #0f172a;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.45), 0 2px 6px rgba(0,0,0,0.12);
+    z-index: 60;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .nexus-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 212, 255, 0.55); }
+  .nexus-fab:active { transform: translateY(0); }
+  .nexus-fab .badge-unread {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--err);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+  }
+  .nexus-fab.hidden { display: none; }
+
+  .nexus-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 88px;
+    width: min(440px, calc(100vw - 40px));
+    height: min(620px, calc(100vh - 120px));
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    display: none;
+    flex-direction: column;
+    z-index: 65;
+    overflow: hidden;
+  }
+  .nexus-panel.open { display: flex; }
+  @media (max-width: 640px) {
+    .nexus-panel {
+      right: 0; bottom: 0; top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      border-radius: 0;
+    }
+    .nexus-fab.hidden-when-open { display: none; }
+  }
+  .nexus-header {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .nexus-header .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+  }
+  .nexus-header .brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--nexus-accent);
+    box-shadow: 0 0 8px var(--nexus-accent);
+  }
+  .nexus-header .hint {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    font-weight: 400;
+  }
+  .nexus-header .close {
+    background: transparent; border: none; color: #cbd5e1;
+    cursor: pointer; font-size: 1.3rem;
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .nexus-header .close:hover { background: rgba(255,255,255,0.1); }
+
+  .nexus-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .nexus-bubble {
+    max-width: 82%;
+    padding: 9px 13px;
+    border-radius: 14px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    position: relative;
+  }
+  .nexus-bubble.user {
+    align-self: flex-end;
+    background: #d9f2fa;
+    color: var(--text);
+    border-bottom-right-radius: 4px;
+  }
+  .nexus-bubble.assistant {
+    align-self: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-bottom-left-radius: 4px;
+  }
+  .nexus-bubble-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    font-size: 0.72rem;
+  }
+  .nexus-badge-col {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    font-weight: 600;
+    font-size: 0.7rem;
+  }
+  .nexus-badge-stato {
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+  .nexus-badge-stato.in_attesa_collega { background:#fef3c7; color:#b45309; border-color:#fde68a; }
+  .nexus-badge-stato.completata { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
+  .nexus-badge-stato.collega_inattivo { background:#f3f4f6; color:#64748b; border-color:#e5e7eb; }
+  .nexus-badge-stato.timeout { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+  .nexus-badge-stato.errore { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+
+  .nexus-typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 10px 13px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+    align-self: flex-start;
+  }
+  .nexus-typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-dim);
+    animation: nexus-typing-bounce 1.2s infinite ease-in-out;
+  }
+  .nexus-typing span:nth-child(2) { animation-delay: 0.15s; }
+  .nexus-typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes nexus-typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  .nexus-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: 40px 20px;
+    font-size: 0.9rem;
+  }
+  .nexus-empty .examples {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.85rem;
+  }
+  .nexus-example {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: left;
+    color: var(--text);
+    transition: border-color 0.12s, background 0.12s;
+    font-size: 0.88rem;
+  }
+  .nexus-example:hover { border-color: var(--nexus-accent); background: #f0fbff; }
+
+  .nexus-input {
+    border-top: 1px solid var(--border);
+    padding: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    background: var(--surface);
+  }
+  .nexus-input textarea {
+    flex: 1;
+    min-height: 40px;
+    max-height: 120px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    font-size: 0.92rem;
+    resize: none;
+    line-height: 1.4;
+  }
+  .nexus-input textarea:focus {
+    outline: none;
+    border-color: var(--nexus-accent);
+    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
+  }
+  .nexus-btn-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.05rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    flex-shrink: 0;
+  }
+  .nexus-btn-icon:hover { border-color: var(--border-strong); color: var(--text); }
+  .nexus-btn-icon[hidden] { display: none !important; }
+  .nexus-btn-icon.recording {
+    background: #fef2f2; border-color: #fecaca; color: #b91c1c;
+    animation: nexus-mic-pulse 1.1s infinite;
+  }
+  @keyframes nexus-mic-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); }
+    70% { box-shadow: 0 0 0 8px rgba(220,38,38,0); }
+    100% { box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+  }
+  .nexus-btn-send {
+    background: var(--nexus-accent);
+    color: #0f172a;
+    border: none;
+  }
+  .nexus-btn-send:hover { background: var(--nexus-accent-dark); color: #fff; }
+  .nexus-btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .nexus-voice-status {
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    background: var(--surface-soft);
+    border-top: 1px solid var(--border);
+    min-height: 1.4em;
+  }
+  .nexus-voice-status.error { color: var(--err); }
+  .nexus-voice-status.recording { color: #b91c1c; }
+
+  /* Loading spinner */
+  .spinner {
+    border: 3px solid var(--surface-soft);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Mobile topbar -->
+  <div class="topbar">
+    <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
+    <div style="font-weight:700;font-size:1.05rem;">NEXO</div>
+    <div style="margin-left:auto;font-size:0.85rem;opacity:.7;" id="topbarTitle">Home</div>
+  </div>
+
+  <aside class="sidebar collapsed" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-brand">NEXO</div>
+      <div class="sidebar-tag">Hub dei Colleghi · ACG Suite</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Dashboard</div>
+      <button class="sidebar-link" data-route="home">
+        <span class="icon">🏠</span><span class="name">Home</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Colleghi</div>
+      <div id="collegiNav"></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user" id="footerUser">alberto@acgclima.it</div>
+      <div style="margin-top:4px;">v0.1 dev</div>
+    </div>
+  </aside>
+
+  <main class="content" id="content">
+    <div class="page" id="page"></div>
+    <div class="iris-frame-wrap">
+      <iframe id="irisFrame" class="iris-frame" title="IRIS — Email" referrerpolicy="same-origin"></iframe>
+    </div>
+  </main>
+
+</div>
+
+<script type="module">
+
+// ── Colleghi config ────────────────────────────────────────────
+const COLLEGHI = [
+  { id: "iris",     name: "IRIS",     icon: "📧", domain: "Email in entrata",            status: "live",  desc: "Classifica, raggruppa, segnala. Hub email dell'azienda.", actions: ["Classificazione email con Haiku","Thread + follow-up + sentiment","Sender profiles + casi simili","RuleEngine con 4 regole attive","Dev Requests in-app + STT vocale"] },
+  { id: "ares",     name: "ARES",     icon: "🔧", domain: "Operativo / Interventi",      status: "wip",   desc: "Apertura interventi, assegnazione tecnici, RTI/RTIDF.", actions: ["apriIntervento(impianto, tipo, urgenza)","assegnaTecnico(intervento)","proponiSlot(tecnico, durata)","chiudiIntervento + generaRTI","notificaTecnico via push"] },
+  { id: "chronos",  name: "CHRONOS",  icon: "📅", domain: "Pianificatore / Calendario",  status: "wip",   desc: "Tempo, disponibilità, scadenze, campagne.",            actions: ["slotDisponibili(tecnico, zona)","scadenzeProssime(zona, finestra)","pianificaCampagna(anno, comuni)","trovaConflitti(data, tecnico)","agendaGiornaliera per ECHO"] },
+  { id: "memo",     name: "MEMO",     icon: "🧠", domain: "Memoria / Storico cliente",   status: "wip",   desc: "Dossier unico per cliente / condominio / impianto.",   actions: ["dossierCliente(clienteId)","storicoImpianto(targa)","cercaDocumentoCliente(nome, pattern)","ultimiContatti(clienteId, N)","matchAnagrafica per dedup"] },
+  { id: "charta",   name: "CHARTA",   icon: "💰", domain: "Amministrativo / Fatturazione", status: "wip", desc: "Fatture, scadenze, pagamenti, solleciti, DDT.",      actions: ["scadenzeFatture(finestra)","generaSollecito(fatturaId, tono)","registraPagamento(cliente, importo)","statoCliente(clienteId)","parseFatturaFornitore(allegato)"] },
+  { id: "emporion", name: "EMPORION", icon: "📦", domain: "Magazzino / Ricambi",         status: "wip",   desc: "Articoli, giacenze, furgoni, ordini fornitori.",       actions: ["disponibilita(codice | descrizione)","dovSiTrova(articolo)","ordinaFornitore(articolo, quantita)","trasferisci(articolo, da, a)","ocrDDT(pdf)"] },
+  { id: "dikea",    name: "DIKEA",    icon: "⚖️", domain: "Compliance / Normative",      status: "wip",   desc: "CURIT, DiCo, DM 37/2008, PEC ufficiali.",              actions: ["scadenzeCURIT(finestra)","validaDiCo(bozza)","generaDiCo(interventoId)","rispostaPEC(pecId)","auditAccessi(uid, finestra)"] },
+  { id: "delphi",   name: "DELPHI",   icon: "📊", domain: "Analisi / BI",                status: "wip",   desc: "KPI, margini, trend, proiezioni.",                     actions: ["marginePerIntervento(finestra)","topCondomini(anno, criterio)","previsionIncassi(mesi)","tecnicoProduttivita(tecnico, mese)","anomalie(metrica, soglia)"] },
+  { id: "pharo",    name: "PHARO",    icon: "👁️", domain: "Monitoring / Alert",          status: "wip",   desc: "Sorveglianza proattiva, scadenze, anomalie.",          actions: ["controlloHeartbeat()","budgetAnthropic(mese)","impiantiOrfani()","clientiSilenziosi(mesi)","emailSenzaRisposta() — usa IRIS"] },
+  { id: "calliope", name: "CALLIOPE", icon: "✍️", domain: "Content / Comunicazione uscita", status: "wip", desc: "Bozze risposte, comunicazioni condomini, preventivi.", actions: ["bozzaRisposta(emailId, tono)","comunicazioneCondominio(condId, motivo)","preventivoFormale(impiantoId, lavoro)","newsletterTecnici(mese)","trascriviRiunione(audio)"] },
+];
+const BY_ID = new Map(COLLEGHI.map(c => [c.id, c]));
+
+// ── Firebase config ────────────────────────────────────────────
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBqm4XYaSlq2yUFdpcsL0wtSOpn48cOHoo",
+  authDomain: "nexo-hub-15f2d.firebaseapp.com",
+  projectId: "nexo-hub-15f2d",
+  storageBucket: "nexo-hub-15f2d.firebasestorage.app",
+  messagingSenderId: "272099489624",
+  appId: "1:272099489624:web:10d17611b19031757d172d",
+};
+const MOCK_MODE = true;
+
+let _firestoreCache = null;
+async function getFirestore() {
+  if (_firestoreCache) return _firestoreCache;
+  const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+  const fsMod  = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+  const app = appMod.initializeApp(FIREBASE_CONFIG);
+  const db  = fsMod.getFirestore(app);
+  _firestoreCache = { db, fsMod };
+  return _firestoreCache;
+}
+
+// ── DOM helpers ────────────────────────────────────────────────
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function fmtRel(iso) {
+  if (!iso) return "—";
+  try {
+    const d = iso.toDate ? iso.toDate() : new Date(iso);
+    if (Number.isNaN(d.getTime())) return "—";
+    const min = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (min < 1)   return "ora";
+    if (min < 60)  return `${min}m fa`;
+    if (min < 60*24) return `${Math.floor(min/60)}h fa`;
+    return `${Math.floor(min/(60*24))}g fa`;
+  } catch { return "—"; }
+}
+
+// ── Sidebar nav ────────────────────────────────────────────────
+function renderSidebarNav() {
+  const navEl = $("#collegiNav");
+  navEl.innerHTML = COLLEGHI.map(c => `
+    <button class="sidebar-link" data-route="collega:${c.id}">
+      <span class="icon">${c.icon}</span>
+      <span class="name">${escapeHtml(c.name)}</span>
+      <span class="status-dot ${c.status === "live" ? "live" : ""}" title="${c.status === "live" ? "Attivo" : "In costruzione"}"></span>
+    </button>
+  `).join("");
+  $$(".sidebar-link", navEl).forEach(b => {
+    b.addEventListener("click", () => navigate(b.dataset.route));
+  });
+  $$(".sidebar-link[data-route='home']").forEach(b => {
+    b.addEventListener("click", () => navigate("home"));
+  });
+}
+
+// ── Router ─────────────────────────────────────────────────────
+let CURRENT_ROUTE = "home";
+
+function setActiveLink(route) {
+  $$(".sidebar-link").forEach(b => b.classList.toggle("active", b.dataset.route === route));
+}
+
+function navigate(route, opts = { push: true }) {
+  CURRENT_ROUTE = route;
+  if (opts.push) history.replaceState(null, "", "#" + route);
+  setActiveLink(route);
+  if (window.innerWidth <= 760) $("#sidebar").classList.add("collapsed");
+
+  if (route === "home") {
+    setFullBleed(false);
+    setTopbarTitle("Home");
+    renderHome();
+    return;
+  }
+  if (route.startsWith("collega:")) {
+    const id = route.slice("collega:".length);
+    const c = BY_ID.get(id);
+    if (!c) { renderHome(); return; }
+    setTopbarTitle(c.name);
+    if (id === "iris") {
+      // Iframe IRIS
+      setFullBleed(true);
+      const frame = $("#irisFrame");
+      if (!frame.src.endsWith("/iris/") && !frame.src.includes("/iris/index.html")) {
+        frame.src = "/iris/";
+      }
+      return;
+    }
+    setFullBleed(false);
+    renderCollegaWip(c);
+    return;
+  }
+  // unknown
+  navigate("home", { push: true });
+}
+
+function setFullBleed(on) {
+  $("#content").classList.toggle("fullbleed", !!on);
+}
+function setTopbarTitle(t) {
+  const el = $("#topbarTitle");
+  if (el) el.textContent = t;
+}
+
+window.addEventListener("hashchange", () => {
+  const r = location.hash.replace(/^#/, "") || "home";
+  navigate(r, { push: false });
+});
+
+// ── Home page ──────────────────────────────────────────────────
+function renderHome() {
+  const page = $("#page");
+  page.innerHTML = `
+    <div class="page-head">
+      <div class="page-title">Buongiorno, Alberto</div>
+      <div class="page-sub">Il pannello di NEXO. Cosa è successo nelle ultime ore.</div>
+    </div>
+    <div class="dash-grid">
+      <div class="widget" id="wDigest">
+        <div class="widget-head">
+          <div class="widget-title">📋 Digest email (IRIS)</div>
+          <div class="widget-icon"><span class="spinner"></span></div>
+        </div>
+        <div class="widget-body" id="digestBody"><div class="widget-empty">Caricamento…</div></div>
+      </div>
+
+      <div class="widget" id="wLavagna">
+        <div class="widget-head">
+          <div class="widget-title">🗒️ Lavagna · ultimi 10 messaggi</div>
+          <div class="widget-icon"><span class="spinner"></span></div>
+        </div>
+        <div class="widget-body" id="lavBody"><div class="widget-empty">Caricamento…</div></div>
+      </div>
+
+      <div class="widget" id="wAlerts">
+        <div class="widget-head">
+          <div class="widget-title">👁️ Alert (PHARO)</div>
+          <div class="widget-icon"><span class="spinner"></span></div>
+        </div>
+        <div class="widget-body" id="alertsBody"><div class="widget-empty">Caricamento…</div></div>
+      </div>
+
+      <div class="widget" id="wInterventi">
+        <div class="widget-head">
+          <div class="widget-title">🔧 Interventi aperti (ARES)</div>
+          <div class="widget-icon">—</div>
+        </div>
+        <div class="widget-body">
+          <div class="placeholder-block">
+            ARES non è ancora attivo. Quando sarà materializzato vedrai qui
+            gli interventi del giorno con tecnico assegnato e priorità.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  loadDigestWidget();
+  loadLavagnaWidget();
+  loadAlertsWidget();
+}
+
+async function loadDigestWidget() {
+  const body = $("#digestBody");
+  const head = $("#wDigest .widget-icon");
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "iris_emails"),
+      fsMod.orderBy("raw.received_time", "desc"),
+      fsMod.limit(80),
+    );
+    const snap = await fsMod.getDocs(q);
+    const emails = [];
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      const raw = d.raw || {}, cls = d.classification || {}, fu = d.followup || {};
+      emails.push({
+        id: doc.id,
+        subject: raw.subject || "(senza oggetto)",
+        sender: raw.sender_name || raw.sender || "—",
+        category: cls.category || "ALTRO",
+        sentiment: cls.sentiment || "neutro",
+        score: typeof d.score === "number" ? d.score : 0,
+        received: raw.received_time || "",
+        needsAttention: !!fu.needsAttention,
+      });
+    });
+    head.textContent = "📧";
+    if (!emails.length) { body.innerHTML = `<div class="widget-empty">Nessuna email indicizzata.</div>`; return; }
+
+    const today = emails.filter(e => isToday(e.received)).length;
+    const urgent = emails.filter(e => e.category === "GUASTO_URGENTE" || e.category === "PEC_UFFICIALE").length;
+    const attn = emails.filter(e => e.needsAttention).length;
+
+    const top = [...emails]
+      .map(e => ({ e, s: scoreOf(e) }))
+      .sort((a, b) => b.s - a.s)
+      .slice(0, 3)
+      .map(x => x.e);
+
+    body.innerHTML = `
+      <div class="digest-summary">
+        Oggi <span class="num">${today}</span> ricevute ·
+        <span class="num urgent">${urgent}</span> urgenti ·
+        <span class="num attn">${attn}</span> senza risposta &gt;48h
+      </div>
+      ${top.map((e, i) => `
+        <div class="digest-top-row">
+          <div class="digest-top-rank">#${i+1}</div>
+          <div class="digest-top-text">
+            <div class="digest-top-sender">${escapeHtml(e.sender)}</div>
+            <div class="digest-top-summary">${escapeHtml(e.subject)}</div>
+          </div>
+        </div>
+      `).join("")}
+      <div class="stat-row">
+        <div class="stat"><strong>${emails.length}</strong><span>indicizzate</span></div>
+        <div class="stat urgent"><strong>${urgent}</strong><span>urgenti</span></div>
+        <div class="stat attn"><strong>${attn}</strong><span>in attesa</span></div>
+      </div>
+    `;
+  } catch (err) {
+    head.textContent = "⚠️";
+    body.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+function isToday(iso) {
+  if (!iso) return false;
+  try {
+    const d = new Date(iso); if (Number.isNaN(d.getTime())) return false;
+    const n = new Date();
+    return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth() && d.getDate()===n.getDate();
+  } catch { return false; }
+}
+function scoreOf(e) {
+  let s = e.score || 0;
+  if (e.category === "GUASTO_URGENTE") s += 50;
+  else if (e.category === "PEC_UFFICIALE") s += 30;
+  if (e.needsAttention) s += 10;
+  return s;
+}
+
+async function loadLavagnaWidget() {
+  const body = $("#lavBody");
+  const head = $("#wLavagna .widget-icon");
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "nexo_lavagna"),
+      fsMod.orderBy("createdAt", "desc"),
+      fsMod.limit(10),
+    );
+    const snap = await fsMod.getDocs(q);
+    const rows = [];
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      rows.push({
+        id: doc.id,
+        from: d.from || "?",
+        to: d.to || "?",
+        type: d.type || "msg",
+        status: d.status || "pending",
+        priority: d.priority || "normal",
+        createdAt: d.createdAt || null,
+      });
+    });
+    head.textContent = "🗒️";
+    if (!rows.length) {
+      body.innerHTML = `<div class="widget-empty">Lavagna vuota — nessun Collega ha ancora pubblicato.</div>`;
+      return;
+    }
+    body.innerHTML = rows.map(r => `
+      <div class="lav-row">
+        <div class="lav-arrow"><strong>${escapeHtml(r.from)}</strong> → <strong>${escapeHtml(r.to)}</strong></div>
+        <div class="lav-type">
+          ${escapeHtml(r.type)}
+          <span class="pill ${escapeHtml(r.status)}">${escapeHtml(r.status)}</span>
+          ${r.priority !== "normal" ? `<span class="pill priority-${escapeHtml(r.priority)}">${escapeHtml(r.priority)}</span>` : ""}
+        </div>
+        <div class="lav-meta">${escapeHtml(fmtRel(r.createdAt))}</div>
+      </div>
+    `).join("");
+  } catch (err) {
+    head.textContent = "⚠️";
+    body.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+async function loadAlertsWidget() {
+  const body = $("#alertsBody");
+  const head = $("#wAlerts .widget-icon");
+  try {
+    const { db, fsMod } = await getFirestore();
+    // PHARO non è attivo: mostriamo le notifiche ECHO pending come stand-in
+    // (queste vengono generate dal RuleEngine di IRIS).
+    const q = fsMod.query(
+      fsMod.collection(db, "echo_notifications"),
+      fsMod.orderBy("createdAt", "desc"),
+      fsMod.limit(8),
+    );
+    const snap = await fsMod.getDocs(q);
+    const rows = [];
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      rows.push({
+        channel: d.channel || "wa",
+        text: d.text || "",
+        status: d.status || "pending",
+        createdAt: d.createdAt || null,
+      });
+    });
+    head.textContent = "🔔";
+    if (!rows.length) {
+      body.innerHTML = `
+        <div class="widget-empty">
+          Nessun alert. PHARO non è ancora attivo; mostriamo le notifiche
+          generate dalle regole IRIS quando ce ne saranno.
+        </div>`;
+      return;
+    }
+    body.innerHTML = rows.map(r => `
+      <div class="lav-row">
+        <div class="lav-arrow">${escapeHtml(r.channel.toUpperCase())}</div>
+        <div class="lav-type">${escapeHtml(r.text)}<span class="pill ${escapeHtml(r.status)}">${escapeHtml(r.status)}</span></div>
+        <div class="lav-meta">${escapeHtml(fmtRel(r.createdAt))}</div>
+      </div>
+    `).join("");
+  } catch (err) {
+    head.textContent = "⚠️";
+    body.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+// ── Collega WIP page ───────────────────────────────────────────
+function renderCollegaWip(c) {
+  $("#page").innerHTML = `
+    <div class="collega-wip">
+      <div class="collega-wip-icon">${c.icon}</div>
+      <h2>${escapeHtml(c.name)}</h2>
+      <div class="subtitle">${escapeHtml(c.domain)}</div>
+      <div class="badge-status">⏳ Collega in costruzione</div>
+      <div class="readme">
+        <h3>Cosa farà</h3>
+        <p>${escapeHtml(c.desc)}</p>
+        <h3>Azioni previste</h3>
+        <ul>
+          ${c.actions.map(a => `<li><code>${escapeHtml(a)}</code></li>`).join("")}
+        </ul>
+        <h3>Stato</h3>
+        <p>Non ancora materializzato come servizio. Verrà attivato dopo lo
+           scaffolding nexo-core. La Lavagna è già in piedi: i messaggi
+           verso questo Collega vengono accumulati in stato
+           <code>pending</code> e verranno consumati quando attivo.</p>
+      </div>
+    </div>
+  `;
+}
+
+// ── NEXUS Chat ─────────────────────────────────────────────────
+const NEXUS_API_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter";
+const NEXUS_COLLEGHI_ATTIVI = new Set(["iris"]);
+const NEXUS_SESSION_KEY = "nexo.nexus.sessionId";
+const NEXUS_COLLEGA_MAX_WAIT_MS = 30000;
+const NEXUS_EXAMPLES = [
+  "Quante email urgenti ho?",
+  "Apri intervento caldaia Via Roma 12, manda Malvicino",
+  "Fatture scadute?",
+  "Stato della Suite",
+  "Dimmi tutto sul Condominio La Bussola",
+];
+
+function nexusGetOrCreateSessionId() {
+  try {
+    let sid = localStorage.getItem(NEXUS_SESSION_KEY);
+    if (!sid) {
+      sid = "nx_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem(NEXUS_SESSION_KEY, sid);
+    }
+    return sid;
+  } catch {
+    return "nx_ephemeral_" + Date.now();
+  }
+}
+const NEXUS_SESSION_ID = nexusGetOrCreateSessionId();
+let NEXUS_MESSAGES = [];
+let NEXUS_PENDING = false;
+let NEXUS_UNSUBSCRIBE = null;
+const NEXUS_LAVAGNA_WATCH = new Map(); // lavagnaId → unsubscribe
+
+function nexusOpen() {
+  $("#nexusPanel").classList.add("open");
+  $("#nexusFab").classList.add("hidden-when-open");
+  // focus input
+  setTimeout(() => $("#nexusInput")?.focus(), 100);
+  nexusEnsureSubscribed();
+}
+function nexusClose() {
+  $("#nexusPanel").classList.remove("open");
+  $("#nexusFab").classList.remove("hidden-when-open");
+}
+
+async function nexusEnsureSubscribed() {
+  if (NEXUS_UNSUBSCRIBE) return;
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "nexus_chat"),
+      fsMod.where("sessionId", "==", NEXUS_SESSION_ID),
+      fsMod.orderBy("timestamp", "asc"),
+      fsMod.limit(200),
+    );
+    NEXUS_UNSUBSCRIBE = fsMod.onSnapshot(q, (snap) => {
+      const msgs = [];
+      snap.forEach(doc => {
+        const d = doc.data();
+        msgs.push({
+          id: doc.id,
+          role: d.role,
+          content: d.content,
+          collegaCoinvolto: d.collegaCoinvolto,
+          lavagnaMessageId: d.lavagnaMessageId,
+          azione: d.azione,
+          stato: d.stato,
+          timestamp: d.timestamp && d.timestamp.toDate ? d.timestamp.toDate() : null,
+        });
+      });
+      NEXUS_MESSAGES = msgs;
+      nexusRenderMessages();
+      // hook per ogni lavagna message che stiamo aspettando
+      for (const m of msgs) {
+        if (m.role === "assistant"
+            && m.lavagnaMessageId
+            && m.stato === "in_attesa_collega"
+            && !NEXUS_LAVAGNA_WATCH.has(m.lavagnaMessageId)) {
+          nexusWatchLavagna(m.lavagnaMessageId, m.id);
+        }
+      }
+    }, (err) => {
+      console.warn("[nexus] snapshot error:", err.message || err);
+    });
+  } catch (err) {
+    console.warn("[nexus] subscribe failed:", err.message || err);
+  }
+}
+
+async function nexusWatchLavagna(lavagnaId, nexusMessageId) {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const ref = fsMod.doc(db, "nexo_lavagna", lavagnaId);
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      nexusShowTimeout(nexusMessageId);
+      const unsub = NEXUS_LAVAGNA_WATCH.get(lavagnaId);
+      if (unsub) { try { unsub(); } catch {} }
+      NEXUS_LAVAGNA_WATCH.delete(lavagnaId);
+    }, NEXUS_COLLEGA_MAX_WAIT_MS);
+    const unsub = fsMod.onSnapshot(ref, (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (d.status === "completed" || d.status === "failed") {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        nexusShowLavagnaResult(nexusMessageId, d);
+        try { unsub(); } catch {}
+        NEXUS_LAVAGNA_WATCH.delete(lavagnaId);
+      }
+    });
+    NEXUS_LAVAGNA_WATCH.set(lavagnaId, unsub);
+  } catch (err) {
+    console.warn("[nexus] watch lavagna failed:", err.message || err);
+  }
+}
+
+function nexusShowLavagnaResult(nexusMessageId, lavDoc) {
+  // Append non-persistent "risposta dal collega" bubble (locale).
+  const text = lavDoc.status === "completed"
+    ? ("✅ " + (lavDoc.result?.summary || lavDoc.result?.message || "Il Collega ha completato la richiesta."))
+    : ("⚠️ " + (lavDoc.failureReason || "Il Collega ha segnalato un errore."));
+  NEXUS_MESSAGES.push({
+    id: "lv_" + nexusMessageId,
+    role: "assistant",
+    content: text,
+    collegaCoinvolto: lavDoc.to,
+    stato: lavDoc.status === "completed" ? "completata" : "errore",
+    timestamp: new Date(),
+    _local: true,
+  });
+  nexusRenderMessages();
+}
+
+function nexusShowTimeout(nexusMessageId) {
+  NEXUS_MESSAGES.push({
+    id: "to_" + nexusMessageId,
+    role: "assistant",
+    content: "Non ho ricevuto risposta entro 30 secondi. Vuoi che riprovi o che cambi richiesta?",
+    stato: "timeout",
+    timestamp: new Date(),
+    _local: true,
+  });
+  nexusRenderMessages();
+}
+
+function nexusRenderMessages() {
+  const root = $("#nexusMessages");
+  if (!root) return;
+  if (!NEXUS_MESSAGES.length && !NEXUS_PENDING) {
+    root.innerHTML = `
+      <div class="nexus-empty">
+        Ciao. Sono NEXUS, la tua interfaccia verso i Colleghi NEXO.<br>
+        Scrivimi cosa ti serve e decido io chi deve gestirla.
+        <div class="examples">
+          ${NEXUS_EXAMPLES.map(e => `<button class="nexus-example" data-nexus-example="${escapeHtml(e)}">${escapeHtml(e)}</button>`).join("")}
+        </div>
+      </div>
+    `;
+    $$("[data-nexus-example]", root).forEach(btn => {
+      btn.addEventListener("click", () => {
+        $("#nexusInput").value = btn.dataset.nexusExample;
+        nexusSend();
+      });
+    });
+    return;
+  }
+  root.innerHTML = NEXUS_MESSAGES.map(nexusRenderBubble).join("")
+    + (NEXUS_PENDING ? `<div class="nexus-typing"><span></span><span></span><span></span></div>` : "");
+  // auto-scroll
+  requestAnimationFrame(() => { root.scrollTop = root.scrollHeight; });
+}
+
+function nexusRenderBubble(m) {
+  const meta = [];
+  if (m.collegaCoinvolto && m.collegaCoinvolto !== "nessuno" && m.collegaCoinvolto !== "multi") {
+    meta.push(`<span class="nexus-badge-col">${escapeHtml(m.collegaCoinvolto.toUpperCase())}</span>`);
+  }
+  if (m.stato && m.role === "assistant" && m.stato !== "diretta") {
+    const label = ({
+      in_attesa_collega: "in attesa",
+      completata: "completata",
+      collega_inattivo: "collega non ancora attivo",
+      timeout: "timeout",
+      errore: "errore",
+    })[m.stato] || m.stato;
+    meta.push(`<span class="nexus-badge-stato ${escapeHtml(m.stato)}">${escapeHtml(label)}</span>`);
+  }
+  return `
+    <div class="nexus-bubble ${escapeHtml(m.role)}">
+      ${escapeHtml(m.content)}
+      ${meta.length ? `<div class="nexus-bubble-meta">${meta.join("")}</div>` : ""}
+    </div>
+  `;
+}
+
+async function nexusSend() {
+  if (NEXUS_PENDING) return;
+  const input = $("#nexusInput");
+  const text = (input.value || "").trim();
+  if (!text) return;
+  input.value = "";
+  nexusAutoResize();
+  NEXUS_PENDING = true;
+  nexusRenderMessages();
+
+  // Costruisco history (ultimi 10 dalla lista corrente).
+  const history = NEXUS_MESSAGES
+    .filter(m => !m._local && (m.role === "user" || m.role === "assistant"))
+    .slice(-10)
+    .map(m => ({ role: m.role, content: m.content }));
+
+  try {
+    const resp = await fetch(NEXUS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: NEXUS_SESSION_ID,
+        userMessage: text,
+        userId: "alberto",
+        history,
+      }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`${resp.status}: ${errText.slice(0, 200)}`);
+    }
+    // onSnapshot mostrerà i doc appena scritti; non serve merge manuale.
+    await resp.json();
+  } catch (err) {
+    console.error("[nexus] send failed:", err);
+    NEXUS_MESSAGES.push({
+      id: "err_" + Date.now(),
+      role: "assistant",
+      content: "Errore di rete con NEXUS. Riprova tra un momento.",
+      stato: "errore",
+      timestamp: new Date(),
+      _local: true,
+    });
+  } finally {
+    NEXUS_PENDING = false;
+    nexusRenderMessages();
+  }
+}
+
+function nexusAutoResize() {
+  const el = $("#nexusInput");
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = Math.min(120, el.scrollHeight) + "px";
+}
+
+// Voice input (Web Speech API)
+const NEXUS_SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const nexusVoice = { recognition: null, active: false, timer: null, baseText: "", interim: "" };
+function nexusVoiceSupported() { return !!NEXUS_SR; }
+function nexusSetVoiceStatus(msg, variant = "") {
+  const el = $("#nexusVoiceStatus");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "nexus-voice-status" + (variant ? " " + variant : "");
+}
+function nexusUpdateTextareaFromVoice() {
+  const ta = $("#nexusInput");
+  ta.value = nexusVoice.baseText + (nexusVoice.interim ? " " + nexusVoice.interim : "");
+  nexusAutoResize();
+}
+function nexusStartVoice() {
+  if (!nexusVoiceSupported()) {
+    nexusSetVoiceStatus("Il tuo browser non supporta la dettatura. Usa Chrome o Edge.", "error");
+    return;
+  }
+  if (nexusVoice.active) return;
+  const rec = new NEXUS_SR();
+  rec.lang = "it-IT";
+  rec.continuous = true;
+  rec.interimResults = true;
+  const baseText = ($("#nexusInput").value || "").trim();
+  nexusVoice.baseText = baseText ? baseText + "\n" : "";
+  nexusVoice.interim = "";
+  rec.onstart = () => {
+    nexusVoice.active = true;
+    $("#nexusMicBtn").classList.add("recording");
+    nexusSetVoiceStatus("🔴 Sto ascoltando…", "recording");
+  };
+  rec.onresult = (ev) => {
+    let interim = "", finalChunk = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) finalChunk += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    if (finalChunk) {
+      nexusVoice.baseText = (nexusVoice.baseText + " " + finalChunk).trim() + " ";
+    }
+    nexusVoice.interim = interim.trim();
+    nexusUpdateTextareaFromVoice();
+  };
+  rec.onerror = (ev) => {
+    const err = ev.error || "unknown";
+    const map = {
+      "not-allowed": "Permesso microfono negato. Autorizzalo nel browser.",
+      "service-not-allowed": "Permesso microfono negato.",
+      "no-speech": "Non ho sentito nulla. Riprova.",
+      "audio-capture": "Nessun microfono rilevato.",
+      "network": "Errore di rete durante la dettatura.",
+    };
+    if (err !== "aborted") nexusSetVoiceStatus(map[err] || ("Errore dettatura: " + err), "error");
+    nexusStopVoice();
+  };
+  rec.onend = () => {
+    nexusVoice.active = false;
+    nexusVoice.recognition = null;
+    $("#nexusMicBtn")?.classList.remove("recording");
+    if (nexusVoice.interim) {
+      nexusVoice.baseText = (nexusVoice.baseText + " " + nexusVoice.interim).trim();
+      nexusVoice.interim = "";
+      nexusUpdateTextareaFromVoice();
+    }
+    const el = $("#nexusVoiceStatus");
+    if (el && !el.classList.contains("error")) nexusSetVoiceStatus("");
+  };
+  nexusVoice.recognition = rec;
+  try { rec.start(); } catch (e) {
+    nexusSetVoiceStatus("Impossibile avviare: " + (e.message || e), "error");
+    nexusVoice.active = false;
+  }
+}
+function nexusStopVoice() {
+  const rec = nexusVoice.recognition;
+  if (!rec) { nexusVoice.active = false; return; }
+  try { rec.stop(); } catch { try { rec.abort(); } catch {} }
+}
+function nexusToggleVoice() {
+  if (nexusVoice.active) nexusStopVoice(); else nexusStartVoice();
+}
+
+function nexusWire() {
+  $("#nexusFab").addEventListener("click", nexusOpen);
+  $("#nexusClose").addEventListener("click", nexusClose);
+  $("#nexusSendBtn").addEventListener("click", nexusSend);
+  const mic = $("#nexusMicBtn");
+  if (mic) {
+    mic.hidden = !nexusVoiceSupported();
+    mic.addEventListener("click", nexusToggleVoice);
+  }
+  const input = $("#nexusInput");
+  input.addEventListener("input", nexusAutoResize);
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      nexusSend();
+    }
+  });
+  // ESC chiude il pannello
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && $("#nexusPanel").classList.contains("open")) {
+      nexusClose();
+    }
+  });
+}
+
+// ── Bootstrap ──────────────────────────────────────────────────
+function init() {
+  renderSidebarNav();
+  $("#menuBtn")?.addEventListener("click", () => {
+    $("#sidebar").classList.toggle("collapsed");
+  });
+  if (window.innerWidth > 760) $("#sidebar").classList.remove("collapsed");
+
+  const initialRoute = location.hash.replace(/^#/, "") || "home";
+  navigate(initialRoute, { push: false });
+
+  // NEXUS chat
+  nexusWire();
+  nexusRenderMessages();
+  nexusEnsureSubscribed();
+}
+
+if (MOCK_MODE) {
+  init();
+} else {
+  init(); // TODO: Firebase Auth flow
+}
+</script>
+
+<!-- NEXUS chat — FAB + pannello -->
+<button id="nexusFab" class="nexus-fab" aria-label="Apri NEXUS chat" title="Parla con NEXUS">
+  <span aria-hidden="true">💬</span>
+</button>
+
+<div id="nexusPanel" class="nexus-panel" role="dialog" aria-labelledby="nexusTitle">
+  <div class="nexus-header">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <div id="nexusTitle">NEXUS</div>
+        <div class="hint">Interfaccia verso i Colleghi NEXO</div>
+      </div>
+    </div>
+    <button class="close" id="nexusClose" aria-label="Chiudi">×</button>
+  </div>
+  <div id="nexusMessages" class="nexus-messages" aria-live="polite"></div>
+  <div id="nexusVoiceStatus" class="nexus-voice-status"></div>
+  <div class="nexus-input">
+    <textarea id="nexusInput" rows="1" placeholder="Cosa ti serve? (invio per mandare, shift+invio per nuova riga)"></textarea>
+    <button id="nexusMicBtn" class="nexus-btn-icon" aria-label="Detta la richiesta" title="Dettatura vocale" hidden>🎤</button>
+    <button id="nexusSendBtn" class="nexus-btn-icon nexus-btn-send" aria-label="Invia">➤</button>
+  </div>
+</div>
+
+</body>
+</html>

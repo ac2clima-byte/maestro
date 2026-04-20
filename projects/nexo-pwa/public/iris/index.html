@@ -1,0 +1,3044 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>IRIS — Collega Email di NEXO</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-soft: #fafafa;
+    --border: #e6e6ea;
+    --border-strong: #d1d1d7;
+    --text: #1a1a1f;
+    --text-muted: #6b7280;
+    --text-dim: #9ca3af;
+    --accent: #2563eb;
+    --ok: #059669;
+    --warn: #d97706;
+    --err: #dc2626;
+
+    /* Category palette — soft backgrounds + saturated text, inspired by Linear/Notion labels. */
+    --cat-richiesta-bg: #eff6ff;      --cat-richiesta-fg: #1d4ed8;      --cat-richiesta-bd: #bfdbfe;
+    --cat-guasto-bg: #fef2f2;         --cat-guasto-fg: #b91c1c;         --cat-guasto-bd: #fecaca;
+    --cat-preventivo-bg: #ecfdf5;     --cat-preventivo-fg: #047857;     --cat-preventivo-bd: #a7f3d0;
+    --cat-conferma-bg: #ecfdf5;       --cat-conferma-fg: #047857;       --cat-conferma-bd: #a7f3d0;
+    --cat-fattura-bg: #fff7ed;        --cat-fattura-fg: #c2410c;        --cat-fattura-bd: #fed7aa;
+    --cat-interna-bg: #f3f4f6;        --cat-interna-fg: #4b5563;        --cat-interna-bd: #e5e7eb;
+    --cat-pec-bg: #f5f3ff;            --cat-pec-fg: #6d28d9;            --cat-pec-bd: #ddd6fe;
+    --cat-admin-bg: #eff6ff;          --cat-admin-fg: #1d4ed8;          --cat-admin-bd: #bfdbfe;
+    --cat-risposta-bg: #ecfdf5;       --cat-risposta-fg: #047857;       --cat-risposta-bd: #a7f3d0;
+    --cat-spam-bg: #f9fafb;           --cat-spam-fg: #9ca3af;           --cat-spam-bd: #e5e7eb;
+    --cat-altro-bg: #f3f4f6;          --cat-altro-fg: #6b7280;          --cat-altro-bd: #e5e7eb;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  button { font: inherit; cursor: pointer; color: inherit; }
+  input, select, textarea { font: inherit; color: inherit; }
+
+  /* --- Login view (manteniamo, anche se in v0.1 è bypassata) --- */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: var(--surface-soft);
+  }
+  .login-wrap.hidden { display: none; }
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow-md);
+  }
+  .login-card h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+  .login-card .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.95rem;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: background 0.12s;
+  }
+  .btn-primary:hover { background: #1d4ed8; }
+  .btn-primary.full { width: 100%; }
+  .login-error { color: var(--err); font-size: 0.85rem; margin-top: 10px; min-height: 1.2em; }
+
+  /* --- App shell --- */
+  .app { display: none; }
+  .app.active { display: block; }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .header .brand {
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .header .brand .brand-sub {
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 6px;
+    font-size: 0.85rem;
+  }
+  .header-stats {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    font-size: 0.85rem;
+  }
+  .header-stat { color: var(--text-muted); }
+  .header-stat strong { color: var(--text); font-weight: 600; }
+  .header-stat.urgent strong { color: var(--err); }
+  .header-actions { display: flex; align-items: center; gap: 8px; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .btn-ghost:hover { border-color: var(--border-strong); color: var(--text); }
+
+  main { max-width: 860px; margin: 0 auto; padding: 20px; }
+
+  /* --- Filter bar --- */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-bar select,
+  .filter-bar input[type="search"],
+  .filter-bar input[type="date"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    min-height: 36px;
+  }
+  .filter-bar select:focus,
+  .filter-bar input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+  .filter-bar input[type="search"] {
+    flex: 1 1 220px;
+    min-width: 180px;
+  }
+  .filter-bar .count {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-left: auto;
+  }
+
+  /* --- Email cards --- */
+  .email-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .email-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.12s;
+  }
+  .email-card:hover { border-color: var(--border-strong); }
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .sender { font-weight: 600; font-size: 0.98rem; color: var(--text); word-break: break-word; }
+  .received { color: var(--text-dim); font-size: 0.8rem; white-space: nowrap; flex-shrink: 0; }
+  .subject { font-weight: 600; font-size: 1rem; margin-top: 4px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .summary {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    margin: 8px 0 12px 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .entities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .chip {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .chip strong { color: var(--text); font-weight: 500; }
+
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    line-height: 1.5;
+  }
+
+  /* Category badge palette */
+  .badge.cat-RICHIESTA_INTERVENTO       { background: var(--cat-richiesta-bg);  color: var(--cat-richiesta-fg);  border-color: var(--cat-richiesta-bd); }
+  .badge.cat-GUASTO_URGENTE             { background: var(--cat-guasto-bg);     color: var(--cat-guasto-fg);     border-color: var(--cat-guasto-bd); }
+  .badge.cat-PREVENTIVO                 { background: var(--cat-preventivo-bg); color: var(--cat-preventivo-fg); border-color: var(--cat-preventivo-bd); }
+  .badge.cat-CONFERMA_APPUNTAMENTO      { background: var(--cat-conferma-bg);   color: var(--cat-conferma-fg);   border-color: var(--cat-conferma-bd); }
+  .badge.cat-FATTURA_FORNITORE          { background: var(--cat-fattura-bg);    color: var(--cat-fattura-fg);    border-color: var(--cat-fattura-bd); }
+  .badge.cat-COMUNICAZIONE_INTERNA      { background: var(--cat-interna-bg);    color: var(--cat-interna-fg);    border-color: var(--cat-interna-bd); }
+  .badge.cat-PEC_UFFICIALE              { background: var(--cat-pec-bg);        color: var(--cat-pec-fg);        border-color: var(--cat-pec-bd); }
+  .badge.cat-AMMINISTRATORE_CONDOMINIO  { background: var(--cat-admin-bg);      color: var(--cat-admin-fg);      border-color: var(--cat-admin-bd); }
+  .badge.cat-RISPOSTA_CLIENTE           { background: var(--cat-risposta-bg);   color: var(--cat-risposta-fg);   border-color: var(--cat-risposta-bd); }
+  .badge.cat-NEWSLETTER_SPAM            { background: var(--cat-spam-bg);       color: var(--cat-spam-fg);       border-color: var(--cat-spam-bd); }
+  .badge.cat-ALTRO                      { background: var(--cat-altro-bg);      color: var(--cat-altro-fg);      border-color: var(--cat-altro-bd); }
+
+  /* Confidence badge */
+  .badge.conf {
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    border-color: var(--border);
+  }
+  .badge.conf .pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .badge.conf.high .pip { background: var(--ok); }
+  .badge.conf.medium .pip { background: var(--warn); }
+  .badge.conf.low .pip { background: var(--err); }
+
+  /* Attention / followup badges — F3 */
+  .badge.attn {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  .badge.attn.warn {
+    background: #fff7ed;
+    color: #c2410c;
+    border-color: #fed7aa;
+  }
+  .badge.followup {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border-color: #ddd6fe;
+    cursor: pointer;
+    transition: filter 0.12s;
+  }
+  .badge.followup:hover { filter: brightness(0.95); }
+
+  .header-stat.attention strong { color: #c2410c; }
+
+  /* Sentiment badge — soft surface + coloured dot, same language as confidence */
+  .badge.sent {
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    border-color: var(--border);
+  }
+  .badge.sent .sent-emoji { font-size: 0.9em; line-height: 1; }
+  .badge.sent-positivo    { color: #047857; border-color: #a7f3d0; background: #ecfdf5; }
+  .badge.sent-neutro      { color: #6b7280; border-color: #e5e7eb; background: #f9fafb; }
+  .badge.sent-frustrato   { color: #a16207; border-color: #fde68a; background: #fefce8; }
+  .badge.sent-arrabbiato  { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+  .badge.sent-disperato   { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+
+  .card-actions { display: flex; gap: 6px; }
+  .btn-link {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+  }
+  .btn-link:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-soft); }
+
+  .empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 48px 20px;
+    background: var(--surface-soft);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+  }
+
+  /* --- Rules modal (RuleEngine settings) --- */
+  .rule-item {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: var(--surface);
+    transition: opacity 0.15s, background 0.15s;
+  }
+  .rule-item.disabled {
+    opacity: 0.55;
+    background: var(--surface-soft);
+  }
+  .rule-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .rule-name { font-weight: 600; font-size: 0.95rem; color: var(--text); }
+  .rule-priority {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    margin-left: 6px;
+  }
+  .rule-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    line-height: 1.45;
+  }
+  .rule-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 0.78rem;
+  }
+  .rule-meta .pill {
+    padding: 1px 7px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-soft);
+    color: var(--text-muted);
+  }
+  .rule-meta .pill.cond { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .rule-meta .pill.act  { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #d1d5db;
+    border-radius: 999px;
+    transition: background 0.15s;
+  }
+  .toggle .slider::before {
+    content: "";
+    position: absolute;
+    left: 2px; bottom: 2px;
+    width: 18px; height: 18px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .toggle input:checked + .slider { background: var(--ok); }
+  .toggle input:checked + .slider::before { transform: translateX(16px); }
+  .toggle input:disabled + .slider { opacity: 0.5; cursor: wait; }
+
+  /* --- Dev requests / "Idea" (build IRIS from IRIS) --- */
+  .btn-idea {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+    line-height: 1.2;
+  }
+  .btn-idea:hover {
+    border-color: #fbbf24;
+    color: #b45309;
+    background: #fffbeb;
+  }
+  .btn-idea-global {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+  .btn-idea-global:hover {
+    background: #fde68a;
+    border-color: #fbbf24;
+  }
+
+  /* Voice input (STT via Web Speech API) */
+  .voice-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .voice-row textarea { flex: 1; min-width: 0; }
+  .btn-mic {
+    flex-shrink: 0;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    color: var(--text-muted);
+  }
+  .btn-mic:hover { border-color: var(--border-strong); color: var(--text); }
+  .btn-mic[hidden] { display: none !important; }
+  .btn-mic.recording {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #b91c1c;
+    animation: mic-pulse 1.1s infinite;
+  }
+  @keyframes mic-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+    70%  { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+  }
+  .voice-status {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    margin-top: 4px;
+    min-height: 1.1em;
+  }
+  .voice-status.error { color: var(--err); }
+  .voice-status.recording { color: #b91c1c; }
+
+  .idea-modal { max-width: 520px; }
+  .idea-context {
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    line-height: 1.45;
+  }
+  .idea-context strong { color: var(--text); font-weight: 600; }
+  .idea-context.empty { font-style: italic; color: var(--text-dim); }
+  .idea-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text);
+    user-select: none;
+  }
+  .idea-checkbox-row input { margin-top: 3px; cursor: pointer; }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #1a1a1f;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    transition: opacity 0.18s, transform 0.18s;
+    z-index: 300;
+    pointer-events: none;
+    max-width: 90vw;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .toast.error { background: #b91c1c; }
+
+  /* Dev requests panel */
+  .requests-modal { max-width: 700px; }
+  .requests-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .request-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: var(--surface);
+  }
+  .request-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .request-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .request-status.pending      { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .request-status.in_progress  { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .request-status.completed    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .request-status.rejected     { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .request-date { font-size: 0.78rem; color: var(--text-dim); }
+  .request-body { font-size: 0.9rem; color: var(--text); white-space: pre-wrap; line-height: 1.5; }
+  .request-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .request-empty {
+    text-align: center;
+    padding: 32px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .requests-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .requests-tab {
+    background: transparent;
+    border: none;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .requests-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+  .requests-tab .count {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    background: var(--surface-soft);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  /* --- Multi-intent (F9) --- */
+  .intents-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .intents-section h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .intent-card {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--surface-soft);
+  }
+  .intent-card:last-child { margin-bottom: 0; }
+  .intent-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .intent-head .intent-num {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-right: 4px;
+  }
+  .intent-summary {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.45;
+    margin-bottom: 6px;
+  }
+  .intent-entities {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .intent-entities .chip { font-size: 0.74rem; padding: 1px 7px; }
+  .intent-card .badge.act {
+    font-size: 0.72rem;
+    padding: 1px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 999px;
+  }
+  .multi-intent-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    margin-left: 6px;
+    line-height: 1.2;
+  }
+
+  /* --- Score badge (F8) --- */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .score-badge.s-low    { background: var(--surface-soft); color: var(--text-muted); border-color: var(--border); }
+  .score-badge.s-mid    { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .score-badge.s-high   { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .card-top .score-badge { margin-left: auto; }
+
+  /* --- Attachments (F6) --- */
+  .attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .att-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    border: 1px solid var(--border);
+    background: var(--surface-soft);
+    color: var(--text-muted);
+    line-height: 1.4;
+    max-width: 100%;
+  }
+  .att-chip strong { color: var(--text); font-weight: 500; }
+  .att-chip.t-fattura       { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .att-chip.t-ddt           { background: #f0f9ff; color: #0369a1; border-color: #bae6fd; }
+  .att-chip.t-preventivo    { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .att-chip.t-scheda_tecnica{ background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+  .att-chip.t-contratto     { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+  .att-chip.t-foto          { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+  .att-chip.t-altro         { background: var(--surface-soft); color: var(--text-muted); border-color: var(--border); }
+
+  .read-attachments {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .read-attachments h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .read-att-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    background: var(--surface-soft);
+  }
+  .read-att-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .read-att-name {
+    font-size: 0.88rem;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .read-att-meta {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .read-att-text {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* --- Similar emails section (F12) --- */
+  .similar-section {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .similar-section h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+  }
+  .similar-empty {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-style: italic;
+  }
+  .similar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .similar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-soft);
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    width: 100%;
+  }
+  .similar-item:hover {
+    border-color: var(--border-strong);
+    background: var(--surface);
+  }
+  .similar-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .similar-date {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .similar-match-key {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    background: var(--cat-richiesta-bg);
+    color: var(--cat-richiesta-fg);
+    border: 1px solid var(--cat-richiesta-bd);
+    text-transform: lowercase;
+  }
+  .similar-summary {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.45;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .similar-handled {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .similar-handled .pill {
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .similar-handled .pill.replied { color: var(--ok); border-color: #a7f3d0; background: #ecfdf5; }
+  .similar-handled .pill.attn { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+  .similar-handled .pill.corrected { color: #6d28d9; border-color: #ddd6fe; background: #f5f3ff; }
+
+  /* --- Sender profile popover (F5) --- */
+  .sender-clickable {
+    cursor: pointer;
+    border-bottom: 1px dotted var(--text-dim);
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .sender-clickable:hover {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .frequent-star {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fef3c7;
+    color: #b45309;
+    font-size: 0.7rem;
+    margin-left: 6px;
+    cursor: help;
+    border: 1px solid #fde68a;
+    line-height: 1;
+  }
+  .sender-popover {
+    position: fixed;
+    z-index: 200;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+    padding: 14px 16px;
+    min-width: 280px;
+    max-width: 360px;
+    font-size: 0.88rem;
+    color: var(--text);
+    display: none;
+  }
+  .sender-popover.open { display: block; }
+  .sender-popover h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    word-break: break-word;
+  }
+  .sender-popover .pop-email {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+  .sender-popover .pop-line {
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .sender-popover .pop-line strong { font-weight: 600; }
+  .sender-popover .pop-cats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .sender-popover .pop-cats .badge {
+    font-size: 0.72rem;
+    padding: 1px 7px;
+  }
+  .sender-popover .pop-condos {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+  .sender-popover .pop-frequent {
+    display: inline-block;
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+    border-radius: 999px;
+    padding: 1px 8px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .sender-popover .pop-empty {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.85rem;
+  }
+  .sender-popover .pop-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+  }
+  .sender-popover .pop-close:hover { color: var(--text); }
+
+  /* --- Digest card (F4) --- */
+  .digest {
+    background: linear-gradient(180deg, #f0f7ff 0%, #f8fbff 100%);
+    border: 1px solid var(--cat-richiesta-bd);
+    border-left: 4px solid var(--accent);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
+  }
+  .digest-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .digest-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+  }
+  .digest-title .digest-icon { font-size: 1.15rem; line-height: 1; }
+  .digest-updated {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .digest-summary {
+    color: var(--text);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .digest-summary .num {
+    font-weight: 600;
+  }
+  .digest-summary .num.urgent { color: var(--err); }
+  .digest-summary .num.attn { color: #c2410c; }
+  .digest-top {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-top: 1px solid var(--cat-richiesta-bd);
+    padding-top: 10px;
+  }
+  .digest-top-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
+  }
+  .digest-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s;
+    text-align: left;
+    background: transparent;
+    border: none;
+    width: 100%;
+    font: inherit;
+    color: inherit;
+  }
+  .digest-item:hover { background: rgba(37, 99, 235, 0.08); }
+  .digest-item-rank {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    min-width: 18px;
+  }
+  .digest-item-text {
+    overflow: hidden;
+    min-width: 0;
+  }
+  .digest-item-sender {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .digest-item-summary {
+    font-size: 0.9rem;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .digest-item-badge {
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .digest-empty {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-style: italic;
+    padding: 4px 8px;
+  }
+
+  /* --- View toggle (email / thread) --- */
+  .view-toggle {
+    display: inline-flex;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .view-toggle button {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    transition: background 0.12s, color 0.12s;
+  }
+  .view-toggle button.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* --- Thread cards --- */
+  .thread-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.12s;
+    overflow: hidden;
+  }
+  .thread-card:hover { border-color: var(--border-strong); }
+  .thread-head {
+    padding: 16px 20px;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+    align-items: baseline;
+    user-select: none;
+  }
+  .thread-head:hover { background: var(--surface-soft); }
+  .thread-subject {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+    grid-column: 1;
+  }
+  .thread-meta {
+    grid-column: 2;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .thread-info {
+    grid-column: 1 / -1;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+  .thread-count {
+    background: var(--cat-richiesta-bg);
+    color: var(--cat-richiesta-fg);
+    border: 1px solid var(--cat-richiesta-bd);
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .thread-participants {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .sentiment-evolution {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 1.05rem;
+    line-height: 1;
+  }
+  .sentiment-evolution .arrow {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin: 0 1px;
+  }
+  .thread-toggle-icon {
+    display: inline-block;
+    width: 12px;
+    text-align: center;
+    color: var(--text-dim);
+    transition: transform 0.15s;
+    margin-right: 6px;
+  }
+  .thread-card.open .thread-toggle-icon {
+    transform: rotate(90deg);
+  }
+  .thread-body {
+    display: none;
+    border-top: 1px solid var(--border);
+    background: var(--surface-soft);
+  }
+  .thread-card.open .thread-body { display: block; }
+  .thread-emails {
+    display: flex;
+    flex-direction: column;
+  }
+  .thread-email {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .thread-email:last-child { border-bottom: none; }
+  .thread-email-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .thread-email-sender { font-weight: 600; font-size: 0.92rem; color: var(--text); }
+  .thread-email-date { color: var(--text-dim); font-size: 0.78rem; white-space: nowrap; }
+  .thread-email-summary { color: var(--text-muted); font-size: 0.88rem; }
+  .thread-email-actions { display: flex; gap: 6px; margin-top: 4px; }
+
+  @media (max-width: 640px) {
+    .thread-head { grid-template-columns: 1fr; }
+    .thread-meta { grid-column: 1; }
+    .thread-info { gap: 8px; }
+  }
+
+  /* --- Modal (correzione + lettura) --- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  }
+  .modal h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+  .modal .modal-sub {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 18px;
+    word-break: break-word;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 18px;
+  }
+
+  /* Read modal: dedicated, wider, with scrollable monospaced body */
+  .read-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    width: 100%;
+    max-width: 760px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  }
+  .read-modal header {
+    padding: 0 0 14px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+    position: static;
+    background: transparent;
+    display: block;
+  }
+  .read-sender { font-weight: 600; font-size: 0.95rem; word-break: break-word; color: var(--text); }
+  .read-subject { font-size: 1rem; margin-top: 4px; color: var(--text); font-weight: 600; }
+  .read-meta { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .read-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .read-body.empty-body { color: var(--text-muted); font-style: italic; }
+
+  /* --- Responsive --- */
+  @media (max-width: 640px) {
+    body { font-size: 15px; }
+    .header { padding: 12px 14px; flex-wrap: wrap; gap: 8px; }
+    .brand-sub { display: none; }
+    .header-stats { font-size: 0.8rem; gap: 12px; }
+    main { padding: 14px; }
+    .email-card { padding: 14px 16px; border-radius: 10px; }
+    .card-top { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .received { font-size: 0.78rem; }
+    .subject { white-space: normal; }
+    .card-bottom { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .card-actions { width: 100%; justify-content: flex-start; }
+    .filter-bar .count { margin-left: 0; width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Login view (per quando riabiliteremo l'auth) -->
+<div id="loginView" class="login-wrap">
+  <div class="login-card">
+    <h1>IRIS</h1>
+    <div class="subtitle">NEXO · il tuo triage email HVAC</div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" autocomplete="email" placeholder="nome@acgclima.it" required>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary full">Accedi</button>
+      <div id="loginError" class="login-error"></div>
+    </form>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="appView" class="app">
+  <header class="header">
+    <div class="brand">IRIS<span class="brand-sub">Collega Email di NEXO</span></div>
+    <div class="header-stats">
+      <div class="header-stat"><strong id="statTotal">0</strong> email</div>
+      <div class="header-stat urgent"><strong id="statUrgent">0</strong> urgenti</div>
+      <div class="header-stat attention"><strong id="statAttention">0</strong> senza risposta</div>
+    </div>
+    <div class="header-actions">
+      <button id="rulesBtn" class="btn-ghost" title="Vedi e attiva/disattiva le regole IRIS">⚙️ Regole</button>
+      <button id="requestsBtn" class="btn-ghost" title="Mostra le Dev Requests inviate">📋 Dev Requests</button>
+      <button id="ideaGlobalBtn" class="btn-idea btn-idea-global" title="Apri una nuova richiesta di sviluppo IRIS">🛠️ Nuova richiesta dev</button>
+      <span id="userEmail" class="header-stat" style="font-size: 0.8rem;">—</span>
+      <button id="logoutBtn" class="btn-ghost">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="digest" id="digestCard" aria-label="Digest del giorno">
+      <div class="digest-head">
+        <div class="digest-title"><span class="digest-icon" aria-hidden="true">📋</span>Digest</div>
+        <div class="digest-updated" id="digestUpdated">—</div>
+      </div>
+      <div class="digest-summary" id="digestSummary">Caricamento…</div>
+      <div class="digest-top">
+        <div class="digest-top-label">Top priorità</div>
+        <div id="digestTop"></div>
+      </div>
+    </section>
+
+    <div class="filter-bar">
+      <div class="view-toggle" role="tablist" aria-label="Modalità visualizzazione">
+        <button id="viewEmailsBtn" class="active" role="tab" aria-selected="true">Email</button>
+        <button id="viewThreadsBtn" role="tab" aria-selected="false">Thread</button>
+      </div>
+      <div class="view-toggle" role="tablist" aria-label="Ordinamento">
+        <button id="sortDateBtn" class="active" role="tab" aria-selected="true" title="Ordina cronologicamente">📅 Data</button>
+        <button id="sortPriorityBtn" role="tab" aria-selected="false" title="Ordina per score di priorità">🔥 Priorità</button>
+      </div>
+      <select id="filterCategory" aria-label="Filtro per categoria">
+        <option value="">Tutte le categorie</option>
+      </select>
+      <input type="search" id="filterSearch" placeholder="Cerca mittente, oggetto o contenuto…">
+      <span class="count" id="filterCount">0 email</span>
+    </div>
+
+    <section class="email-list" id="emailList"></section>
+    <section class="email-list" id="threadList" style="display:none"></section>
+  </main>
+</div>
+
+<!-- Correction modal -->
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h2>Correggi classificazione</h2>
+    <div class="modal-sub" id="modalSub">—</div>
+    <form id="correctionForm">
+      <div class="field">
+        <label for="corrCategory">Categoria corretta</label>
+        <select id="corrCategory" required></select>
+      </div>
+      <div class="field">
+        <label for="corrAction">Azione suggerita</label>
+        <select id="corrAction" required></select>
+      </div>
+      <div class="field">
+        <label for="corrNotes">Note (opzionale)</label>
+        <textarea id="corrNotes" rows="3" placeholder="Spiega brevemente perché…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="modalCancel">Annulla</button>
+        <button type="submit" class="btn-primary">Salva</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Dev request modal -->
+<div id="ideaBackdrop" class="modal-backdrop">
+  <div class="modal idea-modal">
+    <h2 id="ideaTitle">Richiesta sviluppo</h2>
+    <div id="ideaContext" class="idea-context empty">Richiesta generale (non legata a una email specifica).</div>
+    <form id="ideaForm">
+      <div class="field">
+        <label for="ideaText">Descrivi cosa vorresti implementare</label>
+        <div class="voice-row">
+          <textarea id="ideaText" rows="6" placeholder="Es: Aggiungi un bottone che inoltra automaticamente a Malvicino quando la categoria è GUASTO_URGENTE" required></textarea>
+          <button type="button" id="ideaMicBtn" class="btn-mic" aria-label="Detta la richiesta" title="Detta la richiesta (italiano)" hidden>🎤</button>
+        </div>
+        <div id="ideaVoiceStatus" class="voice-status" aria-live="polite"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="ideaCancel">Annulla</button>
+        <button type="submit" class="btn-primary" id="ideaSubmit">Invia richiesta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Rules modal -->
+<div id="rulesBackdrop" class="modal-backdrop">
+  <div class="modal requests-modal">
+    <h2>Regole IRIS</h2>
+    <div class="modal-sub">
+      Quando una nuova email viene classificata, IRIS valuta le regole in ordine
+      di priorità e applica le azioni della prima che matcha. Toggle per
+      attivare/disattivare.
+    </div>
+    <div class="requests-list" id="rulesList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="rulesClose">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Dev requests list modal -->
+<div id="requestsBackdrop" class="modal-backdrop">
+  <div class="modal requests-modal">
+    <h2>Richieste di sviluppo</h2>
+    <div class="modal-sub">Le idee inviate da te diventano task per il team che sviluppa IRIS.</div>
+    <div class="requests-tabs" id="requestsTabs">
+      <button class="requests-tab active" data-rstatus="all">Tutte <span class="count" id="rcAll">0</span></button>
+      <button class="requests-tab" data-rstatus="pending">In attesa <span class="count" id="rcPending">0</span></button>
+      <button class="requests-tab" data-rstatus="in_progress">In corso <span class="count" id="rcProgress">0</span></button>
+      <button class="requests-tab" data-rstatus="completed">Completate <span class="count" id="rcCompleted">0</span></button>
+    </div>
+    <div class="requests-list" id="requestsList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="requestsClose">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<!-- Sender profile popover (F5) -->
+<div id="senderPopover" class="sender-popover" role="dialog" aria-labelledby="popName">
+  <button class="pop-close" id="popClose" aria-label="Chiudi">×</button>
+  <h3 id="popName">—</h3>
+  <div id="popEmail" class="pop-email">—</div>
+  <div id="popBody"></div>
+</div>
+
+<!-- Read email modal -->
+<div id="readBackdrop" class="modal-backdrop">
+  <div class="read-modal" role="dialog" aria-labelledby="readSubject">
+    <header>
+      <div id="readSender" class="read-sender">—</div>
+      <div id="readSubject" class="read-subject">—</div>
+      <div id="readMeta" class="read-meta">—</div>
+    </header>
+    <div id="readBody" class="read-body">Caricamento…</div>
+    <div id="readIntents"></div>
+    <div id="readAttachments"></div>
+    <div id="readSimilar" class="similar-section" style="display:none">
+      <h4>Casi simili</h4>
+      <div id="readSimilarList"></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-primary" id="readClose">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const params = new URLSearchParams(location.search);
+// TEMP v0.1: login bypassato, la dashboard parte subito.
+// Ripristinare `params.get("mock") === "1"` quando Firebase Auth sarà configurato.
+const MOCK_MODE = true;
+
+const CATEGORY_LABELS = {
+  RICHIESTA_INTERVENTO: "Richiesta intervento",
+  GUASTO_URGENTE: "Guasto urgente",
+  PREVENTIVO: "Preventivo",
+  CONFERMA_APPUNTAMENTO: "Conferma appuntamento",
+  FATTURA_FORNITORE: "Fattura fornitore",
+  COMUNICAZIONE_INTERNA: "Interno",
+  PEC_UFFICIALE: "PEC",
+  AMMINISTRATORE_CONDOMINIO: "Amministratore",
+  RISPOSTA_CLIENTE: "Risposta cliente",
+  NEWSLETTER_SPAM: "Newsletter",
+  ALTRO: "Altro",
+};
+const ACTION_LABELS = {
+  RISPONDI: "Rispondi",
+  APRI_INTERVENTO: "Apri intervento",
+  INOLTRA: "Inoltra",
+  ARCHIVIA: "Archivia",
+  PREPARA_PREVENTIVO: "Prepara preventivo",
+  VERIFICA_PAGAMENTO: "Verifica pagamento",
+  URGENTE_CHIAMA: "Urgente — chiama",
+};
+const CONFIDENCE_LABELS = { high: "Alta", medium: "Media", low: "Bassa" };
+const SENTIMENT_LABELS = {
+  positivo:   { label: "Positivo",    emoji: "😊" },
+  neutro:     { label: "Neutro",      emoji: "😐" },
+  frustrato:  { label: "Frustrato",   emoji: "😤" },
+  arrabbiato: { label: "Arrabbiato",  emoji: "😡" },
+  disperato:  { label: "Disperato",   emoji: "😰" },
+};
+const ATTACHMENT_LABELS = {
+  fattura:        { label: "Fattura",        icon: "🧾" },
+  ddt:            { label: "DDT",            icon: "📦" },
+  preventivo:     { label: "Preventivo",     icon: "💰" },
+  scheda_tecnica: { label: "Scheda tecnica", icon: "📘" },
+  contratto:      { label: "Contratto",      icon: "📜" },
+  foto:           { label: "Foto",           icon: "📷" },
+  altro:          { label: "Allegato",       icon: "📎" },
+};
+const URGENT_CATEGORIES = new Set(["GUASTO_URGENTE", "PEC_UFFICIALE"]);
+
+// --- Firebase config ---
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBqm4XYaSlq2yUFdpcsL0wtSOpn48cOHoo",
+  authDomain: "nexo-hub-15f2d.firebaseapp.com",
+  projectId: "nexo-hub-15f2d",
+  storageBucket: "nexo-hub-15f2d.firebasestorage.app",
+  messagingSenderId: "272099489624",
+  appId: "1:272099489624:web:10d17611b19031757d172d",
+};
+function isFirebaseConfigured() {
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== "REPLACE_ME";
+}
+
+let _firestoreCache = null;
+async function getFirestore() {
+  if (_firestoreCache) return _firestoreCache;
+  const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+  const fsMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js");
+  const app = appMod.initializeApp(FIREBASE_CONFIG);
+  const db = fsMod.getFirestore(app);
+  _firestoreCache = { db, fsMod };
+  return _firestoreCache;
+}
+
+async function loadEmailsFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "iris_emails"),
+      fsMod.orderBy("raw.received_time", "desc"),
+      fsMod.limit(100),
+    );
+    const snap = await fsMod.getDocs(q);
+    const emails = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      const raw = d.raw || {};
+      const cls = d.classification || {};
+      const fu = d.followup || null;
+      emails.push({
+        id: doc.id,
+        received: raw.received_time || "",
+        senderEmail: raw.sender || "",
+        senderName: raw.sender_name || "",
+        sender: raw.sender_name
+          ? `${raw.sender_name} <${raw.sender}>`
+          : (raw.sender || "(sconosciuto)"),
+        subject: raw.subject || "(nessun oggetto)",
+        category: cls.category || "ALTRO",
+        confidence: cls.confidence || "low",
+        summary: cls.summary || "",
+        entities: cls.entities || {},
+        action: cls.suggestedAction || "ARCHIVIA",
+        bodyText: raw.body_text || "",
+        sentiment: cls.sentiment || "neutro",
+        sentimentReason: cls.sentimentReason || "",
+        followup: fu ? {
+          isFollowup: !!fu.isFollowup,
+          originalEmailId: fu.originalEmailId || null,
+          originalDocId: fu.originalDocId || null,
+          daysWithoutReply: Number(fu.daysWithoutReply || 0),
+          needsAttention: !!fu.needsAttention,
+        } : null,
+        similarEmails: Array.isArray(d.similarEmails) ? d.similarEmails : [],
+        attachments: Array.isArray(d.attachments) ? d.attachments : [],
+        score: typeof d.score === "number" ? d.score : 0,
+        intents: Array.isArray(cls.intents) ? cls.intents : null,
+      });
+    });
+    return emails;
+  } catch (err) {
+    console.warn("[IRIS] Firestore load failed, using mock data:", err.message || err);
+    return null;
+  }
+}
+
+async function loadSenderProfilesFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const snap = await fsMod.getDocs(fsMod.collection(db, "iris_sender_profiles"));
+    const map = new Map();
+    snap.forEach((doc) => {
+      const d = doc.data();
+      const email = (d.email || "").toLowerCase();
+      if (email) map.set(email, d);
+    });
+    return map;
+  } catch (err) {
+    console.warn("[IRIS] sender profiles load failed:", err.message || err);
+    return new Map();
+  }
+}
+
+async function loadThreadsFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "iris_threads"),
+      fsMod.orderBy("lastMessageAt", "desc"),
+      fsMod.limit(100),
+    );
+    const snap = await fsMod.getDocs(q);
+    const threads = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      threads.push({
+        id: doc.id,
+        normalizedSubject: d.normalizedSubject || "",
+        emailIds: d.emailIds || [],
+        emailDocIds: d.emailDocIds || [],
+        participants: d.participants || [],
+        messageCount: d.messageCount || (d.emailIds || []).length,
+        firstMessageAt: d.firstMessageAt || null,
+        lastMessageAt: d.lastMessageAt || null,
+        sentimentEvolution: d.sentiment_evolution || [],
+      });
+    });
+    return threads;
+  } catch (err) {
+    console.warn("[IRIS] Threads load failed:", err.message || err);
+    return null;
+  }
+}
+
+// --- Mock fallback (10 email di demo realistiche) ---
+const MOCK_EMAILS = [
+  {
+    id: "m1", received: "2026-04-16T07:42:00+02:00",
+    sender: "Studio Rossi Bianchi <admin@studiorossibianchi.it>",
+    senderName: "Studio Rossi Bianchi", senderEmail: "admin@studiorossibianchi.it",
+    subject: "URGENTE caldaia condominio Via Dante 5",
+    category: "GUASTO_URGENTE", confidence: "high",
+    summary: "Caldaia condominiale in blocco dalle 6, 14 appartamenti senza riscaldamento.",
+    entities: { condominio: "Via Dante 5, Voghera", urgenza: "critica", impianto: "Riello RTC 90" },
+    action: "URGENTE_CHIAMA",
+    bodyText: "Buongiorno, caldaia in blocco da stamattina. Intervenite appena possibile.",
+    sentiment: "disperato", sentimentReason: "14 appartamenti senza riscaldamento.",
+  },
+  {
+    id: "m2", received: "2026-04-16T08:15:00+02:00",
+    sender: "Mario Rossi <mario.rossi@gmail.com>",
+    senderName: "Mario Rossi", senderEmail: "mario.rossi@gmail.com",
+    subject: "Manutenzione annuale caldaia",
+    category: "RICHIESTA_INTERVENTO", confidence: "high",
+    summary: "Cliente richiede la manutenzione annuale. Disponibile lunedì e martedì mattina.",
+    entities: { cliente: "Mario Rossi", impianto: "Vaillant ecoTEC plus", indirizzo: "Via Marsala 12, Alessandria" },
+    action: "APRI_INTERVENTO",
+    bodyText: "Vorrei prenotare la manutenzione annuale della mia Vaillant. Grazie, Mario Rossi",
+    sentiment: "neutro", sentimentReason: "Richiesta cordiale di manutenzione ordinaria.",
+  },
+  {
+    id: "m3", received: "2026-04-16T08:58:00+02:00",
+    sender: "Vaillant Italia <amministrazione@vaillant.it>",
+    senderName: "Vaillant Italia", senderEmail: "amministrazione@vaillant.it",
+    subject: "Fattura n. 4521/2026",
+    category: "FATTURA_FORNITORE", confidence: "high",
+    summary: "Fattura ricambi 4521, importo 1.250 EUR, scadenza 30 giorni.",
+    entities: { cliente: "Vaillant Group Italia SpA", importo: "1.250,00" },
+    action: "VERIFICA_PAGAMENTO",
+    bodyText: "In allegato fattura n. 4521 del 15/04/2026, importo 1.250,00 EUR, scadenza 30 giorni.",
+    sentiment: "neutro", sentimentReason: "Comunicazione amministrativa di routine.",
+  },
+];
+
+// --- DOM helpers ---
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function formatReceived(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) {
+      return d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+    }
+    return d.toLocaleDateString("it-IT", { day: "2-digit", month: "short" });
+  } catch { return iso; }
+}
+function formatReceivedFull(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString("it-IT", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  } catch { return iso; }
+}
+
+// --- Stats ---
+function updateHeaderStats(emails) {
+  const total = emails.length;
+  const urgent = emails.filter(e => URGENT_CATEGORIES.has(e.category)).length;
+  const attention = emails.filter(e => e.followup && e.followup.needsAttention).length;
+  $("#statTotal").textContent = total;
+  $("#statUrgent").textContent = urgent;
+  $("#statAttention").textContent = attention;
+}
+
+// --- Card rendering ---
+function formatBytes(n) {
+  if (!n || !Number.isFinite(n)) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function renderAttachmentChips(atts) {
+  if (!atts || !atts.length) return "";
+  // Aggrega: foto le raggruppiamo (es. "📷 4 foto"), gli altri li mostriamo
+  // singolarmente per evidenziare metadati (es. importo).
+  const photos = atts.filter(a => a.detectedType === "foto");
+  const others = atts.filter(a => a.detectedType !== "foto");
+  const chips = [];
+
+  for (const a of others) {
+    const meta = ATTACHMENT_LABELS[a.detectedType] || ATTACHMENT_LABELS.altro;
+    const ext = a.filename ? a.filename.split(".").pop().toUpperCase() : "";
+    let extra = "";
+    if (a.detectedType === "fattura" && a.amount) {
+      extra = ` ${a.amount.replace(/^EUR\s*/, "€")}`;
+    }
+    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
+    chips.push(
+      `<span class="att-chip t-${escapeHtml(a.detectedType)}" title="${escapeHtml(tooltip)}">` +
+      `${meta.icon} <strong>${escapeHtml(meta.label)}${escapeHtml(extra)}</strong>` +
+      (ext ? ` <span style="opacity:.65">(${escapeHtml(ext)})</span>` : "") +
+      `</span>`
+    );
+  }
+
+  if (photos.length === 1) {
+    const a = photos[0];
+    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
+    chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">📷 <strong>1 foto</strong></span>`);
+  } else if (photos.length > 1) {
+    const totalSize = photos.reduce((s, a) => s + (a.size || 0), 0);
+    const tooltip = totalSize ? `Totale ${formatBytes(totalSize)}` : "";
+    chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">📷 <strong>${photos.length} foto</strong></span>`);
+  }
+
+  return `<div class="attachments">${chips.join("")}</div>`;
+}
+
+function renderReadAttachments(atts) {
+  if (!atts || !atts.length) return "";
+  const items = atts.map(a => {
+    const meta = ATTACHMENT_LABELS[a.detectedType] || ATTACHMENT_LABELS.altro;
+    const sizeStr = a.size ? formatBytes(a.size) : "";
+    const mime = a.mimeType || "";
+    const text = a.extractedText ? `<div class="read-att-text">${escapeHtml(a.extractedText)}</div>` : "";
+    const amountStr = a.amount ? ` · ${escapeHtml(a.amount.replace(/^EUR\s*/, "€"))}` : "";
+    return `
+      <div class="read-att-item">
+        <div class="read-att-head">
+          <div class="read-att-name">${meta.icon} <strong>${escapeHtml(meta.label)}</strong>${amountStr} — ${escapeHtml(a.filename || "")}</div>
+          <div class="read-att-meta">${escapeHtml([mime, sizeStr].filter(Boolean).join(" · "))}</div>
+        </div>
+        ${text}
+      </div>
+    `;
+  }).join("");
+  return `<div class="read-attachments"><h4>Allegati (${atts.length})</h4>${items}</div>`;
+}
+
+function renderEntities(ent) {
+  const keys = Object.keys(ent || {});
+  if (!keys.length) return "";
+  return `<div class="entities">${keys.map(k => `
+    <span class="chip"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(ent[k])}</span>
+  `).join("")}</div>`;
+}
+
+function renderFollowupBadges(e) {
+  const fu = e.followup;
+  if (!fu) return "";
+  const parts = [];
+  if (fu.needsAttention) {
+    const days = fu.daysWithoutReply;
+    const cls = days >= 7 ? "" : "warn";
+    const label = days <= 0
+      ? "In attesa di risposta"
+      : `In attesa da ${days} ${days === 1 ? "giorno" : "giorni"}`;
+    parts.push(
+      `<span class="badge attn ${cls}" title="Nessuna risposta inviata da Alberto">⏰ ${escapeHtml(label)}</span>`
+    );
+  }
+  if (fu.isFollowup) {
+    const orig = fu.originalDocId || fu.originalEmailId;
+    const attr = orig ? `data-followup-original="${escapeHtml(orig)}"` : "";
+    const title = orig ? "Apri l'email originale" : "Sollecito (originale non in elenco)";
+    parts.push(
+      `<span class="badge followup" ${attr} title="${escapeHtml(title)}">🔄 Sollecito</span>`
+    );
+  }
+  return parts.join("");
+}
+
+function renderSentimentBadge(e) {
+  const s = e.sentiment || "neutro";
+  const meta = SENTIMENT_LABELS[s] || SENTIMENT_LABELS.neutro;
+  const title = e.sentimentReason ? `title="${escapeHtml(e.sentimentReason)}"` : "";
+  return `<span class="badge sent sent-${escapeHtml(s)}" ${title}>` +
+    `<span class="sent-emoji" aria-hidden="true">${meta.emoji}</span>` +
+    `${escapeHtml(meta.label)}</span>`;
+}
+function isMultiIntent(e) {
+  return Array.isArray(e.intents) && e.intents.length > 1;
+}
+
+function renderIntentsSection(email) {
+  const intents = email.intents;
+  if (!Array.isArray(intents) || intents.length <= 1) return "";
+  const cards = intents.map((it, i) => {
+    const cat = it.category || "ALTRO";
+    const act = it.suggestedAction || "ARCHIVIA";
+    const ents = it.entities || {};
+    const entKeys = Object.keys(ents);
+    const entHtml = entKeys.length
+      ? `<div class="intent-entities">${entKeys.map(k =>
+          `<span class="chip"><strong>${escapeHtml(k)}:</strong> ${escapeHtml(ents[k])}</span>`
+        ).join("")}</div>`
+      : "";
+    return `
+      <div class="intent-card">
+        <div class="intent-head">
+          <span class="intent-num">#${i + 1}</span>
+          <span class="badge cat-${escapeHtml(cat)}">${escapeHtml(CATEGORY_LABELS[cat] || cat)}</span>
+          <span class="badge act">→ ${escapeHtml(ACTION_LABELS[act] || act)}</span>
+        </div>
+        <div class="intent-summary">${escapeHtml(it.summary || "—")}</div>
+        ${entHtml}
+      </div>
+    `;
+  }).join("");
+  return `<div class="intents-section"><h4>Intent rilevati (${intents.length})</h4>${cards}</div>`;
+}
+
+function renderScoreBadge(score) {
+  const s = typeof score === "number" ? score : 0;
+  const cls = s >= 60 ? "s-high" : s >= 30 ? "s-mid" : "s-low";
+  return `<span class="score-badge ${cls}" title="Priorità calcolata (0-100)">${s}</span>`;
+}
+
+function renderEmailCard(e) {
+  const senderHtml = renderSenderInline(e.senderEmail || e.sender, e.senderName);
+  return `
+    <article class="email-card" data-id="${escapeHtml(e.id)}">
+      <div class="card-top">
+        <div class="sender">${senderHtml}</div>
+        <div class="received" title="${escapeHtml(formatReceivedFull(e.received))}">${escapeHtml(formatReceived(e.received))}</div>
+        ${renderScoreBadge(e.score)}
+      </div>
+      <div class="subject">${escapeHtml(e.subject)}</div>
+      <div class="summary">${escapeHtml(e.summary || "—")}</div>
+      ${renderEntities(e.entities)}
+      ${renderAttachmentChips(e.attachments)}
+      <div class="card-bottom">
+        <div class="badges">
+          <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
+          ${isMultiIntent(e) ? `<span class="multi-intent-badge" title="Email con più richieste — apri per vedere tutti gli intent">⚡ ${e.intents.length} intent</span>` : ""}
+          <span class="badge conf ${escapeHtml(e.confidence)}"><span class="pip"></span>${escapeHtml(CONFIDENCE_LABELS[e.confidence] || e.confidence)}</span>
+          ${renderSentimentBadge(e)}
+          ${renderFollowupBadges(e)}
+        </div>
+        <div class="card-actions">
+          <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
+          <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+          <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Apri una richiesta di sviluppo per questo tipo di email">🛠️ Dev</button>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function applyFilters(emails) {
+  const cat = $("#filterCategory").value;
+  const q = ($("#filterSearch").value || "").trim().toLowerCase();
+  const filtered = emails.filter(e => {
+    if (cat && e.category !== cat) return false;
+    if (q) {
+      const hay = `${e.sender} ${e.subject} ${e.summary} ${e.bodyText || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  if (CURRENT_SORT === "priority") {
+    return [...filtered].sort((a, b) => {
+      const sa = typeof a.score === "number" ? a.score : 0;
+      const sb = typeof b.score === "number" ? b.score : 0;
+      if (sb !== sa) return sb - sa;
+      // tiebreaker: data desc
+      return (b.received || "").localeCompare(a.received || "");
+    });
+  }
+  return filtered;
+}
+
+function wireFollowupClicks(root) {
+  $$("[data-followup-original]", root).forEach(badge => {
+    badge.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openReadModal(badge.dataset.followupOriginal);
+    });
+  });
+}
+
+function render(emails) {
+  const filtered = applyFilters(emails);
+  const list = $("#emailList");
+  if (!filtered.length) {
+    $("#filterCount").textContent = `0 email`;
+    list.innerHTML = `<div class="empty">Nessuna email corrisponde ai filtri.</div>`;
+    return;
+  }
+  $("#filterCount").textContent = `${filtered.length} email`;
+  list.innerHTML = filtered.map(renderEmailCard).join("");
+  $$("[data-read]", list).forEach(btn => {
+    btn.addEventListener("click", () => openReadModal(btn.dataset.read));
+  });
+  $$("[data-correct]", list).forEach(btn => {
+    btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
+  });
+  wireFollowupClicks(list);
+  wireSenderClicks(list);
+  wireIdeaClicks(list);
+}
+
+// --- Thread rendering ---
+function applyThreadFilters(threads, emailById) {
+  const cat = $("#filterCategory").value;
+  const q = ($("#filterSearch").value || "").trim().toLowerCase();
+  return threads.filter(t => {
+    const emailsInThread = (t.emailDocIds.length ? t.emailDocIds : t.emailIds)
+      .map(id => emailById.get(id))
+      .filter(Boolean);
+    if (cat) {
+      // keep thread if any email matches the category
+      if (!emailsInThread.some(e => e.category === cat)) return false;
+    }
+    if (q) {
+      const hay = (
+        t.normalizedSubject + " " +
+        t.participants.join(" ") + " " +
+        emailsInThread.map(e => `${e.sender} ${e.subject} ${e.summary} ${e.bodyText || ""}`).join(" ")
+      ).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderSentimentEvolution(seq) {
+  if (!seq || !seq.length) {
+    return `<span class="sentiment-evolution" title="Nessun sentiment disponibile">—</span>`;
+  }
+  const parts = seq.map((s, i) => {
+    const meta = SENTIMENT_LABELS[s] || SENTIMENT_LABELS.neutro;
+    const arrow = i > 0 ? `<span class="arrow">›</span>` : "";
+    return `${arrow}<span title="${escapeHtml(meta.label)}">${meta.emoji}</span>`;
+  });
+  return `<span class="sentiment-evolution" aria-label="Evoluzione sentiment">${parts.join("")}</span>`;
+}
+
+function renderThreadCard(t, emailById) {
+  const subject = t.normalizedSubject || "(nessun oggetto)";
+  const last = t.lastMessageAt;
+  const firstParticipants = t.participants.slice(0, 3).join(", ");
+  const moreCount = t.participants.length > 3 ? ` +${t.participants.length - 3}` : "";
+  const partsLine = `${escapeHtml(firstParticipants)}${escapeHtml(moreCount)}`;
+
+  const emailsHtml = (t.emailDocIds.length ? t.emailDocIds : t.emailIds)
+    .map(id => emailById.get(id))
+    .filter(Boolean)
+    .sort((a, b) => (a.received || "").localeCompare(b.received || ""))
+    .map(e => {
+      const meta = SENTIMENT_LABELS[e.sentiment] || SENTIMENT_LABELS.neutro;
+      const senderHtml = renderSenderInline(e.senderEmail || e.sender, e.senderName);
+      return `
+        <div class="thread-email" data-thread-email-id="${escapeHtml(e.id)}">
+          <div class="thread-email-top">
+            <div class="thread-email-sender">${senderHtml}</div>
+            <div class="thread-email-date" title="${escapeHtml(formatReceivedFull(e.received))}">${escapeHtml(formatReceivedFull(e.received))}</div>
+          </div>
+          <div class="thread-email-summary">${escapeHtml(e.summary || "—")}</div>
+          <div class="badges" style="margin-top:4px">
+            <span class="badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>
+            <span class="badge sent sent-${escapeHtml(e.sentiment || "neutro")}"><span class="sent-emoji">${meta.emoji}</span>${escapeHtml(meta.label)}</span>
+            ${renderFollowupBadges(e)}
+          </div>
+          <div class="thread-email-actions">
+            <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
+            <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+            <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Apri una richiesta di sviluppo per questo tipo di email">🛠️ Dev</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+  return `
+    <article class="thread-card" data-thread-id="${escapeHtml(t.id)}">
+      <div class="thread-head" data-thread-toggle="${escapeHtml(t.id)}">
+        <div class="thread-subject"><span class="thread-toggle-icon">▶</span>${escapeHtml(subject)}</div>
+        <div class="thread-meta" title="${escapeHtml(formatReceivedFull(last))}">${escapeHtml(formatReceived(last))}</div>
+        <div class="thread-info">
+          <span class="thread-count">${t.messageCount} msg</span>
+          ${renderSentimentEvolution(t.sentimentEvolution)}
+          <span class="thread-participants" title="${escapeHtml(t.participants.join(", "))}">${partsLine}</span>
+        </div>
+      </div>
+      <div class="thread-body">
+        <div class="thread-emails">${emailsHtml}</div>
+      </div>
+    </article>
+  `;
+}
+
+function renderThreads(threads, emails) {
+  const emailById = new Map(emails.map(e => [e.id, e]));
+  const filtered = applyThreadFilters(threads, emailById);
+  const list = $("#threadList");
+  $("#filterCount").textContent = `${filtered.length} thread (${emails.length} email totali)`;
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty">Nessun thread corrisponde ai filtri.</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(t => renderThreadCard(t, emailById)).join("");
+  $$("[data-thread-toggle]", list).forEach(head => {
+    head.addEventListener("click", () => {
+      head.closest(".thread-card").classList.toggle("open");
+    });
+  });
+  $$("[data-read]", list).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openReadModal(btn.dataset.read);
+    });
+  });
+  $$("[data-correct]", list).forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openCorrectionModal(btn.dataset.correct);
+    });
+  });
+  wireFollowupClicks(list);
+  wireSenderClicks(list);
+  wireIdeaClicks(list);
+}
+
+// --- Correction modal ---
+let currentCorrectionId = null;
+function openCorrectionModal(id) {
+  const email = ACTIVE_EMAILS.find(e => e.id === id);
+  if (!email) return;
+  currentCorrectionId = id;
+  $("#modalSub").textContent = `${email.sender} — ${email.subject}`;
+  $("#corrCategory").value = email.category;
+  $("#corrAction").value = email.action;
+  $("#corrNotes").value = "";
+  $("#modalBackdrop").classList.add("open");
+}
+function closeCorrectionModal() {
+  $("#modalBackdrop").classList.remove("open");
+  currentCorrectionId = null;
+}
+
+// --- Read modal ---
+function formatRelativeDate(iso) {
+  if (!iso) return "—";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+    if (days <= 0) return "oggi";
+    if (days === 1) return "1 giorno fa";
+    if (days < 30) return `${days} giorni fa`;
+    if (days < 365) return `${Math.round(days / 30)} mesi fa`;
+    return `${Math.round(days / 365)} anni fa`;
+  } catch { return iso; }
+}
+
+function renderHowHandled(h) {
+  if (!h) return "";
+  const parts = [];
+  if (h.suggestedAction) {
+    parts.push(`<span class="pill">Azione: ${escapeHtml(ACTION_LABELS[h.suggestedAction] || h.suggestedAction)}</span>`);
+  }
+  if (h.attentionStatus === "needs_attention") {
+    parts.push(`<span class="pill attn">⏰ Senza risposta</span>`);
+  } else if (h.attentionStatus === "replied" && h.repliedInDays !== null && h.repliedInDays !== undefined) {
+    const d = h.repliedInDays;
+    const lbl = d === 0 ? "in giornata" : d === 1 ? "in 1 giorno" : `in ${d} giorni`;
+    parts.push(`<span class="pill replied">✓ Risposto ${escapeHtml(lbl)}</span>`);
+  }
+  if (h.wasCorrected) {
+    const to = h.correctedCategory ? ` → ${CATEGORY_LABELS[h.correctedCategory] || h.correctedCategory}` : "";
+    parts.push(`<span class="pill corrected">Corretta${escapeHtml(to)}</span>`);
+  }
+  return parts.length ? `<div class="similar-handled">${parts.join("")}</div>` : "";
+}
+
+function renderSimilarSection(email) {
+  const sec = $("#readSimilar");
+  const list = $("#readSimilarList");
+  const sims = email.similarEmails || [];
+  if (!sims.length) {
+    sec.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+  sec.style.display = "";
+  list.innerHTML = `<div class="similar-list">${sims.map(s => {
+    const handled = renderHowHandled(s.howHandled);
+    const matchLabel = s.matchKey === "sender+condominio" ? "stesso mittente + condominio"
+      : s.matchKey === "condominio" ? "stesso condominio" : "stesso mittente";
+    const targetId = s.docId || s.emailId;
+    return `
+      <button class="similar-item" type="button" data-similar-open="${escapeHtml(targetId || "")}">
+        <div class="similar-top">
+          <span class="similar-match-key">${escapeHtml(matchLabel)}</span>
+          <span class="similar-date" title="${escapeHtml(formatReceivedFull(s.date))}">${escapeHtml(formatRelativeDate(s.date))}</span>
+        </div>
+        <div class="similar-summary">${escapeHtml(s.summary || "—")}</div>
+        ${handled}
+      </button>
+    `;
+  }).join("")}</div>`;
+  $$("[data-similar-open]", list).forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.dataset.similarOpen;
+      if (target && ACTIVE_EMAILS.find(e => e.id === target)) {
+        openReadModal(target);
+      }
+    });
+  });
+}
+
+function openReadModal(id) {
+  const email = ACTIVE_EMAILS.find(e => e.id === id);
+  if (!email) return;
+  $("#readSender").textContent = email.sender || "(sconosciuto)";
+  $("#readSubject").textContent = email.subject || "(nessun oggetto)";
+  const metaParts = [];
+  if (email.received) metaParts.push(formatReceivedFull(email.received));
+  if (email.category) metaParts.push(CATEGORY_LABELS[email.category] || email.category);
+  $("#readMeta").textContent = metaParts.join(" · ") || "—";
+  const bodyEl = $("#readBody");
+  if (email.bodyText && email.bodyText.trim()) {
+    bodyEl.classList.remove("empty-body");
+    bodyEl.textContent = email.bodyText;
+    bodyEl.scrollTop = 0;
+  } else {
+    bodyEl.classList.add("empty-body");
+    bodyEl.textContent = "(corpo email non disponibile)";
+  }
+  $("#readIntents").innerHTML = renderIntentsSection(email);
+  $("#readAttachments").innerHTML = renderReadAttachments(email.attachments);
+  renderSimilarSection(email);
+  $("#readBackdrop").classList.add("open");
+}
+function closeReadModal() {
+  $("#readBackdrop").classList.remove("open");
+}
+
+// --- Toast utility ---
+let TOAST_TIMER = null;
+function showToast(msg, type = "info") {
+  const t = $("#toast");
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.toggle("error", type === "error");
+  t.classList.add("show");
+  if (TOAST_TIMER) clearTimeout(TOAST_TIMER);
+  TOAST_TIMER = setTimeout(() => t.classList.remove("show"), 3500);
+}
+
+// --- Dev requests (build IRIS from IRIS) ---
+const DEV_REQUESTS_COLLECTION = "nexo_dev_requests";
+let DEV_REQUESTS_CACHE = [];
+let DEV_REQUESTS_FILTER = "all";
+let CURRENT_IDEA_EMAIL = null;
+
+// --- Voice input (Web Speech API) ---
+const VOICE_SILENCE_TIMEOUT_MS = 30000; // stop auto dopo 30s senza parlato
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+const voiceState = {
+  recognition: null,
+  active: false,
+  baseText: "",      // testo già presente nella textarea prima di iniziare
+  interim: "",
+  silenceTimer: null,
+};
+
+function voiceSupported() {
+  return !!SpeechRecognition;
+}
+
+function setVoiceStatus(msg, variant = "") {
+  const el = $("#ideaVoiceStatus");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.className = "voice-status" + (variant ? ` ${variant}` : "");
+}
+
+function resetSilenceTimer() {
+  if (voiceState.silenceTimer) clearTimeout(voiceState.silenceTimer);
+  voiceState.silenceTimer = setTimeout(() => {
+    if (voiceState.active) {
+      setVoiceStatus("Dettatura interrotta: nessuna voce rilevata per 30 secondi.", "error");
+      stopVoice();
+    }
+  }, VOICE_SILENCE_TIMEOUT_MS);
+}
+
+function updateTextareaFromVoice() {
+  const ta = $("#ideaText");
+  if (!ta) return;
+  // baseText + pezzi "final" già accumulati in baseText, interim in coda
+  ta.value = voiceState.baseText + (voiceState.interim ? " " + voiceState.interim : "");
+}
+
+function startVoice() {
+  if (!voiceSupported()) {
+    setVoiceStatus("Il tuo browser non supporta la dettatura vocale. Usa Chrome o Edge.", "error");
+    return;
+  }
+  if (voiceState.active) return;
+
+  const rec = new SpeechRecognition();
+  rec.lang = "it-IT";
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  const ta = $("#ideaText");
+  voiceState.baseText = (ta.value || "").trim();
+  if (voiceState.baseText) voiceState.baseText += "\n";
+  voiceState.interim = "";
+
+  rec.onstart = () => {
+    voiceState.active = true;
+    $("#ideaMicBtn").classList.add("recording");
+    $("#ideaMicBtn").setAttribute("aria-label", "Ferma la dettatura");
+    setVoiceStatus("🔴 Sto ascoltando… parla in italiano.", "recording");
+    resetSilenceTimer();
+  };
+
+  rec.onresult = (ev) => {
+    let interim = "";
+    let finalChunk = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const result = ev.results[i];
+      const transcript = result[0].transcript;
+      if (result.isFinal) finalChunk += transcript;
+      else interim += transcript;
+    }
+    if (finalChunk) {
+      voiceState.baseText = (voiceState.baseText + " " + finalChunk).trim() + " ";
+    }
+    voiceState.interim = interim.trim();
+    updateTextareaFromVoice();
+    resetSilenceTimer();
+  };
+
+  rec.onerror = (ev) => {
+    const err = ev.error || "unknown";
+    let msg;
+    switch (err) {
+      case "not-allowed":
+      case "service-not-allowed":
+        msg = "Permesso microfono negato. Autorizza il microfono nel browser e riprova.";
+        break;
+      case "no-speech":
+        msg = "Non ho sentito nulla. Riprova.";
+        break;
+      case "audio-capture":
+        msg = "Nessun microfono rilevato.";
+        break;
+      case "network":
+        msg = "Errore di rete durante la dettatura.";
+        break;
+      case "aborted":
+        // stop manuale, non è un vero errore
+        return;
+      default:
+        msg = `Errore dettatura: ${err}`;
+    }
+    setVoiceStatus(msg, "error");
+    stopVoice(); // garantisce cleanup UI
+  };
+
+  rec.onend = () => {
+    // ripulisci lo stato UI. Se active è rimasto true (es. silence timeout
+    // ha già chiamato stop), è già gestito.
+    voiceState.active = false;
+    voiceState.recognition = null;
+    if (voiceState.silenceTimer) {
+      clearTimeout(voiceState.silenceTimer);
+      voiceState.silenceTimer = null;
+    }
+    $("#ideaMicBtn")?.classList.remove("recording");
+    $("#ideaMicBtn")?.setAttribute("aria-label", "Detta la richiesta");
+    // consolida interim in baseText e pulisci
+    if (voiceState.interim) {
+      voiceState.baseText = (voiceState.baseText + " " + voiceState.interim).trim();
+      voiceState.interim = "";
+      updateTextareaFromVoice();
+    }
+    // status: se non è stato impostato un messaggio di errore, mostra ok/pulisci
+    const st = $("#ideaVoiceStatus");
+    if (st && !st.classList.contains("error")) {
+      setVoiceStatus("");
+    }
+  };
+
+  voiceState.recognition = rec;
+  try {
+    rec.start();
+  } catch (e) {
+    setVoiceStatus("Impossibile avviare la dettatura: " + (e.message || e), "error");
+    voiceState.active = false;
+    voiceState.recognition = null;
+  }
+}
+
+function stopVoice() {
+  const rec = voiceState.recognition;
+  if (!rec) {
+    voiceState.active = false;
+    $("#ideaMicBtn")?.classList.remove("recording");
+    return;
+  }
+  try {
+    rec.stop();
+  } catch {
+    try { rec.abort(); } catch {}
+  }
+  // onend farà il resto del cleanup
+}
+
+function toggleVoice() {
+  if (voiceState.active) stopVoice();
+  else startVoice();
+}
+
+function openIdeaModal(emailId) {
+  const email = emailId ? ACTIVE_EMAILS.find(e => e.id === emailId) : null;
+  CURRENT_IDEA_EMAIL = email || null;
+  const ctx = $("#ideaContext");
+  const title = $("#ideaTitle");
+  if (email) {
+    const sender = email.senderName || email.senderEmail || email.sender;
+    const cat = CATEGORY_LABELS[email.category] || email.category;
+    title.textContent = "Richiesta sviluppo per questa email";
+    ctx.classList.remove("empty");
+    ctx.innerHTML =
+      `<div><strong>Oggetto:</strong> ${escapeHtml(email.subject || "(nessun oggetto)")}</div>` +
+      `<div><strong>Da:</strong> ${escapeHtml(sender)}</div>` +
+      `<div><strong>Categoria:</strong> ${escapeHtml(cat)}</div>`;
+  } else {
+    title.textContent = "Nuova richiesta di sviluppo";
+    ctx.classList.add("empty");
+    ctx.textContent = "Richiesta generale (non legata a una email specifica).";
+  }
+  $("#ideaText").value = "";
+  setVoiceStatus("");
+  // Mostra il bottone 🎤 solo se il browser supporta STT.
+  const micBtn = $("#ideaMicBtn");
+  if (micBtn) micBtn.hidden = !voiceSupported();
+  $("#ideaBackdrop").classList.add("open");
+  setTimeout(() => $("#ideaText").focus(), 50);
+}
+function closeIdeaModal() {
+  if (voiceState.active) stopVoice();
+  $("#ideaBackdrop").classList.remove("open");
+  CURRENT_IDEA_EMAIL = null;
+}
+
+async function submitIdea(ev) {
+  ev.preventDefault();
+  const submitBtn = $("#ideaSubmit");
+  const text = $("#ideaText").value.trim();
+  if (!text) {
+    showToast("Scrivi qualcosa prima di inviare.", "error");
+    return;
+  }
+  if (text.length > 4000) {
+    showToast("Richiesta troppo lunga (max 4000 caratteri).", "error");
+    return;
+  }
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Invio…";
+  try {
+    const { db, fsMod } = await getFirestore();
+    const e = CURRENT_IDEA_EMAIL;
+    const payload = {
+      description: text,
+      status: "pending",
+      createdAt: fsMod.serverTimestamp(),
+    };
+    if (e) {
+      payload.emailRef = {
+        id: e.id,
+        sender: e.senderEmail || e.sender || "",
+        subject: (e.subject || "").slice(0, 500),
+        category: e.category || "ALTRO",
+      };
+    } else {
+      payload.emailRef = null;
+    }
+    const ref = await fsMod.addDoc(fsMod.collection(db, DEV_REQUESTS_COLLECTION), payload);
+    closeIdeaModal();
+    showToast("✅ Richiesta inviata");
+    // refresh cache
+    loadDevRequestsFromFirestore().then(list => {
+      DEV_REQUESTS_CACHE = list;
+      renderRequestsList();
+    });
+    return ref;
+  } catch (err) {
+    console.error("submit idea failed", err);
+    showToast("Errore: " + (err.message || err), "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Invia richiesta";
+  }
+}
+
+async function loadDevRequestsFromFirestore() {
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, DEV_REQUESTS_COLLECTION),
+      fsMod.orderBy("createdAt", "desc"),
+      fsMod.limit(100),
+    );
+    const snap = await fsMod.getDocs(q);
+    const out = [];
+    snap.forEach((doc) => {
+      const d = doc.data();
+      // Accept both new shape (description + emailRef) and legacy shape
+      // (request + flat emailId/emailSender/... from the previous sibling
+      // commit 628918e) for backward compat.
+      const description = d.description || d.request || "";
+      let emailRef = d.emailRef || null;
+      if (!emailRef && (d.emailId || d.emailSender || d.emailSubject || d.emailCategory)) {
+        emailRef = {
+          id: d.emailId || "",
+          sender: d.emailSender || "",
+          subject: d.emailSubject || "",
+          category: d.emailCategory || "",
+        };
+      }
+      out.push({
+        id: doc.id,
+        description,
+        status: d.status || "pending",
+        emailRef,
+        createdAt: d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null,
+      });
+    });
+    return out;
+  } catch (err) {
+    console.warn("[IRIS] dev requests load failed:", err.message || err);
+    return [];
+  }
+}
+
+function renderRequestsList() {
+  const list = $("#requestsList");
+  const items = DEV_REQUESTS_CACHE;
+
+  // Update counters
+  const counts = { all: items.length, pending: 0, in_progress: 0, completed: 0 };
+  for (const r of items) {
+    if (counts[r.status] !== undefined) counts[r.status]++;
+  }
+  $("#rcAll").textContent = counts.all;
+  $("#rcPending").textContent = counts.pending;
+  $("#rcProgress").textContent = counts.in_progress;
+  $("#rcCompleted").textContent = counts.completed;
+
+  const filtered = DEV_REQUESTS_FILTER === "all"
+    ? items
+    : items.filter(r => r.status === DEV_REQUESTS_FILTER);
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="request-empty">Nessuna richiesta in questa vista.</div>`;
+    return;
+  }
+
+  const STATUS_LABELS = {
+    pending: "In attesa",
+    in_progress: "In corso",
+    completed: "Completata",
+    rejected: "Rifiutata",
+  };
+
+  list.innerHTML = filtered.map(r => {
+    const statusLabel = STATUS_LABELS[r.status] || r.status;
+    const date = r.createdAt
+      ? r.createdAt.toLocaleString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+      : "—";
+    const meta = [];
+    if (r.emailRef) {
+      if (r.emailRef.subject) meta.push(`📧 ${escapeHtml(r.emailRef.subject)}`);
+      if (r.emailRef.category) meta.push(`Categoria: <strong>${escapeHtml(CATEGORY_LABELS[r.emailRef.category] || r.emailRef.category)}</strong>`);
+      if (r.emailRef.sender) meta.push(`Da: ${escapeHtml(r.emailRef.sender)}`);
+    } else {
+      meta.push("🛠️ Richiesta generale");
+    }
+    return `
+      <div class="request-item">
+        <div class="request-head">
+          <span class="request-status ${escapeHtml(r.status)}">${escapeHtml(statusLabel)}</span>
+          <span class="request-date">${escapeHtml(date)}</span>
+        </div>
+        <div class="request-body">${escapeHtml(r.description)}</div>
+        ${meta.length ? `<div class="request-meta">${meta.join(" · ")}</div>` : ""}
+      </div>
+    `;
+  }).join("");
+}
+
+async function openRequestsModal() {
+  $("#requestsBackdrop").classList.add("open");
+  $("#requestsList").innerHTML = `<div class="request-empty">Caricamento…</div>`;
+  DEV_REQUESTS_CACHE = await loadDevRequestsFromFirestore();
+  renderRequestsList();
+}
+function closeRequestsModal() {
+  $("#requestsBackdrop").classList.remove("open");
+}
+
+// --- UI init ---
+let ACTIVE_EMAILS = MOCK_EMAILS;
+let ACTIVE_THREADS = [];
+let SENDER_PROFILES = new Map(); // email → profile
+let CURRENT_VIEW = "emails"; // "emails" | "threads"
+let CURRENT_SORT = "date";    // "date" | "priority"
+
+// --- Sender profile popover (F5) ---
+function getSenderProfile(email) {
+  if (!email) return null;
+  return SENDER_PROFILES.get(String(email).toLowerCase()) || null;
+}
+
+function isFrequentSender(email) {
+  const p = getSenderProfile(email);
+  return !!(p && p.isFrequent);
+}
+
+function renderSenderInline(email, displayName) {
+  const safeEmail = String(email || "").toLowerCase();
+  const p = getSenderProfile(safeEmail);
+  const name = displayName || (p && p.displayName) || safeEmail || "(sconosciuto)";
+  const star = (p && p.isFrequent)
+    ? `<span class="frequent-star" title="Mittente frequente (${p.totalEmails} email)" aria-label="Mittente frequente">⭐</span>`
+    : "";
+  const dataAttr = p ? `data-sender-email="${escapeHtml(safeEmail)}"` : "";
+  const cls = p ? "sender-clickable" : "";
+  return `<span class="${cls}" ${dataAttr}>${escapeHtml(name)}</span>${star}`;
+}
+
+function formatLastContact(days) {
+  if (days === null || days === undefined) return "—";
+  if (days <= 0) return "oggi";
+  if (days === 1) return "ieri";
+  if (days < 30) return `${days} giorni fa`;
+  if (days < 365) return `${Math.round(days / 30)} mesi fa`;
+  return `${Math.round(days / 365)} anni fa`;
+}
+
+function formatFrequency(p) {
+  // "X email in Y giorni/mesi" + media settimanale
+  const total = p.totalEmails || 0;
+  const days = p.daysActive || 1;
+  let span;
+  if (days < 30) span = `${days} ${days === 1 ? "giorno" : "giorni"}`;
+  else if (days < 365) span = `${Math.round(days / 30)} mesi`;
+  else span = `${Math.round(days / 365)} anni`;
+  const avg = p.avgPerWeek || 0;
+  const avgStr = avg >= 1 ? `~${avg.toFixed(1)}/sett.` : `~${(avg * 4).toFixed(1)}/mese`;
+  return `${total} email in ${span} (${avgStr})`;
+}
+
+function openSenderPopover(email, anchorEl) {
+  const profile = getSenderProfile(email);
+  const pop = $("#senderPopover");
+  if (!profile) {
+    pop.classList.remove("open");
+    return;
+  }
+
+  $("#popName").innerHTML = escapeHtml(profile.displayName || profile.email) +
+    (profile.isFrequent ? `<span class="pop-frequent">⭐ Frequente</span>` : "");
+  $("#popEmail").textContent = profile.email;
+
+  const body = $("#popBody");
+  const lines = [];
+  lines.push(`<div class="pop-line"><strong>Frequenza:</strong> ${escapeHtml(formatFrequency(profile))}</div>`);
+  lines.push(`<div class="pop-line"><strong>Ultimo contatto:</strong> ${escapeHtml(formatLastContact(profile.lastContactDaysAgo))}</div>`);
+
+  const sentMeta = SENTIMENT_LABELS[profile.avgSentiment] || SENTIMENT_LABELS.neutro;
+  lines.push(`<div class="pop-line"><strong>Sentiment medio:</strong> ${sentMeta.emoji} ${escapeHtml(sentMeta.label.toLowerCase())}</div>`);
+
+  const cats = profile.topCategoriesPct || {};
+  const catEntries = Object.entries(cats).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  if (catEntries.length) {
+    const chips = catEntries.map(([k, pct]) =>
+      `<span class="badge cat-${escapeHtml(k)}">${escapeHtml(CATEGORY_LABELS[k] || k)} ${pct}%</span>`
+    ).join("");
+    lines.push(`<div class="pop-line"><strong>Categorie:</strong></div><div class="pop-cats">${chips}</div>`);
+  }
+
+  const condos = profile.condominiosMentioned || [];
+  if (condos.length) {
+    const list = condos.slice(0, 4).map(c => escapeHtml(c)).join(" · ");
+    const more = condos.length > 4 ? ` +${condos.length - 4}` : "";
+    lines.push(`<div class="pop-condos"><strong>Condomini citati:</strong> ${list}${escapeHtml(more)}</div>`);
+  }
+
+  body.innerHTML = lines.join("");
+
+  // position next to anchor (clamp inside viewport)
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.visibility = "hidden";
+  pop.classList.add("open");
+  const pw = pop.offsetWidth;
+  const ph = pop.offsetHeight;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + pw > window.innerWidth - 12) left = window.innerWidth - pw - 12;
+  if (left < 12) left = 12;
+  if (top + ph > window.innerHeight - 12) top = rect.top - ph - 6;
+  if (top < 12) top = 12;
+  pop.style.left = `${Math.round(left)}px`;
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.visibility = "";
+}
+
+function closeSenderPopover() {
+  $("#senderPopover").classList.remove("open");
+}
+
+function wireIdeaClicks(root) {
+  $$("[data-idea]", root).forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openIdeaModal(btn.dataset.idea);
+    });
+  });
+}
+
+function wireSenderClicks(root) {
+  $$("[data-sender-email]", root).forEach(el => {
+    el.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const email = el.dataset.senderEmail;
+      const pop = $("#senderPopover");
+      const isOpenForSame = pop.classList.contains("open") && pop.dataset.currentEmail === email;
+      if (isOpenForSame) {
+        closeSenderPopover();
+        pop.dataset.currentEmail = "";
+      } else {
+        openSenderPopover(email, el);
+        pop.dataset.currentEmail = email;
+      }
+    });
+  });
+}
+
+// --- Digest (F4) ---
+function isToday(iso) {
+  if (!iso) return false;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return false;
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear()
+      && d.getMonth() === now.getMonth()
+      && d.getDate() === now.getDate();
+  } catch { return false; }
+}
+
+function priorityScore(e) {
+  // Higher = more important. Used to pick top 3.
+  let s = 0;
+  if (URGENT_CATEGORIES.has(e.category)) s += 100;
+  if (e.sentiment === "disperato") s += 60;
+  else if (e.sentiment === "arrabbiato") s += 40;
+  else if (e.sentiment === "frustrato") s += 15;
+  if (e.followup) {
+    if (e.followup.needsAttention) s += 25 + Math.min(20, (e.followup.daysWithoutReply || 0) * 2);
+    if (e.followup.isFollowup) s += 10;
+  }
+  if (e.action === "URGENTE_CHIAMA") s += 30;
+  else if (e.action === "APRI_INTERVENTO") s += 15;
+  else if (e.action === "RISPONDI") s += 8;
+  // Recency tiebreaker.
+  const t = e.received ? new Date(e.received).getTime() : 0;
+  return s + Math.min(5, (t / 1e12));
+}
+
+function renderDigest(emails) {
+  const total = emails.length;
+  const today = emails.filter(e => isToday(e.received)).length;
+  const urgent = emails.filter(e => URGENT_CATEGORIES.has(e.category)).length;
+  const attention = emails.filter(e => e.followup && e.followup.needsAttention).length;
+
+  const sumEl = $("#digestSummary");
+  if (!total) {
+    sumEl.innerHTML = "Nessuna email caricata.";
+  } else {
+    const todayLabel = today === 1 ? "email ricevuta oggi" : "email ricevute oggi";
+    const urgentLabel = urgent === 1 ? "urgente" : "urgenti";
+    const attnLabel = attention === 1 ? "senza risposta da più di 48h" : "senza risposta da più di 48h";
+    sumEl.innerHTML =
+      `Oggi <span class="num">${today}</span> ${todayLabel}. ` +
+      `<span class="num urgent">${urgent}</span> ${urgentLabel}. ` +
+      `<span class="num attn">${attention}</span> ${attnLabel}.`;
+  }
+
+  const top = [...emails]
+    .map(e => ({ e, score: priorityScore(e) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(x => x.e);
+
+  const topEl = $("#digestTop");
+  if (!top.length) {
+    topEl.innerHTML = `<div class="digest-empty">Nessuna email da segnalare.</div>`;
+  } else {
+    topEl.innerHTML = top.map((e, i) => {
+      const sender = e.senderName || e.senderEmail || e.sender || "(sconosciuto)";
+      const summary = e.summary || e.subject || "—";
+      let badgeHtml = "";
+      if (URGENT_CATEGORIES.has(e.category)) {
+        badgeHtml = `<span class="digest-item-badge badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>`;
+      } else if (e.followup && e.followup.needsAttention) {
+        const days = e.followup.daysWithoutReply;
+        badgeHtml = `<span class="digest-item-badge badge attn">⏰ ${days}g</span>`;
+      } else if (e.followup && e.followup.isFollowup) {
+        badgeHtml = `<span class="digest-item-badge badge followup">🔄 Sollecito</span>`;
+      } else {
+        badgeHtml = `<span class="digest-item-badge badge cat-${escapeHtml(e.category)}">${escapeHtml(CATEGORY_LABELS[e.category] || e.category)}</span>`;
+      }
+      return `
+        <button class="digest-item" type="button" data-digest-open="${escapeHtml(e.id)}">
+          <span class="digest-item-rank">#${i + 1}</span>
+          <span class="digest-item-text">
+            <div class="digest-item-sender">${escapeHtml(sender)}</div>
+            <div class="digest-item-summary">${escapeHtml(summary)}</div>
+          </span>
+          ${badgeHtml}
+        </button>
+      `;
+    }).join("");
+    $$("[data-digest-open]", topEl).forEach(btn => {
+      btn.addEventListener("click", () => openReadModal(btn.dataset.digestOpen));
+    });
+  }
+
+  $("#digestUpdated").textContent =
+    "Aggiornato " + new Date().toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+}
+
+function refreshView() {
+  renderDigest(ACTIVE_EMAILS);
+  if (CURRENT_VIEW === "threads") {
+    $("#emailList").style.display = "none";
+    $("#threadList").style.display = "";
+    renderThreads(ACTIVE_THREADS, ACTIVE_EMAILS);
+  } else {
+    $("#emailList").style.display = "";
+    $("#threadList").style.display = "none";
+    render(ACTIVE_EMAILS);
+  }
+}
+
+function setView(view) {
+  CURRENT_VIEW = view;
+  const isThreads = view === "threads";
+  $("#viewEmailsBtn").classList.toggle("active", !isThreads);
+  $("#viewThreadsBtn").classList.toggle("active", isThreads);
+  $("#viewEmailsBtn").setAttribute("aria-selected", String(!isThreads));
+  $("#viewThreadsBtn").setAttribute("aria-selected", String(isThreads));
+  refreshView();
+}
+
+function setSort(sort) {
+  CURRENT_SORT = sort;
+  const isPriority = sort === "priority";
+  $("#sortDateBtn").classList.toggle("active", !isPriority);
+  $("#sortPriorityBtn").classList.toggle("active", isPriority);
+  $("#sortDateBtn").setAttribute("aria-selected", String(!isPriority));
+  $("#sortPriorityBtn").setAttribute("aria-selected", String(isPriority));
+  refreshView();
+}
+
+async function initUI() {
+  const catEntries = Object.entries(CATEGORY_LABELS);
+  const actionEntries = Object.entries(ACTION_LABELS);
+  $("#filterCategory").innerHTML = `<option value="">Tutte le categorie</option>` +
+    catEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+  $("#corrCategory").innerHTML = catEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+  $("#corrAction").innerHTML = actionEntries.map(([v, l]) => `<option value="${v}">${escapeHtml(l)}</option>`).join("");
+
+  $("#filterCategory").addEventListener("change", refreshView);
+  $("#filterSearch").addEventListener("input", refreshView);
+  $("#viewEmailsBtn").addEventListener("click", () => setView("emails"));
+  $("#viewThreadsBtn").addEventListener("click", () => setView("threads"));
+  $("#sortDateBtn").addEventListener("click", () => setSort("date"));
+  $("#sortPriorityBtn").addEventListener("click", () => setSort("priority"));
+
+  $("#modalCancel").addEventListener("click", closeCorrectionModal);
+  $("#modalBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#modalBackdrop")) closeCorrectionModal();
+  });
+  $("#readClose").addEventListener("click", closeReadModal);
+  $("#readBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#readBackdrop")) closeReadModal();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeReadModal(); closeCorrectionModal(); closeSenderPopover(); closeIdeaModal(); closeRequestsModal(); }
+  });
+
+  // Idea modal wiring
+  $("#ideaGlobalBtn").addEventListener("click", () => openIdeaModal(null));
+  $("#ideaCancel").addEventListener("click", closeIdeaModal);
+  $("#ideaBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#ideaBackdrop")) closeIdeaModal();
+  });
+  $("#ideaForm").addEventListener("submit", submitIdea);
+  $("#ideaMicBtn").addEventListener("click", toggleVoice);
+
+  // Requests modal wiring
+  $("#requestsBtn").addEventListener("click", openRequestsModal);
+  $("#requestsClose").addEventListener("click", closeRequestsModal);
+  $("#requestsBackdrop").addEventListener("click", (e) => {
+    if (e.target === $("#requestsBackdrop")) closeRequestsModal();
+  });
+  $$(".requests-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      DEV_REQUESTS_FILTER = tab.dataset.rstatus;
+      $$(".requests-tab").forEach(t => t.classList.toggle("active", t === tab));
+      renderRequestsList();
+    });
+  });
+  document.addEventListener("click", (e) => {
+    const pop = $("#senderPopover");
+    if (!pop.classList.contains("open")) return;
+    if (pop.contains(e.target) || e.target.closest("[data-sender-email]")) return;
+    closeSenderPopover();
+  });
+  $("#popClose").addEventListener("click", closeSenderPopover);
+  window.addEventListener("scroll", closeSenderPopover, { passive: true });
+  window.addEventListener("resize", closeSenderPopover);
+
+  $("#correctionForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    // TODO: POST /api/emails/:id/correct
+    console.log("Correzione:", currentCorrectionId, {
+      category: $("#corrCategory").value,
+      suggestedAction: $("#corrAction").value,
+      notes: $("#corrNotes").value,
+    });
+    closeCorrectionModal();
+  });
+
+  updateHeaderStats(ACTIVE_EMAILS);
+  refreshView();
+
+  const real = await loadEmailsFromFirestore();
+  if (real && real.length > 0) {
+    ACTIVE_EMAILS = real;
+    updateHeaderStats(ACTIVE_EMAILS);
+    $("#userEmail").textContent = `Firestore live (${real.length})`;
+  }
+  const [threads, profiles] = await Promise.all([
+    loadThreadsFromFirestore(),
+    loadSenderProfilesFromFirestore(),
+  ]);
+  if (threads && threads.length > 0) ACTIVE_THREADS = threads;
+  if (profiles && profiles.size > 0) SENDER_PROFILES = profiles;
+  refreshView();
+}
+
+function showApp(userEmail) {
+  $("#loginView").classList.add("hidden");
+  $("#appView").classList.add("active");
+  $("#userEmail").textContent = userEmail || "alberto@acgclima.it";
+  initUI();
+}
+function showLogin() {
+  $("#loginView").classList.remove("hidden");
+  $("#appView").classList.remove("active");
+}
+
+// --- Auth flow ---
+async function bootAuth() {
+  if (MOCK_MODE) {
+    showApp("alberto@acgclima.it");
+    $("#logoutBtn").addEventListener("click", showLogin);
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      showApp("alberto@acgclima.it");
+    });
+    return;
+  }
+
+  if (!isFirebaseConfigured()) {
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      $("#loginError").textContent = "Firebase non configurato. Apri con ?mock=1 per la demo.";
+    });
+    return;
+  }
+
+  let firebaseApp, firebaseAuth;
+  try {
+    firebaseApp = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+    firebaseAuth = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");
+  } catch (err) {
+    $("#loginForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      $("#loginError").textContent = "Firebase SDK non raggiungibile.";
+    });
+    return;
+  }
+  const app = firebaseApp.initializeApp(FIREBASE_CONFIG);
+  const auth = firebaseAuth.getAuth(app);
+  firebaseAuth.onAuthStateChanged(auth, (user) => {
+    if (user) showApp(user.email); else showLogin();
+  });
+  $("#loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("#loginError").textContent = "";
+    try {
+      await firebaseAuth.signInWithEmailAndPassword(auth, $("#email").value, $("#password").value);
+    } catch {
+      $("#loginError").textContent = "Credenziali non valide.";
+    }
+  });
+  $("#logoutBtn").addEventListener("click", () => firebaseAuth.signOut(auth));
+}
+
+bootAuth();
+</script>
+</body>
+</html>

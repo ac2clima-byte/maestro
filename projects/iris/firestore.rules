@@ -136,6 +136,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // NEXUS chat — storico conversazioni e sessioni.
+    // Read pubblico per la PWA (la chat si aggiorna via onSnapshot).
+    // Write SOLO Admin SDK (via Cloud Function `nexusRouter`), così:
+    //  · la API key Anthropic non è mai nel browser
+    //  · nessuno può iniettare messaggi "assistant" falsi
+    //  · rate limiting centralizzato nella function
+    match /nexus_chat/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /nexus_sessions/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    // Rate limit counter NEXUS, solo backend.
+    match /iris_rate_nexus/{docId} {
+      allow read, write: if false;
+    }
+
     // Default deny per ogni altra collection (Colleghi futuri:
     // ares_*, chronos_*, memo_*, charta_*, emporion_*, dikea_*,
     // delphi_*, calliope_* → aggiungili qui quando servono read
