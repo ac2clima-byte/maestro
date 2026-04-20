@@ -811,6 +811,126 @@ async function handleAresInterventiAperti(parametri) {
   return { content: `${header}\n\n${lines}`, data: { count: top.length } };
 }
 
+// ─── DELPHI — KPI e costo AI ───────────────────────────────────
+
+async function handleDelphiKpi(parametri) {
+  const finestraSett = Number(parametri.finestraSettimane) || 4;
+  const now = new Date();
+  const from = new Date(now.getTime() - finestraSett * 7 * 86400000);
+
+  // Email totali + urgenti
+  const emails = await fetchIrisEmails(500);
+  let urg = 0, senzaRisposta = 0;
+  for (const e of emails) {
+    if (CATEGORIE_URGENTI_SET.has(e.category)) urg++;
+    if ((e.followup || {}).needsAttention) senzaRisposta++;
+  }
+
+  // Lavagna
+  let lavMsgCount = 0;
+  try {
+    const lavSnap = await db.collection("nexo_lavagna")
+      .orderBy("createdAt", "desc").limit(200).get();
+    lavSnap.forEach(d => {
+      const ca = (d.data() || {}).createdAt;
+      const dd = ca?.toDate ? ca.toDate() : (ca ? new Date(ca) : null);
+      if (dd && dd >= from) lavMsgCount++;
+    });
+  } catch {}
+
+  // Interventi COSMINA
+  let attivi = 0, completati = 0;
+  try {
+    const cSnap = await getCosminaDb().collection("bacheca_cards")
+      .where("listName", "==", "INTERVENTI").where("inBacheca", "==", true)
+      .limit(500).get();
+    cSnap.forEach(d => {
+      const data = d.data() || {};
+      const stato = String(data.stato || "").toLowerCase();
+      if (stato.includes("complet")) {
+        const upd = data.updated_at?.toDate ? data.updated_at.toDate()
+          : data.updated_at ? new Date(data.updated_at) : null;
+        if (upd && upd >= from) completati++;
+      } else if (!stato.includes("annul")) attivi++;
+    });
+  } catch {}
+
+  const lines = [
+    `📊 **DELPHI — KPI ultimi ${finestraSett * 7} giorni**`,
+    ``,
+    `**Email**`,
+    `  · Indicizzate: ${emails.length}`,
+    `  · Urgenti: ${urg}`,
+    `  · Senza risposta >48h: ${senzaRisposta}`,
+    ``,
+    `**Lavagna**`,
+    `  · Messaggi: ${lavMsgCount}`,
+    ``,
+    `**Interventi COSMINA**`,
+    `  · Attivi ora: ${attivi}`,
+    `  · Completati: ${completati}`,
+  ];
+  return {
+    content: lines.join("\n"),
+    data: { emails: emails.length, urgenti: urg, senzaRisposta, lavMsgCount, attivi, completati },
+  };
+}
+
+async function handleDelphiCostoAI(parametri) {
+  const finestraGiorni = Number(parametri.finestraGiorni) || 30;
+  const now = new Date();
+  const from = new Date(now.getTime() - finestraGiorni * 86400000);
+
+  // Prova cosmina_config
+  try {
+    const snap = await getCosminaDb().collection("cosmina_config").doc("ai_usage").get();
+    if (snap.exists) {
+      const d = snap.data() || {};
+      const costo = Number(d.costoTotale || 0);
+      const ti = Number(d.tokenInput || 0);
+      const to = Number(d.tokenOutput || 0);
+      return {
+        content:
+          `💳 **Costo AI** (finestra ${finestraGiorni}g, fonte: cosmina_config)\n\n` +
+          `  · Input tokens: ${ti.toLocaleString("it-IT")}\n` +
+          `  · Output tokens: ${to.toLocaleString("it-IT")}\n` +
+          `  · **Costo totale stimato: € ${costo.toFixed(2)}**`,
+        data: { fonte: "cosmina_config", costo },
+      };
+    }
+  } catch {}
+
+  // Fallback: aggrega da nexus_chat
+  let tokenInput = 0, tokenOutput = 0, chiamate = 0;
+  try {
+    const snap = await db.collection("nexus_chat")
+      .where("role", "==", "assistant").limit(500).get();
+    snap.forEach(d => {
+      const data = d.data() || {};
+      const ts = data.timestamp?.toDate ? data.timestamp.toDate()
+        : data.timestamp ? new Date(data.timestamp) : null;
+      if (ts && ts < from) return;
+      const u = data.usage || {};
+      tokenInput += Number(u.inputTokens || 0);
+      tokenOutput += Number(u.outputTokens || 0);
+      chiamate++;
+    });
+  } catch {}
+
+  const costoUsd = (tokenInput / 1e6) * 0.80 + (tokenOutput / 1e6) * 4;
+  const costoEur = (costoUsd * 0.92).toFixed(4);
+  return {
+    content:
+      `💳 **Costo AI** (finestra ${finestraGiorni}g, fonte: nexus_chat)\n\n` +
+      `  · Chiamate NEXUS: ${chiamate}\n` +
+      `  · Input tokens: ${tokenInput.toLocaleString("it-IT")}\n` +
+      `  · Output tokens: ${tokenOutput.toLocaleString("it-IT")}\n` +
+      `  · **Costo stimato Haiku 4.5: € ${costoEur}**\n\n` +
+      `_Non sono inclusi costi IRIS/CALLIOPE. Per dato completo: \`cosmina_config/ai_usage\`._`,
+    data: { tokenInput, tokenOutput, chiamate, costoEur },
+  };
+}
+
 // ─── DIKEA — compliance (lettura COSMINA) ──────────────────────
 //
 // Legge scadenze CURIT/REE/manutenzione da cosmina_impianti(_cit).
@@ -1246,6 +1366,9 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
   // ARES — interventi (lettura COSMINA bacheca_cards)
   { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
+  // DELPHI — KPI e costo AI
+  { match: (col, az) => col === "delphi" && /(costo.*ai|ai.*costo|token|spesa.*ai|budget)/.test(az), fn: handleDelphiCostoAI },
+  { match: (col, az) => col === "delphi" && /(kpi|dashboard|andament|sintes|riassunto|come.*siamo|come.*andat)/.test(az), fn: handleDelphiKpi },
   // DIKEA — compliance: scadenze CURIT e impianti senza targa
   { match: (col, az) => col === "dikea" && /(targa|senza|non.*censit|censiment)/.test(az), fn: handleDikeaImpiantiSenzaTarga },
   { match: (col, az) => col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz)/.test(az), fn: handleDikeaScadenzeCurit },
