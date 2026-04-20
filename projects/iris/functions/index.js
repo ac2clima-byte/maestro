@@ -963,18 +963,70 @@ async function handleChronosScadenze(parametri) {
 }
 
 async function handleFattureScadute() {
-  // CHARTA non esiste. Cerco almeno le email classificate FATTURA_FORNITORE
-  // come segnale di quello che arriverà.
-  const emails = await fetchIrisEmails(300);
+  // CHARTA v0.1: aggrega email FATTURA_FORNITORE + RICHIESTA_PAGAMENTO
+  // come segnale. Totali reali richiedono integrazione Fatture-in-Cloud.
+  const emails = await fetchIrisEmails(500);
   const fatt = emails.filter(e => e.category === "FATTURA_FORNITORE");
-  const parts = [
-    `CHARTA non è ancora attivo — quando sarà implementato risponderò con le fatture scadute reali (da Fatture in Cloud).`,
-  ];
+  const rich = emails.filter(e => e.category === "RICHIESTA_PAGAMENTO");
+  const parts = [`💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)`];
+  parts.push(`\n📥 ${fatt.length} fatture fornitori + ${rich.length} richieste pagamento.`);
   if (fatt.length) {
-    const lines = fatt.slice(0, 6).map(emailLine).join("\n");
-    parts.push(`\nNel frattempo, ho indicizzato **${fatt.length} email FATTURA_FORNITORE**:\n\n${lines}`);
+    const lines = fatt.slice(0, 5).map(emailLine).join("\n");
+    parts.push(`\nUltime fatture ricevute:\n${lines}`);
   }
-  return { content: parts.join("\n") };
+  return { content: parts.join("\n"), data: { fatture: fatt.length, richieste: rich.length } };
+}
+
+async function handleChartaIncassiOggi() {
+  // Cerca email "PAGAMENTO_RICEVUTO" o con sentiment=incasso/pagamento
+  const emails = await fetchIrisEmails(300);
+  const today = emails.filter(e => isToday(e.received));
+  const incassi = today.filter(e =>
+    /pagament|incass|bonifico|accredit|saldo/i.test(
+      `${e.subject} ${e.summary}`,
+    ),
+  );
+  if (!incassi.length) {
+    return { content: "💰 Oggi non ho indicizzato email che segnalano incassi." };
+  }
+  const lines = incassi.slice(0, 8).map(emailLine).join("\n");
+  return {
+    content: `💰 **${incassi.length} email oggi** con keyword incasso/pagamento:\n\n${lines}\n\n_CHARTA v0.1: per importi reali serve Fatture-in-Cloud._`,
+    data: { count: incassi.length },
+  };
+}
+
+async function handleChartaReportMensile(parametri) {
+  const yyyymm = String(parametri.mese || parametri.yyyymm || "").trim()
+    || new Date().toISOString().slice(0, 7);
+  const emails = await fetchIrisEmails(500);
+
+  const m = /^(\d{4})-(\d{2})$/.exec(yyyymm);
+  if (!m) return { content: `Formato mese non valido: "${yyyymm}". Usa YYYY-MM.` };
+  const start = new Date(`${yyyymm}-01T00:00:00Z`);
+  const end = new Date(start); end.setUTCMonth(end.getUTCMonth() + 1);
+
+  let forn = 0, rich = 0, guast = 0, contr = 0;
+  for (const e of emails) {
+    if (!e.received) continue;
+    const ric = new Date(e.received);
+    if (ric < start || ric >= end) continue;
+    if (e.category === "FATTURA_FORNITORE") forn++;
+    else if (e.category === "RICHIESTA_PAGAMENTO") rich++;
+    else if (e.category === "GUASTO_URGENTE") guast++;
+    else if (e.category === "RICHIESTA_CONTRATTO") contr++;
+  }
+
+  return {
+    content:
+      `📊 **Report mensile ${yyyymm}** (CHARTA v0.1, dati da iris_emails):\n\n` +
+      `  · Fatture fornitori: ${forn}\n` +
+      `  · Richieste pagamento: ${rich}\n` +
+      `  · Guasti urgenti: ${guast}\n` +
+      `  · Richieste contratto: ${contr}\n\n` +
+      `_Totali € reali arriveranno con integrazione Fatture-in-Cloud._`,
+    data: { yyyymm, forn, rich, guast, contr },
+  };
 }
 
 // ─── Router handlers ─────────────────────────────────────────────
@@ -991,7 +1043,9 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
   { match: (col, az) => col === "memo" && /(dossier|cliente|condominio|tutto_su|storico)/.test(az), fn: handleEmailPerCliente },
   { match: (col, az) => /lavagna/.test(az) || (col === "pharo" && /stato/.test(az)), fn: handleStatoLavagna },
-  { match: (col, az) => col === "charta" && /(fattura|scadut)/.test(az), fn: handleFattureScadute },
+  { match: (col, az) => col === "charta" && /(report|mensile|mese|andament)/.test(az), fn: handleChartaReportMensile },
+  { match: (col, az) => col === "charta" && /(incass|pagament|accredit|bonifico)/.test(az) && /(oggi|today)/.test(az), fn: handleChartaIncassiOggi },
+  { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
   // ARES — interventi (lettura COSMINA bacheca_cards)
   { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
   // CHRONOS — slot tecnici e scadenze
