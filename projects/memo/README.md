@@ -1,6 +1,35 @@
 # MEMO — Collega Memoria
 
-**Stato:** Da costruire (Tier 1 nel piano NEXO).
+**Stato:** v0.1 in piedi (read-only multi-progetto). Tier 1 nel piano NEXO.
+
+## Cosa è attivo in v0.1
+
+- `dossierCliente(ref)` — risolve cliente per id o nome (fuzzy), aggrega
+  `crm_clienti` + `cosmina_impianti` + `cosmina_interventi_pianificati` +
+  email IRIS correlate. Cache su `memo_dossier` con TTL 1h.
+- `dossierCondominio(condominioId)` — alias.
+- `storicoImpianto(targa)` — impianto + interventi.
+- `matchAnagrafica({nome|email|piva})` — fuzzy con Levenshtein normalizzata.
+- `ultimiContatti(clienteId, n)` — timeline cross-fonte.
+- `cercaPerContesto(testo)` — ricerca testuale su iris_emails.
+- Listener Lavagna: `richiesta_dossier`, `nuovo_cliente_rilevato`.
+- Script CLI `scripts/test-dossier.py`: stampa il dossier + apre HTML
+  nel browser (richiede credenziali utente con Firestore Viewer su
+  garbymobile-f89ac).
+
+## Cosa NON è attivo
+
+- `nuovoCliente`, `collegaEntita`, `consumiMedi`, `rischioChurn`,
+  `cercaDocumenti` (filesystem disco N) → tutti stub `Not implemented`,
+  v0.2.
+- L'handler NEXUS "dimmi tutto su X" gira sulla Cloud Function che NON
+  ha permessi cross-progetto su garbymobile-f89ac → risponde con
+  un **mini-dossier da iris_emails** invece del dossier completo.
+  Per attivare il dossier completo via NEXUS serve dare al SA della
+  function `roles/datastore.user` su garbymobile-f89ac.
+- Listener Lavagna definito ma non avviato come processo persistente
+  (manca un host: Cloud Run / VM con tsx watch). Quando arriverà
+  l'host, basta importare e chiamare `listeners.startLavagnaListener()`.
 
 **Dominio:** dossier unico per cliente / condominio / impianto. Il
 "chi è costui?" di tutti gli altri Colleghi. Aggrega Firestore

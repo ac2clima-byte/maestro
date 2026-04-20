@@ -619,12 +619,25 @@ async function handleEmailPerCategoria(parametri) {
 }
 
 async function handleEmailPerCliente(parametri) {
-  // "Dimmi tutto sul cliente X" → MEMO non esiste, ma ritorno le email
-  // che matchano il nome nel sender/subject/condominio/cliente.
-  const q = String(
-    parametri.cliente || parametri.condominio || parametri.nome || parametri.query || "",
-  ).trim().toLowerCase();
+  // "Dimmi tutto sul cliente X" → mini-dossier da iris_emails.
+  //
+  // MEMO v0.1 esiste come libreria (projects/memo/) ma il dossier
+  // completo legge da `garbymobile-f89ac` (CRM, impianti, interventi)
+  // — la Cloud Function NEXUS non ha ancora i permessi cross-progetto
+  // (TODO: IAM Firestore Viewer su garbymobile-f89ac per il SA della
+  // function). Per ora rispondo con l'unica fonte accessibile sul
+  // progetto NEXO: iris_emails.
+  // Cerca il nome in tutte le chiavi plausibili che Haiku potrebbe usare.
+  const candidate =
+    parametri.cliente || parametri.condominio || parametri.nome ||
+    parametri.query || parametri.soggetto || parametri.target ||
+    parametri.entita || parametri.entityName || parametri.name ||
+    // fallback: prendi il primo valore string non vuoto
+    Object.values(parametri).find((v) => typeof v === "string" && v.trim().length > 0) ||
+    "";
+  const q = String(candidate).trim().toLowerCase();
   if (!q) return { content: "Su quale cliente o condominio? Dammi un nome." };
+
   const emails = await fetchIrisEmails(500);
   const match = emails.filter(e => {
     const bag = [
@@ -633,18 +646,35 @@ async function handleEmailPerCliente(parametri) {
     ].filter(Boolean).join(" ").toLowerCase();
     return bag.includes(q);
   });
+
+  // Header chiaro: dico cosa MEMO vede e cosa NO.
+  const header =
+    `📇 **Mini-dossier per "${q}"** (MEMO v0.1 – solo email)\n\n` +
+    `Per ora ho accesso solo a iris_emails. Il dossier completo (CRM ` +
+    `cliente, impianti, interventi recenti) sarà disponibile quando ` +
+    `attiveremo i permessi cross-progetto su garbymobile-f89ac.`;
+
   if (!match.length) {
-    return {
-      content: `MEMO non è ancora attivo.\n\nNon trovo nemmeno email correlate a "${q}" nelle ultime 500.`,
-    };
+    return { content: `${header}\n\nNon trovo email correlate a "${q}" nelle ultime 500.` };
   }
   const lines = match.slice(0, 10).map(emailLine).join("\n");
   const more = match.length > 10 ? `\n…e altre ${match.length - 10}.` : "";
+
+  // Aggrego entità ricorrenti per dare contesto utile.
+  const indirizzi = new Set();
+  const tecnici = new Set();
+  for (const e of match) {
+    if (e.entities.indirizzo) indirizzi.add(e.entities.indirizzo);
+    if (e.entities.tecnico) tecnici.add(e.entities.tecnico);
+  }
+  const ctxLines = [];
+  if (indirizzi.size) ctxLines.push(`Indirizzi citati: ${[...indirizzi].slice(0, 3).join(" · ")}`);
+  if (tecnici.size) ctxLines.push(`Tecnici citati: ${[...tecnici].slice(0, 3).join(" · ")}`);
+  const ctx = ctxLines.length ? `\n\n${ctxLines.join("\n")}` : "";
+
   return {
-    content:
-      `MEMO non è ancora attivo — quando sarà implementato ti darò il dossier completo.\n\n` +
-      `Intanto ecco le **${match.length} email** correlate a "${q}":\n\n${lines}${more}`,
-    data: { count: match.length, query: q },
+    content: `${header}\n\n**${match.length} email** correlate:\n\n${lines}${more}${ctx}`,
+    data: { count: match.length, query: q, indirizzi: [...indirizzi], tecnici: [...tecnici] },
   };
 }
 
