@@ -3493,12 +3493,15 @@ async function postLavagna({ to, type, payload, priority = "normal", from = "iri
 }
 
 async function actionWriteLavagna(action, ctx) {
+  // Firestore non accetta `undefined` come valore. Includi `extracted` solo se ha keys.
   const payload = {
     ...(action.payload || {}),
     sourceEmailId: ctx.emailId,
     triggeredByRule: ctx.ruleId,
-    extracted: ctx.extracted || undefined,
   };
+  if (ctx.extracted && typeof ctx.extracted === "object" && Object.keys(ctx.extracted).length > 0) {
+    payload.extracted = ctx.extracted;
+  }
   const lavId = await postLavagna({
     to: action.to,
     type: action.messageType || `iris_${ctx.ruleId}`,
@@ -3763,8 +3766,15 @@ async function runIrisPoller() {
   try {
     emails = await fetchNewEmails({ cfg, dateFromIso: lastProcessedIso, limit });
   } catch (e) {
-    logger.error("irisPoller: EWS fetch failed", { error: String(e) });
-    return { error: "ews_fetch_failed", detail: String(e).slice(0, 300) };
+    const detail = {
+      message: String(e?.message || e),
+      name: String(e?.name || ""),
+      stack: String(e?.stack || "").slice(0, 1500),
+      server: cfg.server,
+      exchange_version: cfg.exchange_version,
+    };
+    logger.error("irisPoller: EWS fetch failed", detail);
+    return { error: "ews_fetch_failed", detail };
   }
 
   if (!emails.length) {
