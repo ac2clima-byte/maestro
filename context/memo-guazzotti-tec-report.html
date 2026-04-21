@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MEMO — Mappa Firestore Guazzotti TEC</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --good: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --chip: #21262d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 24px; margin: 0 0 4px; color: var(--accent); }
+  h2 { font-size: 18px; margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 15px; margin: 16px 0 8px; color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .card.core { border-left: 3px solid var(--accent); }
+  .card.config { border-left: 3px solid var(--muted); }
+  .card.danger { border-left: 3px solid var(--danger); }
+  .card.warn { border-left: 3px solid var(--warn); }
+  .card h3 { margin-top: 0; }
+  .chip {
+    display: inline-block;
+    background: var(--chip);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 11px;
+    margin: 2px 4px 2px 0;
+    color: var(--muted);
+  }
+  .chip.ok { background: #0d3019; color: var(--good); border-color: #1f6638; }
+  .chip.warn { background: #3a2b04; color: var(--warn); border-color: #5e4704; }
+  .chip.danger { background: #441218; color: var(--danger); border-color: #7d202a; }
+  code {
+    background: var(--chip);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "JetBrains Mono", Menlo, monospace;
+    font-size: 12.5px;
+    color: #ffa657;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 12.5px;
+  }
+  th, td {
+    text-align: left; padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--muted); font-weight: 500; background: #0b0f14; }
+  .summary-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px; margin-bottom: 20px;
+  }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .stat .n { font-size: 24px; font-weight: 600; color: var(--accent); }
+  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .warnings {
+    background: #2a1e05; border: 1px solid #5e4704; border-radius: 8px; padding: 14px 18px;
+  }
+  .warnings ul { margin: 6px 0 0; padding-left: 20px; }
+  .warnings li { margin: 4px 0; }
+  .flow {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; font-family: monospace;
+    white-space: pre; overflow-x: auto; font-size: 12px; color: #adbac7;
+  }
+  footer { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>🧠 MEMO — Mappa Firestore <code>guazzotti-tec</code></h1>
+<p class="sub">Scansione completa 2026-04-21 · 22 root collections · cache su <code>nexo-hub-15f2d/memo_dossier/guazzotti_tec_schema</code></p>
+
+<div class="summary-stats">
+  <div class="stat"><div class="n">22</div><div class="l">Root collections</div></div>
+  <div class="stat"><div class="n">~500</div><div class="l">RTI (bozze + def.)</div></div>
+  <div class="stat"><div class="n">~195</div><div class="l">RTIDF</div></div>
+  <div class="stat"><div class="n">~500</div><div class="l">Tickets</div></div>
+  <div class="stat"><div class="n">9</div><div class="l">Snapshot pagamenti</div></div>
+  <div class="stat"><div class="n">84</div><div class="l">Pending RTI (tutti processed)</div></div>
+</div>
+
+<h2>⚠️ Warning / Debito tecnico</h2>
+<div class="warnings">
+  <ul>
+    <li><code>rtidf.stato</code>: label <b>definito</b> (33) e <b>definitivo</b> (48) coesistono — normalizzare prima di aggregare.</li>
+    <li>Due pattern RTI: <code>GRTI-*</code> (generico) e <code>CRTI-*</code> (contabilizzazione). <code>numero_rti</code> NON è unique tra tipi.</li>
+    <li>PDF embeddato in <code>rti.rtiPdfContent</code> (~100KB) — occhio ai costi di full-scan.</li>
+    <li><code>gmail_settings</code> vs <code>guazzotti_config</code>: credenziali Gmail duplicate (nuovo + legacy). Verificare lettore prima di deprecare.</li>
+    <li><code>users</code> ha password in chiaro e non usa Firebase Auth.</li>
+    <li><code>whatsapp_config.webhook_url</code> punta a <code>garbymobile-f89ac.cloudfunctions.net</code> — <b>integrazione cross-progetto</b>.</li>
+  </ul>
+</div>
+
+<h2>🔑 Collection CORE (business)</h2>
+<div class="grid">
+
+  <div class="card core">
+    <h3>rti <span class="chip">~500 doc</span></h3>
+    <div>Rapporti Tecnici Intervento — bozza → definito</div>
+    <p><span class="chip">GRTI-YYYY-NNN</span><span class="chip">CRTI-YYYY-NNN</span></p>
+    <table>
+      <tr><th>Stato</th><th>Count</th></tr>
+      <tr><td>bozza</td><td>45</td></tr>
+      <tr><td>definito</td><td>331</td></tr>
+      <tr><td>rtidf_presente</td><td>88</td></tr>
+      <tr><td>rtidf_inviato</td><td>28</td></tr>
+      <tr><td>rtidf_fatturato</td><td>8</td></tr>
+    </table>
+    <p class="muted">Tipo: <b>generico</b> 344 · <b>contabilizzazione</b> 155</p>
+    <p class="muted">FK: <code>ticket_collegato</code>→tickets, <code>commessa</code>→commesse</p>
+  </div>
+
+  <div class="card core">
+    <h3>rtidf <span class="chip">~195 doc</span></h3>
+    <div>RTI Definitivi — snapshot immutabile per fatturazione</div>
+    <p><span class="chip">GRTIDF-YYYY-NNN</span><span class="chip">CRTIDF-YYYY-NNN</span></p>
+    <table>
+      <tr><th>Stato</th><th>Count</th></tr>
+      <tr><td>bozza</td><td>64</td></tr>
+      <tr><td>definito</td><td>33</td></tr>
+      <tr><td>definitivo <span class="chip warn">⚠ dup</span></td><td>48</td></tr>
+      <tr><td>inviato</td><td>40</td></tr>
+      <tr><td>fatturato</td><td>8</td></tr>
+    </table>
+    <p class="muted">FK: <code>rti_origine_id</code>→rti, <code>numero_ticket_collegato</code>→tickets</p>
+  </div>
+
+  <div class="card core">
+    <h3>tickets <span class="chip">~500 doc</span></h3>
+    <div>Unità di lavoro cliente/amministratore</div>
+    <p>
+      <span class="chip ok">chiuso/inviato 409</span>
+      <span class="chip">aperto 70</span>
+      <span class="chip">da_chiudere 9</span>
+      <span class="chip">in_attesa 6</span>
+      <span class="chip">pianificato 4</span>
+    </p>
+    <p class="muted">Subcollection: <code>attachments</code></p>
+    <p class="muted">Fonti: cosmina_email, gmail_contabilizzazione, gmail_generici</p>
+  </div>
+
+  <div class="card core">
+    <h3>pending_rti <span class="chip">84</span></h3>
+    <div>Buffer card Trello/Cosmina → RTI</div>
+    <p><span class="chip ok">tutte processed</span></p>
+    <p class="muted">Origine: <code>bacheca_cosmina</code>, <code>test_automatizzato</code></p>
+    <p class="muted">FK: <code>rti_id</code>→rti, <code>numero_ticket</code>→tickets</p>
+  </div>
+
+  <div class="card core">
+    <h3>commesse</h3>
+    <div>Ordini/commesse fornitore (parse AI da PDF)</div>
+    <p><span class="chip">rtidf_ids[]</span></p>
+    <p class="muted">Raggruppa N RTIDF per una fatturazione. <code>pdf_url</code>→Firebase Storage.</p>
+  </div>
+
+  <div class="card core">
+    <h3>mpls <span class="chip">7</span></h3>
+    <div>Multi-Preventivo Lavori Straordinari</div>
+    <p><span class="chip">MPLS-YYYY-NNN</span></p>
+    <p class="muted">Offerte fuori contratto con calcolo margine + PDF fornitore (base64 inline in allegati)</p>
+  </div>
+
+  <div class="card core">
+    <h3>pagamenti_clienti</h3>
+    <div>Esposizione creditoria corrente per cliente</div>
+    <p class="muted">ID = <code>CodCliente</code> (10 cifre). Buckets aging 30/60/90/180/360/oltre. <code>riskLevel</code>/<code>riskScore</code> calcolati.</p>
+  </div>
+
+  <div class="card core">
+    <h3>pagamenti_snapshots <span class="chip">9</span></h3>
+    <div>Snapshot storici mensili esposizione</div>
+    <p class="muted">ID = <code>snapshot_YYYY-MM-DD</code>. Array <code>clienti[]</code> denormalizzato.</p>
+  </div>
+
+  <div class="card core">
+    <h3>email_archive + email_logs</h3>
+    <div>Tracciamento invio email di chiusura ticket</div>
+    <p class="muted"><b>archive</b> = contenuto HTML completo. <b>logs</b> = tracking tecnico (status, destinatari, riferimenti).</p>
+  </div>
+
+</div>
+
+<h2>⚙️ Collection CONFIG / SUPPORT</h2>
+<div class="grid">
+  <div class="card config"><h3>_counters</h3><p class="muted">Contatori numerici GRTI/CRTI per anno. Doc <code>rti_numbers</code>.</p></div>
+  <div class="card config"><h3>emailConfig</h3><p class="muted">Destinatari/CC per doc type × tipo (rti/rtidf/mpls × generico/contabilizzazione).</p></div>
+  <div class="card danger"><h3>gmail_settings <span class="chip danger">SENSITIVE</span></h3><p class="muted">Gmail app password in chiaro (nuovo).</p></div>
+  <div class="card danger"><h3>guazzotti_config <span class="chip danger">LEGACY DUP</span></h3><p class="muted">Duplicato legacy di gmail_settings — deprecabile?</p></div>
+  <div class="card config"><h3>notification_settings</h3><p class="muted">Notifiche periodiche ticket aperti (generici + contabilizzazione).</p></div>
+  <div class="card config"><h3>whatsapp_config <span class="chip warn">cross-project</span></h3><p class="muted">Webhook Meta/Trello/Claude. Punta a garbymobile-f89ac.</p></div>
+  <div class="card config"><h3>whatsapp_routing_rules <span class="chip">2</span></h3><p class="muted">Regole routing messaggi WA → azione (crea card Trello).</p></div>
+  <div class="card config"><h3>catalogoArticoli</h3><p class="muted">Catalogo ricambi (singolo doc <code>default</code>).</p></div>
+  <div class="card config"><h3>mplsContacts</h3><p class="muted">Rubrica destinatari offerte MPLS.</p></div>
+  <div class="card danger"><h3>users <span class="chip danger">PWD in chiaro</span></h3><p class="muted">4 utenti, auth custom (no Firebase Auth).</p></div>
+  <div class="card config"><h3>ai_audit_log <span class="chip">14</span></h3><p class="muted">Log interazioni agente AI interno (QUESTION, intent, params, result).</p></div>
+  <div class="card config"><h3>todo_tasks <span class="chip">4</span></h3><p class="muted">Backlog feature/improvement app.</p></div>
+</div>
+
+<h2>🔁 Flusso "ticket chiuso" tipico</h2>
+<div class="flow">Email/PDF/Cosmina  →  tickets (aperto)
+                         ↓
+                    [tecnico interviene]
+                         ↓
+                    pending_rti (se da bacheca Trello)
+                         ↓
+                    rti (bozza → definito)
+                         ↓
+                    rtidf (duplicato snapshot)
+                         ↓
+                    commesse (raggruppa N rtidf_ids)  →  fatturato
+                         ↓
+                    email_archive + email_logs</div>
+
+<h2>🗺️ Grafo relazioni principali</h2>
+<div class="flow">_counters ──► rti ──► rtidf ──► commesse (rtidf_ids[])
+                │       │
+                │       └──► tickets (ticket_collegato)
+                │              ↑
+       pending_rti ────────────┘
+                               │
+               tickets/<id>/attachments (sub)
+
+pagamenti_clienti ◄── (snapshot mensile) ── pagamenti_snapshots
+
+mpls (stand-alone) · catalogoArticoli (stand-alone)
+
+CONFIG: emailConfig · gmail_settings · guazzotti_config · notification_settings
+        whatsapp_config · whatsapp_routing_rules · users · mplsContacts</div>
+
+<footer>
+  Report generato da <b>MEMO</b> · File dettagliato: <code>maestro-bridge/context/memo-guazzotti-tec-map.md</code> · Cache: <code>nexo-hub-15f2d/memo_dossier/guazzotti_tec_schema</code><br>
+  Prossima scansione consigliata: settimanale o on-demand "memo aggiornati".
+</footer>
+
+</body>
+</html>
