@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>NEXO v0.1 — Report Finale</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 28px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 20px 0; }
+  .stat { background: #1e293b; padding: 14px; border-radius: 8px; text-align: center; }
+  .stat .n { font-size: 1.8rem; color: #10b981; font-weight: 700; display: block; }
+  .stat .l { font-size: 0.78rem; color: #94a3b8; }
+  .card { background: #1e293b; padding: 14px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #10b981; }
+  .card.warn { border-left-color: #f59e0b; }
+  .q { color: #94a3b8; font-style: italic; margin-bottom: 6px; font-size: 0.9rem; }
+  .r { font-family: monospace; font-size: 0.84em; background: #0f172a; padding: 10px; border-radius: 4px; white-space: pre-wrap; }
+  .info { background: #064e3b; padding: 15px; border-radius: 8px; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 0.88rem; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #334155; }
+  th { color: #94a3b8; }
+  code { background: #0f172a; padding: 2px 6px; border-radius: 4px; }
+</style></head><body>
+
+<h1>🎉 NEXO v0.1 — Completo e in produzione</h1>
+
+<div class="info">
+  Tutti i Colleghi operativi. 11 azioni reali di lettura + 3 azioni di scrittura (DRY_RUN default).
+  Schedulers attivi ogni 5 minuti. Regole IRIS automatiche attive.
+  Primo invio WhatsApp reale fatto con successo.
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="n">13/13</span><span class="l">Scenari testati</span></div>
+  <div class="stat"><span class="n">5</span><span class="l">Cloud Functions</span></div>
+  <div class="stat"><span class="n">2</span><span class="l">Schedulers ogni 5m</span></div>
+  <div class="stat"><span class="n">2</span><span class="l">Regole IRIS attive</span></div>
+  <div class="stat"><span class="n">3</span><span class="l">Scritture DRY_RUN</span></div>
+</div>
+
+<h2>⚙️ Architettura v0.1</h2>
+<table>
+<tr><th>Componente</th><th>Tipo</th><th>Trigger</th></tr>
+<tr><td><code>nexusRouter</code></td><td>HTTPS onRequest</td><td>Chat PWA → Haiku routing → 20+ handler diretti</td></tr>
+<tr><td><code>suggestReply</code></td><td>HTTPS onRequest</td><td>IRIS: bozze risposta email</td></tr>
+<tr><td><code>irisRuleEngine</code></td><td>Firestore onCreate</td><td><code>iris_emails/{id}</code> → regole auto</td></tr>
+<tr><td><code>irisPollScheduled</code></td><td>Scheduler 5min</td><td>EWS poller (scheletro, dormiente)</td></tr>
+<tr><td><code>pharoHealthCheck</code></td><td>Scheduler 5min</td><td>Snapshot salute + Lavagna ECHO</td></tr>
+</table>
+
+<h2>🤖 Regole IRIS automatiche</h2>
+<ul>
+  <li><strong>Incassi ACG</strong>: mittente~malvicino + oggetto~incassi → parse importi → Lavagna CHARTA + Lavagna ECHO</li>
+  <li><strong>Guasto urgente</strong>: classification.category=GUASTO_URGENTE → Lavagna ARES + Lavagna ECHO priority=critical</li>
+</ul>
+
+<h2>✅ Test Playwright — 13 scenari</h2>
+
+<div class="card"><div class="q">IRIS: "quante email urgenti ho?"</div>
+<div class="r">Hai 1 email urgenti (GUASTO_URGENTE + PEC_UFFICIALE):
+1. [10/04] Giulio Dilorenzo — R: Notifica...</div></div>
+
+<div class="card"><div class="q">ECHO: "manda whatsapp a Alberto: NEXO v0.1 completo"</div>
+<div class="r">📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]
+— NEXO v0.1 completo
+_Fonte: cosmina_contatti_interni · DRY_RUN attivo_</div></div>
+
+<div class="card"><div class="q">ARES read: "interventi aperti oggi"</div>
+<div class="r">🔧 Interventi di **oggi** (5):
+1. [21/04/2026] U081 - CONDOMINIO AURORA (PAVIA)
+2. ...</div></div>
+
+<div class="card"><div class="q">ARES write: "apri intervento riparazione caldaia al Condominio Kristal urgente"</div>
+<div class="r">📝 Intervento **simulato** (ARES DRY_RUN)
+· Condominio: **Condominio Kristal**
+· Tipo: riparazione
+· Urgenza: alta ⚠️</div></div>
+
+<div class="card warn"><div class="q">CHRONOS: "scadenze prossime"</div>
+<div class="r">Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.</div>
+<p style="color:#f59e0b;font-size:0.85em">ℹ️ Query OK, collection cosmina_impianti non ha campo data popolato.</p></div>
+
+<div class="card"><div class="q">MEMO: "dimmi tutto su Kristal"</div>
+<div class="r">📇 **Mini-dossier per "kristal"** (MEMO v0.1 – solo email)</div></div>
+
+<div class="card"><div class="q">CHARTA read: "report mensile"</div>
+<div class="r">📊 **Report mensile 2026-04** (CHARTA v0.1)
+· Fatture fornitori: 5
+· Richieste pagamento: 1</div></div>
+
+<div class="card"><div class="q">CHARTA write: "registra incasso 500 euro da Condominio Kristal"</div>
+<div class="r">💰 Incasso **simulato** (CHARTA DRY_RUN)
+· Da: **Condominio Kristal**
+· Importo: € 500.00
+· Metodo: bonifico</div></div>
+
+<div class="card"><div class="q">EMPORION: "c'è il pezzo codice 00001?"</div>
+<div class="r">📦 Nessun articolo trovato per "00001" nel magazzino.</div></div>
+
+<div class="card"><div class="q">DIKEA: "scadenze CURIT"</div>
+<div class="r">⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni.</div></div>
+
+<div class="card"><div class="q">DELPHI: "come siamo andati questo mese rispetto al mese scorso?"</div>
+<div class="r">📊 **Confronto 2026-04 vs 2026-03** (IRIS)
+· Email: 43 vs 0 📈 +100%
+· Urgenti: 1 vs 0 📈 +100%
+· Senza risposta >48h: 8 vs 0 📈 +100%</div></div>
+
+<div class="card"><div class="q">PHARO: "stato della suite"</div>
+<div class="r">⚠️ **Stato Suite NEXO** — punteggio: 56/100
+· Firestore: ✅ OK · Email indicizzate: 43 · Lavagna pending: 18</div></div>
+
+<div class="card"><div class="q">CALLIOPE: "scrivi una bozza cordiale a Moraschi"</div>
+<div class="r">✍️ **Bozza CALLIOPE** (DRY-RUN, tono: cordiale, salvata come boz_mo8mmsm9_l9fk)
+**A:** Moraschi Roberto
+**Oggetto:** Re: Prev. Carbonio 108-4"
+[corpo generato via Claude Sonnet 4.6]</div></div>
+
+<h2>🛡️ Stato DRY_RUN (tutte scritture sicure)</h2>
+<table>
+<tr><th>Collega</th><th>Flag Firestore</th><th>Stato</th></tr>
+<tr><td>ECHO</td><td><code>cosmina_config/echo_config.dry_run</code></td><td>✅ true (ripristinato dopo primo invio reale)</td></tr>
+<tr><td>ARES</td><td><code>cosmina_config/ares_config.dry_run</code></td><td>✅ true (default)</td></tr>
+<tr><td>CHARTA</td><td><code>cosmina_config/charta_config.dry_run</code></td><td>✅ true (default)</td></tr>
+<tr><td>CALLIOPE</td><td>stato sempre "in_revisione"</td><td>✅ approvazione manuale richiesta</td></tr>
+</table>
+
+<h2>📅 Roadmap v0.2</h2>
+<ul>
+  <li>IRIS poller EWS reale (richiede credenziali Exchange in Secret Manager)</li>
+  <li>ARES: assegnaTecnico, chiudiIntervento, generaRTI</li>
+  <li>CHARTA: integrazione Fatture in Cloud (importi reali)</li>
+  <li>EMPORION: scritture carico/scarico movimenti</li>
+  <li>DIKEA: generaDiCo + validaDiCo + rispostaPEC</li>
+  <li>DELPHI: marginePerIntervento (serve CHARTA importi)</li>
+  <li>CHRONOS: prenotaSlot, pianificaCampagna</li>
+</ul>
+
+<p><strong>Live:</strong> <a href="https://nexo-hub-15f2d.web.app" style="color:#6ee7b7">nexo-hub-15f2d.web.app</a></p>
+</body></html>

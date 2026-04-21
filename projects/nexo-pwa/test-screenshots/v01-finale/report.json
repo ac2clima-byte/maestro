@@ -1,0 +1,80 @@
+[
+  {
+    "c": "iris",
+    "q": "quante email urgenti ho?",
+    "reply": "Hai **1 email urgenti** (GUASTO_URGENTE + PEC_UFFICIALE):\n\n1. [10/04] Giulio Dilorenzo — R: Notificazione ai sensi della legge n. 53 del 1994\n      IRIScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/iris.png"
+  },
+  {
+    "c": "echo",
+    "q": "manda whatsapp a Alberto: NEXO v0.1 completo",
+    "reply": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— NEXO v0.1 completo\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/echo.png"
+  },
+  {
+    "c": "ares-read",
+    "q": "interventi aperti oggi",
+    "reply": "🔧 Interventi di **oggi** (5):\n\n1. [21/04/2026] U081 - CONDOMINIO AURORA (PAVIA) - VIA MORUZZI, 13 — chiuso · tecnico=VICTOR\n2. [21/04/2026] B034 - CONDOMINIO MINERVA - CORSO XXVII MARZO 151  — chiuso · tecnico=MARCO\n3. [21/04/2026] I063 - CONDOMINIO SAN LORENZO - VIA LABRIOLA, 12 - — aperto · tecnico=MARCO\n4. [n.d.] M009 - CONDOMINIO I PORTICI VOGHERA - VIA ALBERTI, — chiuso · non assegnato\n5. [n.d.] M009 - CONDOMINIO I PORTICI VOGHERA - VIA ALBERTI, — chiuso · non assegnato\n      AREScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/ares-read.png"
+  },
+  {
+    "c": "ares-write",
+    "q": "apri un intervento riparazione caldaia al Condominio Kristal urgente",
+    "reply": "📝 Intervento **simulato** (ARES DRY_RUN)\n\n  · Condominio: **Condominio Kristal**\n  · Tipo: riparazione\n  · Urgenza: alta ⚠️\n\nID: `int_mo8mltau_eahr8r`. Per scrivere davvero su COSMINA, imposta `cosmina_config/ares_config.dry_run = false`.\n      AREScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/ares-write.png"
+  },
+  {
+    "c": "chronos",
+    "q": "scadenze prossime",
+    "reply": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.\n      CHRONOScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/chronos.png"
+  },
+  {
+    "c": "memo",
+    "q": "dimmi tutto su Kristal",
+    "reply": "📇 **Mini-dossier per \"kristal\"** (MEMO v0.1 – solo email)\n\nPer ora ho accesso solo a iris_emails. Il dossier completo (CRM cliente, impianti, interventi recenti) sarà disponibile quando attiveremo i permessi cross-progetto su garbymobile-f89ac.\n\n**1 email** correlate:\n\n1. [13/04] Massimo Poggi — LETTURE CONDOMINIO KRISTALL \n\nTecnici citati: Massimo Poggi\n      MEMOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/memo.png"
+  },
+  {
+    "c": "charta-read",
+    "q": "report mensile",
+    "reply": "📊 **Report mensile 2026-04** (CHARTA v0.1, dati da iris_emails):\n\n  · Fatture fornitori: 5\n  · Richieste pagamento: 0\n  · Guasti urgenti: 0\n  · Richieste contratto: 0\n\n_Totali € reali arriveranno con integrazione Fatture-in-Cloud._\n      CHARTAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/charta-read.png"
+  },
+  {
+    "c": "charta-write",
+    "q": "registra incasso 500 euro da Condominio Kristal",
+    "reply": "💰 Incasso **simulato** (CHARTA DRY_RUN)\n\n  · Da: **Condominio Kristal**\n  · Importo: € 500.00\n  · Metodo: bonifico\n\nID: `inc_mo8mm7g3_ny0t`. Per salvare davvero, imposta `cosmina_config/charta_config.dry_run = false`.\n      CHARTAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/charta-write.png"
+  },
+  {
+    "c": "emporion",
+    "q": "c'è il pezzo codice 00001?",
+    "reply": "📦 Nessun articolo trovato per \"00001\" nel magazzino.\n      EMPORIONcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/emporion.png"
+  },
+  {
+    "c": "dikea",
+    "q": "scadenze CURIT",
+    "reply": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).\n      DIKEAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/dikea.png"
+  },
+  {
+    "c": "delphi",
+    "q": "come siamo andati questo mese rispetto al mese scorso?",
+    "reply": "📊 **Confronto 2026-04 vs 2026-03** (IRIS)\n\n  · Email: 43 vs 0 📈 +100%\n  · Urgenti: 1 vs 0 📈 +100%\n  · Senza risposta >48h: 8 vs 0 📈 +100%\n      DELPHIcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/delphi.png"
+  },
+  {
+    "c": "pharo",
+    "q": "stato della suite",
+    "reply": "⚠️ **Stato Suite NEXO** — punteggio: 56/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 18\n  · Lavagna errori: 0\n      PHAROcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/pharo.png"
+  },
+  {
+    "c": "calliope",
+    "q": "scrivi una bozza cordiale a Moraschi",
+    "reply": "✍️ **Bozza CALLIOPE** (DRY-RUN, tono: cordiale, salvata come `boz_mo8mmsm9_l9fk`)\n\n**A:** Moraschi Roberto\n**Oggetto:** Re: Prev. Carbonio 108-4”\n\n---\nOggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\nottima notizia, grazie per la conferma della disponibilità.\n\nPotrebbe inviarmi il preventivo con il relativo prezzo e i tempi di consegna stimati? Così posso procedere con le valutazioni del caso.\n\nResto in attesa e la ringrazio per la collaborazione.\n\nCordiali saluti,\nAlberto Contardi\nACG Clima Service\n---\n\n_⚠️ DRY-RUN: la bozza NON è stata inviata. Rivedila e approva quando sei pronto._\n    ",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/v01-finale/calliope.png"
+  }
+]
