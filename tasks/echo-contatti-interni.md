@@ -1,32 +1,22 @@
-NEXUS non trova "Alberto" nei contatti interni. Cerca solo in crm_clienti (clienti esterni).
+ECHO non trova "Malvicino" perché cerca solo in crm_clienti. I tecnici sono contatti INTERNI, non clienti.
 
-FIX:
+FIX nell'handler ECHO del nexusRouter:
 
-1. Quando ECHO/MEMO cerca un contatto, deve cercare in QUEST'ORDINE:
-   a. cosmina_config/tecnici_acg (tecnici: Malvicino, Dellafiore, Victor, Marco, David)
-   b. Contatti interni/dipendenti (Alberto Contardi = proprietario, Sara = admin)
-   c. crm_clienti (clienti esterni)
+1. Ordine di ricerca per risolvere un nome a numero di telefono:
+   a. PRIMA: cosmina_config/tecnici_acg (tecnici interni: Malvicino, Dellafiore, Victor, Marco, David)
+   b. POI: cosmina_config/personale o collection equivalente per personale ufficio (Sara, Cristina Davì, Alberto)
+   c. INFINE: crm_clienti (clienti esterni, amministratori)
 
-2. Per i contatti interni, leggi la collection cosmina_config su garbymobile-f89ac:
-   - Cerca documento "tecnici_acg" o simile
-   - Leggi i campi: nome, cognome, telefono, email
-   - Se non c'è una collection dedicata, crea un documento cosmina_config/nexo_contatti_interni con:
-     {
-       "alberto_contardi": { "nome": "Alberto Contardi", "ruolo": "titolare", "telefono": "LEGGILO_DA_HERMES_ENV" },
-       "sara": { "nome": "Sara", "ruolo": "amministrazione" },
-       "cristina_davi": { "nome": "Cristina Davì", "ruolo": "admin Guazzotti" }
-     }
-   - Leggi il telefono di Alberto da /mnt/c/HERMES/.env o dai file di configurazione COSMINA
+2. Leggi da Firestore (progetto garbymobile-f89ac) la collection cosmina_config/tecnici_acg e stampa a console la struttura di un documento per capire dove sono nome e telefono
 
-3. Alias impliciti:
-   - "Alberto" senza cognome = Alberto Contardi (è il titolare, è chi usa il sistema)
-   - "Malvicino" = Andrea Malvicino
-   - "Dellafiore" = Lorenzo Dellafiore
-   - "Sara" = Sara (amministrazione)
+3. Implementa la ricerca fuzzy: "Malvicino" deve matchare "Andrea Malvicino" o "MALVICINO" — case insensitive, match parziale su nome o cognome
 
-4. Testa:
-   - "manda whatsapp a Alberto: test" → deve trovare Alberto Contardi e il suo numero
-   - "manda whatsapp a Malvicino: domani Kristal ore 14" → deve trovare Andrea Malvicino
+4. Se il tecnico non ha telefono nel documento Firestore, segnalalo: "Malvicino trovato nei tecnici ma senza numero di telefono"
 
-5. Rideploya functions
-6. Committa con "feat(echo): ricerca contatti interni + alias dipendenti"
+5. Testa con Playwright:
+   - "manda whatsapp a Malvicino: test"
+   - "manda whatsapp a Sara: buongiorno"
+   - "manda whatsapp a Alberto: test nexo"
+
+6. Rideploya functions
+7. Committa con "fix(echo): cerca contatti interni (tecnici) prima dei clienti"
