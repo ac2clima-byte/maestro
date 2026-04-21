@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>ECHO — Rubrica interni COSMINA</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 28px; }
+  pre { background: #1e293b; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 0.86rem; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+  .card { background: #1e293b; padding: 14px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #10b981; }
+  .q { color: #94a3b8; font-style: italic; margin-bottom: 6px; }
+  .r { font-family: monospace; font-size: 0.85em; background: #0f172a; padding: 10px; border-radius: 4px; white-space: pre-wrap; }
+  .info { background: #064e3b; padding: 14px; border-radius: 8px; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.88rem; }
+  th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #334155; }
+  th { color: #94a3b8; }
+</style></head><body>
+<h1>📇 ECHO — Rubrica interni COSMINA reale</h1>
+
+<div class="info">
+  <strong>Collection scoperta:</strong> <code>cosmina_contatti_interni</code> (34 contatti).<br>
+  Importata da Google Contacts — campo <code>nome</code> è "COGNOME NOME" o "NOME COGNOME"
+  (misto), <code>telefono_personale</code> + <code>telefono_lavoro</code>, <code>categoria</code>
+  (tecnico/ufficio), <code>interno</code> (numero centralino).
+</div>
+
+<h2>🔄 Nuova pipeline</h2>
+<table>
+  <tr><th>P</th><th>Fonte</th><th>Schema</th></tr>
+  <tr><td>1</td><td><code>cosmina_contatti_interni</code></td><td>nome + telefono_personale + telefono_lavoro + categoria + interno</td></tr>
+  <tr><td>2</td><td><code>cosmina_contatti_clienti</code></td><td>solo se nessun match interno</td></tr>
+</table>
+
+<h2>🎯 Matching robusto per token</h2>
+<ul>
+  <li><strong>Tokenize</strong>: rimuove accenti (<em>Davì→Davi</em>), split su spazi/punteggiatura</li>
+  <li><strong>Match per parole intere</strong>: "davi" NON matcha "David" (era un bug precedente)</li>
+  <li><strong>Preferenza telefono</strong>: personale > lavoro (etichetta chiara nell'output)</li>
+  <li><strong>Disambiguazione</strong>: più match → lista con emoji 📱/☎️/❌ per indicare disponibilità tel</li>
+</ul>
+
+<h2>✅ Test Playwright 7/7</h2>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Alberto: test nexo"</div>
+  <div class="r">📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]
+— test nexo
+_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._</div>
+  <p>✅ Trovato titolare, telefono personale mascherato in output.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Sara: test"</div>
+  <div class="r">📤 Simulato: WA a **Sara Quagliano** (+393***8653) [personale]
+— test</div>
+  <p>✅ Sara Quagliano (amministrazione) risolta correttamente.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Malvicino: test" — 3 match</div>
+  <div class="r">🔍 Trovo 3 contatti con nome "Malvicino":
+  ❌ **Lorenzo Malvicino** (ufficio)
+  ❌ **Maurizio Malvicino** (ufficio)
+  ❌ **Andrea Malvicino** (ufficio)
+Specifica nome + cognome.</div>
+  <p>✅ Disambiguazione: 3 match mostrati con indicatore cellulare. Tutti ❌ perché questi 3 non hanno telefono nella rubrica COSMINA.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Andrea Malvicino: test"</div>
+  <div class="r">⚠️ Trovato "Andrea Malvicino" nella rubrica interna ma senza cellulare.
+Aggiungi `telefono_personale` o `telefono_lavoro` in `cosmina_contatti_interni`.</div>
+  <p>✅ Match unico ma tel mancante → guida alla config.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Dellafiore: domani Kristal ore 14" — 2 match con tel</div>
+  <div class="r">🔍 Trovo 2 contatti con nome "Dellafiore":
+  📱 **Dellafiore Victor** (tecnico)
+  📱 **Dellafiore Lorenzo** (tecnico)
+Specifica nome + cognome.</div>
+  <p>✅ Entrambi hanno cellulare (📱), Alberto sceglie quale.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a 3339999999: spam"</div>
+  <div class="r">🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.</div>
+  <p>✅ Safety preservato.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Pluto Topolino: test"</div>
+  <div class="r">❓ Non trovo "Pluto Topolino" né nella rubrica interna né nei clienti.</div>
+  <p>✅ Nome inesistente rifiutato con diagnostica precisa.</p>
+</div>
+
+<p><strong>Commit:</strong> <code>feat(echo): rubrica interni da COSMINA con disambiguazione</code></p>
+</body></html>

@@ -887,189 +887,146 @@ function maskNumber(chatId) {
   return `+${n.slice(0, 3)}***${n.slice(-4)}`;
 }
 
-/**
- * Alias impliciti per contatti interni comuni.
- * Se l'utente scrive solo "Alberto", il sistema sa che intende
- * alberto_contardi (il titolare). Questi alias mappano nomi comuni
- * a chiavi del documento nexo_contatti_interni.
- *
- * NOTA: qui niente numeri, solo alias di navigazione. I numeri stanno
- * nel documento Firestore cosmina_config/nexo_contatti_interni.
- */
-const ECHO_ALIAS_INTERNI = {
-  "alberto": "alberto_contardi",
-  "contardi": "alberto_contardi",
-  "alberto contardi": "alberto_contardi",
-  "sara": "sara",
-  "cristina": "cristina_davi",
-  "cristina davì": "cristina_davi",
-  "cristina davi": "cristina_davi",
-  "malvicino": "andrea_malvicino",
-  "andrea malvicino": "andrea_malvicino",
-  "dellafiore": "lorenzo_dellafiore",
-  "lorenzo dellafiore": "lorenzo_dellafiore",
-  "victor": "victor",
-  "marco": "marco",
-  "david": "david",
-};
+// Tokenizza il campo "nome" della rubrica COSMINA.
+// Schema reale misto: "DELLAFIORE VICTOR" o "ALBERTO CONTARDI". Normalizzo a
+// set di token minuscoli per matching per parole intere (case-insensitive,
+// accent-insensitive).
+function tokenize(s) {
+  return String(s || "")
+    .normalize("NFD").replace(/\p{Diacritic}/gu, "")   // rimuovi accenti (Davì → Davi)
+    .toLowerCase()
+    .split(/[\s,._\-]+/)
+    .filter(Boolean);
+}
+
+// Matching per parole intere: tutti i token della query devono essere
+// token del nome. Evita che "davi" matchi "david".
+function matchesAllTokens(queryTokens, nameTokens) {
+  if (!queryTokens.length) return false;
+  const nameSet = new Set(nameTokens);
+  return queryTokens.every(t => nameSet.has(t));
+}
+
+// Formatta "DELLAFIORE VICTOR" → "Victor Dellafiore" (assumo 2 token: cognome nome),
+// "ALBERTO CONTARDI" → "Alberto Contardi" se il primo token è nome.
+// Euristica: lascio com'è in Title Case, non serve riordinare per display.
+function prettyName(s) {
+  return String(s || "")
+    .split(/\s+/).filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
 
 /**
- * Risolutore destinatari via MEMO/CRM.
+ * Risolutore destinatari via rubrica interna COSMINA.
  *
  * Fonti in ordine di priorità:
- *  1. cosmina_config/nexo_contatti_interni — dipendenti ACG (Alberto, Sara,
- *     Cristina) + tecnici se non censiti altrove. Priorità MASSIMA per nomi
- *     interni: "Alberto" NON deve cadere su "Alberto Armano" del CRM.
- *  2. cosmina_config/tecnici_acg.tecnici[] — se il tecnico ha campo telefono.
- *  3. cosmina_config/numeri_acg — mappa flat { alias → numero }.
- *  4. cosmina_contatti_clienti — solo per nomi NON riconosciuti come interni.
+ *  1. cosmina_contatti_interni — rubrica reale ACG/Guazzotti (34 contatti
+ *     con nome, telefono_personale, telefono_lavoro, categoria, interno).
+ *     Schema: { nome, telefono_personale, telefono_lavoro, email, categoria,
+ *               interno, origine }.
+ *     Matching per parole intere (token), disambigua se più match.
+ *     Preferenza numero: telefono_personale > telefono_lavoro.
+ *  2. cosmina_contatti_clienti — solo se NESSUN match interno (nemmeno ambiguo).
+ *
+ * Ritorna:
+ *  - { chatId, resolvedFrom, displayName } → match unico con telefono
+ *  - { error: "ambiguo", candidates: [...] } → più match interni
+ *  - { partial, matchedEntity } → match unico senza telefono
+ *  - { error: "non_trovato" } → nessuno
  */
 async function resolveDestinatarioViaMemo(rawInput) {
   if (!rawInput) return { error: "destinatario_mancante" };
   const clean = String(rawInput).trim().replace(/^@/, "");
-  const lower = clean.toLowerCase();
+  const queryTokens = tokenize(clean);
+  if (!queryTokens.length) return { error: "destinatario_mancante" };
   const db = getCosminaDb();
 
-  // Controlla se è un alias interno noto — serve anche per saltare il
-  // CRM clienti quando il nome è chiaramente un dipendente.
-  const aliasKey = ECHO_ALIAS_INTERNI[lower] || null;
-  const isInternoKnown = !!aliasKey;
-
-  let partialMatch = null;
-
-  // ── 1. Contatti interni (dipendenti + owner)
+  // ── 1. Rubrica interni (cosmina_contatti_interni)
+  let internalCandidates = [];
   try {
-    const snap = await db.collection("cosmina_config").doc("nexo_contatti_interni").get();
-    if (snap.exists) {
-      const d = snap.data() || {};
-      // Prova prima per chiave esatta dell'alias
-      if (aliasKey && d[aliasKey]) {
-        const entry = d[aliasKey];
-        const tel = entry.telefono || entry.whatsapp || entry.cellulare || entry.tel;
-        const name = entry.nome || aliasKey;
-        if (tel) {
-          const chat = normalizeWhatsappChatId(tel);
-          if (chat) return {
-            chatId: chat,
-            resolvedFrom: "nexo_contatti_interni",
-            displayName: name,
-          };
-        }
-        partialMatch = name;
-      }
-      // Fallback: scan su tutti i valori per nome/ruolo
-      if (!partialMatch) {
-        for (const [k, entry] of Object.entries(d)) {
-          if (!entry || typeof entry !== "object") continue;
-          const bag = `${k} ${entry.nome || ""} ${entry.ruolo || ""}`.toLowerCase();
-          if (!bag.includes(lower)) continue;
-          const tel = entry.telefono || entry.whatsapp || entry.cellulare || entry.tel;
-          const name = entry.nome || k;
-          if (tel) {
-            const chat = normalizeWhatsappChatId(tel);
-            if (chat) return {
-              chatId: chat,
-              resolvedFrom: "nexo_contatti_interni",
-              displayName: name,
-            };
-          }
-          partialMatch = name;
-          break;
-        }
-      }
-    }
-  } catch (e) {
-    logger.warn("nexo_contatti_interni lookup failed", { error: String(e) });
-  }
-
-  // ── 2. Tecnici ACG (eventuale campo telefono direttamente in tecnici_acg)
-  try {
-    const snap = await db.collection("cosmina_config").doc("tecnici_acg").get();
-    if (snap.exists) {
-      const d = snap.data() || {};
-      const tecnici = Array.isArray(d.tecnici) ? d.tecnici : [];
-      for (const t of tecnici) {
-        const bag = `${t.nome || ""} ${t.cognome || ""} ${t.nome_completo || ""} ${t.report_alias || ""}`.toLowerCase();
-        if (!bag.includes(lower)) continue;
-        const tel = t.telefono || t.whatsapp || t.cellulare || t.tel;
-        if (tel) {
-          const chat = normalizeWhatsappChatId(tel);
-          if (chat) return {
-            chatId: chat,
-            resolvedFrom: "tecnici_acg",
-            displayName: t.nome_completo || `${t.nome || ""} ${t.cognome || ""}`.trim(),
-          };
-        }
-        if (!partialMatch) {
-          partialMatch = t.nome_completo || `${t.nome} ${t.cognome}`.trim();
-        }
-        break;
-      }
-    }
-  } catch (e) {
-    logger.warn("tecnici_acg lookup failed", { error: String(e) });
-  }
-
-  // ── 3. Mappa dedicata cosmina_config/numeri_acg
-  try {
-    const snap = await db.collection("cosmina_config").doc("numeri_acg").get();
-    if (snap.exists) {
-      const d = snap.data() || {};
-      const map = d.numeri && typeof d.numeri === "object" ? d.numeri : d;
-      for (const [alias, num] of Object.entries(map)) {
-        if (typeof num !== "string") continue;
-        if (alias.toLowerCase() === lower || lower.includes(alias.toLowerCase())) {
-          const chat = normalizeWhatsappChatId(num);
-          if (chat) return {
-            chatId: chat,
-            resolvedFrom: "numeri_acg",
-            displayName: alias,
-          };
-        }
-      }
-    }
-  } catch (e) {
-    logger.warn("numeri_acg lookup failed", { error: String(e) });
-  }
-
-  // ── 4. CRM clienti — SOLO se il nome NON è un alias interno noto.
-  // Evita che "Alberto" (titolare) venga ambiguato con "Alberto Armano" cliente.
-  if (!isInternoKnown) {
-    try {
-      const snap = await db.collection("cosmina_contatti_clienti").limit(500).get();
-      const candidates = [];
-      snap.forEach(doc => {
-        const data = doc.data() || {};
-        const nome = String(data.nome_completo || `${data.nome || ""} ${data.cognome || ""}`).trim();
-        if (!nome) return;
-        if (nome.toLowerCase().includes(lower) || lower.includes(nome.toLowerCase())) {
-          const tel = data.telefono_normalizzato || data.telefono;
-          if (tel) candidates.push({ nome, tel });
-        }
+    const snap = await db.collection("cosmina_contatti_interni").limit(500).get();
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      const nome = data.nome;
+      if (!nome) return;
+      const nameTokens = tokenize(nome);
+      if (!matchesAllTokens(queryTokens, nameTokens)) return;
+      internalCandidates.push({
+        id: doc.id,
+        nome: prettyName(nome),
+        rawNome: nome,
+        tel_personale: data.telefono_personale || null,
+        tel_lavoro: data.telefono_lavoro || null,
+        email: data.email || null,
+        categoria: data.categoria || null,
+        interno: data.interno || null,
       });
-      if (candidates.length === 1) {
-        const chat = normalizeWhatsappChatId(candidates[0].tel);
-        if (chat) return {
-          chatId: chat,
-          resolvedFrom: "cosmina_contatti_clienti",
-          displayName: candidates[0].nome,
-        };
-      }
-      if (candidates.length > 1) {
-        return {
-          error: "troppi_match",
-          candidates: candidates.slice(0, 5).map(c => c.nome),
-        };
-      }
-    } catch (e) {
-      logger.warn("contatti_clienti lookup failed", { error: String(e) });
-    }
+    });
+  } catch (e) {
+    logger.warn("cosmina_contatti_interni lookup failed", { error: String(e) });
   }
 
-  if (partialMatch) {
-    return { partial: true, matchedEntity: partialMatch, isInterno: isInternoKnown };
+  if (internalCandidates.length === 1) {
+    const c = internalCandidates[0];
+    const tel = c.tel_personale || c.tel_lavoro;
+    if (tel) {
+      const chat = normalizeWhatsappChatId(tel);
+      if (chat) return {
+        chatId: chat,
+        resolvedFrom: "cosmina_contatti_interni",
+        displayName: c.nome,
+        telSource: c.tel_personale ? "personale" : "lavoro",
+      };
+    }
+    return { partial: true, matchedEntity: c.nome, isInterno: true };
   }
-  return { error: "non_trovato", isInterno: isInternoKnown };
+
+  if (internalCandidates.length > 1) {
+    // Disambigua: mostra tutti i match interni con info utile
+    return {
+      error: "ambiguo_interni",
+      candidates: internalCandidates.map(c => ({
+        nome: c.nome,
+        categoria: c.categoria,
+        haCellulare: !!c.tel_personale,
+        haTelLavoro: !!c.tel_lavoro,
+      })),
+    };
+  }
+
+  // ── 2. CRM clienti (solo se la rubrica interni non ha match)
+  try {
+    const snap = await db.collection("cosmina_contatti_clienti").limit(500).get();
+    const candidates = [];
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      const nome = String(data.nome_completo || `${data.nome || ""} ${data.cognome || ""}`).trim();
+      if (!nome) return;
+      const nameTokens = tokenize(nome);
+      if (!matchesAllTokens(queryTokens, nameTokens)) return;
+      const tel = data.telefono_normalizzato || data.telefono;
+      if (tel) candidates.push({ nome, tel });
+    });
+    if (candidates.length === 1) {
+      const chat = normalizeWhatsappChatId(candidates[0].tel);
+      if (chat) return {
+        chatId: chat,
+        resolvedFrom: "cosmina_contatti_clienti",
+        displayName: candidates[0].nome,
+      };
+    }
+    if (candidates.length > 1) {
+      return {
+        error: "ambiguo_clienti",
+        candidates: candidates.slice(0, 5).map(c => ({ nome: c.nome })),
+      };
+    }
+  } catch (e) {
+    logger.warn("contatti_clienti lookup failed", { error: String(e) });
+  }
+
+  return { error: "non_trovato" };
 }
 
 function isEchoDryRun(cfg) {
@@ -1137,33 +1094,32 @@ async function handleEchoWhatsApp(parametri, ctx) {
   // Ordine: partial (trovato ma senza numero) → error → chatId valido
   if (resolved.partial && !resolved.chatId) {
     return {
-      content: `⚠️ Ho trovato "${resolved.matchedEntity}" ma senza numero di telefono.\n\n` +
-        `Aggiungi il telefono in \`cosmina_config/nexo_contatti_interni\` o \`cosmina_config/tecnici_acg\` su garbymobile-f89ac.`,
+      content: `⚠️ Trovato "${resolved.matchedEntity}" nella rubrica interna ma senza cellulare.\n\n` +
+        `Aggiungi \`telefono_personale\` o \`telefono_lavoro\` in \`cosmina_contatti_interni\` su garbymobile-f89ac.`,
     };
   }
   if (resolved.error) {
-    if (resolved.error === "non_trovato") {
-      if (resolved.isInterno) {
-        // È un alias interno noto (Alberto, Malvicino, ...) ma non configurato
-        return {
-          content: `📞 "${dest}" è un contatto interno noto (titolare/tecnico/admin) ` +
-            `ma il numero non è ancora configurato.\n\n` +
-            `Aggiungi il documento Firestore \`cosmina_config/nexo_contatti_interni\` ` +
-            `su \`garbymobile-f89ac\` con una voce tipo:\n\n` +
-            `\`\`\`\n{\n  alberto_contardi: { nome: "Alberto Contardi", ruolo: "titolare", telefono: "+39..." },\n  andrea_malvicino: { nome: "Andrea Malvicino", ruolo: "tecnico", telefono: "+39..." },\n  sara: { nome: "Sara", ruolo: "amministrazione", telefono: "+39..." }\n}\n\`\`\``,
-        };
-      }
+    if (resolved.error === "ambiguo_interni") {
+      const list = resolved.candidates.map(c => {
+        const tel = c.haCellulare ? "📱" : (c.haTelLavoro ? "☎️" : "❌");
+        return `  ${tel} **${c.nome}** (${c.categoria || "?"})`;
+      }).join("\n");
       return {
-        content: `❓ Non trovo "${dest}" né tra i contatti interni (tecnici/admin) né nel CRM.\n\n` +
-          `Se è un dipendente, aggiungilo in \`cosmina_config/nexo_contatti_interni\`. ` +
-          `Se è un cliente, verifica che sia in \`cosmina_contatti_clienti\` con il telefono popolato.`,
+        content: `🔍 Trovo ${resolved.candidates.length} contatti con nome "${dest}":\n\n${list}\n\n` +
+          `Specifica nome + cognome. Es. "manda whatsapp a Andrea Malvicino: ...".`,
       };
     }
-    if (resolved.error === "troppi_match") {
+    if (resolved.error === "ambiguo_clienti") {
       return {
-        content: `⚠️ Trovo più contatti per "${dest}" nel CRM:\n\n` +
-          resolved.candidates.map(n => `  · ${n}`).join("\n") +
-          `\n\nSii più specifico (nome + cognome).`,
+        content: `🔍 Trovo ${resolved.candidates.length} clienti con nome "${dest}":\n\n` +
+          resolved.candidates.map(c => `  · ${c.nome}`).join("\n") +
+          `\n\nSpecifica meglio (nome + cognome).`,
+      };
+    }
+    if (resolved.error === "non_trovato") {
+      return {
+        content: `❓ Non trovo "${dest}" né nella rubrica interna (\`cosmina_contatti_interni\`) né nei clienti (\`cosmina_contatti_clienti\`).\n\n` +
+          `Verifica che il nome sia corretto e che il contatto abbia un telefono popolato.`,
       };
     }
     return { content: `ECHO: ${resolved.error}` };
@@ -1187,11 +1143,12 @@ async function handleEchoWhatsApp(parametri, ctx) {
   // DRY-RUN: simula (flag da Firestore cosmina_config/echo_config.dry_run)
   if (isEchoDryRun(cfg)) {
     await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "ECHO_DRY_RUN attivo" });
+    const telLabel = resolved.telSource ? ` [${resolved.telSource}]` : "";
     return {
       content:
-        `📤 Simulato: WA a **${resolved.displayName}** (${maskNumber(chatId)})\n` +
+        `📤 Simulato: WA a **${resolved.displayName}** (${maskNumber(chatId)})${telLabel}\n` +
         `— ${body}\n\n` +
-        `_Fonte contatto: ${resolved.resolvedFrom} · DRY_RUN attivo, nessun invio reale._`,
+        `_Fonte: ${resolved.resolvedFrom} · DRY_RUN attivo, nessun invio reale._`,
       data: { dryRun: true, id, resolvedFrom: resolved.resolvedFrom },
     };
   }

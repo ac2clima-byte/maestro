@@ -1,0 +1,44 @@
+[
+  {
+    "key": "malvicino-ambiguo",
+    "q": "manda whatsapp a Malvicino: test",
+    "reply": "🔍 Trovo 3 contatti con nome \"Malvicino\":\n\n  ❌ **Lorenzo Malvicino** (ufficio)\n  ❌ **Maurizio Malvicino** (ufficio)\n  ❌ **Andrea Malvicino** (ufficio)\n\nSpecifica nome + cognome. Es. \"manda whatsapp a Andrea Malvicino: ...\".\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/malvicino-ambiguo.png"
+  },
+  {
+    "key": "andrea-malvicino",
+    "q": "manda whatsapp a Andrea Malvicino: test",
+    "reply": "⚠️ Trovato \"Andrea Malvicino\" nella rubrica interna ma senza cellulare.\n\nAggiungi `telefono_personale` o `telefono_lavoro` in `cosmina_contatti_interni` su garbymobile-f89ac.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/andrea-malvicino.png"
+  },
+  {
+    "key": "dellafiore-ambiguo",
+    "q": "manda whatsapp a Dellafiore: domani Kristal ore 14",
+    "reply": "🔍 Trovo 2 contatti con nome \"Dellafiore\":\n\n  📱 **Dellafiore Victor** (tecnico)\n  📱 **Dellafiore Lorenzo** (tecnico)\n\nSpecifica nome + cognome. Es. \"manda whatsapp a Andrea Malvicino: ...\".\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/dellafiore-ambiguo.png"
+  },
+  {
+    "key": "alberto-titolare",
+    "q": "manda whatsapp a Alberto: test nexo",
+    "reply": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test nexo\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/alberto-titolare.png"
+  },
+  {
+    "key": "sara-admin",
+    "q": "manda whatsapp a Sara: test",
+    "reply": "📤 Simulato: WA a **Sara Quagliano** (+393***8653) [personale]\n— test\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/sara-admin.png"
+  },
+  {
+    "key": "numero-grezzo",
+    "q": "manda whatsapp a 3339999999: spam",
+    "reply": "🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.\n\nIndica il destinatario per NOME (tecnico, cliente, condominio).\nEs. \"manda whatsapp a Malvicino: ...\" — cercherò il numero in COSMINA.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/numero-grezzo.png"
+  },
+  {
+    "key": "inesistente",
+    "q": "manda whatsapp a Pluto Topolino: test",
+    "reply": "❓ Non trovo \"Pluto Topolino\" né nella rubrica interna (`cosmina_contatti_interni`) né nei clienti (`cosmina_contatti_clienti`).\n\nVerifica che il nome sia corretto e che il contatto abbia un telefono popolato.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-rubrica/inesistente.png"
+  }
+]
