@@ -1,0 +1,18 @@
+{
+  "logged_out": {
+    "gateVisible": true,
+    "appVisible": false,
+    "hasForm": true,
+    "emailLabel": "EMAIL",
+    "btn": "Accedi",
+    "title": "NEXO — Hub dei Colleghi"
+  },
+  "after_invalid_login": {
+    "errorText": "Errore: invalid credential"
+  },
+  "fake_sso": {
+    "gateVisible": true,
+    "err": "SSO fallito: Firebase: Invalid assertion format. 3 dot separated segments required. (auth/invalid-custom-token).",
+    "urlAfter": "https://nexo-hub-15f2d.web.app/"
+  }
+}
