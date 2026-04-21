@@ -1,0 +1,80 @@
+[
+  {
+    "key": "ares-interventi",
+    "q": "interventi aperti oggi",
+    "reply": "🔧 Interventi di **oggi** (4):\n\n1. [21/04/2026] B034 - CONDOMINIO MINERVA - CORSO XXVII MARZO 151  — chiuso · tecnico=MARCO\n2. [21/04/2026] I063 - CONDOMINIO SAN LORENZO - VIA LABRIOLA, 12 - — aperto · tecnico=MARCO\n3. [n.d.] M009 - CONDOMINIO I PORTICI VOGHERA - VIA ALBERTI, — chiuso · non assegnato\n4. [n.d.] M009 - CONDOMINIO I PORTICI VOGHERA - VIA ALBERTI, — chiuso · non assegnato\n      AREScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-ares-interventi.png"
+  },
+  {
+    "key": "chronos-scadenze",
+    "q": "scadenze prossime",
+    "reply": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.\n      CHRONOScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-chronos-scadenze.png"
+  },
+  {
+    "key": "chronos-agenda",
+    "q": "agenda di Malvicino domani",
+    "reply": "📅 MALVICINO non ha interventi pianificati per Invalid Date.\n      CHRONOScompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-chronos-agenda.png"
+  },
+  {
+    "key": "charta-fatture",
+    "q": "fatture scadute",
+    "reply": "💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)\n\n📥 5 fatture fornitori + 0 richieste pagamento.\n\nUltime fatture ricevute:\n1. [16/04] Moraschi Roberto — R: Complesso immobiliare\n2. [16/04] Moraschi Roberto — R: Complesso immobiliare\n3. [14/04] Moraschi Roberto — R: Richiesta offerta radiatore - Cond. Cida Alessandria - Ticket 865/2026\n4. [14/04] Moraschi Roberto — prev. aggiornato CONDOMINIO VIA RIVOLTA 39\n5. [08/04] Moraschi Roberto — Prev. Bollitore\n      CHARTAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-charta-fatture.png"
+  },
+  {
+    "key": "charta-report",
+    "q": "report mensile 2026-04",
+    "reply": "📊 **Report mensile 2026-04** (CHARTA v0.1, dati da iris_emails):\n\n  · Fatture fornitori: 5\n  · Richieste pagamento: 0\n  · Guasti urgenti: 0\n  · Richieste contratto: 0\n\n_Totali € reali arriveranno con integrazione Fatture-in-Cloud._\n      CHARTAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-charta-report.png"
+  },
+  {
+    "key": "emporion-sottoscorta",
+    "q": "cosa manca in magazzino?",
+    "reply": "✅ Nessun articolo sotto scorta al momento.\n      EMPORIONcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-emporion-sottoscorta.png"
+  },
+  {
+    "key": "emporion-giacenza",
+    "q": "c'è il pezzo codice 00001?",
+    "reply": "📦 Nessun articolo trovato per \"00001\" nel magazzino.\n      EMPORIONcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-emporion-giacenza.png"
+  },
+  {
+    "key": "dikea-curit",
+    "q": "scadenze CURIT",
+    "reply": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).\n      DIKEAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-dikea-curit.png"
+  },
+  {
+    "key": "dikea-targa",
+    "q": "impianti senza targa",
+    "reply": "✅ Tutti gli impianti censiti hanno una targa CURIT.\n      DIKEAcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-dikea-targa.png"
+  },
+  {
+    "key": "delphi-kpi",
+    "q": "come siamo andati questo mese?",
+    "reply": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 43\n  · Urgenti: 1\n  · Senza risposta >48h: 8\n\n**Lavagna**\n  · Messaggi: 17\n\n**Interventi COSMINA**\n  · Attivi ora: 361\n  · Completati: 0\n      DELPHIcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-delphi-kpi.png"
+  },
+  {
+    "key": "delphi-costo",
+    "q": "costo AI ultimi 30 giorni",
+    "reply": "💳 **Costo AI** (finestra 30g, fonte: cosmina_config)\n\n  · Input tokens: 0\n  · Output tokens: 0\n  · **Costo totale stimato: € 0.00**\n      DELPHIcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-delphi-costo.png"
+  },
+  {
+    "key": "pharo-stato",
+    "q": "stato della suite, tutto ok?",
+    "reply": "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 17\n  · Lavagna errori: 0\n      PHAROcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-pharo-stato.png"
+  },
+  {
+    "key": "calliope-bozza",
+    "q": "scrivi una bozza cordiale a Moraschi Roberto",
+    "reply": "Per generare una bozza mi serve l'ID email o almeno il mittente. Prova: 'scrivi risposta a Rossi'.\n      CALLIOPEcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-calliope-bozza.png"
+  }
+]

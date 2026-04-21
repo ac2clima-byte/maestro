@@ -144,11 +144,66 @@ export async function slotDisponibili(
   return out.slice(0, limit);
 }
 
+/**
+ * Agenda del giorno per un tecnico: legge bacheca_cards INTERVENTI con
+ * due nel giorno specificato e lo stesso techName.
+ */
 export async function agendaGiornaliera(
-  _tecnicoUid: string,
-  _data: string,
+  tecnicoUid: string,
+  data: string,
 ): Promise<AgendaGiornaliera> {
-  throw new Error("Not implemented: agendaGiornaliera (v0.2)");
+  const giorno = new Date(data);
+  const start = new Date(giorno); start.setHours(0, 0, 0, 0);
+  const end = new Date(giorno); end.setHours(23, 59, 59, 999);
+
+  const snap = await cosminaDb()
+    .collection("bacheca_cards")
+    .where("listName", "==", "INTERVENTI")
+    .where("inBacheca", "==", true)
+    .limit(300).get();
+
+  const tecLower = tecnicoUid.toLowerCase();
+  const slot: Slot[] = [];
+  const nowIso = new Date().toISOString();
+
+  snap.forEach((d) => {
+    const row = d.data() as Record<string, unknown>;
+    const due = normalizeDate(row.due);
+    if (!due || due < start || due > end) return;
+
+    let tecnico: string | undefined;
+    if (typeof row.techName === "string" && row.techName) tecnico = row.techName;
+    else if (Array.isArray(row.techNames) && row.techNames.length > 0) {
+      tecnico = String(row.techNames[0]);
+    }
+    if (!tecnico || !tecnico.toLowerCase().includes(tecLower)) return;
+
+    slot.push({
+      id: d.id,
+      tecnicoUid: tecnico,
+      data: due.toISOString().slice(0, 10),
+      oraInizio: due.toTimeString().slice(0, 5),
+      durataMin: typeof row.workHours === "number" ? row.workHours * 60 : 60,
+      tipo: "intervento",
+      stato: "occupato",
+      interventoId: d.id,
+      indirizzo: row.boardName as string | undefined,
+      note: (row.workDescription as string) || (row.name as string) || undefined,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    });
+  });
+
+  slot.sort((a, b) => a.oraInizio.localeCompare(b.oraInizio));
+  const oreOccupate = slot.reduce((sum, s) => sum + s.durataMin / 60, 0);
+
+  return {
+    tecnicoUid,
+    data: giorno.toISOString().slice(0, 10),
+    slot,
+    oreOccupate,
+    oreLibere: Math.max(0, 8 - oreOccupate),
+  };
 }
 
 export async function agendaSettimanale(

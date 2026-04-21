@@ -840,27 +840,35 @@ REGOLE:
 
 OUTPUT: solo il testo della bozza. Niente preambolo, niente markdown. Max 1500 caratteri.`;
 
-async function handleCalliopeBozza(parametri) {
+async function handleCalliopeBozza(parametri, ctx) {
   const emailId = String(parametri.emailId || parametri.id || "").trim();
   const tono = String(parametri.tono || parametri.tone || "cordiale").trim();
   const note = String(parametri.note || parametri.istruzioni || "").trim();
 
-  if (!emailId) {
-    // Se non c'è emailId, cerca per mittente/oggetto nelle ultime email
-    const query = String(parametri.mittente || parametri.email || parametri.destinatario || "").trim();
-    if (!query) {
-      return { content: "Per generare una bozza mi serve l'ID email o almeno il mittente. Prova: 'scrivi risposta a Rossi'." };
-    }
-    const emails = await fetchIrisEmails(200);
-    const q = query.toLowerCase();
-    const match = emails.find(e =>
-      `${e.sender} ${e.senderName} ${e.subject}`.toLowerCase().includes(q),
-    );
-    if (!match) return { content: `Non trovo email recenti correlate a "${query}".` };
-    return generaBozzaFromEmail(match.id, tono, note);
+  if (emailId && /^[A-Za-z0-9_-]{10,}$/.test(emailId)) {
+    return generaBozzaFromEmail(emailId, tono, note);
   }
 
-  return generaBozzaFromEmail(emailId, tono, note);
+  // Cerca per mittente: nei parametri + userMessage
+  let query = String(
+    parametri.mittente || parametri.email || parametri.destinatario || parametri.a || parametri.to || "",
+  ).trim();
+  if (!query && ctx?.userMessage) {
+    // Pattern: "risposta a X", "bozza a X", "a Nome Cognome"
+    const m = /(?:a|per|rispondi(?:amo)?\s+a|bozza\s+a|scrivi.*a)\s+([A-Za-zÀ-ÿ][\wÀ-ÿ.\s]{2,50})$/i.exec(ctx.userMessage.trim());
+    if (m) query = m[1].trim();
+  }
+  if (!query) {
+    return { content: "Per generare una bozza mi serve il mittente. Prova: 'scrivi una risposta cordiale a Rossi'." };
+  }
+
+  const emails = await fetchIrisEmails(200);
+  const q = query.toLowerCase();
+  const match = emails.find(e =>
+    `${e.sender} ${e.senderName} ${e.subject}`.toLowerCase().includes(q),
+  );
+  if (!match) return { content: `Non trovo email recenti correlate a "${query}".` };
+  return generaBozzaFromEmail(match.id, tono, note);
 }
 
 async function generaBozzaFromEmail(emailId, tono, note) {
@@ -1273,6 +1281,60 @@ async function handleDikeaImpiantiSenzaTarga() {
 //     codice_fornitore, scorta_minima, gruppo, sottogruppo, modello
 //   - `magazzino_giacenze`: articolo_id, magazzino_id, quantita
 
+async function handleEmporionSottoScorta() {
+  const db = getCosminaDb();
+  let snap;
+  try {
+    snap = await db.collection("magazzino").limit(500).get();
+  } catch (e) {
+    const m = String(e?.message || e);
+    if (/permission|denied|403|NOT_FOUND/i.test(m)) {
+      return { content: "EMPORION non può leggere `magazzino`." };
+    }
+    throw e;
+  }
+
+  const out = [];
+  for (const doc of snap.docs) {
+    const data = doc.data() || {};
+    const min = typeof data.scorta_minima === "number" ? data.scorta_minima : 0;
+    if (min <= 0) continue;
+
+    let totale = 0;
+    try {
+      const gSnap = await db.collection("magazzino_giacenze")
+        .where("articolo_id", "==", doc.id).limit(20).get();
+      gSnap.forEach(g => { totale += Number((g.data() || {}).quantita || 0); });
+    } catch {}
+
+    if (totale < min) {
+      out.push({
+        codice: data.codice || doc.id,
+        descrizione: String(data.descrizione || "").slice(0, 60),
+        totale,
+        min,
+        mancante: min - totale,
+      });
+    }
+    if (out.length >= 30) break;
+  }
+
+  if (!out.length) {
+    return { content: "✅ Nessun articolo sotto scorta al momento." };
+  }
+
+  out.sort((a, b) => b.mancante - a.mancante);
+  const top = out.slice(0, 15);
+  const lines = top.map((r, i) =>
+    `${i + 1}. **${r.codice}** — ${r.descrizione}\n     giacenza: ${r.totale}/${r.min} (manca: ${r.mancante})`,
+  ).join("\n");
+  const more = out.length > top.length ? `\n\n…e altri ${out.length - top.length}.` : "";
+  return {
+    content: `⚠️ **${out.length} articoli sotto scorta**:\n\n${lines}${more}`,
+    data: { count: out.length },
+  };
+}
+
 async function handleEmporionDisponibilita(parametri) {
   const codice = String(parametri.codice || parametri.code || "").trim();
   const descrizione = String(parametri.descrizione || parametri.nome || parametri.articolo || "").trim();
@@ -1449,6 +1511,83 @@ async function handleChronosSlotTecnico(parametri) {
   return {
     content: `📅 Agenda prossimi ${finestraGiorni} giorni:\n\n${blocchi.join("\n\n")}`,
     data: { tecnici: [...perTec.keys()], totale: rows.length },
+  };
+}
+
+async function handleChronosAgendaGiornaliera(parametri, ctx) {
+  const msg = (ctx?.userMessage || "").toLowerCase();
+  const tecnico = String(
+    parametri.tecnico || parametri.nome || parametri.tecnicoUid || "",
+  ).trim().toLowerCase();
+
+  // Determina il giorno richiesto (tollerante: parse fallito → oggi)
+  let giorno = new Date();
+  if (parametri.data) {
+    const parsed = new Date(parametri.data);
+    if (!Number.isNaN(parsed.getTime())) giorno = parsed;
+  }
+  if (/dopodomani/.test(msg)) {
+    giorno = new Date(); giorno.setDate(giorno.getDate() + 2);
+  } else if (/domani/.test(msg)) {
+    giorno = new Date(); giorno.setDate(giorno.getDate() + 1);
+  } else if (/oggi/.test(msg)) {
+    giorno = new Date();
+  }
+
+  const start = new Date(giorno); start.setHours(0, 0, 0, 0);
+  const end = new Date(giorno); end.setHours(23, 59, 59, 999);
+
+  if (!tecnico) {
+    return { content: "Quale tecnico? Dimmi il nome (es. 'agenda di Malvicino')." };
+  }
+
+  let snap;
+  try {
+    snap = await getCosminaDb().collection("bacheca_cards")
+      .where("listName", "==", "INTERVENTI").where("inBacheca", "==", true)
+      .limit(300).get();
+  } catch (e) {
+    const m = String(e?.message || e);
+    if (/permission|denied|403/i.test(m)) {
+      return { content: "CHRONOS non può leggere COSMINA." };
+    }
+    throw e;
+  }
+
+  const slot = [];
+  snap.forEach(d => {
+    const row = d.data() || {};
+    const stato = String(row.stato || "").toLowerCase();
+    if (stato.includes("complet") || stato.includes("annul")) return;
+    let tec = row.techName;
+    if (!tec && Array.isArray(row.techNames) && row.techNames.length) tec = String(row.techNames[0]);
+    if (!tec || !tec.toLowerCase().includes(tecnico)) return;
+    let due;
+    try {
+      due = row.due?.toDate ? row.due.toDate() : (row.due ? new Date(row.due) : null);
+      if (due && Number.isNaN(due.getTime())) due = null;
+    } catch { due = null; }
+    if (!due || due < start || due > end) return;
+    slot.push({
+      ora: due.toTimeString().slice(0, 5),
+      cond: row.boardName || "?",
+      name: row.name || "",
+    });
+  });
+
+  slot.sort((a, b) => a.ora.localeCompare(b.ora));
+  const dataStr = giorno.toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "long" });
+
+  if (!slot.length) {
+    return { content: `📅 ${tecnico.toUpperCase()} non ha interventi pianificati per ${dataStr}.` };
+  }
+
+  const lines = slot.slice(0, 12).map((s, i) =>
+    `${i + 1}. ${s.ora} — ${String(s.cond).slice(0, 50)}`,
+  ).join("\n");
+  return {
+    content: `📅 **Agenda ${tecnico.toUpperCase()} — ${dataStr}** (${slot.length} interventi):\n\n${lines}`,
+    data: { tecnico, giorno: giorno.toISOString().slice(0, 10), count: slot.length },
   };
 }
 
@@ -1638,8 +1777,20 @@ const DIRECT_HANDLERS = [
       || /impianti.*senza.*targa|targa.*cit|senza.*targa/.test(msg);
   }, fn: handleDikeaImpiantiSenzaTarga },
   { match: (col, az) => col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz)/.test(az), fn: handleDikeaScadenzeCurit },
-  // EMPORION — magazzino: disponibilità
+  // EMPORION — magazzino
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "emporion" && /(sotto.*scort|manca|mancan|riordin|scort.*min)/.test(az))
+      || /cosa.*manca|sotto.*scort|articoli.*mancant/.test(m);
+  }, fn: handleEmporionSottoScorta },
   { match: (col, az) => col === "emporion" && /(disponibil|giacenz|ricambi|pezz|articol|magazzin|c.*il.*pezz)/.test(az), fn: handleEmporionDisponibilita },
+  // CHRONOS — agenda giornaliera (ha priorità rispetto allo slot generico)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "chronos" && /(agenda.*giorn|agenda.*tecnico|giornata|agenda_giorn)/.test(az))
+      || /agenda.*(di|del|per)\s+\w+.*(oggi|domani|dopodomani|\d{1,2}\/\d{1,2})/.test(m)
+      || /agenda.*di.*\w+$/.test(m);
+  }, fn: handleChronosAgendaGiornaliera },
   // CHRONOS — slot tecnici e scadenze
   { match: (col, az) => col === "chronos" && /(scadenz|manutenz|curit|imminente|prossim.*manut)/.test(az), fn: handleChronosScadenze },
   { match: (col, az) => col === "chronos" && /(slot|libero|quando|agenda|disponib|prossim|impegni|fa.*domani|fa.*oggi)/.test(az), fn: handleChronosSlotTecnico },

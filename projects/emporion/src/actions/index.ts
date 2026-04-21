@@ -158,10 +158,72 @@ export async function dovSiTrova(_articoloId: string): Promise<DisponibilitaResu
   throw new Error("Not implemented: dovSiTrova");
 }
 
+/**
+ * Legge `magazzino` + `magazzino_giacenze` e ritorna gli articoli con
+ * giacenza totale sotto `scorta_minima`.
+ */
 export async function articoliSottoScorta(
-  _opts: { posizioni?: Posizione[]; categoria?: Articolo["categoria"]; limit?: number } = {},
+  opts: { posizioni?: Posizione[]; categoria?: Articolo["categoria"]; limit?: number } = {},
 ): Promise<Array<{ articolo: Articolo; mancante: number; perPosizione?: DisponibilitaResult["perPosizione"] }>> {
-  throw new Error("Not implemented: articoliSottoScorta");
+  const limit = opts.limit ?? 30;
+  const db = cosminaDb();
+
+  let artSnap;
+  try {
+    artSnap = await db.collection("magazzino").limit(500).get();
+  } catch (e) {
+    const msg = String((e as Error).message || e);
+    if (/permission|denied|NOT_FOUND/i.test(msg)) return [];
+    throw e;
+  }
+
+  const out: Array<{ articolo: Articolo; mancante: number; perPosizione?: DisponibilitaResult["perPosizione"] }> = [];
+  const nowIso = new Date().toISOString();
+
+  for (const doc of artSnap.docs) {
+    const data = doc.data() || {};
+    const scortaMin = typeof data.scorta_minima === "number" ? data.scorta_minima : undefined;
+    if (!scortaMin || scortaMin <= 0) continue;
+
+    // Aggrega giacenze per questo articolo
+    let totale = 0;
+    const perPosizione: Array<{ posizione: Posizione; quantita: number }> = [];
+    try {
+      const gSnap = await db.collection("magazzino_giacenze")
+        .where("articolo_id", "==", doc.id).limit(20).get();
+      gSnap.forEach((g) => {
+        const gd = g.data() || {};
+        const q = Number(gd.quantita || 0);
+        totale += q;
+        if (q !== 0) {
+          perPosizione.push({
+            posizione: normalizzaPosizione(String(gd.magazzino_id || "centrale")),
+            quantita: q,
+          });
+        }
+      });
+    } catch {}
+
+    if (totale >= scortaMin) continue;
+
+    const articolo: Articolo = {
+      id: doc.id,
+      codice: String(data.codice || doc.id),
+      descrizione: String(data.descrizione || ""),
+      categoria: undefined,
+      marca: data.marca as string | undefined,
+      modello: data.modello as string | undefined,
+      scortaMinima: scortaMin,
+      attivo: true,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    out.push({ articolo, mancante: scortaMin - totale, perPosizione });
+    if (out.length >= limit) break;
+  }
+
+  out.sort((a, b) => b.mancante - a.mancante);
+  return out;
 }
 
 // ─── Movimenti ──────────────────────────────────────────────────
