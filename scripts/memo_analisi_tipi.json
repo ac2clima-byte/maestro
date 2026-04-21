@@ -1,0 +1,231 @@
+{
+  "scan_at": "2026-04-21T18:44:54.967649+00:00",
+  "totals": {
+    "rti": {
+      "total": 584,
+      "generico": 427,
+      "contabilizzazione": 156,
+      "?": 1
+    },
+    "rtidf": {
+      "total": 192,
+      "generico": 131,
+      "contabilizzazione": 61,
+      "?": 0
+    }
+  },
+  "stati": {
+    "GRTI": {
+      "definito": 291,
+      "rtidf_presente": 87,
+      "rtidf_inviato": 25,
+      "da_verificare": 14,
+      "rtidf_fatturato": 8,
+      "bozza": 1,
+      "inviato": 1
+    },
+    "CRTI": {
+      "definito": 60,
+      "bozza": 45,
+      "rtidf_presente": 37,
+      "rtidf_inviato": 14
+    },
+    "GRTIDF": {
+      "definitivo": 47,
+      "definito": 30,
+      "inviato": 27,
+      "bozza": 19,
+      "fatturato": 8
+    },
+    "CRTIDF": {
+      "bozza": 44,
+      "inviato": 15,
+      "definito": 2
+    }
+  },
+  "campi": {
+    "solo_GRTI": [
+      "email_destinatario",
+      "email_inviata",
+      "email_inviata_il",
+      "email_timestamp",
+      "numero_ticket"
+    ],
+    "solo_CRTI": [
+      "board_id",
+      "graphNumber",
+      "graphPdfGeneratedAt",
+      "graphPdfUrl",
+      "id_card_trello",
+      "materiale",
+      "note_intervento",
+      "ore"
+    ],
+    "solo_GRTIDF": [
+      "allegati",
+      "board_id_origine",
+      "codice_condominio",
+      "data_fatturazione",
+      "email_destinatario",
+      "email_inviata",
+      "email_inviata_il",
+      "email_timestamp",
+      "graphDocumentNumber",
+      "graphNumber",
+      "graphPdfGeneratedAt",
+      "graphPdfUrl",
+      "labels_origine",
+      "ordine_riferimento",
+      "origine",
+      "pending_rti_id",
+      "richiede_ordine",
+      "risultatiCalcolo"
+    ],
+    "solo_CRTIDF": []
+  },
+  "campi_copertura_diversa_rti": [
+    {
+      "campo": "stato_modificato_il",
+      "grti": 0.562,
+      "crti": 0.154
+    },
+    {
+      "campo": "ora_intervento",
+      "grti": 0.002,
+      "crti": 0.231
+    }
+  ],
+  "campi_copertura_diversa_rtidf": [
+    {
+      "campo": "numero_rti",
+      "grtidf": 0.84,
+      "crtidf": 0.033
+    },
+    {
+      "campo": "stato_modificato_il",
+      "grtidf": 0.802,
+      "crtidf": 0.098
+    },
+    {
+      "campo": "costo_totale",
+      "grtidf": 0.656,
+      "crtidf": 0.016
+    },
+    {
+      "campo": "origine",
+      "grtidf": 0.603,
+      "crtidf": 0
+    },
+    {
+      "campo": "labels_origine",
+      "grtidf": 0.603,
+      "crtidf": 0
+    },
+    {
+      "campo": "richiede_ordine",
+      "grtidf": 0.603,
+      "crtidf": 0
+    },
+    {
+      "campo": "codice_condominio",
+      "grtidf": 0.527,
+      "crtidf": 0
+    },
+    {
+      "campo": "data_ticket",
+      "grtidf": 0.519,
+      "crtidf": 0.984
+    },
+    {
+      "campo": "rtiPdfContent",
+      "grtidf": 0.26,
+      "crtidf": 0.59
+    },
+    {
+      "campo": "rtiPdfGeneratedAt",
+      "grtidf": 0.351,
+      "crtidf": 0.59
+    },
+    {
+      "campo": "rtiPdfType",
+      "grtidf": 0.351,
+      "crtidf": 0.59
+    },
+    {
+      "campo": "rtiPdfFormat",
+      "grtidf": 0.351,
+      "crtidf": 0.59
+    },
+    {
+      "campo": "numero_ticket_collegato",
+      "grtidf": 0.771,
+      "crtidf": 1.0
+    }
+  ],
+  "match": {
+    "GRTI_definiti_senza_GRTIDF": 291,
+    "CRTI_definiti_senza_CRTIDF": 60,
+    "GRTIDF_orfani": 7,
+    "CRTIDF_orfani": 1,
+    "cross_GRTI_to_CRTIDF": 0,
+    "cross_CRTI_to_GRTIDF": 0
+  },
+  "costi": {
+    "GRTIDF_con_costo": 48,
+    "GRTIDF_senza_costo": 83,
+    "GRTIDF_totale_eur": 9512.4,
+    "CRTIDF_con_costo": 13,
+    "CRTIDF_senza_costo": 48,
+    "CRTIDF_totale_eur": 434,
+    "GRTIDF_inviati_count": 27,
+    "GRTIDF_inviati_eur": 5670.43,
+    "CRTIDF_inviati_count": 15,
+    "CRTIDF_inviati_eur": 434
+  },
+  "bozze": {
+    "GRTI_totali": 1,
+    "GRTI_7g": 0,
+    "GRTI_30g": 0,
+    "GRTI_top5": [
+      [
+        "GRTI-2026-TEST",
+        null,
+        "?"
+      ]
+    ],
+    "CRTI_totali": 45,
+    "CRTI_7g": 42,
+    "CRTI_30g": 31,
+    "CRTI_top5": [
+      [
+        "CRTI-2026-001",
+        169,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-003",
+        144,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-004",
+        144,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-111",
+        144,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-005",
+        124,
+        "LORENZO"
+      ]
+    ]
+  },
+  "keyword_contabilizzazione": {
+    "CRTI_campi": [],
+    "CRTIDF_campi": []
+  }
+}

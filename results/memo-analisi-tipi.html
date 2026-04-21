@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MEMO — Analisi RTI Generico vs Contabilizzazione</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color: #0284c7; border-bottom: 2px solid #bae6fd; padding-bottom: 8px; }
+  h2 { margin-top: 28px; }
+  .split { display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin:14px 0; }
+  @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+  .side {
+    background:white; border:1px solid #e2e8f0; border-radius:12px;
+    padding:18px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .side.gen { border-top: 4px solid #0284c7; }
+  .side.con { border-top: 4px solid #d97706; }
+  .side h3 { margin-top: 0; }
+  .tag { display:inline-block; padding:3px 10px; border-radius:6px; font-size:0.78rem; font-weight:600; letter-spacing:0.4px; margin-bottom:8px; }
+  .tag.gen { background:#dbeafe; color:#1e40af; }
+  .tag.con { background:#fed7aa; color:#9a3412; }
+  .kpi { display:flex; flex-direction:column; gap:6px; padding:10px 14px; background:#f8fafc; border-radius:8px; margin-bottom:8px; }
+  .kpi .label { font-size:0.72rem; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; }
+  .kpi .value { font-size:1.5rem; font-weight:700; color:#0f172a; }
+  .kpi .sub { color:#64748b; font-size:0.82rem; }
+  .red { color:#dc2626 !important; }
+  .orange { color:#d97706 !important; }
+  table { width:100%; border-collapse:collapse; font-size:0.88rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.72rem; text-transform:uppercase; color:#475569; }
+  td.num, th.num { text-align:right; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.86em; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; }
+  .pill.critical { background:#fee2e2; color:#b91c1c; }
+  .pill.warning { background:#fef3c7; color:#b45309; }
+  .pill.info { background:#dbeafe; color:#1e40af; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow-x:auto; font-size:0.82rem; line-height:1.45; }
+  .big-eur { font-size:1.8rem; font-weight:700; }
+</style>
+</head>
+<body>
+
+<h1>🧠 MEMO — RTI Generico vs Contabilizzazione (dati reali)</h1>
+<p style="color:#64748b;">Rescan 2026-04-21 20:45 UTC · 584 RTI · 192 RTIDF · Segmentazione per <code>tipo</code></p>
+
+<div class="card">
+  <h3>📊 Segmentazione</h3>
+  <table>
+    <thead><tr><th>Collection</th><th class="num">Generico (G)</th><th class="num">Contabilizzazione (C)</th><th class="num">Ignoto</th></tr></thead>
+    <tbody>
+      <tr><td><code>rti</code></td><td class="num"><strong>427 GRTI</strong> (73%)</td><td class="num"><strong>156 CRTI</strong> (27%)</td><td class="num">1</td></tr>
+      <tr><td><code>rtidf</code></td><td class="num"><strong>131 GRTIDF</strong> (68%)</td><td class="num"><strong>61 CRTIDF</strong> (32%)</td><td class="num">0</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px;color:#64748b;">🔒 <strong>Zero match cross-tipo</strong>: nessun GRTI → CRTIDF né CRTI → GRTIDF. Workflow completamente separati.</p>
+</div>
+
+<h2>🔀 Workflow e origine</h2>
+
+<div class="split">
+  <div class="side gen">
+    <span class="tag gen">GENERICO</span>
+    <h3>GRTI / GRTIDF</h3>
+    <p><strong>Origine:</strong> email cliente / PEC / bacheca → ticket → intervento tecnico</p>
+    <p><strong>Flusso:</strong></p>
+    <pre style="font-size:0.78rem;">email → ticket → GRTI (bozza → definito)
+  → GRTIDF → email cliente
+  → commessa/fattura via MPLS</pre>
+    <p><strong>Campi distintivi:</strong> <code>email_destinatario</code>, <code>email_inviata</code>, <code>ordine_riferimento</code>, <code>risultatiCalcolo</code>, <code>richiede_ordine</code>, <code>allegati</code></p>
+  </div>
+
+  <div class="side con">
+    <span class="tag con">CONTABILIZZAZIONE</span>
+    <h3>CRTI / CRTIDF</h3>
+    <p><strong>Origine:</strong> card Trello ACG (bacheca) → letture contatori</p>
+    <p><strong>Flusso:</strong></p>
+    <pre style="font-size:0.78rem;">Trello card → pending_rti → CRTI (bozza → definito)
+  → CRTIDF → amministratore
+  → ripartizione condominiale UNI 10200</pre>
+    <p><strong>Campi distintivi:</strong> <code>board_id</code>, <code>id_card_trello</code>, <code>ore</code>, <code>note_intervento</code>, <code>materiale</code>, <code>graphPdfUrl</code></p>
+  </div>
+</div>
+
+<h2>💰 Impatto economico fatturazione bloccata</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Tipo</th><th class="num">Con costo</th><th class="num">Senza costo</th><th class="num">Totale EUR</th><th class="num">RTIDF 'inviato'</th><th class="num">Valore 'inviato' EUR</th></tr></thead>
+    <tbody>
+      <tr><td><strong>GRTIDF</strong></td><td class="num">48</td><td class="num">83</td><td class="num">9.512 €</td><td class="num">27</td><td class="num red"><strong>5.670 €</strong></td></tr>
+      <tr><td><strong>CRTIDF</strong></td><td class="num">13</td><td class="num">48</td><td class="num">434 €</td><td class="num">15</td><td class="num">434 €</td></tr>
+      <tr style="background:#f1f5f9;font-weight:700;"><td>TOTALE</td><td class="num">61</td><td class="num">131</td><td class="num">9.946 €</td><td class="num">42</td><td class="num red">6.104 €</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px;color:#64748b;">⚠️ Il <strong>93% del valore bloccato</strong> (5670€ su 6104€) è <strong>sul generico</strong> → gli alert P1 devono targettizzare prima i GRTIDF.</p>
+</div>
+
+<h2>🚨 Stati e orfani separati per tipo</h2>
+
+<div class="split">
+  <div class="side gen">
+    <span class="tag gen">GENERICO</span>
+    <h3>GRTI — 427 docs</h3>
+    <pre style="font-size:0.78rem;">definito          291
+rtidf_presente     87
+rtidf_inviato      25
+da_verificare      14  ⚠️ esclusivo GRTI
+rtidf_fatturato     8
+bozza               1   (solo TEST)
+inviato             1   (anomalia)</pre>
+    <div class="kpi">
+      <div class="label">GRTI 'definito' senza GRTIDF</div>
+      <div class="value red">291</div>
+      <div class="sub">massa principale del backlog</div>
+    </div>
+    <div class="kpi">
+      <div class="label">GRTIDF orfani</div>
+      <div class="value">7</div>
+    </div>
+  </div>
+
+  <div class="side con">
+    <span class="tag con">CONTABILIZZAZIONE</span>
+    <h3>CRTI — 156 docs</h3>
+    <pre style="font-size:0.78rem;">definito          60
+bozza             45   ⚠️ tutti LORENZO
+rtidf_presente    37
+rtidf_inviato     14
+(nessun da_verificare, nessun fatturato)</pre>
+    <div class="kpi">
+      <div class="label">CRTI 'definito' senza CRTIDF</div>
+      <div class="value orange">60</div>
+    </div>
+    <div class="kpi">
+      <div class="label">CRTIDF orfani</div>
+      <div class="value">1</div>
+    </div>
+  </div>
+</div>
+
+<div class="split">
+  <div class="side gen">
+    <h3>GRTIDF — 131 docs</h3>
+    <pre style="font-size:0.78rem;">definitivo  47  ⚠️ debito semantico
+definito    30  ⚠️ stesso concetto, 2 label
+inviato     27
+bozza       19
+fatturato    8</pre>
+  </div>
+  <div class="side con">
+    <h3>CRTIDF — 61 docs</h3>
+    <pre style="font-size:0.78rem;">bozza      44
+inviato    15
+definito    2
+(nessun fatturato!)</pre>
+    <p style="color:#64748b;font-size:0.86rem;">I CRTIDF non arrivano mai a <code>fatturato</code> — probabile ripartizione condominiale separata dal ciclo commesse.</p>
+  </div>
+</div>
+
+<h2>🕰️ Bozze: problema esclusivo contabilizzazione</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>Tipo</th><th class="num">Bozze tot</th><th class="num">&gt;7g</th><th class="num">&gt;30g</th><th>Top tecnico</th></tr></thead>
+    <tbody>
+      <tr><td><strong>GRTI</strong></td><td class="num">1</td><td class="num">0</td><td class="num">0</td><td>(solo TEST)</td></tr>
+      <tr><td><strong>CRTI</strong></td><td class="num red">45</td><td class="num red">42</td><td class="num red">31</td><td><strong>Dellafiore Lorenzo</strong> (tutti top 5: 124-169g)</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:10px;color:#64748b;">Il problema bozze è <strong>esclusivamente contabilizzazione</strong> e concentrato su un tecnico. Intervento targettizzato via ECHO WhatsApp.</p>
+</div>
+
+<h2>🎯 Alert suggeriti (v2, separati per tipo)</h2>
+
+<div class="card">
+  <h3>🔴 P1 — Ricavi bloccati (solo GENERICO)</h3>
+  <table>
+    <thead><tr><th>#</th><th>Alert</th><th>Target</th><th>Severità</th><th class="num">Docs</th><th class="num">€</th></tr></thead>
+    <tbody>
+      <tr><td>A1-G</td><td>GRTIDF 'inviato' pronti fatturazione</td><td><span class="tag gen">GENERICO</span></td><td><span class="pill critical">critical</span></td><td class="num">27</td><td class="num red"><strong>5.670 €</strong></td></tr>
+      <tr><td>A2-G</td><td>GRTIDF senza costo_intervento</td><td><span class="tag gen">GENERICO</span></td><td><span class="pill critical">critical</span></td><td class="num">83</td><td class="num">—</td></tr>
+      <tr><td>A3-G</td><td>GRTI 'definito' senza GRTIDF &gt;7g</td><td><span class="tag gen">GENERICO</span></td><td><span class="pill critical">critical</span></td><td class="num">291</td><td class="num">—</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🟠 P2 — Workflow contabilizzazione</h3>
+  <table>
+    <thead><tr><th>#</th><th>Alert</th><th>Target</th><th>Severità</th><th class="num">Docs</th></tr></thead>
+    <tbody>
+      <tr><td>A1-C</td><td>Bozze CRTI vecchie (backlog LORENZO)</td><td><span class="tag con">CONTA</span></td><td><span class="pill critical">critical</span></td><td class="num">31</td></tr>
+      <tr><td>A2-C</td><td>CRTI 'definito' senza CRTIDF</td><td><span class="tag con">CONTA</span></td><td><span class="pill warning">warning</span></td><td class="num">60</td></tr>
+      <tr><td>A3-C</td><td>CRTIDF 'inviato' vecchio (&gt;30g)</td><td><span class="tag con">CONTA</span></td><td><span class="pill warning">warning</span></td><td class="num">~15</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🟠 P2 — Operativi (entrambi i tipi)</h3>
+  <table>
+    <thead><tr><th>#</th><th>Alert</th><th>Severità</th><th class="num">Docs</th></tr></thead>
+    <tbody>
+      <tr><td>A4</td><td>Ticket aperti &gt;30g senza RTI</td><td><span class="pill critical">critical</span></td><td class="num">94</td></tr>
+      <tr><td>A5</td><td>Ticket chiusi senza RTI</td><td><span class="pill warning">warning</span></td><td class="num">88</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>🟡 P3 — Debito dati (per tipo)</h3>
+  <table>
+    <thead><tr><th>#</th><th>Alert</th><th>Target</th><th class="num">Docs</th></tr></thead>
+    <tbody>
+      <tr><td>A7-G</td><td>GRTIDF orfani (senza GRTI sorgente)</td><td><span class="tag gen">GENERICO</span></td><td class="num">7</td></tr>
+      <tr><td>A7-C</td><td>CRTIDF orfani</td><td><span class="tag con">CONTA</span></td><td class="num">1</td></tr>
+      <tr><td>A8-G</td><td>GRTI stato <code>da_verificare</code></td><td><span class="tag gen">GENERICO</span></td><td class="num">14</td></tr>
+      <tr><td>A10-G</td><td>Debito semantico <code>definito</code> vs <code>definitivo</code></td><td><span class="tag gen">GENERICO</span></td><td class="num">77</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>🗝️ Differenze chiave</h2>
+<div class="card">
+<ul>
+  <li><strong>GRTI</strong> = email workflow (<code>email_inviata</code> + MPLS + <code>ordine_riferimento</code>) — il 93% del valore economico bloccato è qui</li>
+  <li><strong>CRTI</strong> = Trello workflow (<code>board_id</code>, <code>id_card_trello</code>, <code>graphPdfUrl</code>) — il 98% delle bozze vecchie è qui (LORENZO)</li>
+  <li><strong>Zero cross-match</strong>: i workflow sono indipendenti, gli alert devono essere separati</li>
+  <li><strong>Stato <code>da_verificare</code></strong>: esclusivo GRTI (14 docs) — nuovo flag workflow generico</li>
+  <li><strong>Stato <code>fatturato</code> su CRTIDF</strong>: MAI osservato → ciclo contabilizzazione esce dal ciclo commesse</li>
+  <li><strong>Regola "RTIDF senza costo"</strong>: applicarla solo al <strong>GENERICO</strong>. I CRTIDF senza costo sono normali (ripartizione millesimi)</li>
+  <li><strong>CRTIDF è sottoinsieme di GRTIDF</strong>: zero campi esclusivi, 18 campi mancanti (email, grafici, allegati, risultatiCalcolo)</li>
+</ul>
+</div>
+
+<h2>📄 Documento completo</h2>
+<p>Schema esteso, alert dettagliati e query Firestore in <code>context/memo-analisi-rti-rtidf.md</code> §§ 8-10.<br>
+Export JSON: <code>scripts/memo_analisi_tipi.json</code>.</p>
+
+</body>
+</html>

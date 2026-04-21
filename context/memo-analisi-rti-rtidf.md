@@ -2,11 +2,18 @@
 
 > **Responsabile:** MEMO
 > **Project Firebase:** `guazzotti-tec`
-> **Scansione:** 2026-04-21 18:37 UTC
-> **Scope:** 584 RTI · 193 RTIDF · 84 pending_rti · 615 tickets — tutti letti
-> **Script:** `scripts/memo_analisi_rti_rtidf.py` · export JSON: `scripts/memo_analisi_rti_rtidf.json`
+> **Scansione:** 2026-04-21 18:37 UTC · rescan tipi 2026-04-21 20:45 UTC
+> **Scope:** 584 RTI · 192 RTIDF · 84 pending_rti · 615 tickets — tutti letti
+> **Script:** `scripts/memo_analisi_rti_rtidf.py` + `scripts/memo_analisi_tipi.py`
+> **Export JSON:** `scripts/memo_analisi_rti_rtidf.json` + `scripts/memo_analisi_tipi.json`
 
 Questo documento descrive lo **schema reale** (non ipotizzato), le **relazioni osservate** e propone una **lista alert** ordinati per impatto economico da implementare in PHARO.
+
+⚠️ **IMPORTANTE — Esistono DUE tipi ortogonali di documento:**
+- **G = Generico** (GRTI/GRTIDF) = intervento standard su impianto (riparazione/manutenzione). Origine: email o bacheca.
+- **C = Contabilizzazione** (CRTI/CRTIDF) = lettura contatori + ripartizione UNI 10200. Origine: card Trello ACG.
+
+I due tipi hanno **workflow, campi e origini diverse**. Gli alert vanno **separati per tipo**. Vedi §§ 8, 9, 10.
 
 ---
 
@@ -362,3 +369,232 @@ Ogni alert include: **nome**, **condizione**, **severità**, **query Firestore**
 - **Output JSON grezzo**: `scripts/memo_analisi_rti_rtidf.json`
 - **Scan limit**: 700 docs per collection (tutti letti, nessun truncation)
 - **Campi PDF non masked**: `rtiPdfContent` può pesare 100KB → occhio a costi read se scan full.
+
+---
+
+## 8. Segmentazione per tipo: Generico vs Contabilizzazione
+
+### 8.1 Distribuzione
+
+| Collection | Generico (G) | Contabilizzazione (C) | Ignoto |
+|---|---:|---:|---:|
+| `rti` | **427 GRTI** (73%) | **156 CRTI** (27%) | 1 |
+| `rtidf` | **131 GRTIDF** (68%) | **61 CRTIDF** (32%) | 0 |
+
+**Regola di classificazione osservata:**
+- Prefisso `GRTI-` / `GRTIDF-` → generico
+- Prefisso `CRTI-` / `CRTIDF-` → contabilizzazione
+- Campo `tipo` coerente con prefisso (fallback: se `tipo` mancante usare prefisso)
+
+**Cross-match**: **zero** GRTI→CRTIDF e zero CRTI→GRTIDF → **i due workflow sono completamente separati**. Una query sulla relazione deve sempre rispettare il tipo.
+
+### 8.2 Workflow osservati (diversi per tipo)
+
+#### GRTI (intervento generico)
+
+```
+Email cliente / PEC / bacheca  →  ticket (aperto)
+                                   →  [tecnico interviene sul posto]
+                                   →  GRTI (bozza → definito)
+                                   →  GRTIDF (duplicazione)
+                                   →  GRTIDF inviato al cliente via EMAIL (email_inviata=true)
+                                   →  commessa/fatturazione via MPLS (ordine_riferimento)
+```
+
+**Segnali nei campi:**
+- `email_destinatario`, `email_inviata`, `email_inviata_il`, `email_timestamp` presenti SOLO su GRTI/GRTIDF
+- `ordine_riferimento`, `risultatiCalcolo`, `richiede_ordine`, `pending_rti_id`, `allegati` presenti SOLO su GRTIDF
+- Stato più evoluto: bozza (1) → definito (291) → rtidf_presente (87) → rtidf_inviato (25) → rtidf_fatturato (8) + `da_verificare` (14)
+- **Nessuna bozza vecchia** (solo 1 GRTI-2026-TEST, test artifact)
+
+#### CRTI (contabilizzazione UNI 10200)
+
+```
+Card Trello ACG (bacheca)  →  pending_rti (processed)
+                            →  CRTI (bozza → definito)
+                            →  CRTIDF (duplicazione)
+                            →  CRTIDF inviato all'amministratore
+                            →  fatturazione condominiale ripartita
+```
+
+**Segnali nei campi:**
+- `board_id`, `id_card_trello`, `materiale`, `ore`, `note_intervento` presenti SOLO su CRTI (copia da Trello)
+- `graphNumber`, `graphPdfUrl`, `graphPdfGeneratedAt` → integrazione **GRAPH** (design system PDF)
+- Stato semplificato: bozza (45) → definito (60) → rtidf_presente (37) → rtidf_inviato (14). **Nessun rtidf_fatturato** nei CRTI.
+- **Bozze vecchie pesanti**: 45/46 totali sono CRTI (98%), 31 oltre 30 giorni, tutte di **Dellafiore Lorenzo**
+
+### 8.3 Campi esclusivi per tipo
+
+#### Esclusivi GRTI (non presenti in CRTI)
+```
+email_destinatario   email_inviata   email_inviata_il   email_timestamp   numero_ticket
+```
+
+#### Esclusivi CRTI (non presenti in GRTI)
+```
+board_id   id_card_trello   graphNumber   graphPdfGeneratedAt   graphPdfUrl
+materiale   note_intervento   ore
+```
+
+#### Esclusivi GRTIDF (non presenti in CRTIDF)
+```
+allegati   board_id_origine   codice_condominio   data_fatturazione
+email_destinatario   email_inviata   email_inviata_il   email_timestamp
+graphDocumentNumber   graphNumber   graphPdfGeneratedAt   graphPdfUrl
+labels_origine   ordine_riferimento   origine   pending_rti_id
+richiede_ordine   risultatiCalcolo
+```
+
+#### Esclusivi CRTIDF
+```
+(nessuno — CRTIDF è sottoinsieme puro di GRTIDF)
+```
+
+### 8.4 Stati reali separati
+
+| Stato | GRTI | CRTI | GRTIDF | CRTIDF |
+|---|---:|---:|---:|---:|
+| `bozza` | 1 | 45 | 19 | 44 |
+| `definito` | 291 | 60 | 30 | 2 |
+| `definitivo` | — | — | 47 | 0 |
+| `rtidf_presente` | 87 | 37 | — | — |
+| `rtidf_inviato` | 25 | 14 | — | — |
+| `rtidf_fatturato` | 8 | 0 | — | — |
+| `da_verificare` | 14 | 0 | — | — |
+| `inviato` | 1 | 0 | 27 | 15 |
+| `fatturato` | — | — | 8 | 0 |
+
+**Letture chiave:**
+- `da_verificare`: **esclusivo GRTI** — probabilmente rilevato dall'amministrazione su rapporti email anomali.
+- **Nessun CRTIDF mai fatturato**: il workflow delle contabilizzazioni non arriva mai a `fatturato` (probabilmente fatturato a parte via competenze condominiali).
+- **Label `definito` vs `definitivo` sul GRTIDF**: (47+30=77) — debito semantico è **solo sui generici**. I CRTIDF usano `definito` (2) in modo residuale.
+
+### 8.5 Orfani per tipo
+
+| Metrica | G (generico) | C (contabilizzazione) |
+|---|---:|---:|
+| RTI 'definito' senza RTIDF | **291 GRTI** | 60 CRTI |
+| RTIDF orfani (RTI sorgente mancante) | 7 GRTIDF | 1 CRTIDF |
+
+**Il problema dei 348 "RTI senza RTIDF"** emerso nel primo scan è **quasi tutto generico**: 291 GRTI vs 60 CRTI. Gli alert devono ordinarsi di conseguenza.
+
+### 8.6 Valore economico fatturazione bloccata (da `rtidf.costo_intervento`)
+
+| Tipo | RTIDF con costo>0 | RTIDF senza costo | Totale EUR potenziale | RTIDF 'inviato' (pronti fattura) | Valore 'inviato' EUR |
+|---|---:|---:|---:|---:|---:|
+| **GRTIDF** | 48 | 83 | **9.512 €** | 27 | **5.670 €** |
+| **CRTIDF** | 13 | 48 | 434 € | 15 | 434 € |
+| **TOTALE** | 61 | 131 | 9.946 € | 42 | **6.104 €** |
+
+**Implicazione**: l'impatto economico del ritardo fatturazione è **dominato dal generico** (5670€ su 6104€ = 93%). Gli alert P1 devono targettizzare prima i GRTIDF inviati.
+
+> ⚠️ Molti CRTIDF hanno `costo_intervento=0` perché le contabilizzazioni sono spesso servizi compresi nel canone condominiale o fatturati via ripartizione millesimi, non per singola prestazione. **L'alert "RTIDF senza costo" NON dovrebbe scattare sui CRTIDF**.
+
+---
+
+## 9. Alert ALERT per tipo (versione 2, sostituisce §5)
+
+### 🔴 P1 — Ricavi bloccati (solo GENERICO)
+
+#### A1-G. GRTIDF 'inviato' pronti fatturazione (non in commessa)
+- **Condizione**: `rtidf.tipo='generico' AND stato IN ('inviato','definitivo','definito') AND costo_intervento>0 AND !commessa`
+- **Severità**: `critical`
+- **Numero attuale**: ~27 GRTIDF "inviato" = **5.670 €** pronti per fattura
+- **Azione**: Lavagna critical → ECHO WA Alberto con lista numeri + totale EUR
+
+#### A2-G. GRTIDF senza `costo_intervento`
+- **Condizione**: `rtidf.tipo='generico' AND costo_intervento IN (null,0) AND stato != 'bozza'`
+- **Severità**: `critical`
+- **Numero attuale**: ~83 GRTIDF
+- **Azione**: notifica amministrazione per compilare costo (via ECHO email).
+- **NOTA**: questa regola **non vale** per CRTIDF.
+
+#### A3-G. GRTI 'definito' senza GRTIDF da >7g
+- **Condizione**: `rti.tipo='generico' AND stato='definito' AND !esiste_rtidf_con_numero_rti_origine=rti.numero_rti AND data_intervento<NOW-7d`
+- **Severità**: `critical`
+- **Numero attuale**: **291 GRTI** (massa principale del problema)
+- **Azione**: Lavagna critical + UI PHARO lista
+
+### 🟠 P2 — Workflow contabilizzazione (solo CONTABILIZZAZIONE)
+
+#### A1-C. Bozze CRTI vecchie (backlog tecnico LORENZO)
+- **Condizione**: `rti.tipo='contabilizzazione' AND stato='bozza' AND data_intervento<NOW-30d`
+- **Severità**: `critical`
+- **Numero attuale**: **31 CRTI bozza >30g** (top 5 tutti Dellafiore Lorenzo, 124-169 giorni)
+- **Azione**: WA diretto al tecnico (via ECHO), CC Alberto. Escalation critica.
+- **NOTA**: quasi tutti i CRTI bozza sono 2025 → probabile backlog incompleto dalle ultime letture annuali.
+
+#### A2-C. CRTI 'definito' senza CRTIDF
+- **Condizione**: `rti.tipo='contabilizzazione' AND stato='definito' AND !esiste_crtidf_con_numero_rti_origine=rti.numero_rti`
+- **Severità**: `warning`
+- **Numero attuale**: **60 CRTI**
+- **Azione**: report amministrazione (meno urgente di A3-G perché la fatturazione contabilizzazione non è per singolo CRTIDF).
+
+#### A3-C. CRTIDF 'inviato' vecchio
+- **Condizione**: `rtidf.tipo='contabilizzazione' AND stato='inviato' AND timestamp_duplicazione<NOW-30d`
+- **Severità**: `warning`
+- **Numero attuale**: ~15 CRTIDF "inviato" (434 € — marginale economicamente)
+- **Azione**: report mensile CHARTA per ripartizione condominiale.
+
+### 🟠 P2 — Operativi (entrambi i tipi)
+
+#### A4. Ticket aperti >30g senza RTI
+- **Condizione**: `tickets.stato IN ('aperto','pianificato','in_attesa','da_chiudere') AND !rti_inviato AND !rtiChiusura AND data_apertura<NOW-30d`
+- **Severità**: `critical`
+- **Numero attuale**: ~94 ticket
+- **NOTA**: i ticket NON hanno campo `tipo` → l'alert è indipendente dal tipo.
+
+#### A5. Ticket chiusi senza RTI
+- **Condizione**: `tickets.stato CONTAINS 'chius' AND !rti_inviato AND !rtiChiusura`
+- **Severità**: `warning`
+- **Numero attuale**: 88
+
+### 🟡 P3 — Debito dati
+
+#### A7-G. GRTIDF orfani (senza GRTI sorgente)
+- **Numero attuale**: 7
+- **Severità**: `warning`
+
+#### A7-C. CRTIDF orfani (senza CRTI sorgente)
+- **Numero attuale**: 1
+- **Severità**: `info`
+
+#### A8-G. GRTI stato `da_verificare`
+- **Severità**: `info`
+- **Numero attuale**: 14 (esclusivo generici)
+- **Azione**: chiarimento workflow (nuovo stato non documentato).
+
+#### A10-G. Debito semantico GRTIDF `definito` vs `definitivo`
+- **Numero attuale**: 30 `definito` + 47 `definitivo` = 77 GRTIDF da normalizzare
+- **Azione**: migration one-shot (decisione admin: scegliere label vincente).
+- **NOTA**: **non applicabile ai CRTIDF** (usano solo `definito` con 2 doc).
+
+---
+
+## 10. Raccomandazioni implementative (aggiornate)
+
+1. **Tutti gli handler PHARO** (`handlePharoRtiMonitoring`) devono **filtrare per `tipo`** e produrre metriche separate. Struttura consigliata:
+   ```js
+   out = {
+     rti_generico: { total, bozza, definito, ... },
+     rti_contabilizzazione: { total, bozza, ... },
+     rtidf_generico: { total, inviato, ... },
+     rtidf_contabilizzazione: { total, inviato, ... },
+     // ...
+   }
+   ```
+2. **Le regole P1 (ricavi)** devono targettizzare **solo il generico** (A1-G, A2-G, A3-G). Applicarle al contabilizzazione produce falsi positivi (es. CRTIDF senza costo è normale).
+3. **Le regole contabilizzazione** (A1-C, A2-C, A3-C) sono meno urgenti economicamente ma importanti per la compliance UNI 10200 → priorità operativa.
+4. **Il campo `tipo`** è affidabile al 99% (solo 1 UNK su 584 RTI). Usare `tipo` come filtro primario e prefisso numero come fallback.
+5. **Per il ticket aperto >30g** (A4) il tipo è indifferente (i ticket non hanno `tipo`).
+6. **Valore economico nella notifica**: per gli alert P1 generici, includere sempre il totale EUR bloccato (es. "5.670 €") → dà ad Alberto il peso decisionale immediato.
+
+---
+
+## 11. Metadati segmentazione tipi
+
+- **Script**: `scripts/memo_analisi_tipi.py`
+- **Output JSON**: `scripts/memo_analisi_tipi.json`
+- **Scansione**: 2026-04-21 20:45 UTC
+- **Metodologia classificazione**: campo `tipo` (primario) + prefisso numero (fallback)
+- **Limitazione**: 1 RTI con `tipo` non classificabile (TEST artifact `GRTI-2026-TEST`)
