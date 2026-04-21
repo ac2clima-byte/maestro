@@ -1,0 +1,22 @@
+[
+  {
+    "prompt": "manda whatsapp a Malvicino: domani intervento Kristal ore 14",
+    "reply": "❓ Non trovo il numero di \"Malvicino\" nel CRM.\n\nVerifica in COSMINA che il contatto esista (nome completo, telefono popolato). Per tecnici senza contatto CRM, Alberto può aggiungere il numero in `cosmina_config/tecnici_acg` o `cosmina_config/numeri_acg`.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-1.png"
+  },
+  {
+    "prompt": "manda whatsapp a Alberto: NEXO funziona",
+    "reply": "📤 Simulato: WA a **undefined** (???)\n— NEXO funziona\n\n_Fonte contatto: undefined · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-2.png"
+  },
+  {
+    "prompt": "manda whatsapp a 3339999999: spam",
+    "reply": "🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.\n\nIndica il destinatario per NOME (tecnico, cliente, condominio).\nEs. \"manda whatsapp a Malvicino: ...\" — cercherò il numero in COSMINA.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-3.png"
+  },
+  {
+    "prompt": "manda whatsapp a Pluto Topolino: prova",
+    "reply": "❓ Non trovo il numero di \"Pluto Topolino\" nel CRM.\n\nVerifica in COSMINA che il contatto esista (nome completo, telefono popolato). Per tecnici senza contatto CRM, Alberto può aggiungere il numero in `cosmina_config/tecnici_acg` o `cosmina_config/numeri_acg`.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-4.png"
+  }
+]

@@ -825,29 +825,24 @@ async function handleAresInterventiAperti(parametri) {
 
 // ─── ECHO — invio WhatsApp via Waha ────────────────────────────
 //
-// Sicurezza (pattern a 3 livelli):
-//   1. ECHO_DRY_RUN=true (default) → NIENTE invio reale. Scrive
-//      echo_messages con status="skipped" e rispondo "simulato".
-//   2. Whitelist destinatari: solo numeri listati in
-//      cosmina_config/echo_config.allowed_numbers ricevono davvero.
-//      Se whitelist vuota → DRY_RUN forzato comunque.
-//   3. Alias: se l'utente dice "manda a Alberto", cerco l'alias in
-//      cosmina_config/echo_config.aliases.alberto che mappa a un numero
-//      ESPLICITAMENTE whitelistato. Mai numeri suggeriti dal modello.
+// Safety model (nuova versione senza whitelist statica):
+//   1. ECHO_DRY_RUN (default true da Firestore cosmina_config/echo_config.dry_run)
+//      → nessun invio reale, solo simulazione.
+//   2. Lookup MEMO/CRM: il destinatario ("Alberto", "Malvicino", "Kristal"…) deve
+//      essere trovato in una fonte autorevole:
+//        · cosmina_config/tecnici_acg.tecnici[] (se ha campo telefono/whatsapp)
+//        · cosmina_config/numeri_acg (mappa { alias → numero } curata da Alberto)
+//        · cosmina_contatti_clienti (CRM clienti)
+//      Se nessuna fonte restituisce un numero → rifiuto con messaggio "non trovato".
+//   3. Numeri grezzi dal prompt (es. "3339999999") NON sono accettati:
+//      i messaggi si possono mandare SOLO a entità presenti nel CRM.
 //
-// Niente numero in codice né nei log: tutto in Firestore (progetto
-// garbymobile-f89ac, come già fa ECHO per waha_config).
-
-let _echoConfigCache = null;
-const ECHO_CONFIG_TTL_MS = 60 * 1000;
+// Niente PII nel codice: tutto da Firestore.
 
 async function loadEchoConfig() {
-  if (_echoConfigCache && Date.now() < _echoConfigCache.exp) return _echoConfigCache.v;
   try {
     const snap = await getCosminaDb().collection("cosmina_config").doc("echo_config").get();
-    const v = snap.exists ? (snap.data() || {}) : {};
-    _echoConfigCache = { v, exp: Date.now() + ECHO_CONFIG_TTL_MS };
-    return v;
+    return snap.exists ? (snap.data() || {}) : {};
   } catch (e) {
     logger.warn("echo config load failed", { error: String(e) });
     return {};
@@ -883,40 +878,119 @@ function normalizeWhatsappChatId(input) {
   return `${clean}@c.us`;
 }
 
+function maskNumber(chatId) {
+  // Maschera numero per output user-facing: 393331234567@c.us → +393****4567
+  const m = /^(\d+)@/.exec(chatId || "");
+  if (!m) return "???";
+  const n = m[1];
+  if (n.length < 6) return `+${n.slice(0, 2)}***`;
+  return `+${n.slice(0, 3)}***${n.slice(-4)}`;
+}
+
 /**
- * Risolve il destinatario:
- *   - Se è già un numero → normalizza
- *   - Se è un alias noto (case-insensitive) → numero dall'alias
- *   - Altrimenti null
+ * Risolutore destinatari via MEMO/CRM.
  *
- * In entrambi i casi ritorna solo se il numero risultante è in whitelist.
+ * Fonti (in ordine di priorità):
+ *  1. cosmina_config/tecnici_acg.tecnici[] — matcha nome/cognome/report_alias.
+ *     Se il tecnico ha campo `telefono` o `whatsapp` → usalo.
+ *  2. cosmina_config/numeri_acg — documento con mappa { alias → numero }
+ *     (Alberto lo popola manualmente per tecnici/owner).
+ *  3. cosmina_contatti_clienti — cerca per nome_completo / nome / cognome,
+ *     usa `telefono_normalizzato` → fallback `telefono`.
  */
-function resolveDestinatario(rawInput, cfg) {
+async function resolveDestinatarioViaMemo(rawInput) {
   if (!rawInput) return { error: "destinatario_mancante" };
-  const aliases = (cfg.aliases || {});
-  const whitelist = Array.isArray(cfg.allowed_numbers) ? cfg.allowed_numbers : [];
-  const wlNorm = whitelist.map(normalizeWhatsappChatId).filter(Boolean);
-
-  if (wlNorm.length === 0) {
-    return { error: "whitelist_vuota" };
-  }
-
-  // Normalizza input (rimuovi @ iniziale, minuscolo)
   const clean = String(rawInput).trim().replace(/^@/, "");
   const lower = clean.toLowerCase();
+  const db = getCosminaDb();
 
-  // Prova come alias
-  if (aliases[lower]) {
-    const chat = normalizeWhatsappChatId(aliases[lower]);
-    if (chat && wlNorm.includes(chat)) return { chatId: chat, resolvedFrom: "alias", alias: lower };
-    return { error: "alias_non_in_whitelist" };
+  // ── 1. Tecnici ACG (con eventuale campo telefono)
+  try {
+    const snap = await db.collection("cosmina_config").doc("tecnici_acg").get();
+    if (snap.exists) {
+      const d = snap.data() || {};
+      const tecnici = Array.isArray(d.tecnici) ? d.tecnici : [];
+      for (const t of tecnici) {
+        const bag = `${t.nome || ""} ${t.cognome || ""} ${t.nome_completo || ""} ${t.report_alias || ""}`.toLowerCase();
+        if (!bag.includes(lower)) continue;
+        const tel = t.telefono || t.whatsapp || t.cellulare || t.tel;
+        if (tel) {
+          const chat = normalizeWhatsappChatId(tel);
+          if (chat) return {
+            chatId: chat,
+            resolvedFrom: "tecnici_acg",
+            displayName: t.nome_completo || `${t.nome || ""} ${t.cognome || ""}`.trim(),
+          };
+        }
+        // Tecnico trovato ma senza telefono → prova prossima fonte
+        return {
+          partial: true, matchedEntity: t.nome_completo || `${t.nome} ${t.cognome}`.trim(),
+        };
+      }
+    }
+  } catch (e) {
+    logger.warn("tecnici_acg lookup failed", { error: String(e) });
   }
 
-  // Prova come numero
-  const chat = normalizeWhatsappChatId(clean);
-  if (!chat) return { error: "numero_non_valido" };
-  if (!wlNorm.includes(chat)) return { error: "non_in_whitelist" };
-  return { chatId: chat, resolvedFrom: "numero" };
+  // ── 2. Mappa dedicata cosmina_config/numeri_acg (opzionale)
+  try {
+    const snap = await db.collection("cosmina_config").doc("numeri_acg").get();
+    if (snap.exists) {
+      const d = snap.data() || {};
+      // Formato: { "alberto": "+39...", "malvicino": "+39...", ... }
+      // OPPURE: { numeri: { "alberto": "+39..." } }
+      const map = d.numeri && typeof d.numeri === "object" ? d.numeri : d;
+      for (const [alias, num] of Object.entries(map)) {
+        if (typeof num !== "string") continue;
+        if (alias.toLowerCase() === lower || lower.includes(alias.toLowerCase())) {
+          const chat = normalizeWhatsappChatId(num);
+          if (chat) return {
+            chatId: chat,
+            resolvedFrom: "numeri_acg",
+            displayName: alias,
+          };
+        }
+      }
+    }
+  } catch (e) {
+    logger.warn("numeri_acg lookup failed", { error: String(e) });
+  }
+
+  // ── 3. CRM clienti — match su nome_completo / nome+cognome
+  try {
+    // Firestore non ha LIKE, quindi fetch mirato + filtro client-side.
+    // Limite 500 doc per evitare scan completo. Se il CRM è enorme, Alberto
+    // può aggiungere un alias in numeri_acg come shortcut.
+    const snap = await db.collection("cosmina_contatti_clienti").limit(500).get();
+    const candidates = [];
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      const nome = String(data.nome_completo || `${data.nome || ""} ${data.cognome || ""}`).trim();
+      if (!nome) return;
+      if (nome.toLowerCase().includes(lower) || lower.includes(nome.toLowerCase())) {
+        const tel = data.telefono_normalizzato || data.telefono;
+        if (tel) candidates.push({ nome, tel });
+      }
+    });
+    if (candidates.length === 1) {
+      const chat = normalizeWhatsappChatId(candidates[0].tel);
+      if (chat) return {
+        chatId: chat,
+        resolvedFrom: "cosmina_contatti_clienti",
+        displayName: candidates[0].nome,
+      };
+    }
+    if (candidates.length > 1) {
+      return {
+        error: "troppi_match",
+        candidates: candidates.slice(0, 5).map(c => c.nome),
+      };
+    }
+  } catch (e) {
+    logger.warn("contatti_clienti lookup failed", { error: String(e) });
+  }
+
+  return { error: "non_trovato" };
 }
 
 function isEchoDryRun(cfg) {
@@ -963,23 +1037,51 @@ async function handleEchoWhatsApp(parametri, ctx) {
     }
   }
 
-  if (!dest) return { content: "Mi manca il destinatario. Prova: 'manda whatsapp a Alberto: testo'." };
+  if (!dest) return { content: "Mi manca il destinatario. Prova: 'manda whatsapp a Malvicino: testo'." };
   if (!body) return { content: "Mi manca il testo del messaggio." };
   if (body.length > 2000) return { content: "Testo troppo lungo (max 2000 caratteri)." };
 
-  // Carica config (alias + whitelist)
-  const cfg = await loadEchoConfig();
-  const resolved = resolveDestinatario(dest, cfg);
-
-  if (resolved.error) {
-    const messages = {
-      whitelist_vuota: "ECHO: nessun destinatario autorizzato. Alberto deve popolare `cosmina_config/echo_config.allowed_numbers` prima di poter inviare.",
-      alias_non_in_whitelist: `ECHO: l'alias "${dest}" esiste ma il numero non è in whitelist.`,
-      numero_non_valido: `ECHO: numero "${dest}" non valido. Usa un alias (es. Alberto) o un numero E.164.`,
-      non_in_whitelist: `ECHO: destinatario "${dest}" NON in whitelist. Per sicurezza rifiuto. Aggiungilo in \`cosmina_config/echo_config.allowed_numbers\` se vuoi davvero inviargli.`,
-      destinatario_mancante: "ECHO: destinatario mancante.",
+  // Niente numeri grezzi: un numero che NON è un nome/alias noto viene
+  // rifiutato. La sicurezza è "solo contatti del CRM".
+  if (/^\+?\d{9,15}$/.test(dest.replace(/[\s\-()]/g, ""))) {
+    return {
+      content:
+        `🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.\n\n` +
+        `Indica il destinatario per NOME (tecnico, cliente, condominio).\n` +
+        `Es. "manda whatsapp a Malvicino: ..." — cercherò il numero in COSMINA.`,
     };
-    return { content: messages[resolved.error] || `ECHO: ${resolved.error}` };
+  }
+
+  const cfg = await loadEchoConfig();
+  const resolved = await resolveDestinatarioViaMemo(dest);
+
+  // Ordine: partial (tecnico senza telefono) → error → chatId valido
+  if (resolved.partial && !resolved.chatId) {
+    return {
+      content: `⚠️ Ho trovato "${resolved.matchedEntity}" in tecnici_acg ma senza numero di telefono.\n\n` +
+        `Aggiungi il campo \`telefono\` al tecnico in \`cosmina_config/tecnici_acg\`, ` +
+        `oppure crea una mappa alias→numero in \`cosmina_config/numeri_acg\` (es. \`{"malvicino": "+39..."}\`).`,
+    };
+  }
+  if (resolved.error) {
+    if (resolved.error === "non_trovato") {
+      return {
+        content: `❓ Non trovo il numero di "${dest}" nel CRM.\n\n` +
+          `Verifica in COSMINA che il contatto esista (nome completo, telefono popolato). ` +
+          `Per tecnici senza contatto CRM, Alberto può aggiungere il numero in \`cosmina_config/tecnici_acg\` o \`cosmina_config/numeri_acg\`.`,
+      };
+    }
+    if (resolved.error === "troppi_match") {
+      return {
+        content: `⚠️ Trovo più contatti per "${dest}" nel CRM:\n\n` +
+          resolved.candidates.map(n => `  · ${n}`).join("\n") +
+          `\n\nSii più specifico (nome + cognome).`,
+      };
+    }
+    return { content: `ECHO: ${resolved.error}` };
+  }
+  if (!resolved.chatId) {
+    return { content: `ECHO: risoluzione destinatario fallita senza errore noto (interno).` };
   }
 
   const chatId = resolved.chatId;
@@ -990,6 +1092,7 @@ async function handleEchoWhatsApp(parametri, ctx) {
     priority: "normal", status: "queued",
     createdAt: now, updatedAt: now, attempts: 0,
     source: "nexus", resolvedFrom: resolved.resolvedFrom,
+    destDisplayName: resolved.displayName,
     sessionId: parametri.sessionId,
   };
 
@@ -998,11 +1101,10 @@ async function handleEchoWhatsApp(parametri, ctx) {
     await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "ECHO_DRY_RUN attivo" });
     return {
       content:
-        `📤 Messaggio WhatsApp **simulato** (DRY_RUN attivo)\n\n` +
-        `**A:** ${chatId}${resolved.alias ? ` (alias: ${resolved.alias})` : ""}\n` +
-        `**Testo:** ${body}\n\n` +
-        `_Per invio reale serve ECHO_DRY_RUN=false sulla Cloud Function._`,
-      data: { chatId, dryRun: true, id },
+        `📤 Simulato: WA a **${resolved.displayName}** (${maskNumber(chatId)})\n` +
+        `— ${body}\n\n` +
+        `_Fonte contatto: ${resolved.resolvedFrom} · DRY_RUN attivo, nessun invio reale._`,
+      data: { dryRun: true, id, resolvedFrom: resolved.resolvedFrom },
     };
   }
 
@@ -1036,11 +1138,10 @@ async function handleEchoWhatsApp(parametri, ctx) {
         });
         return {
           content:
-            `✅ Messaggio WhatsApp **inviato**\n\n` +
-            `**A:** ${chatId}${resolved.alias ? ` (alias: ${resolved.alias})` : ""}\n` +
-            `**Testo:** ${body}\n\n` +
-            `ID: \`${id}\``,
-          data: { chatId, id, sent: true },
+            `✅ WA inviato a **${resolved.displayName}** (${maskNumber(chatId)})\n` +
+            `— ${body}\n\n` +
+            `_Fonte contatto: ${resolved.resolvedFrom} · ID: \`${id}\`_`,
+          data: { id, sent: true, resolvedFrom: resolved.resolvedFrom },
         };
       }
       lastErr = `HTTP ${resp.status}: ${txt.slice(0, 200)}`;
