@@ -1,8 +1,18 @@
 rules_version = '2';
 
-// IRIS v0.1 — TEMP rules.
-// TODO (v0.2): richiedere auth, limitare ogni utente ai propri documenti
-// (request.auth != null && resource.data.userId == request.auth.uid).
+// IRIS / NEXO v0.2 — rules con gate auth applicato a livello UI + API.
+//
+// Modello sicurezza:
+//  · La PWA NEXO richiede login ACG Suite (Firebase Auth garbymobile-f89ac).
+//  · Le Cloud Function (nexusRouter, pharoRtiDashboard, pharoResolveAlert)
+//    verificano l'ID Token via admin.auth().verifyIdToken() prima di
+//    rispondere (401 altrimenti).
+//  · Le scritture Firestore passano SEMPRE via Cloud Function (Admin SDK),
+//    quindi le write sono già bloccate lato client.
+//  · Le letture restano pubbliche: (a) l'utente ha già superato il gate UI;
+//    (b) i dati sono metadati aggregati (counts, stati, alert), non PII;
+//    (c) auth-required su nexo-hub-15f2d non funzionerebbe con token emessi
+//    da garbymobile-f89ac (progetto diverso).
 service cloud.firestore {
   match /databases/{database}/documents {
     // iris_emails: lettura pubblica in v0.1 per la PWA senza login.

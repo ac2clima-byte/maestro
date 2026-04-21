@@ -410,6 +410,83 @@
     box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
   }
 
+  /* ── Login screen ──────────────────────────────────────── */
+  .auth-gate {
+    position: fixed; inset: 0; z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f1f5f9;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .auth-gate[hidden] { display: none !important; }
+  .auth-card {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 40px 36px 32px;
+    width: 100%; max-width: 380px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    text-align: center;
+  }
+  .auth-logo {
+    font-size: 2rem; font-weight: 800; letter-spacing: 2px;
+    margin-bottom: 6px; color: #00d4ff;
+  }
+  .auth-sub { color: #94a3b8; font-size: 0.88rem; margin-bottom: 24px; }
+  .auth-card form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+  .auth-card label {
+    color: #cbd5e1; font-size: 0.78rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  .auth-card input {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: white; padding: 12px 14px; border-radius: 10px; font: inherit; font-size: 0.95rem;
+  }
+  .auth-card input:focus {
+    outline: none; border-color: #00d4ff; box-shadow: 0 0 0 3px rgba(0,212,255,0.15);
+  }
+  .auth-btn {
+    background: #00d4ff; color: #0f172a; border: none; font-weight: 700;
+    padding: 13px 20px; border-radius: 10px; cursor: pointer; font-size: 0.95rem;
+    margin-top: 8px; letter-spacing: 0.3px;
+  }
+  .auth-btn:hover { background: #22e2ff; }
+  .auth-btn:disabled { opacity: 0.5; cursor: wait; }
+  .auth-error {
+    color: #fca5a5; font-size: 0.82rem; min-height: 1.2em; margin-top: 4px;
+  }
+  .auth-footer {
+    margin-top: 18px; color: #64748b; font-size: 0.8rem;
+  }
+  .auth-footer a { color: #38bdf8; }
+  .auth-spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(15,23,42,0.3); border-top-color: #0f172a;
+    border-radius: 50%; animation: auth-spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes auth-spin { to { transform: rotate(360deg); } }
+
+  /* User badge in sidebar */
+  .sidebar-user {
+    padding: 12px 14px; margin-top: auto;
+    border-top: 1px solid var(--sidebar-border);
+    display: flex; align-items: center; gap: 10px;
+    color: var(--sidebar-text-muted); font-size: 0.82rem;
+  }
+  .sidebar-user-email {
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--sidebar-text);
+  }
+  .sidebar-user button.logout-btn {
+    background: transparent; border: 1px solid var(--sidebar-border);
+    color: var(--sidebar-text-muted); padding: 4px 8px;
+    border-radius: 6px; cursor: pointer; font-size: 0.75rem;
+  }
+  .sidebar-user button.logout-btn:hover { background: var(--sidebar-bg-hover); color: var(--sidebar-text); }
+
   /* ── PHARO dashboard ───────────────────────────────────── */
   .pharo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
   @media (max-width: 760px) { .pharo-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -952,7 +1029,30 @@
 </head>
 <body>
 
-<div class="app">
+<!-- Auth gate (hidden when authenticated) -->
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <div class="auth-logo">NEXO</div>
+    <div class="auth-sub">Hub dei Colleghi AI — ACG Suite</div>
+    <form id="authForm">
+      <div>
+        <label>Email</label>
+        <input type="email" id="authEmail" required autocomplete="email" placeholder="nome@acgclimaservice.com">
+      </div>
+      <div>
+        <label>Password</label>
+        <input type="password" id="authPassword" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="auth-btn" id="authBtn">Accedi</button>
+      <div class="auth-error" id="authError"></div>
+    </form>
+    <div class="auth-footer">
+      Oppure <a href="https://acgsuite.web.app/" >accedi dalla Suite</a>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="appRoot" hidden>
 
   <!-- Mobile topbar -->
   <div class="topbar">
@@ -980,8 +1080,11 @@
     </div>
 
     <div class="sidebar-footer">
-      <div class="user" id="footerUser">alberto@acgclima.it</div>
-      <div style="margin-top:4px;">v0.1 dev</div>
+      <div class="user" id="footerUser">—</div>
+      <div style="margin-top:4px;display:flex;gap:8px;align-items:center;">
+        <span>v0.2 auth</span>
+        <button id="logoutBtn" class="logout-btn" style="margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,0.12);color:#94a3b8;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:0.72rem;">Esci</button>
+      </div>
     </div>
   </aside>
 
@@ -1013,6 +1116,7 @@ const COLLEGHI = [
 const BY_ID = new Map(COLLEGHI.map(c => [c.id, c]));
 
 // ── Firebase config ────────────────────────────────────────────
+// Primary app (Firestore reads NEXO): progetto nexo-hub-15f2d
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBqm4XYaSlq2yUFdpcsL0wtSOpn48cOHoo",
   authDomain: "nexo-hub-15f2d.firebaseapp.com",
@@ -1021,6 +1125,16 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "272099489624",
   appId: "1:272099489624:web:10d17611b19031757d172d",
 };
+// Auth app: progetto garbymobile-f89ac (SSO unificato ACG Suite)
+const ACG_AUTH_CONFIG = {
+  apiKey: "AIzaSyDUoIbTYwnVAfX-ka9NiTpa08k7isNmD_k",
+  authDomain: "garbymobile-f89ac.firebaseapp.com",
+  projectId: "garbymobile-f89ac",
+  storageBucket: "garbymobile-f89ac.firebasestorage.app",
+  messagingSenderId: "447585714",
+  appId: "1:447585714:web:cosmina",
+};
+const ACG_LANDING_URL = "https://acgsuite.web.app/";
 const MOCK_MODE = true;
 
 let _firestoreCache = null;
@@ -1032,6 +1146,33 @@ async function getFirestore() {
   const db  = fsMod.getFirestore(app);
   _firestoreCache = { db, fsMod };
   return _firestoreCache;
+}
+
+// ── Auth ACG (garbymobile-f89ac) ───────────────────────────────
+let _authCache = null;
+async function getAcgAuth() {
+  if (_authCache) return _authCache;
+  const appMod  = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+  const authMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js");
+  // Named app per non collidere col primary (nexo-hub)
+  let app;
+  try {
+    app = appMod.getApp("acg-auth");
+  } catch {
+    app = appMod.initializeApp(ACG_AUTH_CONFIG, "acg-auth");
+  }
+  const auth = authMod.getAuth(app);
+  _authCache = { app, auth, authMod };
+  return _authCache;
+}
+
+let CURRENT_USER = null;
+
+async function getAuthIdToken() {
+  const { auth } = await getAcgAuth();
+  const u = auth.currentUser;
+  if (!u) return null;
+  try { return await u.getIdToken(); } catch { return null; }
 }
 
 // ── DOM helpers ────────────────────────────────────────────────
@@ -1558,10 +1699,13 @@ async function loadPharoAlerts() {
         btn.disabled = true;
         btn.textContent = "...";
         try {
+          const idToken = await getAuthIdToken();
+          const headers = { "Content-Type": "application/json" };
+          if (idToken) headers["Authorization"] = "Bearer " + idToken;
           const resp = await fetch(PHARO_RESOLVE_ALERT_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ alertId: id, resolvedBy: "alberto" }),
+            headers,
+            body: JSON.stringify({ alertId: id, resolvedBy: (CURRENT_USER && CURRENT_USER.email) || "alberto" }),
           });
           if (!resp.ok) throw new Error("HTTP " + resp.status);
           loadPharoAlerts();
@@ -1580,7 +1724,9 @@ async function loadPharoAlerts() {
 async function loadPharoRtiDashboard() {
   const banner = $("#pharoBanner");
   try {
-    const resp = await fetch(PHARO_RTI_DASHBOARD_URL);
+    const idToken = await getAuthIdToken();
+    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
+    const resp = await fetch(PHARO_RTI_DASHBOARD_URL, { headers });
     if (!resp.ok) throw new Error("HTTP " + resp.status);
     const data = await resp.json();
     renderPharoKpi(data);
@@ -1981,13 +2127,16 @@ async function nexusSend() {
     .map(m => ({ role: m.role, content: m.content }));
 
   try {
+    const idToken = await getAuthIdToken();
+    const headers = { "Content-Type": "application/json" };
+    if (idToken) headers["Authorization"] = "Bearer " + idToken;
     const resp = await fetch(NEXUS_API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         sessionId: NEXUS_SESSION_ID,
         userMessage: text,
-        userId: "alberto",
+        userId: (CURRENT_USER && CURRENT_USER.email) || "alberto",
         history,
       }),
     });
@@ -2145,13 +2294,90 @@ function init() {
   nexusWire();
   nexusRenderMessages();
   nexusEnsureSubscribed();
+
+  // Logout button
+  $("#logoutBtn")?.addEventListener("click", async () => {
+    try {
+      const { auth, authMod } = await getAcgAuth();
+      await authMod.signOut(auth);
+      location.reload();
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+  });
 }
 
-if (MOCK_MODE) {
-  init();
-} else {
-  init(); // TODO: Firebase Auth flow
+// ── Auth gate flow ─────────────────────────────────────────────
+async function bootstrapAuth() {
+  const { auth, authMod } = await getAcgAuth();
+
+  // 1. Prova SSO via URL (?authToken=...)
+  const urlParams = new URLSearchParams(location.search);
+  const ssoToken = urlParams.get("authToken");
+  if (ssoToken) {
+    // Rimuovi subito token dall'URL (sicurezza)
+    const clean = location.pathname + location.hash;
+    history.replaceState({}, "", clean);
+    try {
+      // Mostra spinner nella card login
+      const errEl = $("#authError");
+      if (errEl) errEl.innerHTML = '<span class="auth-spinner"></span>Accesso SSO in corso…';
+      await authMod.signInWithCustomToken(auth, ssoToken);
+      // onAuthStateChanged triggererà il resto
+    } catch (e) {
+      console.warn("SSO failed:", e);
+      if ($("#authError")) $("#authError").textContent = "SSO fallito: " + (e.message || "token non valido");
+    }
+  }
+
+  // 2. Listener stato auth
+  authMod.onAuthStateChanged(auth, (user) => {
+    if (user) {
+      CURRENT_USER = user;
+      // Nascondi gate, mostra app
+      $("#authGate")?.setAttribute("hidden", "");
+      $("#appRoot")?.removeAttribute("hidden");
+      const footer = $("#footerUser");
+      if (footer) footer.textContent = user.email || user.uid;
+      // Init solo una volta
+      if (!window._nexoInited) {
+        window._nexoInited = true;
+        init();
+      }
+    } else {
+      CURRENT_USER = null;
+      $("#authGate")?.removeAttribute("hidden");
+      $("#appRoot")?.setAttribute("hidden", "");
+    }
+  });
+
+  // 3. Form login
+  const form = $("#authForm");
+  form?.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const email = $("#authEmail").value.trim();
+    const password = $("#authPassword").value;
+    const btn = $("#authBtn");
+    const err = $("#authError");
+    if (err) err.textContent = "";
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="auth-spinner"></span>Accesso…'; }
+    try {
+      await authMod.signInWithEmailAndPassword(auth, email, password);
+    } catch (e) {
+      const msg = (e && e.code) ? e.code.replace("auth/", "").replace(/-/g, " ") : String(e.message || e);
+      if (err) err.textContent = "Errore: " + msg;
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = "Accedi"; }
+    }
+  });
 }
+
+bootstrapAuth().catch(e => {
+  console.error("bootstrapAuth failed:", e);
+  // In caso di errore critico, mostra errore nel gate
+  const err = $("#authError");
+  if (err) err.textContent = "Errore init: " + (e.message || e);
+});
 </script>
 
 <!-- NEXUS chat — FAB + pannello -->

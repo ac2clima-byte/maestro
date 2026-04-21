@@ -5,6 +5,7 @@ import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getAuth as getAdminAuth } from "firebase-admin/auth";
 
 if (!getApps().length) initializeApp();
 const db = getFirestore();
@@ -35,7 +36,7 @@ function applyCors(req, res) {
     res.set("Vary", "Origin");
   }
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.set("Access-Control-Max-Age", "3600");
 }
 
@@ -953,6 +954,48 @@ function getGuazzottiDb() {
   }
   _guazzottiApp = initializeApp({ projectId: "guazzotti-tec" }, "guazzotti");
   return getFirestore(_guazzottiApp);
+}
+
+// ── Auth verifier: token emessi da garbymobile-f89ac (ACG Suite SSO) ───
+// La primary app qui è nexo-hub-15f2d, ma i token utenti vengono da
+// garbymobile-f89ac. Usiamo un'app admin dedicata per verificare.
+let _acgAuthApp = null;
+function getAcgAuthAdmin() {
+  if (_acgAuthApp) return getAdminAuth(_acgAuthApp);
+  const existing = getApps().find((a) => a.name === "acg-auth");
+  if (existing) {
+    _acgAuthApp = existing;
+    return getAdminAuth(_acgAuthApp);
+  }
+  _acgAuthApp = initializeApp({ projectId: "garbymobile-f89ac" }, "acg-auth");
+  return getAdminAuth(_acgAuthApp);
+}
+
+// Verifica Bearer token. Ritorna { uid, email } se valido, null altrimenti.
+// Cache in-memory per evitare re-verifica su ogni request nello stesso cold start.
+const _tokenCache = new Map(); // token → { decoded, exp }
+async function verifyAcgIdToken(req) {
+  const authHdr = String(req.headers["authorization"] || req.headers["Authorization"] || "");
+  const m = authHdr.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  const token = m[1].trim();
+  // Cache check (token valido ≤1h → cache 10 min)
+  const cached = _tokenCache.get(token);
+  if (cached && cached.exp > Date.now()) return cached.decoded;
+  try {
+    const decoded = await getAcgAuthAdmin().verifyIdToken(token);
+    const result = { uid: decoded.uid, email: decoded.email || null, claims: decoded };
+    _tokenCache.set(token, { decoded: result, exp: Date.now() + 10 * 60 * 1000 });
+    // Purge cache se troppo grande
+    if (_tokenCache.size > 500) {
+      const keys = [..._tokenCache.keys()].slice(0, 200);
+      keys.forEach(k => _tokenCache.delete(k));
+    }
+    return result;
+  } catch (e) {
+    logger.warn("verifyAcgIdToken failed", { error: String(e).slice(0, 200) });
+    return null;
+  }
 }
 
 async function handleAresInterventiAperti(parametri) {
@@ -3169,6 +3212,13 @@ export const nexusRouter = onRequest(
       return;
     }
 
+    // Auth: richiede ID Token valido di garbymobile-f89ac (ACG Suite SSO)
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) {
+      res.status(401).json({ error: "unauthorized", message: "Firebase ID Token ACG mancante o non valido" });
+      return;
+    }
+
     const ip = (req.headers["x-forwarded-for"] || req.ip || "")
       .toString().split(",")[0].trim();
     const rate = await checkNexusRateLimit(ip);
@@ -3181,7 +3231,8 @@ export const nexusRouter = onRequest(
     const body = req.body || {};
     const userMessage = String(body.userMessage || "").trim();
     const sessionId = String(body.sessionId || "").trim();
-    const userId = String(body.userId || "alberto");
+    // userId viene dal token Firebase (fidato), non dal body
+    const userId = authUser.email || authUser.uid;
     const history = Array.isArray(body.history) ? body.history.slice(-10) : [];
 
     if (!userMessage || !sessionId) {
@@ -3874,7 +3925,7 @@ export const pharoHealthCheck = onSchedule(
 function applyCorsOpen(req, res) {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.set("Access-Control-Max-Age", "3600");
 }
 
@@ -3885,6 +3936,12 @@ export const pharoRtiDashboard = onRequest(
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
     if (req.method !== "GET") {
       res.status(405).json({ error: "method_not_allowed" });
+      return;
+    }
+    // Auth ACG Suite
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) {
+      res.status(401).json({ error: "unauthorized" });
       return;
     }
     try {
@@ -3910,6 +3967,12 @@ export const pharoResolveAlert = onRequest(
       res.status(405).json({ error: "method_not_allowed" });
       return;
     }
+    // Auth ACG Suite
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) {
+      res.status(401).json({ error: "unauthorized" });
+      return;
+    }
     const body = req.body || {};
     const alertId = String(body.alertId || "").trim();
     if (!alertId) {
@@ -3920,7 +3983,7 @@ export const pharoResolveAlert = onRequest(
       await db.collection("pharo_alerts").doc(alertId).set({
         status: "resolved",
         resolvedAt: FieldValue.serverTimestamp(),
-        resolvedBy: String(body.resolvedBy || "alberto"),
+        resolvedBy: authUser.email || authUser.uid,
       }, { merge: true });
       res.status(200).json({ ok: true, alertId });
     } catch (e) {
