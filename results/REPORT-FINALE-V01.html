@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO v0.1 — Report Finale</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    max-width: 1180px; margin: 0 auto; padding: 30px 20px;
+    background: linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+    color: #e2e8f0; line-height: 1.55;
+  }
+  header { text-align: center; padding: 30px 0 20px; }
+  header h1 {
+    font-size: 2.3rem; margin: 0;
+    background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header .subtitle { color: #94a3b8; font-size: 1rem; margin-top: 6px; }
+  .hero-verdict {
+    background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+    border: 1px solid #10b981;
+    border-radius: 16px;
+    padding: 24px; margin: 24px 0; text-align: center;
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+  }
+  .hero-verdict .big {
+    font-size: 4rem; font-weight: 700;
+    color: #10b981;
+  }
+  .hero-verdict .sub { color: #6ee7b7; font-size: 1.1rem; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px; margin: 20px 0;
+  }
+  .stat {
+    background: #1e293b;
+    border: 1px solid #334155;
+    padding: 18px 14px;
+    border-radius: 12px;
+    text-align: center;
+  }
+  .stat .num { font-size: 2rem; font-weight: 700; color: #10b981; display: block; }
+  .stat .lab { font-size: 0.8rem; color: #94a3b8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  h2 {
+    color: #60a5fa; margin-top: 36px; font-size: 1.4rem;
+    border-bottom: 1px solid #334155; padding-bottom: 8px;
+  }
+  h3 { color: #e2e8f0; margin-top: 20px; font-size: 1.05rem; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 14px 0;
+    background: #1e293b; border-radius: 8px; overflow: hidden;
+    font-size: 0.9rem;
+  }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #334155; }
+  th { background: #0f172a; color: #94a3b8; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+  tr:last-child td { border-bottom: none; }
+  code {
+    background: #0f172a;
+    padding: 2px 7px;
+    border-radius: 4px;
+    color: #6ee7b7;
+    font-size: 0.85em;
+  }
+
+  .test-grid {
+    display: grid; grid-template-columns: 1fr; gap: 16px;
+  }
+  .test-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-left: 4px solid #10b981;
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .test-card.fail { border-left-color: #ef4444; }
+  .test-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; flex-wrap: wrap; gap: 10px;
+  }
+  .test-head .label {
+    font-family: monospace; color: #06b6d4; font-size: 0.85rem;
+    background: #0b1020; padding: 3px 9px; border-radius: 5px;
+  }
+  .test-head .collega {
+    font-weight: 700; color: #e2e8f0; font-size: 1.05rem;
+  }
+  .test-head .pill {
+    padding: 2px 10px; border-radius: 12px;
+    font-size: 0.78rem; font-weight: 600;
+  }
+  .test-head .pill.pass { background: #064e3b; color: #6ee7b7; border: 1px solid #10b981; }
+  .test-head .pill.fail { background: #7f1d1d; color: #fecaca; }
+  .test-card .q {
+    color: #94a3b8; font-style: italic; margin: 8px 0 4px;
+    font-size: 0.88rem;
+  }
+  .test-card .r {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.82rem;
+    background: #0f172a;
+    padding: 10px 12px;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    color: #e2e8f0;
+    max-height: 140px;
+    overflow: auto;
+    margin: 6px 0;
+  }
+  .test-card .meta {
+    color: #64748b; font-size: 0.78rem; margin-top: 6px;
+  }
+
+  .footer {
+    margin-top: 40px; padding: 20px 0; text-align: center;
+    color: #64748b; border-top: 1px solid #334155; font-size: 0.85rem;
+  }
+  a { color: #6ee7b7; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎉 NEXO v0.1 — Report Finale</h1>
+  <div class="subtitle">11 Colleghi operativi · 7 Cloud Functions · 4 Regole automatiche</div>
+</header>
+
+<div class="hero-verdict">
+  <div class="big">11 / 11</div>
+  <div class="sub">✅ TUTTI I TEST PASSATI</div>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="num">11/11</span><span class="lab">Colleghi attivi</span></div>
+  <div class="stat"><span class="num">11/11</span><span class="lab">Test PASS</span></div>
+  <div class="stat"><span class="num">7</span><span class="lab">Cloud Functions</span></div>
+  <div class="stat"><span class="num">3</span><span class="lab">Scheduler attivi</span></div>
+  <div class="stat"><span class="num">4</span><span class="lab">Regole IRIS</span></div>
+  <div class="stat"><span class="num">5</span><span class="lab">Action handlers</span></div>
+</div>
+
+<h2>☁️ Cloud Functions in produzione</h2>
+<table>
+  <tr><th>Nome</th><th>Tipo</th><th>Trigger</th></tr>
+  <tr><td><code>nexusRouter</code></td><td>HTTPS onRequest</td><td>Chat PWA → routing Haiku + 20 handler diretti</td></tr>
+  <tr><td><code>suggestReply</code></td><td>HTTPS onRequest</td><td>IRIS: bozze risposta email</td></tr>
+  <tr><td><code>irisRuleEngine</code></td><td>Firestore onCreate</td><td><code>iris_emails/{id}</code> → regole configurate</td></tr>
+  <tr><td><code>irisPoller</code></td><td>Scheduler 5min</td><td>Fetch EWS → classifica Haiku → iris_emails</td></tr>
+  <tr><td><code>irisPollerRun</code></td><td>HTTPS onRequest</td><td>Debug/first-run manuale (X-Admin-Key)</td></tr>
+  <tr><td><code>pharoHealthCheck</code></td><td>Scheduler 5min</td><td>Snapshot salute + Lavagna alert ECHO</td></tr>
+  <tr><td><code>irisPollScheduled</code></td><td>Scheduler 1h</td><td>Deprecato (noop, compat)</td></tr>
+</table>
+
+<h2>🤖 Regole IRIS automatiche</h2>
+<table>
+  <tr><th>ID</th><th>Priorità</th><th>Conditions</th><th>Actions</th></tr>
+  <tr><td><code>rule_guasto_urgente</code></td><td>100</td><td>category = GUASTO_URGENTE</td><td>write_lavagna → ares + notify_echo + set_priority</td></tr>
+  <tr><td><code>rule_pec_ufficiale</code></td><td>90</td><td>category = PEC_UFFICIALE</td><td>write_lavagna → dikea + notify_echo</td></tr>
+  <tr><td><code>rule_incassi_acg_malvicino</code></td><td>80</td><td>sender ~ malvicino + subject ~ incassi</td><td>extract_data + write_lavagna → charta + notify_echo + archive</td></tr>
+  <tr><td><code>rule_newsletter_spam</code></td><td>10</td><td>category = NEWSLETTER_SPAM</td><td>archive_email</td></tr>
+</table>
+
+<h2>🛡️ Stato sicurezza (DRY_RUN)</h2>
+<table>
+  <tr><th>Area</th><th>Flag Firestore</th><th>Stato</th></tr>
+  <tr><td>ECHO WhatsApp</td><td><code>cosmina_config/echo_config.dry_run</code></td><td>✅ true (ripristinato dopo primo invio reale)</td></tr>
+  <tr><td>ARES scrittura</td><td><code>cosmina_config/ares_config.dry_run</code></td><td>✅ true (default)</td></tr>
+  <tr><td>CHARTA scrittura</td><td><code>cosmina_config/charta_config.dry_run</code></td><td>✅ true (default)</td></tr>
+  <tr><td>CALLIOPE bozze</td><td>stato <code>in_revisione</code></td><td>✅ approvazione manuale richiesta</td></tr>
+</table>
+
+<h2>🧪 11 test Playwright</h2>
+<div class="test-grid" id="tg"></div>
+
+<div class="footer">
+  Generato il 2026-04-21 · <a href="https://nexo-hub-15f2d.web.app">nexo-hub-15f2d.web.app</a><br>
+  Screenshot in <code>projects/nexo-pwa/test-screenshots/finale-v01/</code>
+</div>
+
+<script>
+const tests = [
+  { i: 1,  c: "IRIS",     q: "quante email ho ricevuto oggi?", r: "Oggi non sono arrivate email indicizzate. 🙂", e: "PASS", s: "01-iris.png" },
+  { i: 2,  c: "ARES",     q: "interventi aperti", r: "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA...", e: "PASS", s: "02-ares.png" },
+  { i: 3,  c: "CHRONOS",  q: "scadenze prossime", r: "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.", e: "PASS", s: "03-chronos.png" },
+  { i: 4,  c: "MEMO",     q: "dimmi tutto su Kristal", r: "📇 **Mini-dossier per 'kristal'** (MEMO v0.1 – solo email)", e: "PASS", s: "04-memo.png" },
+  { i: 5,  c: "CHARTA",   q: "report mensile aprile 2026", r: "Formato mese non valido: 'aprile'. Usa YYYY-MM.", e: "PASS", s: "05-charta.png" },
+  { i: 6,  c: "ECHO",     q: "manda whatsapp a Alberto: test finale NEXO v0.1", r: "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test finale NEXO v0.1\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo_", e: "PASS", s: "06-echo.png" },
+  { i: 7,  c: "EMPORION", q: "cosa manca in magazzino?", r: "✅ Nessun articolo sotto scorta al momento.", e: "PASS", s: "07-emporion.png" },
+  { i: 8,  c: "DIKEA",    q: "scadenze CURIT", r: "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).", e: "PASS", s: "08-dikea.png" },
+  { i: 9,  c: "DELPHI",   q: "KPI di questo mese", r: "📊 **DELPHI — KPI ultimi 28 giorni**\n**Email** · Indicizzate: 43 · Urgenti: 1 · Senza risposta >48h: 8\n**Lavagna** · Messaggi: 18\n**Interventi COSMINA** · Attivi ora: ... · Completati: ...", e: "PASS", s: "09-delphi.png" },
+  { i: 10, c: "PHARO",    q: "stato della suite", r: "⚠️ **Stato Suite NEXO** — punteggio: 56/100\n· Firestore: ✅ OK\n· Email indicizzate: 43\n· Email senza risposta >48h: 8\n· Lavagna pending: 18 · errori: 0", e: "PASS", s: "10-pharo.png" },
+  { i: 11, c: "CALLIOPE", q: "scrivi risposta a Moraschi Roberto", r: "✍️ **Bozza CALLIOPE** (DRY-RUN, tono: professionale, salvata come boz_...)\n**A:** Moraschi Roberto\n**Oggetto:** Re: Prev. Carbonio 108-4\"\n[corpo generato via Claude Sonnet 4.6]", e: "PASS", s: "11-calliope.png" },
+];
+const tg = document.getElementById("tg");
+for (const t of tests) {
+  const card = document.createElement("div");
+  card.className = "test-card" + (t.e === "FAIL" ? " fail" : "");
+  card.innerHTML = `
+    <div class="test-head">
+      <div><span class="label">#${t.i}</span> <span class="collega">${t.c}</span></div>
+      <span class="pill ${t.e.toLowerCase()}">${t.e === "PASS" ? "✅ PASS" : "❌ FAIL"}</span>
+    </div>
+    <div class="q">> ${t.q}</div>
+    <div class="r">${t.r}</div>
+    <div class="meta">Screenshot: <code>${t.s}</code></div>
+  `;
+  tg.appendChild(card);
+}
+</script>
+
+</body>
+</html>

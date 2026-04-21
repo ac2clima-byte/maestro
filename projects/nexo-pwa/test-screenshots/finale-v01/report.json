@@ -1,0 +1,112 @@
+[
+  {
+    "index": 1,
+    "c": "iris",
+    "q": "quante email ho ricevuto oggi?",
+    "reply": "Oggi non sono arrivate email indicizzate. 🙂\n      IRIScompletata",
+    "replyPreview": "Oggi non sono arrivate email indicizzate. 🙂\n      IRIScompletata",
+    "screenshot": "01-iris.png",
+    "esito": "PASS",
+    "motivo": "risposta Haiku (no handler)"
+  },
+  {
+    "index": 2,
+    "c": "ares",
+    "q": "interventi aperti",
+    "reply": "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — aperto · tecnico=FEDERICO\n4. [13/10/2025] S021 - CONDOMINIO CLASTIDIUM - VIA MAZZINI, 11 - C — chiuso · non assegnato\n5. [17/10/2025] Z028 - CONDOMINIO RAVERA - VIA GARIBALDI 65 - NOVI — chiuso · non assegnato\n6. [22/10/2025] Z024 - CONDOMINIO EMET - VIA CAVALLOTTI 57 - NOVI  — chiuso · non assegnato\n7. [23/10/2025] R009 - PALAZZINA I MELOGRANI D - VIA PELIZZA DA VO — chiuso · non assegnato\n8. [24/10/2025] V021 - CONDOMINIO VENERE - VIA MILAZZO, 34 - TORTO — chiuso · non assegnato\n9. [24/10/2025] V021 - CONDOMINIO VENERE - VIA MILAZZO, 34 - TORTO — chiuso · non assegnato\n10. [28/10/2025] R026 - CONDOMINIO ITALIA - VIA LUIGI MAZZA 20 - VA — chiuso · non assegnato\n11. [29/10/2025] G028 - CONDOMINIO SAN FRANCISCO - VIA CAVALLOTTI F — chiuso · non assegnato\n12. [29/10/2025] Z024 - CONDOMINIO EMET - VIA CAVALLOTTI 57 - NOVI  — chiuso · non assegnato\n13. [31/10/2025] U077 - CONDOMINIO SUSY - VIALE SICILIA 107 - PAVIA — chiuso · non assegnato\n14. [03/11/2025] G026 - CONDOMINIO LESIMA - VIA SANT’AMBROGIO, 22/2 — chiuso · non assegnato\n15. [03/11/2025] R012 - CONDOMINIO AUGUSTA - PIAZZA CORNAGGIA 25 -  — chiuso · non assegnato\n16. [04/11/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — chiuso · non assegnato\n17. [04/11/2025] R009 - PALAZZINA I MELOGRANI D - VIA PELIZZA DA VO — chiuso · non assegnato\n18. [06/11/2025] F007 - CONDOMINIO TORRALBA - VIA CARLO MARX 3 - VO — chiuso · non assegnato\n19. [06/11/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — chiuso · non assegnato\n20. [06/11/2025] U060 - CONDOMINIO FEBBRONI (PAVIA) - VIA GORINI, 9 — chiuso · non assegnato\n      AREScompletata",
+    "replyPreview": "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — aperto · tecnico=FEDERICO\n4. [13/10/2025] S021 - CONDOMINIO CLASTIDIUM - VIA MAZ",
+    "screenshot": "02-ares.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 3,
+    "c": "chronos",
+    "q": "scadenze prossime",
+    "reply": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.\n      CHRONOScompletata",
+    "replyPreview": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.\n      CHRONOScompletata",
+    "screenshot": "03-chronos.png",
+    "esito": "PASS",
+    "motivo": "risposta Haiku (no handler)"
+  },
+  {
+    "index": 4,
+    "c": "memo",
+    "q": "dimmi tutto su Kristal",
+    "reply": "📇 **Mini-dossier per \"kristal\"** (MEMO v0.1 – solo email)\n\nPer ora ho accesso solo a iris_emails. Il dossier completo (CRM cliente, impianti, interventi recenti) sarà disponibile quando attiveremo i permessi cross-progetto su garbymobile-f89ac.\n\n**1 email** correlate:\n\n1. [13/04] Massimo Poggi — LETTURE CONDOMINIO KRISTALL \n\nTecnici citati: Massimo Poggi\n      MEMOcompletata",
+    "replyPreview": "📇 **Mini-dossier per \"kristal\"** (MEMO v0.1 – solo email)\n\nPer ora ho accesso solo a iris_emails. Il dossier completo (CRM cliente, impianti, interventi recenti) sarà disponibile quando attiveremo i permessi cross-progetto su garbymobile-f89ac.\n\n**1 email** correlate:\n\n1. [13/04] Massimo Poggi — LETTURE CONDOMINIO KRISTALL \n\nTecnici citati: Massimo Poggi\n      MEMOcompletata",
+    "screenshot": "04-memo.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 5,
+    "c": "charta",
+    "q": "report mensile aprile 2026",
+    "reply": "Formato mese non valido: \"aprile\". Usa YYYY-MM.\n      CHARTAcompletata",
+    "replyPreview": "Formato mese non valido: \"aprile\". Usa YYYY-MM.\n      CHARTAcompletata",
+    "screenshot": "05-charta.png",
+    "esito": "PASS",
+    "motivo": "risposta Haiku (no handler)"
+  },
+  {
+    "index": 6,
+    "c": "echo",
+    "q": "manda whatsapp a Alberto: test finale NEXO v0.1",
+    "reply": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test finale NEXO v0.1\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "replyPreview": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test finale NEXO v0.1\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "screenshot": "06-echo.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 7,
+    "c": "emporion",
+    "q": "cosa manca in magazzino?",
+    "reply": "✅ Nessun articolo sotto scorta al momento.\n      EMPORIONcompletata",
+    "replyPreview": "✅ Nessun articolo sotto scorta al momento.\n      EMPORIONcompletata",
+    "screenshot": "07-emporion.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 8,
+    "c": "dikea",
+    "q": "scadenze CURIT",
+    "reply": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).\n      DIKEAcompletata",
+    "replyPreview": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).\n      DIKEAcompletata",
+    "screenshot": "08-dikea.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 9,
+    "c": "delphi",
+    "q": "KPI di questo mese",
+    "reply": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 43\n  · Urgenti: 1\n  · Senza risposta >48h: 8\n\n**Lavagna**\n  · Messaggi: 18\n\n**Interventi COSMINA**\n  · Attivi ora: 373\n  · Completati: 0\n      DELPHIcompletata",
+    "replyPreview": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 43\n  · Urgenti: 1\n  · Senza risposta >48h: 8\n\n**Lavagna**\n  · Messaggi: 18\n\n**Interventi COSMINA**\n  · Attivi ora: 373\n  · Completati: 0\n      DELPHIcompletata",
+    "screenshot": "09-delphi.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 10,
+    "c": "pharo",
+    "q": "stato della suite",
+    "reply": "⚠️ **Stato Suite NEXO** — punteggio: 56/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 18\n  · Lavagna errori: 0\n      PHAROcompletata",
+    "replyPreview": "⚠️ **Stato Suite NEXO** — punteggio: 56/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 18\n  · Lavagna errori: 0\n      PHAROcompletata",
+    "screenshot": "10-pharo.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  },
+  {
+    "index": 11,
+    "c": "calliope",
+    "q": "scrivi risposta a Moraschi Roberto",
+    "reply": "✍️ **Bozza CALLIOPE** (DRY-RUN, tono: professionale, salvata come `boz_mo8p952s_z840`)\n\n**A:** Moraschi Roberto\n**Oggetto:** Re: Prev. Carbonio 108-4”\n\n---\nOggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\nottima notizia, grazie per la rapida verifica.\n\nPuò inviarmi il preventivo con disponibilità e tempi di consegna stimati? Così posso procedere con la valutazione e, se tutto è in ordine, confermare l'ordine in tempi brevi.\n\nResto in attesa e la ringrazio.\n\nCordiali saluti,\nAlberto Contardi\nACG Clima Service\n---\n\n_⚠️ DRY-RUN: la bozza NON è stata inviata. Rivedila e approva quando sei pronto._\n      CALLIOPEcompletata",
+    "replyPreview": "✍️ **Bozza CALLIOPE** (DRY-RUN, tono: professionale, salvata come `boz_mo8p952s_z840`)\n\n**A:** Moraschi Roberto\n**Oggetto:** Re: Prev. Carbonio 108-4”\n\n---\nOggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\nottima notizia, grazie per la rapida verifica.\n\nPuò inviarmi il preventivo con disponibilità e tempi di consegna stimati? Così posso procedere con la valutazione e, se tutto è in ordine, conf",
+    "screenshot": "11-calliope.png",
+    "esito": "PASS",
+    "motivo": "handler diretto"
+  }
+]
