@@ -1,0 +1,142 @@
+{
+  "apiResults": [
+    {
+      "query": "dimmi tutto su La Bussola",
+      "ok": true,
+      "response": "{\"intent\":{\"collega\":\"memo\",\"azione\":\"dossier_cliente\",\"parametri\":{\"cliente\":\"La Bussola\"},\"confidenza\":0.85,\"rispostaUtente\":\"Ti recupero il dossier completo su La Bussola con storico impianti, cont",
+      "raw": {
+        "intent": {
+          "collega": "memo",
+          "azione": "dossier_cliente",
+          "parametri": {
+            "cliente": "La Bussola"
+          },
+          "confidenza": 0.85,
+          "rispostaUtente": "Ti recupero il dossier completo su La Bussola con storico impianti, contratti e dettagli.",
+          "reasoning": "Richiesta di informazioni generali su un cliente → memo gestisce i dossier clienti e storico impianti."
+        },
+        "nexusMessageId": "MrnmMkrCNDuvJFo8jBUA",
+        "userMsgId": "PMv0FTP7WWwIkSyeEosh",
+        "lavagnaMessageId": null,
+        "stato": "completata",
+        "direct": {
+          "data": {
+            "query": "bussola",
+            "totalMatches": 0,
+            "errors": []
+          },
+          "failed": false
+        },
+        "modello": "claude-haiku-4-5",
+        "usage": {
+          "input_tokens": 884,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 146,
+          "service_tier": "standard",
+          "inference_geo": "not_available"
+        }
+      }
+    },
+    {
+      "query": "dimmi tutto su Kristal",
+      "ok": true,
+      "response": "{\"intent\":{\"collega\":\"memo\",\"azione\":\"dossier_cliente\",\"parametri\":{\"cliente\":\"Kristal\"},\"confidenza\":0.75,\"rispostaUtente\":\"Ti preparo il dossier completo di Kristal con storico impianti e interventi",
+      "raw": {
+        "intent": {
+          "collega": "memo",
+          "azione": "dossier_cliente",
+          "parametri": {
+            "cliente": "Kristal"
+          },
+          "confidenza": 0.75,
+          "rispostaUtente": "Ti preparo il dossier completo di Kristal con storico impianti e interventi.",
+          "reasoning": "Nome cliente generico → memo (dossier_cliente) è la scelta più logica per raccogliere tutto."
+        },
+        "nexusMessageId": "kI9QHWvKMkzFoga6K5er",
+        "userMsgId": "zW51mf3LSwFjJWFke5vg",
+        "lavagnaMessageId": null,
+        "stato": "completata",
+        "direct": {
+          "data": {
+            "query": "kristal",
+            "clienti": 1,
+            "impianti": 1,
+            "interventi": 1,
+            "rti": 1,
+            "emails": 1,
+            "errors": []
+          },
+          "failed": false
+        },
+        "modello": "claude-haiku-4-5",
+        "usage": {
+          "input_tokens": 882,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 129,
+          "service_tier": "standard",
+          "inference_geo": "not_available"
+        }
+      }
+    },
+    {
+      "query": "dimmi tutto su Malvicino",
+      "ok": true,
+      "response": "{\"intent\":{\"collega\":\"memo\",\"azione\":\"dossier_cliente\",\"parametri\":{\"cliente\":\"Malvicino\"},\"confidenza\":0.85,\"rispostaUtente\":\"Ti recupero il dossier completo di Malvicino con tutti i dettagli e lo st",
+      "raw": {
+        "intent": {
+          "collega": "memo",
+          "azione": "dossier_cliente",
+          "parametri": {
+            "cliente": "Malvicino"
+          },
+          "confidenza": 0.85,
+          "rispostaUtente": "Ti recupero il dossier completo di Malvicino con tutti i dettagli e lo storico degli impianti.",
+          "reasoning": "Richiesta di informazioni generali su un cliente → dossier_cliente di memo è la scelta naturale."
+        },
+        "nexusMessageId": "suTW4vP17nglkwGCIh97",
+        "userMsgId": "aT5mFtIruNUFGGf6LnQx",
+        "lavagnaMessageId": null,
+        "stato": "completata",
+        "direct": {
+          "data": {
+            "query": "malvicino",
+            "clienti": 0,
+            "impianti": 0,
+            "interventi": 0,
+            "rti": 2,
+            "emails": 4,
+            "errors": []
+          },
+          "failed": false
+        },
+        "modello": "claude-haiku-4-5",
+        "usage": {
+          "input_tokens": 884,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 0,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "output_tokens": 139,
+          "service_tier": "standard",
+          "inference_geo": "not_available"
+        }
+      }
+    }
+  ],
+  "kristal": {
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/memo/memo-kristal.png",
+    "bodyTail": " Dilorenzo\nR: Notificazione ai sensi della legge n. 53 del 1994\n#2\nCristina Davì - Guazzotti Energia SRL\nI: VISITA ARPA CONDOMINIO LA TORTONESE\n#3\nMassimo Colla - Guazzotti Energia SRL\nInfo Spegnimento Cond. Cairoli\n43\nINDICIZZATE\n1\nURGENTI\n8\nIN ATTESA\n🗒️ Lavagna · ultimi 10 messaggi\n🗒️\nnexus → echo\nnexus_sendWhatsApp pending\n11h fa\nnexus → delphi\nnexus_analisi_costi_periodo pending\n1g fa\nnexus → delphi\nnexus_analisi_performance_mensile pending\n1g fa\nnexus → memo\nnexus_ricerca_impianti_senza_targa pending\n1g fa\nnexus → delphi\nnexus_genera_report_mensile pending\n1g fa\nnexus → ares\nnexus_lista_interventi_aperti pending\n1g fa\nnexus → ares\nnexus_lista_interventi_aperti pending\n1g fa\nnexus → ares\nnexus_lista_interventi_aperti pending\n1g fa\nnexus → ares\nnexus_apri_intervento pending\n1g fa\nnexus → ares\nnexus_apri_intervento pending\n1g fa\n👁️ Alert (PHARO)\n🔔\nNessun alert. PHARO non è ancora attivo; mostriamo le notifiche generate dalle regole IRIS quando ce ne saranno.\n🔧 Interventi aperti (ARES)\n—\nARES non è ancora attivo. Quando sarà materializzato vedrai qui gli interventi del giorno con tecnico assegnato e priorità.\n💬\nNEXUS\nInterfaccia verso i Colleghi NEXO\n×\n\n      dimmi tutto su Kristal\n      \n    \n\n      📇 **Dossier per \"kristal\"** (MEMO v0.2 — COSMINA + Guazzotti + email)\n\n**🏢 Anagrafica CRM** (1 match):\n  · **CONDOMINIO KRISTAL** [U058] — VIA AMATI, 1/3/5/7\n    Amministratore: Arrigone\n\n**⚙️ Impianti CURIT** (1):\n  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE\n    Occupante: CONDOMINIO KRISTAL\n    Scadenza dichiarazione: 31/07/2025\n\n**🔧 Interventi (bacheca COSMINA)** — ultimi 1 di 1:\n  · ? [chiuso] — U58 - CONDOMINIO KRISTAL\n    → VIA AMATI, 1/3/5/7 - PAVIA\n\n**📋 RTI/RTIDF Guazzotti TEC** (1):\n  · GRTI-2026-140 (generico) — 2026-03-11 — rtidf_presente · Tosca Federico\n    → Sostituito contakw riscaldamento e acs da voi forniti\n\n**📧 Email correlate** (1):\n  · NaN. [13/04] Massimo Poggi — LETTURE CONDOMINIO KRISTALL \n      \nMEMO\ncompletata\n\n    \n🎤\n➤"
+  }
+}

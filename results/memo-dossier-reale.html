@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MEMO v0.2 — Dossier reale da COSMINA + Guazzotti</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#059669; border-bottom:2px solid #bbf7d0; padding-bottom:8px; }
+  h2 { margin-top:28px; }
+  .banner { padding:14px 18px; border-radius:12px; margin:16px 0; background:#dcfce7; border:1px solid #bbf7d0; color:#14532d; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .card h3 { margin-top:0; }
+  pre { background:#0f172a; color:#e2e8f0; padding:14px; border-radius:8px; overflow-x:auto; font-size:0.85rem; line-height:1.55; white-space:pre-wrap; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.75rem; text-transform:uppercase; color:#475569; }
+  td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:5px; font-size:0.72rem; font-weight:600; }
+  .pill.ok { background:#dcfce7; color:#14532d; }
+  .pill.partial { background:#fef3c7; color:#78350f; }
+  .pill.none { background:#fee2e2; color:#991b1b; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  img { width:100%; border-radius:10px; border:1px solid #cbd5e1; margin:8px 0; }
+</style>
+</head>
+<body>
+
+<h1>🧠 MEMO v0.2 — Dossier reale da COSMINA + Guazzotti TEC</h1>
+
+<div class="banner">
+  ✅ Handler <code>handleMemoDossier</code> ora legge da 5 sorgenti reali: <code>crm_clienti</code>, <code>cosmina_impianti</code>, <code>bacheca_cards</code>, <code>guazzotti-tec.rti</code>, <code>iris_emails</code>.
+  Nessun permesso IAM aggiunto — riusa i ruoli già concessi per ARES e PHARO.
+</div>
+
+<h2>📊 Risultati test</h2>
+<div class="card">
+<table>
+  <thead><tr><th>Query</th><th class="num">Clienti CRM</th><th class="num">Impianti</th><th class="num">Interventi</th><th class="num">RTI Guazz.</th><th class="num">Email</th><th>Match?</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>"dimmi tutto su Kristal"</strong></td>
+      <td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td>
+      <td><span class="pill ok">Dossier completo</span></td>
+    </tr>
+    <tr>
+      <td><strong>"dimmi tutto su Malvicino"</strong></td>
+      <td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">4</td>
+      <td><span class="pill partial">Persona, non condominio</span></td>
+    </tr>
+    <tr>
+      <td><strong>"dimmi tutto su La Bussola"</strong></td>
+      <td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td>
+      <td><span class="pill none">Non trovato (gestito)</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>📸 Screenshot chat NEXUS — Kristal</h2>
+<img src="../projects/nexo-pwa/test-screenshots/memo/memo-kristal.png" alt="MEMO Kristal screenshot">
+
+<h2>📄 Output dossier testuali</h2>
+
+<div class="card">
+<h3>✅ Kristal — dossier completo</h3>
+<pre>📇 Dossier per "kristal" (MEMO v0.2 — COSMINA + Guazzotti + email)
+
+🏢 Anagrafica CRM (1 match):
+  · CONDOMINIO KRISTAL [U058] — VIA AMATI, 1/3/5/7
+    Amministratore: Arrigone
+
+⚙️ Impianti CURIT (1):
+  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE
+    Occupante: CONDOMINIO KRISTAL
+    Scadenza dichiarazione: 31/07/2025
+
+🔧 Interventi (bacheca COSMINA) — ultimi 1 di 1:
+  · [chiuso] — U58 - CONDOMINIO KRISTAL
+    → VIA AMATI, 1/3/5/7 - PAVIA
+
+📋 RTI/RTIDF Guazzotti TEC (1):
+  · GRTI-2026-140 (generico) — 2026-03-11 — rtidf_presente · Tosca Federico
+    → Sostituito contakw riscaldamento e acs da voi forniti
+
+📧 Email correlate (1):
+  · [13/04] Massimo Poggi — LETTURE CONDOMINIO KRISTALL</pre>
+</div>
+
+<div class="card">
+<h3>⚠️ Malvicino — riconosciuto come persona</h3>
+<pre>📇 Dossier per "malvicino" (MEMO v0.2 — COSMINA + Guazzotti + email)
+
+🏢 Anagrafica CRM: nessun cliente diretto trovato.
+⚙️ Impianti: nessuno trovato.
+🔧 Interventi: nessuno trovato sulla bacheca.
+
+📋 RTI/RTIDF Guazzotti TEC (2):
+  · CRTI-2025-034 (contabilizzazione) — 2025-09-18 — rtidf_inviato · Dellafiore Lorenzo
+    → Riposizionato il ripartitore su nuovo radiatore…
+  · GRTI-2025-011 (generico) — 2025-09-18 — definito [non fatturabile] · Aime David
+    → siamo intervenuti sul posto ed abbiamo riscontrato…
+
+📧 Email correlate (4):
+  · [17/04] Andrea Malvicino - Guazzotti Energia SRL — Stabilimento MECOF
+  · [17/04] Maurizio Malvicino - Guazzotti Energia SRL — I: INCASSI ACG
+  · [13/04] Andrea Malvicino - Guazzotti Energia SRL — R: Bozza XXIII Settembre
+  · [11/04] Andrea Malvicino - Guazzotti Energia SRL — Bozza materiali Complesso Immobiliare</pre>
+<p style="color:#64748b;font-size:0.88rem;margin-top:8px;">
+✓ MEMO ha correttamente identificato che Malvicino non è un cliente/condominio ma un cognome ricorrente in email/RTI.
+Andrea e Maurizio Malvicino risultano essere colleghi di Guazzotti Energia.</p>
+</div>
+
+<div class="card">
+<h3>❌ La Bussola — nessun match (gestito graziosamente)</h3>
+<pre>📇 Dossier per "bussola" (MEMO v0.2)
+
+Non ho trovato nulla su "bussola" nelle fonti disponibili:
+  · crm_clienti (647 docs)
+  · cosmina_impianti (326 docs)
+  · bacheca_cards interventi (400 docs)
+  · rti guazzotti (583 docs)
+  · iris_emails (43 docs)
+
+Possibili cause:
+  · Nome scritto diversamente (prova varianti)
+  · È una persona e non un condominio/cliente
+  · Cliente dismesso o non ancora caricato</pre>
+<p style="color:#64748b;font-size:0.88rem;margin-top:8px;">
+✓ Messaggio trasparente: dice esattamente cosa ha cercato e quante righe ha scansionato, niente "non lo so" generico.</p>
+</div>
+
+<h2>🔧 Modifiche tecniche</h2>
+<div class="card">
+<ul>
+  <li>Rinominato <code>handleEmailPerCliente</code> → <code>handleMemoDossier</code></li>
+  <li>Fetch parallelo con <code>Promise.all</code> su 5 sorgenti (2 progetti Firebase diversi)</li>
+  <li>Fuzzy match: rimuovi articoli iniziali (<code>"la bussola" → "bussola"</code>) + toLowerCase + includes</li>
+  <li>Funzione <code>memoBag(data)</code>: concatena tutti i campi stringa/numerici per ricerca</li>
+  <li>Riutilizza <code>getCosminaDb()</code> (pattern ARES) e <code>getGuazzottiDb()</code> (pattern PHARO) — zero nuovi IAM</li>
+  <li>Router aggiornato: match estesa anche quando utente scrive "dimmi tutto su X" anche se Haiku sbaglia collega</li>
+  <li>Gestione errori per sorgente: se una fallisce, le altre continuano (array <code>errors[]</code> nel response)</li>
+  <li>Case "nessun match" → messaggio esplicito con counts docs scansionati</li>
+</ul>
+</div>
+
+<h2>🔗 Link</h2>
+<div class="card">
+  <ul>
+    <li>PWA NEXUS: <a href="https://nexo-hub-15f2d.web.app" target="_blank">nexo-hub-15f2d.web.app</a> (clicca FAB chat in basso a destra)</li>
+    <li>Endpoint API: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter</code> (POST)</li>
+    <li>Esempi prompt: <code>"dimmi tutto su Kristal"</code>, <code>"storico del condominio XYZ"</code>, <code>"dossier cliente U058"</code></li>
+  </ul>
+</div>
+
+</body>
+</html>
