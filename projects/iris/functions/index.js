@@ -2714,139 +2714,232 @@ export const nexusRouter = onRequest(
   }
 );
 
-// ─────────────────────────────────────────────────────────────────
-//  RuleEngine IRIS — onCreate iris_emails
-// ─────────────────────────────────────────────────────────────────
-//
-// Regole v0.1:
-//   · "Incassi ACG": mittente contiene "malvicino" AND oggetto "INCASSI"
-//     → estrai incassi dal body → Lavagna per CHARTA + Lavagna per ECHO
-//       (WA ad Alberto con riassunto).
-//   · "Guasto urgente": classification.category == GUASTO_URGENTE
-//     → Lavagna per ARES + Lavagna per ECHO (WA urgente ad Alberto).
-//
-// Idempotenza: se il campo `rule_processed_at` esiste, salta.
-//
-// Le "azioni" sono scritte sulla Lavagna (nexo_lavagna); saranno consumate
-// dagli handler dedicati o processate manualmente. Niente invio diretto
-// qui: i flag DRY_RUN dei Colleghi governano le side-effects.
 
-const RULE_INCASSI_MITTENTE = /malvicino/i;
-const RULE_INCASSI_OGGETTO = /incass/i;
+// ─────────────────────────────────────────────────────────────────
+//  RuleEngine IRIS — onCreate iris_emails (config-driven)
+// ─────────────────────────────────────────────────────────────────
+//
+// Le regole sono memorizzate in Firestore `iris_rules` (nexo-hub-15f2d).
+// Ogni regola ha: id, name, description, enabled, priority, stopOnMatch,
+// conditions[], actions[].
+//
+// Condition schema: { field, op, value }
+//   field: "category" | "sender" | "subject" | "body" | "sentiment"
+//   op:    "equals" | "contains" | "startsWith" | "regex" | "in" | "not_equals"
+//
+// Action schema (5 tipi, seed_rules.py):
+//   - write_lavagna  { to, messageType, priority?, payload? }
+//   - notify_echo    { channel: "wa"|..., text }
+//   - extract_data   { extractPatterns: { fieldName: regex } }
+//   - archive_email
+//   - set_priority   { priority }
+//
+// Idempotenza: se `rule_processed_at` esiste sul doc email, skip.
+// Priorità: regole ordinate DESC. Se `stopOnMatch=true` e matcha, stop.
 
-function extractIncassiFromBody(bodyText) {
-  if (!bodyText) return [];
-  const text = String(bodyText);
-  const out = [];
-  // Pattern: riga con nome + importo
-  const importoRe = /(?:€|EUR)\s*([\d]{1,3}(?:[.\s][\d]{3})*(?:[.,]\d{1,2})?)|([\d]{1,3}(?:[.\s][\d]{3})*(?:[.,]\d{1,2})?)\s*(?:€|EUR)/gi;
-  let m;
-  while ((m = importoRe.exec(text)) !== null) {
-    const raw = m[1] || m[2];
-    if (!raw) continue;
-    let norm = raw.replace(/\s/g, "");
-    if (norm.includes(",") && norm.includes(".")) {
-      if (norm.lastIndexOf(",") > norm.lastIndexOf(".")) norm = norm.replace(/\./g, "").replace(",", ".");
-      else norm = norm.replace(/,/g, "");
-    } else if (norm.includes(",")) norm = norm.replace(",", ".");
-    const n = parseFloat(norm);
-    if (Number.isFinite(n) && n > 0) {
-      // Contesto 40 char prima per tentare il cliente
-      const ctx = text.slice(Math.max(0, m.index - 80), m.index).trim();
-      out.push({ importo: n, raw: m[0], contesto: ctx.split("\n").pop() });
+async function loadIrisRules() {
+  // Prova query con indice composto; fallback a fetch + filtro client-side
+  // se l'indice non è ancora propagato (deploy iniziale).
+  try {
+    const snap = await db.collection("iris_rules")
+      .where("enabled", "==", true)
+      .orderBy("priority", "desc")
+      .get();
+    const rules = [];
+    snap.forEach(d => rules.push({ id: d.id, ...d.data() }));
+    return rules;
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (/FAILED_PRECONDITION|requires an index/i.test(msg)) {
+      logger.warn("loadIrisRules: index missing, fallback to scan");
+      try {
+        const snap = await db.collection("iris_rules").get();
+        const rules = [];
+        snap.forEach(d => {
+          const data = d.data();
+          if (data.enabled === true) rules.push({ id: d.id, ...data });
+        });
+        rules.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+        return rules;
+      } catch (e2) {
+        logger.error("loadIrisRules fallback failed", { error: String(e2) });
+        return [];
+      }
     }
+    logger.error("loadIrisRules failed", { error: msg });
+    return [];
   }
-  return out;
 }
+
+function ruleFieldValue(emailData, field) {
+  const raw = emailData.raw || {};
+  const cls = emailData.classification || {};
+  switch (field) {
+    case "category":  return String(cls.category || "");
+    case "sender":    return String(raw.sender || raw.sender_name || "");
+    case "subject":   return String(raw.subject || "");
+    case "body":      return String(raw.body_text || raw.body || "");
+    case "sentiment": return String(cls.sentiment || "");
+    case "suggestedAction": return String(cls.suggestedAction || "");
+    default: return "";
+  }
+}
+
+function ruleConditionMatches(cond, emailData) {
+  const val = ruleFieldValue(emailData, cond.field);
+  const expected = cond.value;
+  switch (cond.op) {
+    case "equals":     return val === expected;
+    case "not_equals": return val !== expected;
+    case "contains":   return val.toLowerCase().includes(String(expected).toLowerCase());
+    case "startsWith": return val.toLowerCase().startsWith(String(expected).toLowerCase());
+    case "in":         return Array.isArray(expected) && expected.includes(val);
+    case "regex":
+      try { return new RegExp(expected, "i").test(val); } catch { return false; }
+    default: return false;
+  }
+}
+
+function ruleAllConditionsMatch(rule, emailData) {
+  const conds = Array.isArray(rule.conditions) ? rule.conditions : [];
+  if (conds.length === 0) return false;  // regola senza condizioni = skip
+  return conds.every(c => ruleConditionMatches(c, emailData));
+}
+
+// ─── Action handlers ──────────────────────────────────────────
 
 async function postLavagna({ to, type, payload, priority = "normal", from = "iris_rules" }) {
   const ref = db.collection("nexo_lavagna").doc();
   const now = FieldValue.serverTimestamp();
   await ref.set({
     id: ref.id,
-    from, to, type, payload,
+    from, to, type, payload: payload || {},
     status: "pending", priority,
     createdAt: now, updatedAt: now,
   });
   return ref.id;
 }
 
-async function applyRuleIncassiAcg(emailId, emailData) {
-  const raw = emailData.raw || {};
-  const sender = String(raw.sender || raw.sender_name || "");
-  const subject = String(raw.subject || "");
-  if (!RULE_INCASSI_MITTENTE.test(sender)) return null;
-  if (!RULE_INCASSI_OGGETTO.test(subject)) return null;
-
-  const body = String(raw.body_text || raw.body || "");
-  const incassi = extractIncassiFromBody(body);
-  const totale = incassi.reduce((s, i) => s + i.importo, 0);
-
-  const chartaLavId = await postLavagna({
-    to: "charta",
-    type: "iris_incassi_da_email",
-    payload: {
-      sourceEmailId: emailId,
-      mittente: sender,
-      incassiEstratti: incassi,
-      totale,
-      note: "Regola Incassi ACG attivata da IRIS",
-    },
-    priority: "normal",
+async function actionWriteLavagna(action, ctx) {
+  const payload = {
+    ...(action.payload || {}),
+    sourceEmailId: ctx.emailId,
+    triggeredByRule: ctx.ruleId,
+    extracted: ctx.extracted || undefined,
+  };
+  const lavId = await postLavagna({
+    to: action.to,
+    type: action.messageType || `iris_${ctx.ruleId}`,
+    payload,
+    priority: action.priority || "normal",
+    from: "iris_rules",
   });
-
-  // ECHO: WA di riepilogo ad Alberto (verrà processato dal handler ECHO
-  // → DRY_RUN di default ancora)
-  const echoLavId = await postLavagna({
-    to: "echo",
-    type: "iris_whatsapp_alberto",
-    payload: {
-      destinatario: "Alberto",
-      testo: `📥 Incassi ACG ricevuti: ${incassi.length} voci, totale € ${totale.toFixed(2)}. Dettaglio in email.`,
-      sourceEmailId: emailId,
-      triggeredByRule: "incassi_acg",
-    },
-    priority: "normal",
-  });
-
-  return { rule: "incassi_acg", chartaLavId, echoLavId, incassiCount: incassi.length, totale };
+  return { type: "write_lavagna", to: action.to, lavagnaId: lavId };
 }
 
-async function applyRuleGuastoUrgente(emailId, emailData) {
-  const cat = String((emailData.classification || {}).category || "");
-  if (cat !== "GUASTO_URGENTE") return null;
-
-  const raw = emailData.raw || {};
-  const summary = (emailData.classification || {}).summary
-    || String(raw.subject || "").slice(0, 120);
-
-  const aresLavId = await postLavagna({
-    to: "ares",
-    type: "iris_guasto_urgente",
-    payload: {
-      sourceEmailId: emailId,
-      mittente: raw.sender_name || raw.sender,
-      oggetto: raw.subject,
-      summary,
-      triggeredByRule: "guasto_urgente",
-    },
-    priority: "critical",
-  });
-
-  const echoLavId = await postLavagna({
+async function actionNotifyEcho(action, ctx) {
+  // Convenzione: ECHO riceve un messaggio sulla Lavagna con type=iris_whatsapp_alberto
+  // I colleghi consumeranno la Lavagna quando avranno il listener; per ora
+  // il messaggio resta pending, visibile nella PWA.
+  const text = String(action.text || "").trim() || "Notifica IRIS (senza testo)";
+  const lavId = await postLavagna({
     to: "echo",
-    type: "iris_whatsapp_alberto",
+    type: "iris_notify",
     payload: {
+      canale: action.channel || "wa",
       destinatario: "Alberto",
-      testo: `🚨 GUASTO URGENTE — ${raw.sender_name || raw.sender}: ${summary}`,
-      sourceEmailId: emailId,
-      triggeredByRule: "guasto_urgente",
-      priority: "high",
+      testo: text,
+      sourceEmailId: ctx.emailId,
+      triggeredByRule: ctx.ruleId,
     },
-    priority: "critical",
+    priority: ctx.priorityBoost || "normal",
+    from: "iris_rules",
   });
+  return { type: "notify_echo", channel: action.channel || "wa", lavagnaId: lavId };
+}
 
-  return { rule: "guasto_urgente", aresLavId, echoLavId };
+async function actionArchiveEmail(action, ctx) {
+  await ctx.emailRef.set({
+    status: "archived",
+    archivedAt: FieldValue.serverTimestamp(),
+    archivedBy: "iris_rules",
+  }, { merge: true });
+  return { type: "archive_email" };
+}
+
+function actionExtractData(action, ctx) {
+  // Pattern estrazione regex da body. Salva in ctx.extracted accumulativo.
+  const body = ruleFieldValue(ctx.emailData, "body");
+  const patterns = action.extractPatterns || {};
+  const found = {};
+  for (const [fieldName, pattern] of Object.entries(patterns)) {
+    try {
+      const re = new RegExp(pattern, "i");
+      const m = re.exec(body);
+      if (m) found[fieldName] = m[1] || m[0];
+    } catch (e) {
+      logger.warn("extract_data: bad regex", { fieldName, pattern, error: String(e) });
+    }
+  }
+  ctx.extracted = { ...(ctx.extracted || {}), ...found };
+  logger.info("extract_data", { emailId: ctx.emailId, ruleId: ctx.ruleId, found });
+  return { type: "extract_data", fieldsFound: Object.keys(found) };
+}
+
+function actionSetPriority(action, ctx) {
+  // Boost priority per gli action successivi (es. notify_echo)
+  if (action.priority) ctx.priorityBoost = action.priority;
+  return { type: "set_priority", priority: action.priority };
+}
+
+async function executeAction(action, ctx) {
+  switch (action.type) {
+    case "write_lavagna":  return await actionWriteLavagna(action, ctx);
+    case "notify_echo":    return await actionNotifyEcho(action, ctx);
+    case "archive_email":  return await actionArchiveEmail(action, ctx);
+    case "extract_data":   return actionExtractData(action, ctx);
+    case "set_priority":   return actionSetPriority(action, ctx);
+    default:
+      logger.warn("unknown action type", { type: action.type, ruleId: ctx.ruleId });
+      return { type: action.type, error: "unknown_action_type" };
+  }
+}
+
+async function applyRulesToEmail(emailId, emailData, emailRef) {
+  const rules = await loadIrisRules();
+  if (rules.length === 0) {
+    logger.info("applyRules: no enabled rules");
+    return { matched: [], actionsExecuted: [] };
+  }
+
+  const matched = [];
+  const actionsExecuted = [];
+
+  for (const rule of rules) {
+    if (!ruleAllConditionsMatch(rule, emailData)) continue;
+    matched.push(rule.id);
+
+    // Esegui azioni in ordine, share context (extracted + priorityBoost)
+    const ctx = { emailId, emailData, emailRef, ruleId: rule.id };
+    for (const action of (rule.actions || [])) {
+      try {
+        const r = await executeAction(action, ctx);
+        actionsExecuted.push({ ruleId: rule.id, ...r });
+      } catch (e) {
+        logger.error("action failed", {
+          ruleId: rule.id, actionType: action.type, error: String(e),
+        });
+        actionsExecuted.push({ ruleId: rule.id, type: action.type, error: String(e).slice(0, 150) });
+      }
+    }
+
+    if (rule.stopOnMatch !== false) {
+      logger.info("rule matched with stopOnMatch, halt", { ruleId: rule.id });
+      break;
+    }
+  }
+
+  return { matched, actionsExecuted };
 }
 
 export const irisRuleEngine = onDocumentCreated(
@@ -2863,31 +2956,27 @@ export const irisRuleEngine = onDocumentCreated(
       return;
     }
 
-    const applied = [];
+    let result;
     try {
-      const r1 = await applyRuleIncassiAcg(emailId, data);
-      if (r1) applied.push(r1);
+      result = await applyRulesToEmail(emailId, data, snap.ref);
     } catch (e) {
-      logger.error("rule incassi failed", { error: String(e), emailId });
-    }
-    try {
-      const r2 = await applyRuleGuastoUrgente(emailId, data);
-      if (r2) applied.push(r2);
-    } catch (e) {
-      logger.error("rule guasto failed", { error: String(e), emailId });
+      logger.error("applyRulesToEmail failed", { error: String(e), emailId });
+      return;
     }
 
-    // Marca processed
     try {
       await snap.ref.set({
         rule_processed_at: FieldValue.serverTimestamp(),
-        rules_applied: applied.map(x => x.rule),
+        rules_matched: result.matched,
+        actions_executed: result.actionsExecuted,
       }, { merge: true });
     } catch (e) {
       logger.error("mark processed failed", { error: String(e), emailId });
     }
 
-    logger.info("rules applied", { emailId, count: applied.length, rules: applied.map(x => x.rule) });
+    logger.info("rules evaluated", {
+      emailId, matched: result.matched, actionsCount: result.actionsExecuted.length,
+    });
   }
 );
 
