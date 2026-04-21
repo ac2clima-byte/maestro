@@ -1,4 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
 import { initializeApp, getApps } from "firebase-admin/app";
@@ -821,6 +823,244 @@ async function handleAresInterventiAperti(parametri) {
     ? `🔧 Interventi di **oggi** (${top.length}):`
     : `🔧 **${top.length}** interventi attivi su COSMINA${items.length > top.length ? ` (mostro i primi ${top.length} di ${items.length})` : ""}:`;
   return { content: `${header}\n\n${lines}`, data: { count: top.length } };
+}
+
+// ─── CHARTA — registra incasso (scrittura charta_pagamenti) ────
+//
+// DRY_RUN di default. Legge flag da cosmina_config/charta_config.dry_run.
+// Salvataggio su nexo-hub collection `charta_pagamenti`.
+
+async function isChartaDryRun() {
+  try {
+    const snap = await getCosminaDb().collection("cosmina_config").doc("charta_config").get();
+    if (snap.exists && typeof (snap.data() || {}).dry_run === "boolean") {
+      return snap.data().dry_run;
+    }
+  } catch {}
+  return true;
+}
+
+async function handleChartaRegistraIncasso(parametri, ctx) {
+  const msg = String(ctx?.userMessage || "");
+  const importoParam = parametri.importo || parametri.amount;
+  const controparteParam = parametri.cliente || parametri.controparte || parametri.da;
+
+  // Parse da prompt naturale: "registra incasso 500 euro da Condominio Kristal"
+  let importo = typeof importoParam === "number" ? importoParam : parseFloat(String(importoParam || "").replace(",", "."));
+  let controparte = String(controparteParam || "").trim();
+
+  if (!Number.isFinite(importo) || importo <= 0) {
+    // Regex importo: "500 euro" | "€ 500" | "500,50"
+    const m = /(\d+(?:[.,]\d{1,2})?)\s*(?:euro|eur|€)/i.exec(msg) || /(?:euro|eur|€)\s*(\d+(?:[.,]\d{1,2})?)/i.exec(msg);
+    if (m) importo = parseFloat(m[1].replace(",", "."));
+  }
+
+  if (!controparte) {
+    // "da [Nome ...]"
+    const m = /\bda\s+(?:condominio\s+|cond\.\s+|cliente\s+)?([A-Za-zÀ-ÿ][\wÀ-ÿ.\s'\-]{2,60})/i.exec(msg);
+    if (m) controparte = m[1].trim();
+  }
+
+  if (!Number.isFinite(importo) || importo <= 0) {
+    return { content: "💰 Mi manca l'importo. Es. \"registra incasso 500 euro da Condominio Kristal\"." };
+  }
+  if (!controparte) {
+    return { content: "💰 Mi manca il nome del cliente/condominio. Es. \"registra incasso 500 da Kristal\"." };
+  }
+
+  const id = "inc_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+  const record = {
+    id,
+    direzione: "in",
+    controparteId: "unknown",
+    controparteNome: controparte,
+    importo,
+    data: new Date().toISOString(),
+    metodo: String(parametri.metodo || "bonifico"),
+    causale: parametri.causale || undefined,
+    fonte: "nexus",
+    sourceSessionId: parametri.sessionId,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+
+  const dry = await isChartaDryRun();
+  if (dry) {
+    // Mirror solo su nexo-hub con flag DRY
+    try {
+      await db.collection("charta_pagamenti").doc(id).set({ ...record, _dryRun: true });
+    } catch (e) {
+      logger.error("charta dry_run mirror failed", { error: String(e) });
+    }
+    return {
+      content:
+        `💰 Incasso **simulato** (CHARTA DRY_RUN)\n\n` +
+        `  · Da: **${controparte}**\n` +
+        `  · Importo: € ${importo.toFixed(2)}\n` +
+        `  · Metodo: ${record.metodo}\n\n` +
+        `ID: \`${id}\`. Per salvare davvero, imposta \`cosmina_config/charta_config.dry_run = false\`.`,
+      data: { id, dryRun: true },
+    };
+  }
+
+  try {
+    await db.collection("charta_pagamenti").doc(id).set(record);
+    return {
+      content:
+        `✅ Incasso **registrato**\n\n` +
+        `  · Da: **${controparte}**\n` +
+        `  · Importo: € ${importo.toFixed(2)}\n` +
+        `  · Metodo: ${record.metodo}\n\n` +
+        `ID: \`${id}\``,
+      data: { id, dryRun: false },
+    };
+  } catch (e) {
+    return { content: `❌ CHARTA: scrittura fallita. ${String(e?.message || e).slice(0, 200)}` };
+  }
+}
+
+// ─── ARES — apertura intervento (scrittura bacheca_cards) ──────
+//
+// DRY_RUN di default via cosmina_config/ares_config.dry_run.
+// In DRY_RUN: mirror su nexo-hub ares_interventi con _dryRun=true, niente
+// scrittura su COSMINA.
+// In modalità reale: crea doc in bacheca_cards con listName=INTERVENTI.
+
+async function isAresDryRun() {
+  try {
+    const snap = await getCosminaDb().collection("cosmina_config").doc("ares_config").get();
+    if (snap.exists && typeof (snap.data() || {}).dry_run === "boolean") {
+      return snap.data().dry_run;
+    }
+  } catch {}
+  return true; // default safe
+}
+
+function aresIntId() {
+  return "int_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+/**
+ * Apre un intervento: estrae tipo/urgenza/note dal prompt + parametri.
+ * In DRY-RUN: dummy su nexo-hub.ares_interventi con _dryRun=true.
+ * In reale: scrive su COSMINA bacheca_cards (listName=INTERVENTI).
+ */
+async function handleAresApriIntervento(parametri, ctx) {
+  const msg = String(ctx?.userMessage || "").toLowerCase();
+
+  // Estrai info: condominio/indirizzo, tipo, urgenza, note
+  let condominio = String(
+    parametri.condominio || parametri.cliente || parametri.indirizzo || parametri.dove || "",
+  ).trim();
+  const note = String(
+    parametri.note || parametri.descrizione || parametri.problema || parametri.testo || "",
+  ).trim();
+  const tipoRaw = String(parametri.tipo || "").toLowerCase();
+  const urgenzaRaw = String(parametri.urgenza || parametri.priorità || parametri.priority || "").toLowerCase();
+
+  // Fallback: regex su messaggio. "apri intervento [tipo] [a|per|presso] [dove] ..."
+  if (!condominio && msg) {
+    const m = /(?:presso|per|al|alla|a|da)\s+(?:condominio\s+|condom\.\s+)?([A-Za-zÀ-ÿ][\w\sÀ-ÿ.,'\-]{2,60}?)(?:\s+(?:urgente|normale|subito|per|con|in|entro|per|$)|$)/i.exec(msg);
+    if (m) condominio = m[1].trim();
+  }
+
+  // Tipo intervento: inferisci da keyword
+  let tipo = "manutenzione";
+  if (tipoRaw.includes("ripar") || /ripar|guast/i.test(msg)) tipo = "riparazione";
+  else if (tipoRaw.includes("install") || /install/i.test(msg)) tipo = "installazione";
+  else if (tipoRaw.includes("sopral") || /sopral/i.test(msg)) tipo = "sopralluogo";
+
+  // Urgenza
+  let urgenza = "media";
+  if (urgenzaRaw.includes("critic") || /critic|immediat|subito/i.test(msg)) urgenza = "critica";
+  else if (urgenzaRaw.includes("alta") || urgenzaRaw === "high" || /urgent|priorit/i.test(msg)) urgenza = "alta";
+  else if (urgenzaRaw.includes("bass") || /non.*urgent|basso|flessibil/i.test(msg)) urgenza = "bassa";
+
+  if (!condominio) {
+    return {
+      content: "🔧 Per aprire un intervento mi serve il condominio/indirizzo.\n\n" +
+        "Es. \"apri intervento riparazione caldaia al Condominio Kristal urgente\"",
+    };
+  }
+
+  const id = aresIntId();
+  const now = new Date().toISOString();
+  const dry = await isAresDryRun();
+
+  const cardName = (note || `${tipo} ${urgenza}`).slice(0, 80);
+  const labels = [`tipo:${tipo}`, `urgenza:${urgenza}`, "source:nexus"];
+  if (urgenza === "critica" || urgenza === "alta") labels.push("URGENTE");
+
+  if (dry) {
+    // Mirror su nexo-hub per diagnosi (db = Firestore nexo-hub nell'index.js)
+    try {
+      await db.collection("ares_interventi").doc(id).set({
+        id,
+        condominio, tipo, urgenza, note,
+        stato: "aperto",
+        source: "nexus",
+        _dryRun: true,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.error("ares mirror failed", { error: String(e) });
+    }
+    return {
+      content:
+        `📝 Intervento **simulato** (ARES DRY_RUN)\n\n` +
+        `  · Condominio: **${condominio}**\n` +
+        `  · Tipo: ${tipo}\n` +
+        `  · Urgenza: ${urgenza}${urgenza !== "media" ? " ⚠️" : ""}\n` +
+        (note ? `  · Note: ${note}\n` : "") +
+        `\nID: \`${id}\`. Per scrivere davvero su COSMINA, imposta \`cosmina_config/ares_config.dry_run = false\`.`,
+      data: { id, dryRun: true },
+    };
+  }
+
+  // Scrittura reale su COSMINA bacheca_cards
+  try {
+    const cosmDb = getCosminaDb();
+    const ref = cosmDb.collection("bacheca_cards").doc();
+    await ref.set({
+      name: cardName,
+      boardName: condominio,
+      desc: note || undefined,
+      workDescription: note || undefined,
+      listName: "INTERVENTI",
+      inBacheca: true,
+      archiviato: false,
+      stato: "aperto",
+      labels,
+      source: "nexus_ares",
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    // Mirror su nexo-hub per audit
+    try {
+      await db.collection("ares_interventi").doc(ref.id).set({
+        id: ref.id, cosmina_doc_id: ref.id,
+        condominio, tipo, urgenza, note,
+        stato: "aperto", source: "nexus",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch {}
+
+    return {
+      content:
+        `✅ Intervento **creato** su COSMINA\n\n` +
+        `  · Condominio: **${condominio}**\n` +
+        `  · Tipo: ${tipo} · Urgenza: ${urgenza}\n` +
+        (note ? `  · Note: ${note}\n` : "") +
+        `\nID: \`${ref.id}\` · Visibile nella bacheca interventi.`,
+      data: { id: ref.id, cosminaDocId: ref.id, dryRun: false },
+    };
+  } catch (e) {
+    const errMsg = String(e?.message || e).slice(0, 200);
+    if (/permission|denied|403/i.test(errMsg)) {
+      return { content: `❌ ARES non può scrivere su COSMINA: permessi insufficienti. ${errMsg}` };
+    }
+    return { content: `❌ ARES: scrittura fallita. ${errMsg}` };
+  }
 }
 
 // ─── ECHO — invio WhatsApp via Waha ────────────────────────────
@@ -2121,11 +2361,25 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
   { match: (col, az) => col === "memo" && /(dossier|cliente|condominio|tutto_su|storico)/.test(az), fn: handleEmailPerCliente },
   { match: (col, az) => /lavagna/.test(az) && col !== "pharo", fn: handleStatoLavagna },
+  // CHARTA — SCRITTURA: registra incasso (DRY_RUN default)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "charta" && /(registr|aggiung|nuovo|insert|salva|record).*incass/.test(az))
+      || (col === "charta" && /registr_incass|aggiung_incass|nuovo_pag/.test(az))
+      || /^\s*(registr|aggiung|nuov|salv)\w*\s+(?:un\s+)?(incass|pagament)/.test(m);
+  }, fn: handleChartaRegistraIncasso },
   // CHARTA — report mensile (PRIMA di DELPHI perché Haiku può mandare report a DELPHI)
   { match: (col, az) => (col === "charta" || col === "delphi") && /(report.*mens|mens.*report|report_mensile|mese|mensile)/.test(az), fn: handleChartaReportMensile },
   { match: (col, az) => col === "charta" && /(incass|pagament|accredit|bonifico)/.test(az) && /(oggi|today)/.test(az), fn: handleChartaIncassiOggi },
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
-  // ARES — interventi (lettura COSMINA bacheca_cards)
+  // ARES — SCRITTURA: apri intervento (DRY_RUN default). Ha priorità
+  // sopra la LETTURA "interventi_aperti" perché il verbo chiave è diverso.
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "ares" && /(apri_intervent|crea_intervent|nuovo_intervent|open_intervent)/.test(az))
+      || /^\s*(apri|crea|nuovo|aggiungi)\s+(un\s+)?intervent/.test(m);
+  }, fn: handleAresApriIntervento },
+  // ARES — LETTURA interventi aperti
   { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
   // ECHO — invio WhatsApp (DRY-RUN default, whitelist obbligatoria)
   { match: (col, az, ctx) => {
@@ -2399,5 +2653,286 @@ export const nexusRouter = onRequest(
       modello: MODEL,
       usage: haiku.usage,
     });
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────
+//  RuleEngine IRIS — onCreate iris_emails
+// ─────────────────────────────────────────────────────────────────
+//
+// Regole v0.1:
+//   · "Incassi ACG": mittente contiene "malvicino" AND oggetto "INCASSI"
+//     → estrai incassi dal body → Lavagna per CHARTA + Lavagna per ECHO
+//       (WA ad Alberto con riassunto).
+//   · "Guasto urgente": classification.category == GUASTO_URGENTE
+//     → Lavagna per ARES + Lavagna per ECHO (WA urgente ad Alberto).
+//
+// Idempotenza: se il campo `rule_processed_at` esiste, salta.
+//
+// Le "azioni" sono scritte sulla Lavagna (nexo_lavagna); saranno consumate
+// dagli handler dedicati o processate manualmente. Niente invio diretto
+// qui: i flag DRY_RUN dei Colleghi governano le side-effects.
+
+const RULE_INCASSI_MITTENTE = /malvicino/i;
+const RULE_INCASSI_OGGETTO = /incass/i;
+
+function extractIncassiFromBody(bodyText) {
+  if (!bodyText) return [];
+  const text = String(bodyText);
+  const out = [];
+  // Pattern: riga con nome + importo
+  const importoRe = /(?:€|EUR)\s*([\d]{1,3}(?:[.\s][\d]{3})*(?:[.,]\d{1,2})?)|([\d]{1,3}(?:[.\s][\d]{3})*(?:[.,]\d{1,2})?)\s*(?:€|EUR)/gi;
+  let m;
+  while ((m = importoRe.exec(text)) !== null) {
+    const raw = m[1] || m[2];
+    if (!raw) continue;
+    let norm = raw.replace(/\s/g, "");
+    if (norm.includes(",") && norm.includes(".")) {
+      if (norm.lastIndexOf(",") > norm.lastIndexOf(".")) norm = norm.replace(/\./g, "").replace(",", ".");
+      else norm = norm.replace(/,/g, "");
+    } else if (norm.includes(",")) norm = norm.replace(",", ".");
+    const n = parseFloat(norm);
+    if (Number.isFinite(n) && n > 0) {
+      // Contesto 40 char prima per tentare il cliente
+      const ctx = text.slice(Math.max(0, m.index - 80), m.index).trim();
+      out.push({ importo: n, raw: m[0], contesto: ctx.split("\n").pop() });
+    }
+  }
+  return out;
+}
+
+async function postLavagna({ to, type, payload, priority = "normal", from = "iris_rules" }) {
+  const ref = db.collection("nexo_lavagna").doc();
+  const now = FieldValue.serverTimestamp();
+  await ref.set({
+    id: ref.id,
+    from, to, type, payload,
+    status: "pending", priority,
+    createdAt: now, updatedAt: now,
+  });
+  return ref.id;
+}
+
+async function applyRuleIncassiAcg(emailId, emailData) {
+  const raw = emailData.raw || {};
+  const sender = String(raw.sender || raw.sender_name || "");
+  const subject = String(raw.subject || "");
+  if (!RULE_INCASSI_MITTENTE.test(sender)) return null;
+  if (!RULE_INCASSI_OGGETTO.test(subject)) return null;
+
+  const body = String(raw.body_text || raw.body || "");
+  const incassi = extractIncassiFromBody(body);
+  const totale = incassi.reduce((s, i) => s + i.importo, 0);
+
+  const chartaLavId = await postLavagna({
+    to: "charta",
+    type: "iris_incassi_da_email",
+    payload: {
+      sourceEmailId: emailId,
+      mittente: sender,
+      incassiEstratti: incassi,
+      totale,
+      note: "Regola Incassi ACG attivata da IRIS",
+    },
+    priority: "normal",
+  });
+
+  // ECHO: WA di riepilogo ad Alberto (verrà processato dal handler ECHO
+  // → DRY_RUN di default ancora)
+  const echoLavId = await postLavagna({
+    to: "echo",
+    type: "iris_whatsapp_alberto",
+    payload: {
+      destinatario: "Alberto",
+      testo: `📥 Incassi ACG ricevuti: ${incassi.length} voci, totale € ${totale.toFixed(2)}. Dettaglio in email.`,
+      sourceEmailId: emailId,
+      triggeredByRule: "incassi_acg",
+    },
+    priority: "normal",
+  });
+
+  return { rule: "incassi_acg", chartaLavId, echoLavId, incassiCount: incassi.length, totale };
+}
+
+async function applyRuleGuastoUrgente(emailId, emailData) {
+  const cat = String((emailData.classification || {}).category || "");
+  if (cat !== "GUASTO_URGENTE") return null;
+
+  const raw = emailData.raw || {};
+  const summary = (emailData.classification || {}).summary
+    || String(raw.subject || "").slice(0, 120);
+
+  const aresLavId = await postLavagna({
+    to: "ares",
+    type: "iris_guasto_urgente",
+    payload: {
+      sourceEmailId: emailId,
+      mittente: raw.sender_name || raw.sender,
+      oggetto: raw.subject,
+      summary,
+      triggeredByRule: "guasto_urgente",
+    },
+    priority: "critical",
+  });
+
+  const echoLavId = await postLavagna({
+    to: "echo",
+    type: "iris_whatsapp_alberto",
+    payload: {
+      destinatario: "Alberto",
+      testo: `🚨 GUASTO URGENTE — ${raw.sender_name || raw.sender}: ${summary}`,
+      sourceEmailId: emailId,
+      triggeredByRule: "guasto_urgente",
+      priority: "high",
+    },
+    priority: "critical",
+  });
+
+  return { rule: "guasto_urgente", aresLavId, echoLavId };
+}
+
+export const irisRuleEngine = onDocumentCreated(
+  { region: REGION, document: "iris_emails/{emailId}", memory: "256MiB", maxInstances: 5 },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const emailId = event.params.emailId;
+    const data = snap.data() || {};
+
+    // Idempotenza
+    if (data.rule_processed_at) {
+      logger.info("rule already applied", { emailId });
+      return;
+    }
+
+    const applied = [];
+    try {
+      const r1 = await applyRuleIncassiAcg(emailId, data);
+      if (r1) applied.push(r1);
+    } catch (e) {
+      logger.error("rule incassi failed", { error: String(e), emailId });
+    }
+    try {
+      const r2 = await applyRuleGuastoUrgente(emailId, data);
+      if (r2) applied.push(r2);
+    } catch (e) {
+      logger.error("rule guasto failed", { error: String(e), emailId });
+    }
+
+    // Marca processed
+    try {
+      await snap.ref.set({
+        rule_processed_at: FieldValue.serverTimestamp(),
+        rules_applied: applied.map(x => x.rule),
+      }, { merge: true });
+    } catch (e) {
+      logger.error("mark processed failed", { error: String(e), emailId });
+    }
+
+    logger.info("rules applied", { emailId, count: applied.length, rules: applied.map(x => x.rule) });
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────
+//  Scheduler: irisPoll (5 min) — poller EWS
+// ─────────────────────────────────────────────────────────────────
+//
+// In v0.1 è uno scheletro: non ho accesso alle credenziali EWS.
+// Quando Alberto popola cosmina_config/ews_config con user/password/server,
+// questa function leggerà email da Exchange e le salverà in iris_emails
+// (triggerando irisRuleEngine).
+//
+// Per ora: logga lo stato della config e non fa nulla.
+
+export const irisPollScheduled = onSchedule(
+  { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "256MiB" },
+  async () => {
+    try {
+      const snap = await getCosminaDb().collection("cosmina_config").doc("ews_config").get();
+      if (!snap.exists) {
+        logger.info("irisPoll: ews_config missing, skipping");
+        return;
+      }
+      const cfg = snap.data() || {};
+      if (cfg.enabled === false) {
+        logger.info("irisPoll: disabled via config");
+        return;
+      }
+      if (!cfg.server || !cfg.user) {
+        logger.warn("irisPoll: ews_config incomplete (server/user missing)");
+        return;
+      }
+      // TODO v0.2: implementare fetch EWS in Node (ews-javascript-api) o
+      // delegare a un worker Python schedulato esternamente.
+      logger.info("irisPoll: config present but poller Node non implementato in v0.1", {
+        server: cfg.server, user: cfg.user,
+      });
+    } catch (e) {
+      logger.error("irisPoll failed", { error: String(e) });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────
+//  Scheduler: pharoHealthCheck (5 min)
+// ─────────────────────────────────────────────────────────────────
+
+export const pharoHealthCheck = onSchedule(
+  { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "256MiB" },
+  async () => {
+    try {
+      let firestoreOk = true;
+      let pending = 0, errori = 0, emailAttesa = 0;
+
+      // Check nexo_lavagna: troppi pending o errori?
+      try {
+        const snap = await db.collection("nexo_lavagna").orderBy("createdAt", "desc").limit(100).get();
+        snap.forEach(d => {
+          const s = (d.data() || {}).status;
+          if (s === "pending" || s === "in_progress") pending++;
+          else if (s === "failed" || s === "error" || s === "errore") errori++;
+        });
+      } catch { firestoreOk = false; }
+
+      // Email senza risposta >48h
+      try {
+        const snap = await db.collection("iris_emails").orderBy("raw.received_time", "desc").limit(500).get();
+        snap.forEach(d => {
+          const f = (d.data() || {}).followup;
+          if (f && f.needsAttention) emailAttesa++;
+        });
+      } catch { firestoreOk = false; }
+
+      const punteggio = firestoreOk
+        ? Math.max(0, Math.min(100, 100 - pending * 2 - errori * 5 - emailAttesa))
+        : 0;
+
+      // Persisti snapshot
+      const now = FieldValue.serverTimestamp();
+      await db.collection("pharo_health_snapshots").add({
+        firestoreOk, pending, errori, emailAttesa, punteggio, createdAt: now,
+      });
+
+      // Se problemi gravi → Lavagna per ECHO
+      const critico = !firestoreOk || errori >= 3 || emailAttesa >= 10;
+      if (critico) {
+        await db.collection("nexo_lavagna").add({
+          from: "pharo_scheduler",
+          to: "echo",
+          type: "pharo_alert",
+          payload: {
+            testo: `⚠️ PHARO alert: Firestore ${firestoreOk ? "OK" : "DOWN"}, pending=${pending}, errori=${errori}, emailAttesa=${emailAttesa}`,
+            punteggio,
+          },
+          status: "pending",
+          priority: "high",
+          createdAt: now, updatedAt: now,
+        });
+      }
+
+      logger.info("pharoHealthCheck done", { punteggio, firestoreOk, pending, errori, emailAttesa, critico });
+    } catch (e) {
+      logger.error("pharoHealthCheck failed", { error: String(e) });
+    }
   }
 );
