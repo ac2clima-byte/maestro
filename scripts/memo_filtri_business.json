@@ -1,0 +1,38 @@
+{
+  "scan_at": "2026-04-21T19:05:46.593221+00:00",
+  "filtri_business_applicati": {
+    "rti_stati_esclusi": [
+      "rtidf_fatturato"
+    ],
+    "rtidf_stati_esclusi": [
+      "fatturato"
+    ],
+    "fatturabile_required": "fatturabile != false (true o missing=default true)"
+  },
+  "A1_G_grtidf_pronti_fattura": {
+    "totali_inviati": 28,
+    "post_filtro_fatturabile": 28,
+    "valore_eur": 6030.43
+  },
+  "A2_G_grtidf_senza_costo": {
+    "post_filtro_fatturabile_stato": 65,
+    "note": "Esclusi bozza (naturale) + fatturato (gi\u00e0 fatto) + fatturabile=false"
+  },
+  "A3_G_grti_senza_grtidf": {
+    "totale_definiti_not_fatt": 285,
+    "post_filtro_fatturabile": 4,
+    "esclusi_perche_non_fatturabili": 281
+  },
+  "A3_C_crti_senza_crtidf": {
+    "totale": 60,
+    "post_filtro_fatturabile": 41,
+    "esclusi_non_fatturabili": 19
+  },
+  "A1_C_bozze_crti_30g": {
+    "totale_bozze": 45,
+    "vecchie_30g": 31
+  },
+  "removed_alerts": [
+    "A2-C CRTIDF senza costo (business: normale per ripartizione millesimi)"
+  ]
+}

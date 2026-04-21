@@ -598,3 +598,65 @@ richiede_ordine   risultatiCalcolo
 - **Scansione**: 2026-04-21 20:45 UTC
 - **Metodologia classificazione**: campo `tipo` (primario) + prefisso numero (fallback)
 - **Limitazione**: 1 RTI con `tipo` non classificabile (TEST artifact `GRTI-2026-TEST`)
+
+---
+
+## 12. Regole business e numeri ALERT corretti
+
+### 12.1 Regole applicate (confermate da Alberto)
+
+1. **Escludi già fatturati**:
+   - RTI con `stato = rtidf_fatturato` → escluso da tutti gli alert
+   - RTIDF con `stato = fatturato` → escluso da tutti gli alert
+2. **Escludi non fatturabili**: `fatturabile === false` → escluso (interventi garanzia / cliente non reperibile / "non eseguito")
+3. **CRTIDF senza `costo_intervento`** = **normale**, non è alert (ripartizione UNI 10200 millesimi)
+4. **Bozze CRTI** restano alert valido (backlog tecnico)
+5. **Ticket** non hanno campo `fatturabile` → filtro solo su stato+età
+
+### 12.2 Distribuzione `fatturabile` per tipo
+
+| Collection | fatturabile=true | fatturabile=false | missing |
+|---|---:|---:|---:|
+| GRTI (427) | ~140 | **281 (!)** | ~6 |
+| CRTI (156) | ~130 | 19 | ~7 |
+| GRTIDF (131) | ~82 | ~42 | ~7 |
+| CRTIDF (61) | ~48 | ~13 | — |
+
+> ⚠️ **Il 66% dei GRTI ha `fatturabile=false`**: è la norma operativa, non un'anomalia. Molti interventi sono di diagnostica / in garanzia / cliente assente / non eseguiti.
+
+### 12.3 Numeri ALERT corretti (prima vs dopo i filtri business)
+
+| Alert | Prima (falso positivo) | Dopo (reale) | Variazione |
+|---|---:|---:|---|
+| **A1-G** GRTIDF pronti fatturazione | 27 docs (5.670 €) | **28 docs (6.030 €)** | stabile — includeva già solo inviati |
+| **A2-G** GRTIDF senza costo | 83 | **65** | −18 (bozze/fatturati esclusi) |
+| **A3-G** GRTI definito senza GRTIDF | **291** 🔴 | **4** ✅ | **−287 (−99%)** |
+| **A3-C** CRTI definito senza CRTIDF | 60 | **41** | −19 (non fatturabili esclusi) |
+| **A1-C** Bozze CRTI >30g | 31 | 31 | invariato (bozze non hanno `fatturabile`) |
+| **A2-C** CRTIDF senza costo | 48 | **RIMOSSO** | business rule: normale |
+
+### 12.4 Impatto della correzione
+
+**Prima**: la dashboard mostrava **291 GRTI senza GRTIDF** come problema critico → falso allarme, il 99% erano rapporti marcati esplicitamente come non fatturabili.
+
+**Dopo**: solo **4 GRTI fatturabili davvero in attesa di GRTIDF**. Questo sì, è un problema reale e gestibile.
+
+**Valore economico bloccato reale**: **6.030 €** su GRTIDF inviati fatturabili. Corrisponde al ritardo amministrativo di emissione fattura, non a un problema operativo esteso.
+
+### 12.5 Aggiornamento handler
+
+L'handler `handlePharoRtiMonitoring` (in `projects/iris/functions/index.js`) è stato aggiornato per:
+
+- Classificare ogni RTI/RTIDF per `tipo` (generico/contabilizzazione) con fallback su prefisso numero
+- Applicare filtro `fatturabile !== false` prima di conteggiare alert A1-G/A2-G/A3-G/A3-C
+- Escludere stati `rtidf_fatturato` (RTI) e `fatturato` (RTIDF) dagli alert
+- Non calcolare più CRTIDF senza costo (regola business)
+- Esporre metriche separate `rti_gen`, `rti_con`, `rtidf_gen`, `rtidf_con` oltre agli aggregati legacy
+- Nuovo blocco `alerts_metrics` con i 6 alert realmente attivi
+- Nuovo blocco `business_rules` che documenta i filtri nel JSON response (trasparenza)
+
+### 12.6 Script verifica
+
+`scripts/memo_filtri_business.py` ricalcola tutti gli alert con i filtri business. Usarlo per validare le modifiche future all'handler Cloud Function.
+
+Output JSON: `scripts/memo_filtri_business.json`.

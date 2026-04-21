@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>PHARO — Filtri business applicati</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#059669; border-bottom:2px solid #bbf7d0; padding-bottom:8px; }
+  h2 { margin-top:28px; }
+  .banner { padding:14px 18px; border-radius:12px; margin:16px 0; }
+  .banner.ok { background:#dcfce7; border:1px solid #bbf7d0; color:#14532d; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.75rem; text-transform:uppercase; color:#475569; }
+  td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .red { color:#dc2626; font-weight:700; }
+  .green { color:#059669; font-weight:700; }
+  .strike { text-decoration:line-through; color:#94a3b8; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  .big { font-size:2.2rem; font-weight:700; }
+</style>
+</head>
+<body>
+
+<h1>✅ PHARO — Regole business applicate</h1>
+<div class="banner ok">
+  Gli alert RTI/RTIDF ora escludono correttamente fatturati e non fatturabili. Il "problema" di 291 GRTI senza GRTIDF si è rivelato un falso positivo.
+</div>
+
+<h2>🎯 Prima vs Dopo filtri business</h2>
+<div class="card">
+<table>
+  <thead><tr><th>Alert</th><th class="num">Prima (falso pos.)</th><th class="num">Dopo (reale)</th><th>Variazione</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A3-G</strong> GRTI definito senza GRTIDF</td>
+      <td class="num"><span class="strike red">291</span></td>
+      <td class="num"><span class="green">4</span></td>
+      <td>−287 esclusi: 281 <code>fatturabile=false</code> + 6 già fatturati</td>
+    </tr>
+    <tr>
+      <td><strong>A3-C</strong> CRTI definito senza CRTIDF</td>
+      <td class="num"><span class="strike">60</span></td>
+      <td class="num"><strong>41</strong></td>
+      <td>−19 non fatturabili</td>
+    </tr>
+    <tr>
+      <td><strong>A1-G</strong> GRTIDF pronti fatturazione (€)</td>
+      <td class="num">27 / 5670€</td>
+      <td class="num"><strong>28 / 6.030€</strong></td>
+      <td>già filtrato su inviati</td>
+    </tr>
+    <tr>
+      <td><strong>A2-G</strong> GRTIDF senza costo</td>
+      <td class="num"><span class="strike">83</span></td>
+      <td class="num"><strong>65</strong></td>
+      <td>−18 bozze/fatturati esclusi</td>
+    </tr>
+    <tr>
+      <td><strong>A2-C</strong> CRTIDF senza costo</td>
+      <td class="num"><span class="strike red">48</span></td>
+      <td class="num"><span class="green">RIMOSSO</span></td>
+      <td>business rule: normale per ripartizione millesimi UNI 10200</td>
+    </tr>
+    <tr>
+      <td><strong>A1-C</strong> Bozze CRTI &gt;30g</td>
+      <td class="num">31</td>
+      <td class="num">31</td>
+      <td>invariato (bozze non hanno fatturabile)</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>💡 Scoperta chiave</h2>
+<div class="card">
+  <p><strong>Il 66% dei GRTI ha <code>fatturabile = false</code></strong> — non è un'anomalia, è la norma operativa di ACG:</p>
+  <ul>
+    <li>Interventi di diagnostica senza manutenzione</li>
+    <li>Rapporti sotto garanzia</li>
+    <li>Cliente assente / non eseguito</li>
+    <li>Sopralluoghi propedeutici a MPLS (fatturati nel preventivo, non nel rapporto)</li>
+  </ul>
+  <p>Il primo scan sembrava mostrare 291 interventi "dimenticati". In realtà sono 287 casi già correttamente marcati come non fatturabili dagli amministrativi. <strong>Solo 4 GRTI sono veri candidati</strong>.</p>
+</div>
+
+<h2>📊 Regole business applicate</h2>
+<div class="card">
+<ol>
+  <li><strong>Escludi già fatturati</strong>:
+    <ul>
+      <li>RTI <code>stato = rtidf_fatturato</code> → escluso</li>
+      <li>RTIDF <code>stato = fatturato</code> → escluso</li>
+    </ul>
+  </li>
+  <li><strong>Escludi non fatturabili</strong>: <code>fatturabile === false</code> → escluso</li>
+  <li><strong>CRTIDF senza costo</strong>: <strong>non è alert</strong> (ripartizione millesimi UNI 10200 non per singolo intervento)</li>
+  <li><strong>Bozze CRTI</strong>: restano alert valido (backlog Lorenzo, 31 docs >30g)</li>
+  <li><strong>Ticket</strong>: non hanno <code>fatturabile</code> → filtro solo su stato+età</li>
+</ol>
+</div>
+
+<h2>🔄 Modifiche tecniche</h2>
+<div class="card">
+  <h3>Cloud Function <code>handlePharoRtiMonitoring</code></h3>
+  <ul>
+    <li>Classificazione <code>tipo</code> per ogni RTI/RTIDF con fallback su prefisso numero</li>
+    <li>Nuovo blocco <code>alerts_metrics</code> con 6 alert filtrati correttamente</li>
+    <li>Nuovo blocco <code>business_rules</code> che documenta filtri nel JSON</li>
+    <li>Metriche segmentate <code>rti_gen</code>, <code>rti_con</code>, <code>rtidf_gen</code>, <code>rtidf_con</code></li>
+    <li>Calcolo valore EUR solo su GRTIDF inviati fatturabili</li>
+  </ul>
+
+  <h3>PWA PHARO (dashboard)</h3>
+  <ul>
+    <li>4 KPI primari di alert (prima in 4 slot generici KPI, ora 8 KPI: top 4 = alert effettivi, bottom 4 = totali per tipo)</li>
+    <li>Tabella RTI con colonna <strong>Fatturabile</strong>, righe non fatturabili in opacity ridotta</li>
+    <li>Summary con split per tipo + numero non fatturabili esclusi</li>
+    <li>Nuova lista regole <code>PHARO_RULES_DEFAULT</code> (6 regole aggiornate)</li>
+  </ul>
+</div>
+
+<h2>📄 Documentazione</h2>
+<p>Analisi completa in <code>context/memo-analisi-rti-rtidf.md</code> § 12.<br>
+Script verifica: <code>scripts/memo_filtri_business.py</code> / <code>.json</code>.<br>
+Endpoint live: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard</code>.</p>
+
+</body>
+</html>

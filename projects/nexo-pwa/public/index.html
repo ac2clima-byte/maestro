@@ -411,7 +411,7 @@
   }
 
   /* ── PHARO dashboard ───────────────────────────────────── */
-  .pharo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .pharo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
   @media (max-width: 760px) { .pharo-grid { grid-template-columns: repeat(2, 1fr); } }
   .pharo-kpi {
     background: var(--surface);
@@ -1411,11 +1411,14 @@ function renderCollegaWip(c) {
 const PHARO_RTI_DASHBOARD_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard";
 const PHARO_RESOLVE_ALERT_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoResolveAlert";
 
+// Regole post business-rules (esclude non fatturabili + già fatturati, segmentate per tipo)
 const PHARO_RULES_DEFAULT = [
-  { id: "rti_no_rtidf_7g", nome: "RTI senza RTIDF da più di 7 giorni", condizione: "rti.stato='definito' AND !rtidf AND data<NOW-7d", severita: "warning", canale: "lavagna", attiva: true },
-  { id: "pending_rti_3g", nome: "Pending RTI da più di 3 giorni", condizione: "pending_rti.created_at<NOW-3d AND stato!='processed'", severita: "warning", canale: "lavagna", attiva: true },
-  { id: "ticket_14g_no_rti", nome: "Ticket aperto da più di 14 giorni senza RTI", condizione: "ticket.stato='aperto' AND data_apertura<NOW-14d AND !rti_inviato", severita: "critical", canale: "echo_whatsapp", attiva: true },
-  { id: "rtidf_no_fatt", nome: "RTIDF senza fatturazione", condizione: "rtidf.stato='inviato' AND !commessa", severita: "info", canale: "email", attiva: false },
+  { id: "A1_G", nome: "GRTIDF pronti fatturazione (valore EUR)", condizione: "rtidf.tipo='generico' AND stato='inviato' AND fatturabile!=false", severita: "critical", canale: "echo_whatsapp", tipo: "generico", attiva: true },
+  { id: "A2_G", nome: "GRTIDF senza costo_intervento", condizione: "rtidf.tipo='generico' AND stato NOT IN (bozza,fatturato) AND !costo_intervento AND fatturabile!=false", severita: "critical", canale: "echo_email", tipo: "generico", attiva: true },
+  { id: "A3_G", nome: "GRTI 'definito' senza GRTIDF (fatturabili)", condizione: "rti.tipo='generico' AND stato='definito' AND !rtidf AND fatturabile!=false", severita: "critical", canale: "lavagna", tipo: "generico", attiva: true },
+  { id: "A1_C", nome: "Bozze CRTI vecchie >30g (backlog tecnico)", condizione: "rti.tipo='contabilizzazione' AND stato='bozza' AND data_intervento<NOW-30d", severita: "critical", canale: "echo_whatsapp", tipo: "contabilizzazione", attiva: true },
+  { id: "A2_C", nome: "CRTI 'definito' senza CRTIDF (fatturabili)", condizione: "rti.tipo='contabilizzazione' AND stato='definito' AND !rtidf AND fatturabile!=false", severita: "warning", canale: "lavagna", tipo: "contabilizzazione", attiva: true },
+  { id: "A4", nome: "Ticket aperto >30g senza RTI", condizione: "ticket.stato IN (aperto,pianificato,in_attesa,da_chiudere) AND data_apertura<NOW-30d AND !rti_inviato", severita: "critical", canale: "echo_whatsapp", tipo: "tutti", attiva: true },
 ];
 
 function renderPharoPage(c) {
@@ -1433,10 +1436,10 @@ function renderPharoPage(c) {
       <div id="pharoBanner"></div>
 
       <div class="pharo-grid" id="pharoKpi">
-        <div class="pharo-kpi"><div class="label">RTI totali</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
-        <div class="pharo-kpi"><div class="label">RTIDF totali</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
-        <div class="pharo-kpi"><div class="label">Pending RTI</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
-        <div class="pharo-kpi"><div class="label">Tickets aperti</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">💰 Fatturazione bloccata</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">GRTI senza GRTIDF</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">Bozze CRTI &gt;30g</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">Ticket &gt;30g senza RTI</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
       </div>
 
       <div class="pharo-section" id="pharoAlertsSection">
@@ -1458,12 +1461,13 @@ function renderPharoPage(c) {
                 <th>Data</th>
                 <th>Stato</th>
                 <th>Tipo</th>
+                <th>Fatt.</th>
                 <th>Tecnico</th>
                 <th>Cliente</th>
                 <th>RTIDF</th>
               </tr>
             </thead>
-            <tbody id="pharoRtiTable"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Caricamento…</td></tr></tbody>
+            <tbody id="pharoRtiTable"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Caricamento…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1601,30 +1605,56 @@ async function loadPharoRtiDashboard() {
 
 function renderPharoKpi(data) {
   const el = $("#pharoKpi");
-  const rti = data.rti || {};
-  const rtidf = data.rtidf || {};
-  const pending = data.pending || {};
+  const m = data.alerts_metrics || {};
+  const rtiGen = data.rti_gen || {};
+  const rtiCon = data.rti_con || {};
+  const rtidfGen = data.rtidf_gen || {};
+  const rtidfCon = data.rtidf_con || {};
   const tickets = data.tickets || {};
+
+  const valEur = (m.grtidf_pronti_fattura && m.grtidf_pronti_fattura.valore_eur) || 0;
+  const countPronti = (m.grtidf_pronti_fattura && m.grtidf_pronti_fattura.count) || 0;
+
   el.innerHTML = `
+    <div class="pharo-kpi ${valEur > 0 ? "err" : "ok"}">
+      <div class="label">💰 Fatturazione bloccata</div>
+      <div class="value">${valEur.toLocaleString("it-IT", {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</div>
+      <div class="sub">${countPronti} GRTIDF inviati fatturabili</div>
+    </div>
+    <div class="pharo-kpi ${(m.grti_definito_senza_grtidf || 0) > 0 ? "warn" : "ok"}">
+      <div class="label">GRTI → GRTIDF (fatturabili)</div>
+      <div class="value">${m.grti_definito_senza_grtidf || 0}</div>
+      <div class="sub">Generici definiti senza RTIDF (esclusi non fatt.)</div>
+    </div>
+    <div class="pharo-kpi ${(m.crti_bozza_30g || 0) > 0 ? "err" : "ok"}">
+      <div class="label">Bozze CRTI &gt;30g</div>
+      <div class="value">${m.crti_bozza_30g || 0}</div>
+      <div class="sub">Backlog contabilizzazioni</div>
+    </div>
+    <div class="pharo-kpi ${(m.tickets_aperti_30g_no_rti || 0) > 0 ? "err" : "ok"}">
+      <div class="label">Ticket &gt;30g senza RTI</div>
+      <div class="value">${m.tickets_aperti_30g_no_rti || 0}</div>
+      <div class="sub">di ${tickets.aperti || 0} aperti totali</div>
+    </div>
     <div class="pharo-kpi">
-      <div class="label">RTI totali</div>
-      <div class="value">${rti.total || 0}</div>
-      <div class="sub">${rti.bozza || 0} bozze · ${rti.definito || 0} definiti</div>
+      <div class="label">GRTI totali</div>
+      <div class="value">${rtiGen.total || 0}</div>
+      <div class="sub">${rtiGen.non_fatturabili || 0} non fatt · ${rtiGen.rtidf_fatturato || 0} fatturati</div>
     </div>
-    <div class="pharo-kpi ${(rti.total - rtidf.total) > 30 ? "warn" : "ok"}">
-      <div class="label">RTIDF totali</div>
-      <div class="value">${rtidf.total || 0}</div>
-      <div class="sub">${Math.max(0, (rti.total || 0) - (rtidf.total || 0))} RTI senza RTIDF</div>
+    <div class="pharo-kpi">
+      <div class="label">CRTI totali</div>
+      <div class="value">${rtiCon.total || 0}</div>
+      <div class="sub">${rtiCon.bozza || 0} bozze · ${rtiCon.non_fatturabili || 0} non fatt</div>
     </div>
-    <div class="pharo-kpi ${(pending.old_3g || 0) > 0 ? "warn" : ""}">
-      <div class="label">Pending RTI</div>
-      <div class="value">${pending.total || 0}</div>
-      <div class="sub">${pending.old_3g || 0} vecchi &gt;3g</div>
+    <div class="pharo-kpi">
+      <div class="label">GRTIDF totali</div>
+      <div class="value">${rtidfGen.total || 0}</div>
+      <div class="sub">${rtidfGen.inviato || 0} inviati · ${rtidfGen.fatturato || 0} fatturati (esclusi)</div>
     </div>
-    <div class="pharo-kpi ${(tickets.aperti_vecchi_14g || 0) > 0 ? "err" : ""}">
-      <div class="label">Tickets aperti</div>
-      <div class="value">${tickets.aperti || 0}</div>
-      <div class="sub">${tickets.aperti_vecchi_14g || 0} &gt;14g · ${tickets.senza_rti || 0} senza RTI</div>
+    <div class="pharo-kpi">
+      <div class="label">CRTIDF totali</div>
+      <div class="value">${rtidfCon.total || 0}</div>
+      <div class="sub">${rtidfCon.inviato || 0} inviati · ripartizione millesimi</div>
     </div>
   `;
 }
@@ -1634,21 +1664,26 @@ function renderPharoRtiTable(data) {
   const tbody = $("#pharoRtiTable");
   const rows = data.tabella_rti || [];
   const rti = data.rti || {};
+  const rtiGen = data.rti_gen || {};
+  const rtiCon = data.rti_con || {};
   summary.innerHTML = `
-    RTI scansionati: <strong>${rti.total || 0}</strong> ·
-    Bozze: <strong>${rti.bozza || 0}</strong> (di cui <strong>${rti.bozza_vecchi_7g || 0}</strong> &gt;7g) ·
-    Con RTIDF: <strong>${(rti.rtidf_presente || 0) + (rti.rtidf_inviato || 0) + (rti.rtidf_fatturato || 0)}</strong>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;">
+      <div><strong>🔵 Generico:</strong> ${rtiGen.total || 0} GRTI (${rtiGen.bozza || 0} bozze, ${rtiGen.definito || 0} definiti, ${rtiGen.rtidf_fatturato || 0} fatturati esclusi, ${rtiGen.non_fatturabili || 0} non fatturabili esclusi)</div>
+      <div><strong>🟠 Contabilizzazione:</strong> ${rtiCon.total || 0} CRTI (${rtiCon.bozza || 0} bozze, ${rtiCon.definito || 0} definiti, ${rtiCon.non_fatturabili || 0} non fatturabili esclusi)</div>
+    </div>
+    <div style="font-size:0.82rem;color:var(--text-dim);">Regole business applicate: fatturabile=false e stati fatturato esclusi dagli alert.</div>
   `;
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nessun RTI letto.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Nessun RTI letto.</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(r => `
-    <tr>
+    <tr${r.fatturabile === false ? ' style="opacity:0.5;"' : ''}>
       <td><strong>${escapeHtml(r.numero_rti || r.id)}</strong></td>
       <td>${escapeHtml(r.data || "-")}</td>
       <td><span class="pill ${escapeHtml(r.stato)}">${escapeHtml(r.stato || "-")}</span></td>
       <td>${escapeHtml(r.tipo || "-")}</td>
+      <td>${r.fatturabile === false ? '<span style="color:#dc2626;">no</span>' : '<span style="color:#059669;">sì</span>'}</td>
       <td>${escapeHtml(r.tecnico || "-")}</td>
       <td>${escapeHtml(r.cliente || "-")}</td>
       <td>${r.ha_rtidf ? '<span class="check-yes">✓</span>' : '<span class="check-no">—</span>'}</td>

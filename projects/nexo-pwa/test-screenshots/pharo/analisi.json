@@ -1,17 +1,17 @@
 {
   "titolo": "PHARO — Dashboard Alert RTI",
   "banner": "(nessun banner)",
-  "kpi": "RTI TOTALI\n584\n46 bozze · 352 definiti\nRTIDF TOTALI\n193\n391 RTI senza RTIDF\nPENDING RTI\n84\n0 vecchi >3g\nTICKETS APERTI\n91\n65 >14g · 89 senza RTI",
+  "kpi": "💰 FATTURAZIONE BLOCCATA\n6030,43 €\n28 GRTIDF inviati fatturabili\nGRTI → GRTIDF (FATTURABILI)\n4\nGenerici definiti senza RTIDF (esclusi non fatt.)\nBOZZE CRTI >30G\n31\nBacklog contabilizzazioni\nTICKET >30G SENZA RTI\n65\ndi 119 aperti totali\nGRTI TOTALI\n427\n282 non fatt · 9 fatturati\nCRTI TOTALI\n156\n45 bozze · 19 non fatt\nGRTIDF TOTALI\n134\n28 inviati · 8 fatturati (esclusi)\nCRTIDF TOTALI\n61\n15 inviati · ripartizione millesimi",
   "alerts": "✅ Nessun alert attivo al momento.",
-  "summary": "RTI scansionati: 584 · Bozze: 46 (di cui 43 >7g) · Con RTIDF: 171",
-  "rules": "RTI senza RTIDF da più di 7 giorni\nrti.stato='definito' AND !rtidf AND data<NOW-7d\nWARNING\ncanale: lavagna\nPending RTI da più di 3 giorni\npending_rti.created_at<NOW-3d AND stato!='processed'\nWARNING\ncanale: lavagna\nTicket aperto da più di 14 giorni senza RTI\nticket.stato='aperto' AND data_apertura<NOW-14d AND !rti_inviato\nCRITICAL\ncanale: echo_whatsapp\nRTIDF senza fatturazione\nrtidf.stato='inviato' AND !commessa\nINFO\ncanale: email",
-  "stats": "1\nAime David\n221 RTI\n2\nDellafiore Lorenzo\n109 RTI\n3\nTosca Federico\n39 RTI\n4\nDAVID\n35 RTI\n5\nLORENZO\n29 RTI",
+  "summary": "🔵 Generico: 427 GRTI (1 bozze, 285 definiti, 9 fatturati esclusi, 282 non fatturabili esclusi)\n🟠 Contabilizzazione: 156 CRTI (45 bozze, 60 definiti, 19 non fatturabili esclusi)\nRegole business applicate: fatturabile=false e stati fatturato esclusi dagli alert.",
+  "rules": "GRTIDF pronti fatturazione (valore EUR)\nrtidf.tipo='generico' AND stato='inviato' AND fatturabile!=false\nCRITICAL\ncanale: echo_whatsapp\nGRTIDF senza costo_intervento\nrtidf.tipo='generico' AND stato NOT IN (bozza,fatturato) AND !costo_intervento AND fatturabile!=false\nCRITICAL\ncanale: echo_email\nGRTI 'definito' senza GRTIDF (fatturabili)\nrti.tipo='generico' AND stato='definito' AND !rtidf AND fatturabile!=false\nCRITICAL\ncanale: lavagna\nBozze CRTI vecchie >30g (backlog tecnico)\nrti.tipo='contabilizzazione' AND stato='bozza' AND data_intervento<NOW-30d\nCRITICAL\ncanale: echo_whatsapp\nCRTI 'definito' senza CRTIDF (fatturabili)\nrti.tipo='contabilizzazione' AND stato='definito' AND !rtidf AND fatturabile!=false\nWARNING\ncanale: lavagna\nTicket aperto >30g senza RTI\nticket.stato IN (aperto,pianificato,in_attesa,da_chiudere) AND data_apertura<NOW-30d AND !rti_inviato\nCRITICAL\ncanale: echo_whatsapp",
+  "stats": "1\nAime David\n221 RTI\n2\nDellafiore Lorenzo\n109 RTI\n3\nTosca Federico\n39 RTI\n4\nDAVID\n35 RTI\n5\nLORENZO\n28 RTI",
   "tempo": "Non calcolabile (timestamp_duplicazione mancante)",
   "counts": {
     "rtiRows": 50,
     "chartBars": 12,
-    "kpiCards": 4,
+    "kpiCards": 8,
     "alertRows": 0,
-    "ruleRows": 4
+    "ruleRows": 6
   }
 }
