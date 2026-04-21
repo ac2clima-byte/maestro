@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>ECHO — Contatti interni + alias</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 28px; }
+  pre { background: #1e293b; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 0.86rem; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+  .card { background: #1e293b; padding: 14px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #10b981; }
+  .q { color: #94a3b8; font-style: italic; margin-bottom: 6px; }
+  .r { font-family: monospace; font-size: 0.85em; background: #0f172a; padding: 10px; border-radius: 4px; white-space: pre-wrap; }
+  .info { background: #064e3b; padding: 14px; border-radius: 8px; margin: 20px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 0.88rem; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #334155; }
+  th { color: #94a3b8; font-weight: 600; }
+</style></head><body>
+<h1>👥 ECHO — Contatti interni prioritari + alias dipendenti</h1>
+
+<div class="info">
+  <strong>Problema:</strong> "manda WA a Alberto" → <em>"trovo 2 match: Alberto Armano, Alberto Perduca"</em>.
+  Sbagliato: il titolare è Alberto <strong>Contardi</strong>, che non è un cliente ma il proprietario del sistema.<br><br>
+  <strong>Fix:</strong> nuova fonte prioritaria <code>cosmina_config/nexo_contatti_interni</code> + mappa alias impliciti.
+  Quando un nome è riconosciuto come contatto interno, il CRM clienti è <strong>saltato</strong>.
+</div>
+
+<h2>🔄 Nuova pipeline (4 fonti in priorità)</h2>
+<table>
+  <tr><th>P</th><th>Fonte</th><th>Scopo</th></tr>
+  <tr><td>1</td><td><code>cosmina_config/nexo_contatti_interni</code></td><td>Dipendenti + titolare (Alberto Contardi, Sara, Cristina, tecnici)</td></tr>
+  <tr><td>2</td><td><code>cosmina_config/tecnici_acg.tecnici[]</code></td><td>Tecnici con campo telefono opzionale</td></tr>
+  <tr><td>3</td><td><code>cosmina_config/numeri_acg</code></td><td>Mappa flat alias→numero (opzionale)</td></tr>
+  <tr><td>4</td><td><code>cosmina_contatti_clienti</code></td><td><strong>Solo se il nome NON è un alias interno noto</strong></td></tr>
+</table>
+
+<h2>🏷️ Alias impliciti hardcoded nel router</h2>
+<pre>ECHO_ALIAS_INTERNI = {
+  "alberto": "alberto_contardi",     // titolare
+  "contardi": "alberto_contardi",
+  "sara": "sara",                     // amministrazione
+  "cristina": "cristina_davi",        // admin Guazzotti
+  "malvicino": "andrea_malvicino",    // tecnico
+  "dellafiore": "lorenzo_dellafiore", // tecnico
+  "victor": "victor",
+  "marco": "marco",
+  "david": "david",
+}</pre>
+
+<h2>✅ Test Playwright 4/4</h2>
+<div class="card">
+  <div class="q">"manda whatsapp a Alberto: NEXO funziona"</div>
+  <div class="r">⚠️ Ho trovato "ALBERTO CONTARDI" ma senza numero di telefono.
+Aggiungi il telefono in `cosmina_config/nexo_contatti_interni` o `cosmina_config/tecnici_acg`.</div>
+  <p>✅ Alberto = titolare, mai confuso con "Alberto Armano" del CRM.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Malvicino: domani Kristal ore 14"</div>
+  <div class="r">📞 "Malvicino" è un contatto interno noto (titolare/tecnico/admin)
+ma il numero non è ancora configurato.</div>
+  <p>✅ Malvicino riconosciuto come dipendente, guida alla config.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a 3339999999: spam"</div>
+  <div class="r">🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.</div>
+  <p>✅ Safety net preservato.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Pluto Topolino: prova"</div>
+  <div class="r">❓ Non trovo "Pluto Topolino" né tra i contatti interni né nel CRM.</div>
+  <p>✅ Nome inesistente rifiutato.</p>
+</div>
+
+<h2>⚙️ Setup — Alberto popola UN documento</h2>
+<p>Crea in Firestore <code>cosmina_config/nexo_contatti_interni</code> (progetto garbymobile-f89ac):</p>
+<pre>{
+  "alberto_contardi": {
+    "nome": "Alberto Contardi",
+    "ruolo": "titolare",
+    "telefono": "+39XXXXXXXXXX",
+    "email": "alberto.contardi@acgclimaservice.com"
+  },
+  "sara": { "nome": "Sara", "ruolo": "amministrazione", "telefono": "+39..." },
+  "cristina_davi": { "nome": "Cristina Davì", "ruolo": "admin Guazzotti", "telefono": "+39..." },
+  "andrea_malvicino": { "nome": "Andrea Malvicino", "ruolo": "tecnico", "telefono": "+39..." },
+  "lorenzo_dellafiore": { "nome": "Lorenzo Dellafiore", "ruolo": "tecnico", "telefono": "+39..." },
+  "victor": { "nome": "Victor", "ruolo": "tecnico", "telefono": "+39..." },
+  "marco": { "nome": "Marco", "ruolo": "tecnico", "telefono": "+39..." },
+  "david": { "nome": "David", "ruolo": "tecnico", "telefono": "+39..." }
+}</pre>
+
+<p>Subito dopo, "manda WA a Alberto" o "a Malvicino" funzionerà in simulazione (DRY_RUN).</p>
+
+<p><strong>Commit:</strong> <code>feat(echo): ricerca contatti interni + alias dipendenti</code></p>
+</body></html>

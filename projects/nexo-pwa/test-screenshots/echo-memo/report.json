@@ -1,12 +1,12 @@
 [
   {
     "prompt": "manda whatsapp a Malvicino: domani intervento Kristal ore 14",
-    "reply": "❓ Non trovo il numero di \"Malvicino\" nel CRM.\n\nVerifica in COSMINA che il contatto esista (nome completo, telefono popolato). Per tecnici senza contatto CRM, Alberto può aggiungere il numero in `cosmina_config/tecnici_acg` o `cosmina_config/numeri_acg`.\n      ECHOcompletata",
+    "reply": "📞 \"Malvicino\" è un contatto interno noto (titolare/tecnico/admin) ma il numero non è ancora configurato.\n\nAggiungi il documento Firestore `cosmina_config/nexo_contatti_interni` su `garbymobile-f89ac` con una voce tipo:\n\n```\n{\n  alberto_contardi: { nome: \"Alberto Contardi\", ruolo: \"titolare\", telefono: \"+39...\" },\n  andrea_malvicino: { nome: \"Andrea Malvicino\", ruolo: \"tecnico\", telefono: \"+39...\" },\n  sara: { nome: \"Sara\", ruolo: \"amministrazione\", telefono: \"+39...\" }\n}\n```\n      ECHOcompletata",
     "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-1.png"
   },
   {
     "prompt": "manda whatsapp a Alberto: NEXO funziona",
-    "reply": "⚠️ Trovo più contatti per \"Alberto\" nel CRM:\n\n  · Alberto Armano - CONDOMINIO MAGGIOCIONDOLO\n  · Alberto Perduca\n\nSii più specifico (nome + cognome).\n      ECHOcompletata",
+    "reply": "⚠️ Ho trovato \"ALBERTO CONTARDI\" ma senza numero di telefono.\n\nAggiungi il telefono in `cosmina_config/nexo_contatti_interni` o `cosmina_config/tecnici_acg` su garbymobile-f89ac.\n      ECHOcompletata",
     "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-2.png"
   },
   {
@@ -16,7 +16,7 @@
   },
   {
     "prompt": "manda whatsapp a Pluto Topolino: prova",
-    "reply": "❓ Non trovo il numero di \"Pluto Topolino\" nel CRM.\n\nVerifica in COSMINA che il contatto esista (nome completo, telefono popolato). Per tecnici senza contatto CRM, Alberto può aggiungere il numero in `cosmina_config/tecnici_acg` o `cosmina_config/numeri_acg`.\n      ECHOcompletata",
+    "reply": "❓ Non trovo \"Pluto Topolino\" né tra i contatti interni (tecnici/admin) né nel CRM.\n\nSe è un dipendente, aggiungilo in `cosmina_config/nexo_contatti_interni`. Se è un cliente, verifica che sia in `cosmina_contatti_clienti` con il telefono popolato.\n      ECHOcompletata",
     "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-4.png"
   }
 ]
