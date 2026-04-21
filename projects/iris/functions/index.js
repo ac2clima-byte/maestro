@@ -1737,6 +1737,58 @@ async function handleDelphiKpi(parametri) {
   };
 }
 
+async function handleDelphiConfrontoMoM() {
+  const now = new Date();
+  const inizioQ = new Date(now.getFullYear(), now.getMonth(), 1);
+  const inizioP = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const fineP = new Date(inizioQ.getTime() - 1);
+
+  const snap = await db.collection("iris_emails")
+    .orderBy("raw.received_time", "desc").limit(500).get();
+  const all = [];
+  snap.forEach(d => {
+    const x = d.data() || {};
+    const iso = (x.raw || {}).received_time;
+    if (!iso) return;
+    all.push({
+      ts: new Date(iso),
+      cat: (x.classification || {}).category || "",
+      nr: !!(x.followup || {}).needsAttention,
+    });
+  });
+
+  function bucket(from, to) {
+    let tot = 0, urg = 0, senzaR = 0;
+    for (const e of all) {
+      if (e.ts < from || e.ts > to) continue;
+      tot++;
+      if (e.cat === "GUASTO_URGENTE" || e.cat === "PEC_UFFICIALE") urg++;
+      if (e.nr) senzaR++;
+    }
+    return { tot, urg, senzaR };
+  }
+  function deltaPct(c, p) { return p === 0 ? (c === 0 ? 0 : 100) : Math.round(((c - p) / p) * 100); }
+  function arrow(d) {
+    if (d > 5) return `📈 +${d}%`;
+    if (d < -5) return `📉 ${d}%`;
+    return `➡️ ${d >= 0 ? "+" : ""}${d}%`;
+  }
+
+  const q = bucket(inizioQ, now);
+  const p = bucket(inizioP, fineP);
+  const mQ = inizioQ.toISOString().slice(0, 7);
+  const mP = inizioP.toISOString().slice(0, 7);
+
+  return {
+    content:
+      `📊 **Confronto ${mQ} vs ${mP}** (IRIS)\n\n` +
+      `  · Email: ${q.tot} vs ${p.tot} ${arrow(deltaPct(q.tot, p.tot))}\n` +
+      `  · Urgenti: ${q.urg} vs ${p.urg} ${arrow(deltaPct(q.urg, p.urg))}\n` +
+      `  · Senza risposta >48h: ${q.senzaR} vs ${p.senzaR} ${arrow(deltaPct(q.senzaR, p.senzaR))}`,
+    data: { mQ, mP, q, p },
+  };
+}
+
 async function handleDelphiCostoAI(parametri) {
   const finestraGiorni = Number(parametri.finestraGiorni) || 30;
   const now = new Date();
@@ -2396,6 +2448,12 @@ const DIRECT_HANDLERS = [
     return col === "pharo" || /stato.*suite|salute.*sistema|health.*check|suite.*stato|suite.*status/.test(az + " " + msg);
   }, fn: handlePharoStatoSuite },
   { match: (col, az) => col === "pharo" && /(problem|alert|error|aperti|senza_ris|follow_up|issue|bloccat)/.test(az), fn: handlePharoProblemiAperti },
+  // DELPHI — confronto mese su mese (PRIMA di KPI generico)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "delphi" && /(confront|mom|mese.*su.*mese|rispetto.*mese|vs.*mese)/.test(az))
+      || /confronto.*mese|rispetto.*al.*mese|mese.*su.*mese/.test(m);
+  }, fn: handleDelphiConfrontoMoM },
   // DELPHI — KPI e costo AI (match sia da azione che da messaggio)
   { match: (col, az, ctx) => {
     const msg = (ctx?.userMessage || "").toLowerCase();
