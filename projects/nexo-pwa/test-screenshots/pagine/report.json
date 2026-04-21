@@ -1,0 +1,92 @@
+[
+  {
+    "id": "ares",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:ares",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 2,
+    "contentPreview": "🔧 Interventi di **oggi** (4):\n\n1. [21/04/2026] B034 - CONDOMINIO MINERVA - CORSO XXVII MARZO 151  — chiuso · tecnico=MARCO\n2. [21/04/2026] I063 - CONDOMINIO SAN LORENZO - VIA LABRIOLA, 12 - — aperto · tecnico=MARCO\n3. [n.d.] M009 - CONDOMINIO I PORTICI VOGHERA - VIA ALBERTI, — chiuso · non assegnato\n4. [n.d.] M009 - CONDOMINIO I PORTICI VOGHERA - VIA ALBERTI, — chiuso · non assegnato",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/ares.png"
+  },
+  {
+    "id": "chronos",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:chronos",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 2,
+    "contentPreview": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/chronos.png"
+  },
+  {
+    "id": "memo",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:memo",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "MEMO: input di ricerca presente.",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/memo.png"
+  },
+  {
+    "id": "charta",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:charta",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "1.\n          Moraschi Roberto — R: Complesso immobiliare\n          FATTURA_FORNITORE · 4g fa\n        \n      \n        \n          2.\n          Moraschi Roberto — R: Complesso immobiliare\n          FATTURA_FORNITORE · 4g fa\n        \n      \n        \n          3.\n          Moraschi Roberto — R: Richiesta offerta radiatore - Cond. Cida Alessandria - Ticket 865/2026\n          FATTURA_FORNITORE · 6g fa\n        \n      \n        \n          4.\n          Moraschi Roberto — prev. aggiornato CONDOMINIO VIA RIV",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/charta.png"
+  },
+  {
+    "id": "echo",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:echo",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "1.\n        whatsapp → 393331234567@c.usTest ECHO NEXO 🚀\n        skipped ·",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/echo.png"
+  },
+  {
+    "id": "emporion",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:emporion",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "✅ Nessun articolo sotto scorta al momento.",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/emporion.png"
+  },
+  {
+    "id": "dikea",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:dikea",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/dikea.png"
+  },
+  {
+    "id": "delphi",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:delphi",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 43\n  · Urgenti: 1\n  · Senza risposta >48h: 8\n\n**Lavagna**\n  · Messaggi: 17\n\n**Interventi COSMINA**\n  · Attivi ora: 362\n  · Completati: 0",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/delphi.png"
+  },
+  {
+    "id": "pharo",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:pharo",
+    "badge": "badge live|✅ Operativo v0.1",
+    "nexusBtns": 1,
+    "contentPreview": "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 43\n  · Email senza risposta >48h: 8\n  · Lavagna pending: 17\n  · Lavagna errori: 0",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/pharo.png"
+  },
+  {
+    "id": "calliope",
+    "url": "https://nexo-hub-15f2d.web.app/#collega:calliope",
+    "badge": "badge soon|⏳ Solo via NEXUS Chat",
+    "nexusBtns": 1,
+    "contentPreview": "1.\n        \n          → Moraschi Roberto · cordiale\n          Re: Prev. Carbonio 108-4”\n          Oggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\nottima notizia, grazie per la conferma della disponibilità.\n\nPotreb…\n        \n        in_revisione · 43m fa",
+    "hasContent": true,
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/pagine/calliope.png"
+  }
+]

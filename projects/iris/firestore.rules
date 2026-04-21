@@ -155,6 +155,24 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ECHO messaggi inviati — read pubblico per la pagina ECHO della PWA,
+    // write SOLO Admin SDK (Cloud Function che chiama Waha/Telegram).
+    match /echo_messages/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /echo_notifications/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // CALLIOPE bozze — read pubblico per la pagina CALLIOPE della PWA,
+    // write SOLO Admin SDK (la bozza è generata via Claude Sonnet lato server).
+    match /calliope_bozze/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny per ogni altra collection (Colleghi futuri:
     // ares_*, chronos_*, memo_*, charta_*, emporion_*, dikea_*,
     // delphi_*, calliope_* → aggiungili qui quando servono read

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>NEXO — Pagine Colleghi attive</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1400px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 18px; }
+  .card { background: #1e293b; padding: 14px; border-radius: 10px; }
+  .card h3 { color: #60a5fa; margin: 0 0 8px; }
+  .card img { width: 100%; border-radius: 6px; border: 1px solid #334155; }
+  .preview { font-family: monospace; font-size: 0.78em; background: #0f172a; padding: 8px; border-radius: 4px; white-space: pre-wrap; margin-top: 8px; max-height: 100px; overflow: auto; }
+  .info { background: #064e3b; padding: 15px; border-radius: 8px; margin: 20px 0; }
+  .info a { color: #6ee7b7; }
+</style></head><body>
+<h1>🎨 Pagine Colleghi — Tutte attive</h1>
+<div class="info">
+  Ogni pagina Collega ora mostra <strong>dati reali</strong> letti da Firestore (nexo-hub direttamente)
+  o via <code>callNexusProxy</code> (COSMINA tramite nexusRouter).
+  Badge verde = Operativo v0.1 · Badge giallo = Solo via NEXUS Chat.<br>
+  <strong>Live:</strong> <a href="https://nexo-hub-15f2d.web.app" target="_blank">nexo-hub-15f2d.web.app</a>
+</div>
+<div class="grid" id="g"></div>
+<script>
+const pages = [
+  { id: "ares",     title: "🔧 ARES — Interventi", p: "4 interventi di oggi reali da bacheca_cards" },
+  { id: "chronos",  title: "📅 CHRONOS — Pianificazione", p: "Scadenze manutenzione + agenda tecnici" },
+  { id: "memo",     title: "🧠 MEMO — Dossier", p: "Campo ricerca cliente/condominio" },
+  { id: "charta",   title: "💰 CHARTA — Amministrativo", p: "Email FATTURA_FORNITORE + report mensile" },
+  { id: "echo",     title: "📢 ECHO — Comunicazioni", p: "Storico messaggi echo_messages (WA skipped in DRY-RUN)" },
+  { id: "emporion", title: "📦 EMPORION — Magazzino", p: "Articoli sotto scorta + ricerca giacenza" },
+  { id: "dikea",    title: "⚖️ DIKEA — Compliance", p: "Scadenze CURIT + impianti senza targa" },
+  { id: "delphi",   title: "📊 DELPHI — Analisi", p: "KPI reali: 43 email, 1 urgente, 58/100 salute" },
+  { id: "pharo",    title: "👁️ PHARO — Monitoring", p: "Stato Suite 58/100 + problemi aperti" },
+  { id: "calliope", title: "✍️ CALLIOPE — Content (soon)", p: "Ultime bozze generate via Sonnet 4.6 in DRY-RUN" },
+];
+const base = "../projects/nexo-pwa/test-screenshots/pagine/";
+for (const p of pages) {
+  const el = document.createElement("div");
+  el.className = "card";
+  el.innerHTML = `
+    <h3>${p.title}</h3>
+    <img src="${base}${p.id}.png" alt="${p.id}">
+    <div class="preview">${p.p}</div>
+  `;
+  document.getElementById("g").appendChild(el);
+}
+</script>
+</body></html>
