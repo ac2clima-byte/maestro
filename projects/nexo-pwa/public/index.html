@@ -410,6 +410,232 @@
     box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
   }
 
+  /* ── PHARO dashboard ───────────────────────────────────── */
+  .pharo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 760px) { .pharo-grid { grid-template-columns: repeat(2, 1fr); } }
+  .pharo-kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .pharo-kpi .label { color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pharo-kpi .value { font-size: 1.7rem; font-weight: 700; color: var(--text); margin-top: 2px; }
+  .pharo-kpi .sub { color: var(--text-muted); font-size: 0.8rem; margin-top: 2px; }
+  .pharo-kpi.warn .value { color: var(--warn); }
+  .pharo-kpi.err .value { color: var(--err); }
+  .pharo-kpi.ok .value { color: var(--ok); }
+
+  .pharo-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-md);
+  }
+  .pharo-section h3 {
+    font-size: 0.88rem;
+    margin: 0 0 14px;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pharo-section h3 .btn-small {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .pharo-section h3 .btn-small:hover { background: var(--border); }
+
+  .pharo-alert-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    background: var(--surface-soft);
+  }
+  .pharo-alert-row.critical { border-color: #fecaca; background: #fef2f2; }
+  .pharo-alert-row.warning { border-color: #fde68a; background: #fffbeb; }
+  .pharo-alert-row.info { border-color: #bfdbfe; background: #eff6ff; }
+  .pharo-alert-badge {
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    flex-shrink: 0;
+  }
+  .pharo-alert-badge.critical { background: #dc2626; color: white; }
+  .pharo-alert-badge.warning { background: #d97706; color: white; }
+  .pharo-alert-badge.info { background: #2563eb; color: white; }
+  .pharo-alert-body { flex: 1; min-width: 0; }
+  .pharo-alert-title { font-weight: 600; color: var(--text); margin-bottom: 2px; font-size: 0.95rem; }
+  .pharo-alert-desc { color: var(--text-muted); font-size: 0.85rem; line-height: 1.45; }
+  .pharo-alert-meta { color: var(--text-dim); font-size: 0.75rem; margin-top: 4px; }
+  .pharo-alert-resolve {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .pharo-alert-resolve:hover { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .pharo-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .pharo-table th {
+    text-align: left;
+    padding: 8px 10px;
+    background: var(--surface-soft);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-size: 0.72rem;
+  }
+  .pharo-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .pharo-table tr:hover td { background: var(--surface-soft); }
+  .pharo-table .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .pharo-table .pill.bozza { background: #fef3c7; color: #b45309; }
+  .pharo-table .pill.definito { background: #dbeafe; color: #1e40af; }
+  .pharo-table .pill.rtidf_presente { background: #d1fae5; color: #065f46; }
+  .pharo-table .pill.rtidf_inviato { background: #c7d2fe; color: #3730a3; }
+  .pharo-table .pill.rtidf_fatturato { background: #a7f3d0; color: #064e3b; }
+  .pharo-table .check-yes { color: var(--ok); font-weight: 600; }
+  .pharo-table .check-no { color: var(--text-dim); }
+  .pharo-table-wrap { max-height: 360px; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border); }
+
+  .pharo-rule-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--surface);
+  }
+  .pharo-rule-info { flex: 1; min-width: 0; }
+  .pharo-rule-name { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .pharo-rule-cond { color: var(--text-muted); font-size: 0.82rem; }
+  .pharo-rule-meta { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+  .pharo-toggle {
+    position: relative;
+    width: 42px;
+    height: 22px;
+    background: var(--border-strong);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .pharo-toggle::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .pharo-toggle.on { background: var(--ok); }
+  .pharo-toggle.on::after { transform: translateX(20px); }
+
+  .pharo-chart { display: flex; align-items: flex-end; gap: 6px; height: 160px; padding: 8px 0; }
+  .pharo-bar {
+    flex: 1;
+    background: linear-gradient(to top, var(--accent), #60a5fa);
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    min-width: 20px;
+    transition: background 0.15s;
+  }
+  .pharo-bar:hover { background: linear-gradient(to top, #1e40af, #3b82f6); }
+  .pharo-bar .bar-label {
+    position: absolute;
+    bottom: -20px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+  .pharo-bar .bar-value {
+    position: absolute;
+    top: -18px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .pharo-tecnici { display: flex; flex-direction: column; gap: 6px; }
+  .pharo-tecnico-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface-soft);
+    border-radius: 8px;
+  }
+  .pharo-tecnico-rank {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .pharo-tecnico-name { flex: 1; color: var(--text); }
+  .pharo-tecnico-count { color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
+
+  .pharo-banner-err {
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+  }
+
   /* Iris iframe wrapper */
   .iris-frame-wrap {
     height: 100%;
@@ -881,6 +1107,10 @@ function navigate(route, opts = { push: true }) {
       return;
     }
     setFullBleed(false);
+    if (id === "pharo") {
+      renderPharoPage(c);
+      return;
+    }
     renderCollegaWip(c);
     return;
   }
@@ -1174,6 +1404,318 @@ function renderCollegaWip(c) {
       const input = $("#nexusInput");
       if (input) { input.value = samplePrompt; input.focus(); }
     }
+  });
+}
+
+// ── PHARO dashboard ────────────────────────────────────────────
+const PHARO_RTI_DASHBOARD_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard";
+const PHARO_RESOLVE_ALERT_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoResolveAlert";
+
+const PHARO_RULES_DEFAULT = [
+  { id: "rti_no_rtidf_7g", nome: "RTI senza RTIDF da più di 7 giorni", condizione: "rti.stato='definito' AND !rtidf AND data<NOW-7d", severita: "warning", canale: "lavagna", attiva: true },
+  { id: "pending_rti_3g", nome: "Pending RTI da più di 3 giorni", condizione: "pending_rti.created_at<NOW-3d AND stato!='processed'", severita: "warning", canale: "lavagna", attiva: true },
+  { id: "ticket_14g_no_rti", nome: "Ticket aperto da più di 14 giorni senza RTI", condizione: "ticket.stato='aperto' AND data_apertura<NOW-14d AND !rti_inviato", severita: "critical", canale: "echo_whatsapp", attiva: true },
+  { id: "rtidf_no_fatt", nome: "RTIDF senza fatturazione", condizione: "rtidf.stato='inviato' AND !commessa", severita: "info", canale: "email", attiva: false },
+];
+
+function renderPharoPage(c) {
+  $("#page").innerHTML = `
+    <div class="collega-page">
+      <div class="collega-header">
+        <div class="icon">${c.icon}</div>
+        <div class="titles">
+          <h2>${escapeHtml(c.name)} — Dashboard Alert RTI</h2>
+          <div class="domain">Monitoring real-time Guazzotti TEC</div>
+          <span class="badge live">✅ Attivo v0.2</span>
+        </div>
+      </div>
+
+      <div id="pharoBanner"></div>
+
+      <div class="pharo-grid" id="pharoKpi">
+        <div class="pharo-kpi"><div class="label">RTI totali</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">RTIDF totali</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">Pending RTI</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+        <div class="pharo-kpi"><div class="label">Tickets aperti</div><div class="value">—</div><div class="sub">Caricamento…</div></div>
+      </div>
+
+      <div class="pharo-section" id="pharoAlertsSection">
+        <h3>
+          🚨 Alert attivi
+          <button class="btn-small" id="pharoRefreshAlerts">↻ Aggiorna</button>
+        </h3>
+        <div id="pharoAlertsBody"><div class="widget-empty">Caricamento alert…</div></div>
+      </div>
+
+      <div class="pharo-section">
+        <h3>📋 Monitoring RTI (Guazzotti TEC)</h3>
+        <div id="pharoRtiSummary" style="margin-bottom:12px;color:var(--text-muted);font-size:0.9rem;">Caricamento…</div>
+        <div class="pharo-table-wrap">
+          <table class="pharo-table">
+            <thead>
+              <tr>
+                <th>Numero RTI</th>
+                <th>Data</th>
+                <th>Stato</th>
+                <th>Tipo</th>
+                <th>Tecnico</th>
+                <th>Cliente</th>
+                <th>RTIDF</th>
+              </tr>
+            </thead>
+            <tbody id="pharoRtiTable"><tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Caricamento…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="pharo-section">
+        <h3>
+          ⚙️ Regole monitoring
+          <button class="btn-small" id="pharoAddRule">+ Aggiungi regola</button>
+        </h3>
+        <div id="pharoRulesBody"></div>
+      </div>
+
+      <div class="pharo-section">
+        <h3>📊 Statistiche</h3>
+        <div style="margin-bottom:24px;">
+          <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">RTI per mese (ultimi 12)</div>
+          <div class="pharo-chart" id="pharoChart"></div>
+          <div style="height:24px;"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">Tempo medio RTI → RTIDF</div>
+            <div id="pharoTempoMedio" style="font-size:1.4rem;font-weight:700;color:var(--text);">—</div>
+          </div>
+          <div>
+            <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">Top 5 tecnici per RTI</div>
+            <div class="pharo-tecnici" id="pharoTecnici"><div class="widget-empty">Caricamento…</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  $("#pharoRefreshAlerts").addEventListener("click", loadPharoAlerts);
+  $("#pharoAddRule").addEventListener("click", () => {
+    alert("Funzione in arrivo: editor regole custom con persistence in pharo_rules.");
+  });
+
+  renderPharoRules();
+  loadPharoAlerts();
+  loadPharoRtiDashboard();
+}
+
+async function loadPharoAlerts() {
+  const body = $("#pharoAlertsBody");
+  body.innerHTML = `<div class="widget-empty">Caricamento alert…</div>`;
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "pharo_alerts"),
+      fsMod.orderBy("createdAt", "desc"),
+      fsMod.limit(20),
+    );
+    const snap = await fsMod.getDocs(q);
+    const active = [];
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      if (d.status === "active" || !d.status) {
+        active.push({ id: doc.id, ...d });
+      }
+    });
+    if (!active.length) {
+      body.innerHTML = `<div class="widget-empty">✅ Nessun alert attivo al momento.</div>`;
+      return;
+    }
+    body.innerHTML = active.map(a => {
+      const sev = a.severita || "info";
+      return `
+        <div class="pharo-alert-row ${escapeHtml(sev)}">
+          <span class="pharo-alert-badge ${escapeHtml(sev)}">${escapeHtml(sev)}</span>
+          <div class="pharo-alert-body">
+            <div class="pharo-alert-title">${escapeHtml(a.titolo || "(senza titolo)")}</div>
+            <div class="pharo-alert-desc">${escapeHtml(a.descrizione || "")}</div>
+            <div class="pharo-alert-meta">
+              Rilevato ${escapeHtml(fmtRel(a.createdAt))}
+              ${a.count && a.count > 1 ? ` · ricorso ${a.count} volte` : ""}
+              ${a.tipo ? ` · tipo: ${escapeHtml(a.tipo)}` : ""}
+            </div>
+          </div>
+          <button class="pharo-alert-resolve" data-id="${escapeHtml(a.id)}">✓ Risolvi</button>
+        </div>
+      `;
+    }).join("");
+
+    body.querySelectorAll(".pharo-alert-resolve").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        btn.textContent = "...";
+        try {
+          const resp = await fetch(PHARO_RESOLVE_ALERT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ alertId: id, resolvedBy: "alberto" }),
+          });
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          loadPharoAlerts();
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "✓ Risolvi";
+          alert("Errore: " + err.message);
+        }
+      });
+    });
+  } catch (err) {
+    body.innerHTML = `<div class="widget-error">Errore caricamento alert: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+async function loadPharoRtiDashboard() {
+  const banner = $("#pharoBanner");
+  try {
+    const resp = await fetch(PHARO_RTI_DASHBOARD_URL);
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    renderPharoKpi(data);
+    renderPharoRtiTable(data);
+    renderPharoStats(data);
+    if (data.errors && data.errors.length) {
+      banner.innerHTML = `
+        <div class="pharo-banner-err">
+          ⚠️ Lettura parziale: errori su collection ${data.errors.map(e => escapeHtml(e.collection)).join(", ")}.
+          Potrebbero mancare permessi cross-project sul SA Cloud Functions.
+        </div>
+      `;
+    }
+  } catch (err) {
+    banner.innerHTML = `
+      <div class="pharo-banner-err">
+        ❌ Dashboard non raggiungibile (${escapeHtml(err.message || err)}). Verifica deploy functions.
+      </div>
+    `;
+  }
+}
+
+function renderPharoKpi(data) {
+  const el = $("#pharoKpi");
+  const rti = data.rti || {};
+  const rtidf = data.rtidf || {};
+  const pending = data.pending || {};
+  const tickets = data.tickets || {};
+  el.innerHTML = `
+    <div class="pharo-kpi">
+      <div class="label">RTI totali</div>
+      <div class="value">${rti.total || 0}</div>
+      <div class="sub">${rti.bozza || 0} bozze · ${rti.definito || 0} definiti</div>
+    </div>
+    <div class="pharo-kpi ${(rti.total - rtidf.total) > 30 ? "warn" : "ok"}">
+      <div class="label">RTIDF totali</div>
+      <div class="value">${rtidf.total || 0}</div>
+      <div class="sub">${Math.max(0, (rti.total || 0) - (rtidf.total || 0))} RTI senza RTIDF</div>
+    </div>
+    <div class="pharo-kpi ${(pending.old_3g || 0) > 0 ? "warn" : ""}">
+      <div class="label">Pending RTI</div>
+      <div class="value">${pending.total || 0}</div>
+      <div class="sub">${pending.old_3g || 0} vecchi &gt;3g</div>
+    </div>
+    <div class="pharo-kpi ${(tickets.aperti_vecchi_14g || 0) > 0 ? "err" : ""}">
+      <div class="label">Tickets aperti</div>
+      <div class="value">${tickets.aperti || 0}</div>
+      <div class="sub">${tickets.aperti_vecchi_14g || 0} &gt;14g · ${tickets.senza_rti || 0} senza RTI</div>
+    </div>
+  `;
+}
+
+function renderPharoRtiTable(data) {
+  const summary = $("#pharoRtiSummary");
+  const tbody = $("#pharoRtiTable");
+  const rows = data.tabella_rti || [];
+  const rti = data.rti || {};
+  summary.innerHTML = `
+    RTI scansionati: <strong>${rti.total || 0}</strong> ·
+    Bozze: <strong>${rti.bozza || 0}</strong> (di cui <strong>${rti.bozza_vecchi_7g || 0}</strong> &gt;7g) ·
+    Con RTIDF: <strong>${(rti.rtidf_presente || 0) + (rti.rtidf_inviato || 0) + (rti.rtidf_fatturato || 0)}</strong>
+  `;
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Nessun RTI letto.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td><strong>${escapeHtml(r.numero_rti || r.id)}</strong></td>
+      <td>${escapeHtml(r.data || "-")}</td>
+      <td><span class="pill ${escapeHtml(r.stato)}">${escapeHtml(r.stato || "-")}</span></td>
+      <td>${escapeHtml(r.tipo || "-")}</td>
+      <td>${escapeHtml(r.tecnico || "-")}</td>
+      <td>${escapeHtml(r.cliente || "-")}</td>
+      <td>${r.ha_rtidf ? '<span class="check-yes">✓</span>' : '<span class="check-no">—</span>'}</td>
+    </tr>
+  `).join("");
+}
+
+function renderPharoStats(data) {
+  const chart = $("#pharoChart");
+  const tecnici = $("#pharoTecnici");
+  const tempoEl = $("#pharoTempoMedio");
+
+  // Chart RTI per mese
+  const perMese = data.stats?.rti_per_mese || {};
+  const entries = Object.entries(perMese).sort().slice(-12);
+  if (!entries.length) {
+    chart.innerHTML = `<div class="widget-empty">Nessun dato mese.</div>`;
+  } else {
+    const max = Math.max(...entries.map(e => e[1]));
+    chart.innerHTML = entries.map(([mese, count]) => {
+      const h = max > 0 ? Math.round((count / max) * 140) : 0;
+      const shortMese = mese.slice(5) + "/" + mese.slice(2, 4);
+      return `
+        <div class="pharo-bar" style="height:${h}px;" title="${escapeHtml(mese)}: ${count} RTI">
+          <div class="bar-value">${count}</div>
+          <div class="bar-label">${escapeHtml(shortMese)}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  // Top tecnici
+  const top = data.stats?.top_tecnici || [];
+  if (!top.length) {
+    tecnici.innerHTML = `<div class="widget-empty">Nessun tecnico rilevato.</div>`;
+  } else {
+    tecnici.innerHTML = top.map((t, i) => `
+      <div class="pharo-tecnico-row">
+        <div class="pharo-tecnico-rank">${i + 1}</div>
+        <div class="pharo-tecnico-name">${escapeHtml(t.nome)}</div>
+        <div class="pharo-tecnico-count">${t.count} RTI</div>
+      </div>
+    `).join("");
+  }
+
+  // Tempo medio
+  const t = data.stats?.tempo_medio_rti_rtidf_giorni;
+  tempoEl.textContent = (t === null || t === undefined) ? "Non calcolabile (timestamp_duplicazione mancante)" : `${t} giorni`;
+}
+
+function renderPharoRules() {
+  const body = $("#pharoRulesBody");
+  body.innerHTML = PHARO_RULES_DEFAULT.map(r => `
+    <div class="pharo-rule-row" data-id="${escapeHtml(r.id)}">
+      <div class="pharo-rule-info">
+        <div class="pharo-rule-name">${escapeHtml(r.nome)}</div>
+        <div class="pharo-rule-cond"><code>${escapeHtml(r.condizione)}</code></div>
+        <div class="pharo-rule-meta">
+          <span class="pharo-alert-badge ${escapeHtml(r.severita)}">${escapeHtml(r.severita)}</span>
+          <span style="color:var(--text-muted);font-size:0.78rem;">canale: ${escapeHtml(r.canale)}</span>
+        </div>
+      </div>
+      <div class="pharo-toggle ${r.attiva ? "on" : ""}" data-id="${escapeHtml(r.id)}"></div>
+    </div>
+  `).join("");
+  body.querySelectorAll(".pharo-toggle").forEach(t => {
+    t.addEventListener("click", () => t.classList.toggle("on"));
   });
 }
 

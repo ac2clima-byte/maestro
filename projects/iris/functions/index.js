@@ -737,6 +737,18 @@ function getCosminaDb() {
   return getFirestore(_cosminaApp);
 }
 
+let _guazzottiApp = null;
+function getGuazzottiDb() {
+  if (_guazzottiApp) return getFirestore(_guazzottiApp);
+  const existing = getApps().find((a) => a.name === "guazzotti");
+  if (existing) {
+    _guazzottiApp = existing;
+    return getFirestore(_guazzottiApp);
+  }
+  _guazzottiApp = initializeApp({ projectId: "guazzotti-tec" }, "guazzotti");
+  return getFirestore(_guazzottiApp);
+}
+
 async function handleAresInterventiAperti(parametri) {
   const limit = Math.min(Number(parametri.limit) || 20, 50);
   const tecnicoFilter = String(parametri.tecnico || "").trim().toLowerCase();
@@ -1672,6 +1684,256 @@ async function handlePharoProblemiAperti() {
   return { content: parts.join("\n"), data: { emailCount: att.length, lavFailedCount: lavFailed.length } };
 }
 
+// ─── PHARO — Monitoring RTI Guazzotti TEC ──────────────────────
+//
+// Legge rti / rtidf / pending_rti / tickets dal progetto guazzotti-tec
+// e aggrega metriche per la dashboard PHARO della PWA.
+// NB: il SA della Cloud Function deve avere roles/datastore.user su
+// guazzotti-tec per poter leggere.
+//
+//   gcloud projects add-iam-policy-binding guazzotti-tec \
+//     --member=serviceAccount:272099489624-compute@developer.gserviceaccount.com \
+//     --role=roles/datastore.user
+
+function daysBetween(a, b) {
+  if (!a || !b) return null;
+  const ms = b.getTime() - a.getTime();
+  return Math.floor(ms / 86400000);
+}
+
+function parseDocDate(val) {
+  if (!val) return null;
+  try {
+    if (val.toDate) return val.toDate();
+    if (typeof val === "string") {
+      // ISO diretto
+      const iso = new Date(val);
+      if (!Number.isNaN(iso.getTime())) return iso;
+      // Formato DD/MM/YYYY
+      const m = val.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    }
+    if (val instanceof Date) return val;
+  } catch {}
+  return null;
+}
+
+async function handlePharoRtiMonitoring(parametri = {}) {
+  const now = new Date();
+  const DAY7 = new Date(now.getTime() - 7 * 86400000);
+  const DAY3 = new Date(now.getTime() - 3 * 86400000);
+  const DAY14 = new Date(now.getTime() - 14 * 86400000);
+
+  const out = {
+    ok: true,
+    scan_at: now.toISOString(),
+    rti: { total: 0, bozza: 0, definito: 0, rtidf_presente: 0, rtidf_inviato: 0, rtidf_fatturato: 0, bozza_vecchi_7g: 0 },
+    rtidf: { total: 0, bozza: 0, definito: 0, inviato: 0, fatturato: 0 },
+    pending: { total: 0, old_3g: 0 },
+    tickets: { total: 0, aperti: 0, aperti_vecchi_14g: 0, senza_rti: 0 },
+    pagamenti: { total: 0 },
+    tabella_rti: [],
+    stats: { rti_per_mese: {}, tempo_medio_rti_rtidf_giorni: null, top_tecnici: [] },
+    warnings: [],
+    errors: [],
+  };
+
+  const gdb = getGuazzottiDb();
+
+  // RTI (overfetch 600 per coprire ≈500 docs)
+  try {
+    const snap = await gdb.collection("rti").limit(600).get();
+    out.rti.total = snap.size;
+    const rtiRows = [];
+    const perMese = {};
+    const perTecnico = {};
+    const rtidfDeltaDays = [];
+
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const stato = String(v.stato || "").toLowerCase();
+      if (stato === "bozza") out.rti.bozza++;
+      else if (stato === "definito") out.rti.definito++;
+      else if (stato === "rtidf_presente") out.rti.rtidf_presente++;
+      else if (stato === "rtidf_inviato") out.rti.rtidf_inviato++;
+      else if (stato === "rtidf_fatturato") out.rti.rtidf_fatturato++;
+
+      // Data RTI
+      const dataRti = parseDocDate(v.data_intervento) || parseDocDate(v.data) || parseDocDate(v.created_at) || parseDocDate(v._lastModified);
+
+      // Bozza vecchia >7g
+      if (stato === "bozza" && dataRti && dataRti < DAY7) {
+        out.rti.bozza_vecchi_7g++;
+      }
+
+      // Per mese (YYYY-MM)
+      if (dataRti) {
+        const ym = dataRti.toISOString().slice(0, 7);
+        perMese[ym] = (perMese[ym] || 0) + 1;
+      }
+
+      // Per tecnico
+      const tec = String(v.tecnico_intervento || v.tecnico || "").trim();
+      if (tec) perTecnico[tec] = (perTecnico[tec] || 0) + 1;
+
+      rtiRows.push({
+        id: d.id,
+        numero_rti: v.numero_rti || d.id,
+        data: dataRti ? dataRti.toISOString().slice(0, 10) : "",
+        stato: stato || "?",
+        tipo: v.tipo || "?",
+        tecnico: tec || "-",
+        cliente: String(v.cliente || "").slice(0, 60),
+        ha_rtidf: stato.startsWith("rtidf_"),
+      });
+    });
+
+    // Ordina per data desc, top 50
+    rtiRows.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+    out.tabella_rti = rtiRows.slice(0, 50);
+    out.stats.rti_per_mese = perMese;
+
+    // Top 5 tecnici
+    out.stats.top_tecnici = Object.entries(perTecnico)
+      .map(([nome, count]) => ({ nome, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Alert se bozze vecchie
+    if (out.rti.bozza_vecchi_7g > 0) {
+      out.warnings.push({
+        severita: "warning",
+        titolo: `${out.rti.bozza_vecchi_7g} RTI in bozza da più di 7 giorni`,
+        descrizione: "Rapporti non ancora chiusi dai tecnici. Verificare.",
+      });
+    }
+  } catch (e) {
+    out.errors.push({ collection: "rti", error: String(e).slice(0, 200) });
+  }
+
+  // RTIDF
+  try {
+    const snap = await gdb.collection("rtidf").limit(300).get();
+    out.rtidf.total = snap.size;
+
+    const rtidfByRtiNum = new Map();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const stato = String(v.stato || "").toLowerCase();
+      if (stato === "bozza") out.rtidf.bozza++;
+      else if (stato === "definito" || stato === "definitivo") out.rtidf.definito++;
+      else if (stato === "inviato") out.rtidf.inviato++;
+      else if (stato === "fatturato") out.rtidf.fatturato++;
+
+      const nro = v.numero_rti_origine || v.rti_origine_id;
+      if (nro) rtidfByRtiNum.set(String(nro), v);
+    });
+
+    // Arricchisci tabella: segna quali hanno RTIDF reale
+    out.tabella_rti.forEach(row => {
+      row.ha_rtidf = rtidfByRtiNum.has(row.numero_rti) || row.ha_rtidf;
+    });
+
+    // RTI senza RTIDF (≠ in bozza, più vecchi di 7g)
+    const rtiSenzaRtidf = out.tabella_rti.filter(r =>
+      r.stato === "definito" && !r.ha_rtidf && r.data && r.data < DAY7.toISOString().slice(0, 10)
+    );
+    if (rtiSenzaRtidf.length > 0) {
+      out.warnings.push({
+        severita: "warning",
+        titolo: `${rtiSenzaRtidf.length} RTI "definito" senza RTIDF da più di 7 giorni`,
+        descrizione: "Serve generare l'RTIDF per la fatturazione.",
+      });
+    }
+  } catch (e) {
+    out.errors.push({ collection: "rtidf", error: String(e).slice(0, 200) });
+  }
+
+  // pending_rti
+  try {
+    const snap = await gdb.collection("pending_rti").limit(200).get();
+    out.pending.total = snap.size;
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const created = parseDocDate(v.created_at) || parseDocDate(v.data_invio);
+      const stato = String(v.stato || "").toLowerCase();
+      if (created && created < DAY3 && stato !== "processed") {
+        out.pending.old_3g++;
+      }
+    });
+    if (out.pending.old_3g > 0) {
+      out.warnings.push({
+        severita: "warning",
+        titolo: `${out.pending.old_3g} pending_rti vecchi >3 giorni`,
+        descrizione: "Card in attesa di diventare RTI. Verificare trasformazione.",
+      });
+    }
+  } catch (e) {
+    out.errors.push({ collection: "pending_rti", error: String(e).slice(0, 200) });
+  }
+
+  // tickets
+  try {
+    const snap = await gdb.collection("tickets").limit(600).get();
+    out.tickets.total = snap.size;
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const stato = String(v.stato || "").toLowerCase();
+      const isAperto = stato === "aperto" || stato === "pianificato" || stato === "in_attesa";
+      if (isAperto) out.tickets.aperti++;
+
+      const dataApertura = parseDocDate(v.data_apertura) || parseDocDate(v.timestamp);
+      if (isAperto && dataApertura && dataApertura < DAY14) {
+        out.tickets.aperti_vecchi_14g++;
+      }
+
+      if (isAperto && !v.rti_inviato && !v.rtiChiusura) {
+        out.tickets.senza_rti++;
+      }
+    });
+    if (out.tickets.aperti_vecchi_14g > 0) {
+      out.warnings.push({
+        severita: "critical",
+        titolo: `${out.tickets.aperti_vecchi_14g} ticket aperti da più di 14 giorni senza RTI`,
+        descrizione: "Ticket fermi da oltre 2 settimane. Intervento urgente.",
+      });
+    }
+  } catch (e) {
+    out.errors.push({ collection: "tickets", error: String(e).slice(0, 200) });
+  }
+
+  // pagamenti_clienti (solo count)
+  try {
+    const snap = await gdb.collection("pagamenti_clienti").limit(300).get();
+    out.pagamenti.total = snap.size;
+  } catch (e) {
+    out.errors.push({ collection: "pagamenti_clienti", error: String(e).slice(0, 200) });
+  }
+
+  // Formatto testo markdown per NEXUS Chat
+  const lines = [
+    `🏢 **PHARO — Monitoring Guazzotti TEC**`,
+    ``,
+    `**RTI**: ${out.rti.total} totali (bozza: ${out.rti.bozza}, definito: ${out.rti.definito}, rtidf_presente: ${out.rti.rtidf_presente}, inviato: ${out.rti.rtidf_inviato}, fatturato: ${out.rti.rtidf_fatturato})`,
+    `**RTIDF**: ${out.rtidf.total} totali (bozza: ${out.rtidf.bozza}, definito: ${out.rtidf.definito}, inviato: ${out.rtidf.inviato}, fatturato: ${out.rtidf.fatturato})`,
+    `**Pending RTI**: ${out.pending.total} (${out.pending.old_3g} vecchi >3g)`,
+    `**Tickets**: ${out.tickets.total} (${out.tickets.aperti} aperti · ${out.tickets.aperti_vecchi_14g} aperti >14g · ${out.tickets.senza_rti} senza RTI)`,
+    `**Pagamenti**: ${out.pagamenti.total} clienti tracciati`,
+    ``,
+  ];
+  if (out.warnings.length) {
+    lines.push(`⚠️ **Alert rilevati** (${out.warnings.length}):`);
+    out.warnings.forEach(w => lines.push(`  · [${w.severita}] ${w.titolo}`));
+  } else {
+    lines.push(`✅ Nessun alert rilevato.`);
+  }
+  if (out.errors.length) {
+    lines.push(``, `❌ Errori lettura: ${out.errors.map(e => e.collection).join(", ")}`);
+  }
+
+  return { content: lines.join("\n"), data: out };
+}
+
 // ─── DELPHI — KPI e costo AI ───────────────────────────────────
 
 async function handleDelphiKpi(parametri) {
@@ -2441,7 +2703,13 @@ const DIRECT_HANDLERS = [
   }, fn: handleEchoWhatsApp },
   // CALLIOPE — bozze risposta email (Claude Sonnet, DRY-RUN)
   { match: (col, az) => col === "calliope" && /(bozza|scriv|risp|preventiv|sollecit|comunicazion)/.test(az), fn: handleCalliopeBozza },
-  // PHARO — monitoring (match anche senza richiedere col=pharo, perché Haiku
+  // PHARO — monitoring RTI Guazzotti (priorità su stato suite quando si parla di RTI/ticket)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "pharo" && /(rti|rtidf|ticket|guazzott|pending|rapporti|monitor)/.test(az))
+      || /rti\b|rtidf|guazzott.*monitor|ticket.*apert|pending.*rti|monitor.*rti/.test(m);
+  }, fn: handlePharoRtiMonitoring },
+  // PHARO — monitoring generico suite (match anche senza richiedere col=pharo, perché Haiku
   //   può instradare "stato suite" a "nessuno" o altri Colleghi)
   { match: (col, az, int) => {
     const msg = String((int && int.userMessage) || "").toLowerCase();
@@ -3244,6 +3512,169 @@ export const pharoHealthCheck = onSchedule(
       logger.info("pharoHealthCheck done", { punteggio, firestoreOk, pending, errori, emailAttesa, critico });
     } catch (e) {
       logger.error("pharoHealthCheck failed", { error: String(e) });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────
+//  PHARO RTI Dashboard — endpoint HTTPS pubblico (lettura)
+// ─────────────────────────────────────────────────────────────────
+//
+// GET /pharoRtiDashboard → ritorna lo stato corrente del monitoring
+// RTI Guazzotti TEC (dati aggregati). Consumato dalla PWA PHARO page.
+
+function applyCorsOpen(req, res) {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Max-Age", "3600");
+}
+
+export const pharoRtiDashboard = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 60, memory: "256MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "GET") {
+      res.status(405).json({ error: "method_not_allowed" });
+      return;
+    }
+    try {
+      const r = await handlePharoRtiMonitoring({});
+      res.status(200).json(r.data || {});
+    } catch (e) {
+      logger.error("pharoRtiDashboard failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────
+//  PHARO Alert Resolve — endpoint POST {alertId}
+// ─────────────────────────────────────────────────────────────────
+
+export const pharoResolveAlert = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 30, memory: "128MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "method_not_allowed" });
+      return;
+    }
+    const body = req.body || {};
+    const alertId = String(body.alertId || "").trim();
+    if (!alertId) {
+      res.status(400).json({ error: "missing_alertId" });
+      return;
+    }
+    try {
+      await db.collection("pharo_alerts").doc(alertId).set({
+        status: "resolved",
+        resolvedAt: FieldValue.serverTimestamp(),
+        resolvedBy: String(body.resolvedBy || "alberto"),
+      }, { merge: true });
+      res.status(200).json({ ok: true, alertId });
+    } catch (e) {
+      logger.error("pharoResolveAlert failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────
+//  Scheduler: pharoCheckRti (ogni 6 ore)
+// ─────────────────────────────────────────────────────────────────
+//
+// Controlla RTI/pending/tickets di Guazzotti TEC e scrive alert in
+// pharo_alerts. Alert critical → Lavagna per ECHO (WA Alberto).
+
+async function writePharoAlert({ tipo, severita, titolo, descrizione, dati }) {
+  const now = FieldValue.serverTimestamp();
+  // Dedup: se esiste già un alert non risolto con stesso tipo, aggiorna solo lastSeen
+  const existingSnap = await db.collection("pharo_alerts")
+    .where("tipo", "==", tipo)
+    .where("status", "==", "active")
+    .limit(1)
+    .get();
+  if (!existingSnap.empty) {
+    const d = existingSnap.docs[0];
+    await d.ref.set({
+      lastSeenAt: now,
+      dati: dati || null,
+      count: ((d.data() || {}).count || 1) + 1,
+    }, { merge: true });
+    return d.id;
+  }
+  const ref = db.collection("pharo_alerts").doc();
+  await ref.set({
+    id: ref.id,
+    tipo,
+    severita,
+    titolo,
+    descrizione: descrizione || "",
+    dati: dati || null,
+    status: "active",
+    source: "pharoCheckRti",
+    count: 1,
+    createdAt: now,
+    lastSeenAt: now,
+  });
+  return ref.id;
+}
+
+export const pharoCheckRti = onSchedule(
+  { region: REGION, schedule: "every 6 hours", timeZone: "Europe/Rome", memory: "256MiB", timeoutSeconds: 120 },
+  async () => {
+    try {
+      const r = await handlePharoRtiMonitoring({});
+      const data = r.data || {};
+
+      let alertCount = 0;
+      let criticalCount = 0;
+
+      for (const w of (data.warnings || [])) {
+        const tipo = `rti_${w.titolo.slice(0, 60).toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+        await writePharoAlert({
+          tipo,
+          severita: w.severita || "warning",
+          titolo: w.titolo,
+          descrizione: w.descrizione,
+          dati: { rti: data.rti, tickets: data.tickets, pending: data.pending },
+        });
+        alertCount++;
+        if (w.severita === "critical") criticalCount++;
+      }
+
+      // Se almeno un alert critical → Lavagna per ECHO
+      if (criticalCount > 0) {
+        const now = FieldValue.serverTimestamp();
+        await db.collection("nexo_lavagna").add({
+          from: "pharo_scheduler",
+          to: "echo",
+          type: "pharo_rti_critical",
+          payload: {
+            testo: `🚨 PHARO alert critical Guazzotti TEC: ${criticalCount} problemi urgenti rilevati. Tickets aperti >14g senza RTI: ${data.tickets?.aperti_vecchi_14g || 0}. Verifica dashboard PHARO.`,
+            rti: data.rti,
+            tickets: data.tickets,
+            pending: data.pending,
+          },
+          status: "pending",
+          priority: "high",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      logger.info("pharoCheckRti done", {
+        alertCount,
+        criticalCount,
+        rti_total: data.rti?.total,
+        tickets_aperti: data.tickets?.aperti,
+        errors: (data.errors || []).length,
+      });
+    } catch (e) {
+      logger.error("pharoCheckRti failed", { error: String(e) });
     }
   }
 );
