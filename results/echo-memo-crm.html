@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>ECHO — Numeri da MEMO/CRM</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 28px; }
+  pre { background: #1e293b; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 0.88rem; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+  .card { background: #1e293b; padding: 14px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #10b981; }
+  .card.warn { border-left-color: #f59e0b; }
+  .q { color: #94a3b8; font-style: italic; margin-bottom: 6px; }
+  .r { font-family: monospace; font-size: 0.85em; background: #0f172a; padding: 10px; border-radius: 4px; white-space: pre-wrap; }
+  .info { background: #064e3b; padding: 14px; border-radius: 8px; margin: 20px 0; }
+  .danger { background: #7f1d1d; padding: 12px; border-radius: 8px; color: #fecaca; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #334155; }
+  th { color: #94a3b8; font-weight: 600; font-size: 0.85em; }
+</style></head><body>
+<h1>📞 ECHO — Numeri da MEMO/CRM (no whitelist statica)</h1>
+
+<div class="info">
+  <strong>Prima:</strong> whitelist statica in <code>echo_config.allowed_numbers</code> — fragile, PII duplicata.<br>
+  <strong>Dopo:</strong> i numeri sono dove già sono — in COSMINA (<code>tecnici_acg</code>, <code>contatti_clienti</code>, <code>numeri_acg</code>).
+</div>
+
+<h2>🔍 Pipeline di risoluzione destinatario</h2>
+<p>Quando l'utente scrive "manda WA a [nome]", il router cerca in ordine:</p>
+<table>
+  <tr><th>Priorità</th><th>Fonte</th><th>Matching</th><th>Campo numero</th></tr>
+  <tr><td>1</td><td><code>cosmina_config/tecnici_acg.tecnici[]</code></td><td>nome, cognome, nome_completo, report_alias</td><td>telefono / whatsapp / cellulare / tel</td></tr>
+  <tr><td>2</td><td><code>cosmina_config/numeri_acg</code> (opzionale)</td><td>chiave → valore stringa numero</td><td>valore</td></tr>
+  <tr><td>3</td><td><code>cosmina_contatti_clienti</code></td><td>nome_completo / nome+cognome</td><td>telefono_normalizzato → telefono</td></tr>
+</table>
+
+<h2>🛡️ Safety model</h2>
+<ul>
+  <li><strong>DRY_RUN default true</strong> (flag in <code>cosmina_config/echo_config.dry_run</code>)</li>
+  <li><strong>Niente numeri grezzi dal prompt</strong>: "manda a 3331234567" → rifiuto immediato</li>
+  <li><strong>Niente whitelist statica</strong>: solo contatti del CRM ricevono</li>
+  <li><strong>Numero mascherato in output</strong>: <code>+393***4567</code> invece del numero completo</li>
+  <li><strong>Alberto aggiunge numeri tecnici</strong> in <code>cosmina_config/tecnici_acg.tecnici[].telefono</code> o in <code>cosmina_config/numeri_acg = {"malvicino": "+39..."}</code></li>
+</ul>
+
+<h2>✅ Test Playwright — 4 scenari</h2>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Malvicino: domani intervento Kristal ore 14"</div>
+  <div class="r">❓ Non trovo il numero di "Malvicino" nel CRM.
+Verifica in COSMINA che il contatto esista. Per tecnici senza contatto CRM,
+Alberto può aggiungere il numero in cosmina_config/tecnici_acg o cosmina_config/numeri_acg.</div>
+  <p>✅ Corretto: Malvicino è in tecnici_acg ma senza campo telefono → guida l'utente verso la config.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Alberto: NEXO funziona"</div>
+  <div class="r">⚠️ Trovo più contatti per "Alberto" nel CRM:
+  · Alberto Armano - CONDOMINIO MAGGIOCIONDOLO
+  · Alberto Perduca
+Sii più specifico (nome + cognome).</div>
+  <p>✅ Ambiguità correttamente segnalata. Alberto il proprietario non è tra i risultati perché non è in contatti_clienti (è solo in tecnici_acg senza telefono).</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a 3339999999: spam"</div>
+  <div class="r">🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.
+Indica il destinatario per NOME (tecnico, cliente, condominio).</div>
+  <p>✅ Safety critica: un LLM compromesso non può spammare numeri arbitrari.</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a Pluto Topolino: prova"</div>
+  <div class="r">❓ Non trovo il numero di "Pluto Topolino" nel CRM.</div>
+  <p>✅ Nome inesistente rifiutato correttamente.</p>
+</div>
+
+<h2>⚙️ Setup per attivare invio reale</h2>
+<p>Alberto popola in Firestore (progetto <code>garbymobile-f89ac</code>):</p>
+
+<p><strong>1. Per tecnici senza contatto CRM</strong> (es. Malvicino), aggiungi il campo <code>telefono</code> dentro <code>tecnici_acg</code>:</p>
+<pre>cosmina_config/tecnici_acg = {
+  tecnici: [
+    { id: 2, nome: "ROBERTO", cognome: "MALVICINO", telefono: "+39XXXXXXXXXX", attivo: true },
+    ...
+  ]
+}</pre>
+
+<p><strong>Oppure (più semplice)</strong> crea una mappa dedicata:</p>
+<pre>cosmina_config/numeri_acg = {
+  alberto: "+39XXXXXXXXXX",
+  malvicino: "+39XXXXXXXXXX",
+  dellafiore: "+39XXXXXXXXXX"
+}</pre>
+
+<p><strong>2. Attiva invio reale</strong> (dopo aver testato in DRY_RUN):</p>
+<pre>cosmina_config/echo_config = { dry_run: false }</pre>
+
+<p><strong>3. Config Waha</strong> (URL + API key):</p>
+<pre>cosmina_config/whatsapp = {
+  waha_url: "https://...",
+  waha_session: "default",
+  waha_api_key: "...",
+  enabled: true
+}</pre>
+
+<p><strong>Commit:</strong> <code>feat(echo): numeri da MEMO/CRM invece di whitelist statica</code></p>
+</body></html>

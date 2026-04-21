@@ -904,6 +904,9 @@ async function resolveDestinatarioViaMemo(rawInput) {
   const lower = clean.toLowerCase();
   const db = getCosminaDb();
 
+  // Memo dei tentativi parziali (trovato ma senza numero) per messaggio finale
+  let partialMatch = null;
+
   // ── 1. Tecnici ACG (con eventuale campo telefono)
   try {
     const snap = await db.collection("cosmina_config").doc("tecnici_acg").get();
@@ -922,10 +925,9 @@ async function resolveDestinatarioViaMemo(rawInput) {
             displayName: t.nome_completo || `${t.nome || ""} ${t.cognome || ""}`.trim(),
           };
         }
-        // Tecnico trovato ma senza telefono → prova prossima fonte
-        return {
-          partial: true, matchedEntity: t.nome_completo || `${t.nome} ${t.cognome}`.trim(),
-        };
+        // Tecnico trovato ma senza telefono → memorizza e prova altre fonti
+        partialMatch = t.nome_completo || `${t.nome} ${t.cognome}`.trim();
+        break;
       }
     }
   } catch (e) {
@@ -990,6 +992,9 @@ async function resolveDestinatarioViaMemo(rawInput) {
     logger.warn("contatti_clienti lookup failed", { error: String(e) });
   }
 
+  if (partialMatch) {
+    return { partial: true, matchedEntity: partialMatch };
+  }
   return { error: "non_trovato" };
 }
 

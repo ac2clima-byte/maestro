@@ -6,7 +6,7 @@
   },
   {
     "prompt": "manda whatsapp a Alberto: NEXO funziona",
-    "reply": "📤 Simulato: WA a **undefined** (???)\n— NEXO funziona\n\n_Fonte contatto: undefined · DRY_RUN attivo, nessun invio reale._\n      ECHOcompletata",
+    "reply": "⚠️ Trovo più contatti per \"Alberto\" nel CRM:\n\n  · Alberto Armano - CONDOMINIO MAGGIOCIONDOLO\n  · Alberto Perduca\n\nSii più specifico (nome + cognome).\n      ECHOcompletata",
     "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-memo/wa-2.png"
   },
   {
