@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>PHARO — Dashboard Alert RTI (risultato)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color: #0284c7; border-bottom: 2px solid #bae6fd; padding-bottom: 8px; }
+  h2 { margin-top: 30px; color: #0f172a; }
+  .banner { padding: 14px 18px; border-radius: 12px; margin: 16px 0; font-weight: 500; }
+  .banner.ok { background:#dcfce7; border:1px solid #bbf7d0; color:#14532d; }
+  .banner.warn { background:#fef3c7; border:1px solid #fde68a; color:#78350f; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius: 12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  ul.check li { margin: 6px 0; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  img { width:100%; border-radius:10px; border:1px solid #cbd5e1; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin: 10px 0; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .kpi { background:white; border:1px solid #e2e8f0; border-radius:10px; padding:12px 16px; }
+  .kpi .label { font-size:0.75rem; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; }
+  .kpi .value { font-size:1.4rem; font-weight:700; margin-top:2px; }
+  .kpi .sub { color:#64748b; font-size:0.82rem; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.4px; color:#475569; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
+  .pill.warning { background:#fef3c7; color:#b45309; }
+  .pill.critical { background:#fee2e2; color:#b91c1c; }
+  .pill.info { background:#dbeafe; color:#1e40af; }
+</style>
+</head>
+<body>
+
+<h1>👁️ PHARO — Dashboard Alert RTI (dati Guazzotti TEC)</h1>
+
+<div class="banner ok">
+  ✅ Task completato: dashboard PHARO reale live su <a href="https://nexo-hub-15f2d.web.app/#collega:pharo" target="_blank">nexo-hub-15f2d.web.app</a>
+</div>
+
+<div class="banner warn">
+  ⚠️ <strong>Nota IAM</strong>: il Service Account <code>272099489624-compute@developer.gserviceaccount.com</code>
+  non ha ancora il ruolo <code>roles/datastore.user</code> su progetto <code>guazzotti-tec</code> — l'azione IAM grant
+  è stata bloccata dalla policy di sicurezza e va eseguita manualmente da Alberto.
+  <br><br>Comando da lanciare:<br>
+  <code>gcloud projects add-iam-policy-binding guazzotti-tec --member=serviceAccount:272099489624-compute@developer.gserviceaccount.com --role=roles/datastore.user</code>
+  <br><br>
+  Una volta concesso, i KPI e la tabella RTI si popoleranno automaticamente (handler già funzionante,
+  endpoint risponde con <code>errors[]</code> spiegando la causa — gestita graziosamente in UI con banner).
+</div>
+
+<h2>📸 Screenshot live</h2>
+<img src="../projects/nexo-pwa/test-screenshots/pharo/pharo-dashboard-full.png" alt="PHARO dashboard screenshot">
+
+<h2>✅ Cose fatte</h2>
+
+<div class="card">
+  <h3>1. Cloud Functions (iris/functions/index.js)</h3>
+  <ul class="check">
+    <li>➕ <code>getGuazzottiDb()</code> — helper cross-project per <code>guazzotti-tec</code> Firestore</li>
+    <li>➕ <code>handlePharoRtiMonitoring()</code> — lettura aggregata di <code>rti</code>, <code>rtidf</code>, <code>pending_rti</code>, <code>tickets</code>, <code>pagamenti_clienti</code>. Calcola bozze vecchie >7g, pending >3g, tickets >14g senza RTI, stats per mese e top tecnici</li>
+    <li>➕ registrato nel <code>nexusRouter</code> (match su col=pharo + parole chiave RTI/guazzotti/ticket/monitor)</li>
+    <li>➕ nuovo endpoint HTTPS <code>pharoRtiDashboard</code> (GET) — consumato dalla PWA</li>
+    <li>➕ nuovo endpoint HTTPS <code>pharoResolveAlert</code> (POST) — risolve alert via UI</li>
+    <li>➕ scheduled <code>pharoCheckRti</code> ogni 6 ore — scrive <code>pharo_alerts</code>, se critical → Lavagna per ECHO (WA Alberto)</li>
+    <li>✅ dedup alert per tipo (aggiorna <code>lastSeenAt</code> + <code>count</code> se già attivo)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>2. PWA (projects/nexo-pwa/public/index.html)</h3>
+  <ul class="check">
+    <li>➕ Route <code>#collega:pharo</code> ora renderizza <code>renderPharoPage</code> (al posto del WIP)</li>
+    <li>➕ 4 sezioni: <strong>Alert attivi</strong>, <strong>Monitoring RTI</strong>, <strong>Regole monitoring</strong>, <strong>Statistiche</strong></li>
+    <li>➕ 4 KPI cards real-time (RTI totali, RTIDF totali, Pending RTI, Tickets aperti)</li>
+    <li>➕ Tabella dettaglio ultimi 50 RTI con stato / tipo / tecnico / cliente / flag RTIDF presente</li>
+    <li>➕ Lista regole con toggle on/off (4 regole predefinite richieste)</li>
+    <li>➕ Grafico barre RTI per mese (ultimi 12) + top 5 tecnici + tempo medio RTI→RTIDF</li>
+    <li>➕ Pulsante "✓ Risolvi" per ogni alert (chiama <code>pharoResolveAlert</code>)</li>
+    <li>➕ Banner errore cross-project se permessi mancanti (UI graceful-degraded)</li>
+    <li>➕ Stili dedicati (pharo-kpi, pharo-alert-row, pharo-table, pharo-rule-row, pharo-chart, pharo-toggle)</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>3. Regole predefinite (match con brief)</h3>
+  <table>
+    <thead><tr><th>Nome</th><th>Severità</th><th>Canale</th><th>Stato</th></tr></thead>
+    <tbody>
+      <tr><td>RTI senza RTIDF da più di 7 giorni</td><td><span class="pill warning">warning</span></td><td>lavagna</td><td>attiva</td></tr>
+      <tr><td>Pending RTI da più di 3 giorni</td><td><span class="pill warning">warning</span></td><td>lavagna</td><td>attiva</td></tr>
+      <tr><td>Ticket aperto da più di 14 giorni senza RTI</td><td><span class="pill critical">critical</span></td><td>echo_whatsapp</td><td>attiva</td></tr>
+      <tr><td>RTIDF senza fatturazione</td><td><span class="pill info">info</span></td><td>email</td><td>off</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>4. Deploy</h3>
+  <ul class="check">
+    <li>✅ Cloud Functions: <code>nexusRouter</code> aggiornato, <code>pharoRtiDashboard</code>, <code>pharoResolveAlert</code>, <code>pharoCheckRti</code> creati (region europe-west1)</li>
+    <li>✅ Hosting PWA: deploy completato su <code>nexo-hub-15f2d.web.app</code></li>
+    <li>✅ Test Playwright: dashboard renderizza correttamente, 4 KPI cards + 4 regole + banner errore</li>
+  </ul>
+</div>
+
+<h2>📊 Risultato live (endpoint REST)</h2>
+<div class="card">
+  <p>Chiamata di test <code>GET /pharoRtiDashboard</code>:</p>
+  <pre style="background:#0f172a;color:#e2e8f0;padding:14px;border-radius:8px;overflow-x:auto;font-size:0.82rem;">
+{
+  "ok": true,
+  "scan_at": "2026-04-21T18:23:34.789Z",
+  "rti":    { "total": 0, ... },
+  "rtidf":  { "total": 0, ... },
+  "pending":{ "total": 0, "old_3g": 0 },
+  "tickets":{ "total": 0, "aperti": 0, "aperti_vecchi_14g": 0, "senza_rti": 0 },
+  "errors": [
+    { "collection": "rti",     "error": "PERMISSION_DENIED" },
+    { "collection": "rtidf",   "error": "PERMISSION_DENIED" },
+    { "collection": "tickets", "error": "PERMISSION_DENIED" },
+    ...
+  ]
+}</pre>
+  <p>Quando Alberto concederà il ruolo IAM, i dati saranno aggregati correttamente.</p>
+</div>
+
+<h2>🔄 Prossimo passo (manuale)</h2>
+<div class="card">
+  <ol>
+    <li>Eseguire il comando gcloud IAM grant (mostrato nel banner giallo sopra)</li>
+    <li>Attendere qualche minuto, poi ricaricare <a href="https://nexo-hub-15f2d.web.app/#collega:pharo">nexo-hub-15f2d.web.app/#collega:pharo</a></li>
+    <li>Verificare che KPI mostrino i numeri reali (≈500 RTI, ≈195 RTIDF, 84 pending, ≈500 tickets)</li>
+    <li>Lo scheduler <code>pharoCheckRti</code> gira ogni 6h e popolerà <code>pharo_alerts</code> automaticamente</li>
+  </ol>
+</div>
+
+</body>
+</html>

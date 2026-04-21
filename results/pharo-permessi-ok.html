@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>PHARO — Permessi OK (dati reali Guazzotti)</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color: #059669; border-bottom: 2px solid #bbf7d0; padding-bottom: 8px; }
+  h2 { margin-top: 30px; }
+  .banner { padding: 14px 18px; border-radius: 12px; margin: 16px 0; font-weight: 500; }
+  .banner.ok { background:#dcfce7; border:1px solid #bbf7d0; color:#14532d; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius: 12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  img { width:100%; border-radius:10px; border:1px solid #cbd5e1; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin: 10px 0; }
+  .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .kpi { background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; }
+  .kpi .label { font-size:0.75rem; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; }
+  .kpi .value { font-size:1.8rem; font-weight:700; margin-top:2px; color:#0284c7; }
+  .kpi .sub { color:#64748b; font-size:0.82rem; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.4px; color:#475569; }
+</style>
+</head>
+<body>
+
+<h1>✅ PHARO — Permessi cross-project OK</h1>
+
+<div class="banner ok">
+  🎉 IAM grant <code>roles/datastore.user</code> concesso al SA <code>272099489624-compute@developer.gserviceaccount.com</code> su progetto <code>guazzotti-tec</code>.
+  La dashboard ora legge dati reali.
+</div>
+
+<h2>📊 KPI live (chiamata GET /pharoRtiDashboard)</h2>
+<div class="kpi-row">
+  <div class="kpi"><div class="label">RTI totali</div><div class="value">584</div><div class="sub">46 bozze · 352 definiti · 43 bozze &gt;7g</div></div>
+  <div class="kpi"><div class="label">RTIDF totali</div><div class="value">193</div><div class="sub">64 bozze · 81 definiti · 40 inviati · 8 fatturati</div></div>
+  <div class="kpi"><div class="label">Pending RTI</div><div class="value">84</div><div class="sub">0 vecchi &gt;3g (tutti processed)</div></div>
+  <div class="kpi"><div class="label">Tickets aperti</div><div class="value">91</div><div class="sub">65 &gt;14g · 89 senza RTI</div></div>
+</div>
+
+<h2>🚨 Warning rilevati</h2>
+<div class="card">
+  <ul>
+    <li><strong>43 RTI in bozza da più di 7 giorni</strong> — severità: warning</li>
+    <li><strong>65 ticket aperti da più di 14 giorni senza RTI</strong> — severità: critical (→ ECHO WhatsApp ad Alberto su prossimo run scheduler)</li>
+  </ul>
+</div>
+
+<h2>🏆 Top 5 tecnici per RTI generati</h2>
+<div class="card">
+  <table>
+    <thead><tr><th>#</th><th>Tecnico</th><th>RTI generati</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Aime David</td><td>221</td></tr>
+      <tr><td>2</td><td>Dellafiore Lorenzo</td><td>109</td></tr>
+      <tr><td>3</td><td>Tosca Federico</td><td>39</td></tr>
+      <tr><td>4</td><td>DAVID <em>(nome incompleto)</em></td><td>35</td></tr>
+      <tr><td>5</td><td>LORENZO <em>(nome incompleto)</em></td><td>29</td></tr>
+    </tbody>
+  </table>
+  <p style="color:#64748b;margin-top:8px;font-size:0.88rem;">
+    💡 Debito dati: nomi duplicati (<code>Aime David</code> vs <code>DAVID</code>) — serve normalizzazione upstream.
+  </p>
+</div>
+
+<h2>📸 Screenshot dashboard con dati reali</h2>
+<img src="../projects/nexo-pwa/test-screenshots/pharo/pharo-dashboard-full.png" alt="PHARO con dati reali">
+
+<h2>🔗 Link</h2>
+<div class="card">
+  <ul>
+    <li>Dashboard: <a href="https://nexo-hub-15f2d.web.app/#collega:pharo" target="_blank">nexo-hub-15f2d.web.app/#collega:pharo</a></li>
+    <li>Endpoint API: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard</code></li>
+    <li>Scheduler: <code>pharoCheckRti</code> (every 6h, Europe/Rome) scriverà automaticamente in <code>pharo_alerts</code></li>
+  </ul>
+</div>
+
+</body>
+</html>

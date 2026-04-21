@@ -1,0 +1,17 @@
+{
+  "titolo": "PHARO — Dashboard Alert RTI",
+  "banner": "(nessun banner)",
+  "kpi": "RTI TOTALI\n584\n46 bozze · 352 definiti\nRTIDF TOTALI\n193\n391 RTI senza RTIDF\nPENDING RTI\n84\n0 vecchi >3g\nTICKETS APERTI\n91\n65 >14g · 89 senza RTI",
+  "alerts": "✅ Nessun alert attivo al momento.",
+  "summary": "RTI scansionati: 584 · Bozze: 46 (di cui 43 >7g) · Con RTIDF: 171",
+  "rules": "RTI senza RTIDF da più di 7 giorni\nrti.stato='definito' AND !rtidf AND data<NOW-7d\nWARNING\ncanale: lavagna\nPending RTI da più di 3 giorni\npending_rti.created_at<NOW-3d AND stato!='processed'\nWARNING\ncanale: lavagna\nTicket aperto da più di 14 giorni senza RTI\nticket.stato='aperto' AND data_apertura<NOW-14d AND !rti_inviato\nCRITICAL\ncanale: echo_whatsapp\nRTIDF senza fatturazione\nrtidf.stato='inviato' AND !commessa\nINFO\ncanale: email",
+  "stats": "1\nAime David\n221 RTI\n2\nDellafiore Lorenzo\n109 RTI\n3\nTosca Federico\n39 RTI\n4\nDAVID\n35 RTI\n5\nLORENZO\n29 RTI",
+  "tempo": "Non calcolabile (timestamp_duplicazione mancante)",
+  "counts": {
+    "rtiRows": 50,
+    "chartBars": 12,
+    "kpiCards": 4,
+    "alertRows": 0,
+    "ruleRows": 4
+  }
+}
