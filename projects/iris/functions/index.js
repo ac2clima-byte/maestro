@@ -3,6 +3,11 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { logger } from "firebase-functions/v2";
+
+// Secrets EWS (task Sprint 2.3: credenziali fuori da Firestore)
+const EWS_USERNAME = defineSecret("EWS_USERNAME");
+const EWS_PASSWORD = defineSecret("EWS_PASSWORD");
+const EWS_URL = defineSecret("EWS_URL");
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
@@ -3683,23 +3688,62 @@ function hashMessageId(msgId) {
 }
 
 async function runIrisPoller() {
-  // 1. Leggi config
-  const cfgSnap = await getCosminaDb().collection("cosmina_config").doc("iris_config").get();
-  if (!cfgSnap.exists) {
-    logger.info("irisPoller: iris_config missing, skipping");
-    return { skipped: "no_config" };
+  // 1. Leggi config — sorgenti (in ordine di priorità):
+  //    a) Secret Manager (EWS_USERNAME/EWS_PASSWORD/EWS_URL)
+  //    b) Fallback: cosmina_config/iris_config su Firestore
+  let cfg = {};
+  let source = "unknown";
+  let secretUser = null, secretPassword = null, secretUrl = null;
+  try { secretUser = EWS_USERNAME.value() || null; } catch {}
+  try { secretPassword = EWS_PASSWORD.value() || null; } catch {}
+  try { secretUrl = EWS_URL.value() || null; } catch {}
+
+  if (secretUser && secretPassword && secretUrl) {
+    cfg = {
+      user: secretUser,
+      password: secretPassword,
+      server: secretUrl,
+      auth: "basic",
+      exchange_version: process.env.EWS_VERSION || "2013_SP1",
+      limit_per_run: Number(process.env.EWS_LIMIT_PER_RUN) || 50,
+      initial_lookback_hours: Number(process.env.EWS_INITIAL_HOURS) || 24,
+      enabled: true,
+    };
+    source = "secret_manager";
+    // Eventuale override/ops da Firestore (enabled, limit_per_run)
+    try {
+      const cfgSnap = await getCosminaDb().collection("cosmina_config").doc("iris_config").get();
+      if (cfgSnap.exists) {
+        const fs = cfgSnap.data() || {};
+        if (typeof fs.enabled === "boolean") cfg.enabled = fs.enabled;
+        if (fs.limit_per_run) cfg.limit_per_run = Number(fs.limit_per_run);
+        if (fs.initial_lookback_hours) cfg.initial_lookback_hours = Number(fs.initial_lookback_hours);
+      }
+    } catch {}
+  } else {
+    // Fallback: Firestore (legacy)
+    const cfgSnap = await getCosminaDb().collection("cosmina_config").doc("iris_config").get();
+    if (!cfgSnap.exists) {
+      logger.info("irisPoller: no_config_anywhere", {
+        hasSecretUser: !!secretUser, hasSecretPassword: !!secretPassword, hasSecretUrl: !!secretUrl,
+      });
+      return { skipped: "no_config" };
+    }
+    cfg = cfgSnap.data() || {};
+    source = "firestore_iris_config";
   }
-  const cfg = cfgSnap.data() || {};
+
   if (cfg.enabled === false) {
-    logger.info("irisPoller: disabled via config");
-    return { skipped: "disabled" };
+    logger.info("irisPoller: disabled", { source });
+    return { skipped: "disabled", source };
   }
   if (!cfg.server || !cfg.user || !cfg.password) {
-    logger.warn("irisPoller: iris_config incomplete", {
-      hasServer: !!cfg.server, hasUser: !!cfg.user, hasPassword: !!cfg.password,
+    logger.warn("irisPoller: config incomplete", {
+      source, hasServer: !!cfg.server, hasUser: !!cfg.user, hasPassword: !!cfg.password,
     });
-    return { skipped: "incomplete_config" };
+    return { skipped: "incomplete_config", source };
   }
+  logger.info("irisPoller: config loaded", { source, server: cfg.server });
 
   // 2. Leggi watermark
   const stateRef = db.collection(IRIS_POLLER_STATE_COLL).doc(IRIS_POLLER_STATE_DOC);
@@ -3799,7 +3843,7 @@ export const irisPoller = onSchedule(
     timeZone: "Europe/Rome",
     memory: "512MiB",
     timeoutSeconds: 120,
-    secrets: [ANTHROPIC_API_KEY],
+    secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL],
   },
   async () => {
     try {
@@ -3816,7 +3860,7 @@ export const irisPoller = onSchedule(
 export const irisPollerRun = onRequest(
   {
     region: REGION,
-    secrets: [ANTHROPIC_API_KEY],
+    secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL],
     timeoutSeconds: 120,
     memory: "512MiB",
     cors: false,
