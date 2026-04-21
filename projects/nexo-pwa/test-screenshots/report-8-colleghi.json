@@ -14,7 +14,7 @@
   {
     "key": "chronos-agenda",
     "q": "agenda di Malvicino domani",
-    "reply": "📅 MALVICINO non ha interventi pianificati per Invalid Date.\n      CHRONOScompletata",
+    "reply": "📅 MALVICINO non ha interventi pianificati per mercoledì 22 aprile.\n      CHRONOScompletata",
     "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-chronos-agenda.png"
   },
   {
@@ -74,7 +74,7 @@
   {
     "key": "calliope-bozza",
     "q": "scrivi una bozza cordiale a Moraschi Roberto",
-    "reply": "Per generare una bozza mi serve l'ID email o almeno il mittente. Prova: 'scrivi risposta a Rossi'.\n      CALLIOPEcompletata",
+    "reply": "✍️ **Bozza CALLIOPE** (DRY-RUN, tono: cordiale, salvata come `boz_mo8ds2xn_u5m6`)\n\n**A:** Moraschi Roberto\n**Oggetto:** Re: Prev. Carbonio 108-4”\n\n---\nOggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\nottima notizia, grazie per la conferma della disponibilità.\n\nPotrebbe inviarmi il preventivo con i dettagli del Carbonio 108-4\" (prezzo, tempi di consegna e modalità di spedizione)? L'allegato citato nel messaggio automatico non risulta pervenuto.\n\nResto in attesa e mi faccia sapere.\n\nCordiali saluti,\nAlberto Contardi\nACG Clima Service\n---\n\n_⚠️ DRY-RUN: la bozza NON è stata inviata. Rivedila e approva quando sei pronto._\n      CALLIOPEcompletata",
     "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/nexus-calliope-bozza.png"
   }
 ]

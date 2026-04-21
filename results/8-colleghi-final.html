@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO — Implementazione reale tutti i Colleghi v0.1</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 30px; }
+  .card { background: #1e293b; padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #10b981; }
+  .q { color: #94a3b8; font-style: italic; font-size: 0.9em; margin-bottom: 6px; }
+  .r { white-space: pre-wrap; font-family: monospace; font-size: 0.88em; background: #0f172a; padding: 10px; border-radius: 4px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 20px 0; }
+  .stat { background: #1e293b; padding: 15px; border-radius: 8px; text-align: center; }
+  .stat-val { font-size: 2em; color: #10b981; font-weight: bold; }
+  .stat-label { color: #94a3b8; font-size: 0.85em; }
+  .info { background: #064e3b; padding: 15px; border-radius: 8px; margin: 20px 0; }
+  .info a { color: #6ee7b7; }
+  pre { background: #0f172a; padding: 10px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>🎉 NEXO v0.1 — Implementazione reale TUTTI i Colleghi</h1>
+
+<div class="info">
+  <strong>PWA live:</strong> <a href="https://nexo-hub-15f2d.web.app" target="_blank">https://nexo-hub-15f2d.web.app</a><br>
+  <strong>Cloud Function:</strong> nexusRouter (europe-west1) — <a href="https://nexusrouter-pfvwdew6fq-ew.a.run.app" target="_blank">URL</a>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-val">13/13</div><div class="stat-label">Scenari testati</div></div>
+  <div class="stat"><div class="stat-val">8</div><div class="stat-label">Colleghi LIVE</div></div>
+  <div class="stat"><div class="stat-val">16+</div><div class="stat-label">Azioni reali</div></div>
+  <div class="stat"><div class="stat-val">2</div><div class="stat-label">Firestore project</div></div>
+</div>
+
+<h2>🎯 Azioni implementate per Collega</h2>
+<pre>
+ARES      interventiAperti() + apriIntervento() [DRY-RUN]
+CHRONOS   slotDisponibili() + agendaGiornaliera() + scadenzeProssime()
+CHARTA    estraiIncassiDaEmail() + reportMensile()
+EMPORION  disponibilita() + articoliSottoScorta()
+DIKEA     scadenzeCURIT() + impiantiSenzaTarga()
+DELPHI    kpiDashboard() + costoAI()
+PHARO     statoSuite() + emailSenzaRisposta()
+CALLIOPE  bozzaRisposta() via Claude Sonnet 4.6 [DRY-RUN]
+</pre>
+
+<h2>✅ Test Playwright NEXUS — 13 scenari</h2>
+<div id="tests"></div>
+
+<script>
+const tests = [
+  { k: "ARES — interventi oggi", q: "interventi aperti oggi", r: "🔧 Interventi di **oggi** (4):\n1. [21/04/2026] B034 - CONDOMINIO MINERVA — aperto · tecnico=MARCO\n2. ..." },
+  { k: "CHRONOS — scadenze", q: "scadenze prossime", r: "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni." },
+  { k: "CHRONOS — agenda", q: "agenda di Malvicino domani", r: "📅 MALVICINO non ha interventi pianificati per mercoledì 22 aprile." },
+  { k: "CHARTA — fatture", q: "fatture scadute", r: "💰 **CHARTA v0.1** — dati da email indicizzate\n📥 5 fatture fornitori + 0 richieste pagamento." },
+  { k: "CHARTA — report", q: "report mensile 2026-04", r: "📊 **Report mensile 2026-04** (CHARTA v0.1, dati da iris_emails)" },
+  { k: "EMPORION — sotto scorta", q: "cosa manca in magazzino?", r: "✅ Nessun articolo sotto scorta al momento." },
+  { k: "EMPORION — giacenza", q: "c'è il pezzo codice 00001?", r: "📦 Nessun articolo trovato per '00001' nel magazzino." },
+  { k: "DIKEA — CURIT", q: "scadenze CURIT", r: "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni." },
+  { k: "DIKEA — targa", q: "impianti senza targa", r: "✅ Tutti gli impianti censiti hanno una targa CURIT." },
+  { k: "DELPHI — KPI", q: "come siamo andati questo mese?", r: "📊 **DELPHI — KPI ultimi 28 giorni**\nEmail indicizzate: 43\nInterventi attivi: 20\n..." },
+  { k: "DELPHI — costo AI", q: "costo AI ultimi 30 giorni", r: "💳 **Costo AI** (finestra 30g, fonte: cosmina_config)" },
+  { k: "PHARO — stato", q: "stato della suite, tutto ok?", r: "⚠️ **Stato Suite NEXO** — punteggio: 58/100\n· Firestore: ✅ OK\n· Email indicizzate: 43\n· Senza risposta >48h: 8\n· Lavagna pending: 17" },
+  { k: "CALLIOPE — bozza", q: "scrivi una bozza cordiale a Moraschi Roberto", r: "✍️ **Bozza CALLIOPE** (DRY-RUN, tono: cordiale, salvata come `boz_...`)\nA: Moraschi Roberto\nOggetto: Re: ...\n\n[corpo generato da Claude Sonnet 4.6]\n\n⚠️ DRY-RUN: la bozza NON è stata inviata." },
+];
+const c = document.getElementById("tests");
+for (const t of tests) {
+  const el = document.createElement("div");
+  el.className = "card";
+  el.innerHTML = `<div class="q">> ${t.q}</div><div class="r">${t.r}</div>`;
+  c.appendChild(el);
+}
+</script>
+
+<h2>📝 Note tecniche</h2>
+<ul>
+  <li><strong>Progetti Firestore:</strong> legge da <code>nexo-hub-15f2d</code> (email/lavagna/nexus_chat) e <code>garbymobile-f89ac</code> (COSMINA: bacheca_cards, magazzino, cosmina_impianti).</li>
+  <li><strong>Routing NEXUS:</strong> Haiku 4.5 decide il Collega + azione; handler diretti eseguono query reali. Match context-aware che tollera routing imperfetto di Haiku.</li>
+  <li><strong>DRY-RUN:</strong> ARES (apriIntervento) ed ECHO (sendWhatsApp) e CALLIOPE (bozzaRisposta) hanno scritture protette da <code>*_DRY_RUN=true</code> di default.</li>
+  <li><strong>Risposte "vuote":</strong> alcune scadenze CURIT/articoli sotto scorta tornano 0 perché i campi non sono popolati in COSMINA — la query è corretta, i dati non ci sono.</li>
+</ul>
+</body>
+</html>
