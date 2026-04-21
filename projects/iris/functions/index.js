@@ -4089,3 +4089,99 @@ export const pharoCheckRti = onSchedule(
     }
   }
 );
+
+// ─────────────────────────────────────────────────────────────────
+//  ARES Lavagna listener
+// ─────────────────────────────────────────────────────────────────
+//
+// Ascolta nexo_lavagna: quando arriva un messaggio per ARES, esegue
+// l'azione corrispondente. Supporta:
+//   · type = "richiesta_intervento" | "nexus_apri_intervento" → apriIntervento
+//   · type = "guasto_urgente" → apriIntervento urgenza=critica + notifica ECHO
+// Segna il messaggio come status="completed" (o "failed") dopo esecuzione.
+
+export const aresLavagnaListener = onDocumentCreated(
+  { region: REGION, document: "nexo_lavagna/{msgId}", memory: "256MiB", maxInstances: 5 },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const msgId = event.params.msgId;
+    const v = snap.data() || {};
+
+    // Filtro: solo messaggi pending indirizzati ad ARES
+    if (v.status !== "pending") return;
+    const to = String(v.to || "").toLowerCase();
+    if (to !== "ares") return;
+
+    const type = String(v.type || "").toLowerCase();
+    const isIntervento = /intervent|richiesta/.test(type);
+    const isGuasto = /guasto_urgente|guasto|urgenza/.test(type);
+    if (!isIntervento && !isGuasto) return;
+
+    logger.info("aresLavagnaListener: processing", { msgId, type, to });
+
+    const payload = v.payload || {};
+    const parametri = payload.parametri || payload || {};
+
+    // Per guasto urgente → forza urgenza critica
+    if (isGuasto) parametri.urgenza = "critica";
+
+    const ctx = { userMessage: String(payload.userMessage || "") };
+
+    let result;
+    try {
+      result = await handleAresApriIntervento(parametri, ctx);
+    } catch (e) {
+      logger.error("aresLavagnaListener: apriIntervento failed", { error: String(e), msgId });
+      await snap.ref.set({
+        status: "failed",
+        error: String(e).slice(0, 300),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return;
+    }
+
+    // Se guasto urgente → scrivi anche Lavagna per ECHO (notifica Alberto)
+    if (isGuasto) {
+      try {
+        const interventoId = result?.data?.id || "?";
+        const condominio = parametri.condominio || parametri.cliente || "?";
+        await db.collection("nexo_lavagna").add({
+          from: "ares",
+          to: "echo",
+          type: "notifica_guasto_urgente",
+          payload: {
+            testo: `🚨 Guasto urgente aperto: ${condominio} (${interventoId}). Verifica immediata.`,
+            destinatario: "alberto",
+            canale: "whatsapp",
+            interventoId,
+            condominio,
+          },
+          status: "pending",
+          priority: "high",
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        logger.warn("aresLavagnaListener: echo notify failed", { error: String(e) });
+      }
+    }
+
+    // Marca messaggio completato
+    try {
+      await snap.ref.set({
+        status: "completed",
+        result: {
+          content: String(result?.content || "").slice(0, 500),
+          data: result?.data || null,
+        },
+        processedBy: "aresLavagnaListener",
+        completedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      logger.info("aresLavagnaListener: completed", { msgId, dryRun: result?.data?.dryRun });
+    } catch (e) {
+      logger.error("aresLavagnaListener: mark completed failed", { error: String(e), msgId });
+    }
+  }
+);

@@ -1252,6 +1252,10 @@ function navigate(route, opts = { push: true }) {
       renderPharoPage(c);
       return;
     }
+    if (id === "ares") {
+      renderAresPage(c);
+      return;
+    }
     renderCollegaWip(c);
     return;
   }
@@ -1561,6 +1565,109 @@ const PHARO_RULES_DEFAULT = [
   { id: "A2_C", nome: "CRTI 'definito' senza CRTIDF (fatturabili)", condizione: "rti.tipo='contabilizzazione' AND stato='definito' AND !rtidf AND fatturabile!=false", severita: "warning", canale: "lavagna", tipo: "contabilizzazione", attiva: true },
   { id: "A4", nome: "Ticket aperto >30g senza RTI", condizione: "ticket.stato IN (aperto,pianificato,in_attesa,da_chiudere) AND data_apertura<NOW-30d AND !rti_inviato", severita: "critical", canale: "echo_whatsapp", tipo: "tutti", attiva: true },
 ];
+
+// ── ARES dashboard ─────────────────────────────────────────────
+function renderAresPage(c) {
+  $("#page").innerHTML = `
+    <div class="collega-page">
+      <div class="collega-header">
+        <div class="icon">${c.icon}</div>
+        <div class="titles">
+          <h2>${escapeHtml(c.name)} — Interventi</h2>
+          <div class="domain">Operativo · apertura interventi DRY-RUN + listener Lavagna</div>
+          <span class="badge live">✅ Attivo v0.2</span>
+        </div>
+      </div>
+
+      <div class="pharo-section">
+        <h3>
+          📋 Ultimi interventi ARES (audit nexo-hub)
+          <button class="btn-small" id="aresRefresh">↻ Aggiorna</button>
+        </h3>
+        <div id="aresBanner" style="margin-bottom:10px;"></div>
+        <div class="pharo-table-wrap">
+          <table class="pharo-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Condominio</th><th>Tipo</th><th>Urgenza</th><th>Stato</th><th>Source</th><th>DRY</th><th>Creato</th>
+              </tr>
+            </thead>
+            <tbody id="aresTable"><tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Caricamento…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <button class="nexus-big-btn" id="aresOpenNexus">
+        💬 Apri nuovo intervento via NEXUS
+      </button>
+      <div style="text-align:center;margin-top:10px;color:var(--text-muted);font-size:0.88rem;">
+        Esempio: <em>"apri intervento riparazione caldaia al Condominio Kristal urgente"</em>
+      </div>
+    </div>
+  `;
+
+  $("#aresOpenNexus").addEventListener("click", () => {
+    nexusOpen();
+    const input = $("#nexusInput");
+    if (input) { input.value = "apri intervento "; input.focus(); }
+  });
+  $("#aresRefresh").addEventListener("click", loadAresInterventi);
+  loadAresInterventi();
+}
+
+async function loadAresInterventi() {
+  const tbody = $("#aresTable");
+  const banner = $("#aresBanner");
+  if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Caricamento…</td></tr>`;
+  try {
+    const { db, fsMod } = await getFirestore();
+    const q = fsMod.query(
+      fsMod.collection(db, "ares_interventi"),
+      fsMod.orderBy("createdAt", "desc"),
+      fsMod.limit(50),
+    );
+    const snap = await fsMod.getDocs(q);
+    const rows = [];
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      rows.push({
+        id: d.id || doc.id,
+        condominio: d.condominio || "?",
+        tipo: d.tipo || "?",
+        urgenza: d.urgenza || "media",
+        stato: d.stato || "?",
+        source: d.source || "?",
+        dryRun: !!d._dryRun,
+        createdAt: d.createdAt,
+      });
+    });
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);">Nessun intervento ARES ancora creato. Usa NEXUS per aprirne uno.</td></tr>`;
+      if (banner) banner.innerHTML = "";
+      return;
+    }
+    if (banner) {
+      const dryCount = rows.filter(r => r.dryRun).length;
+      banner.innerHTML = `<div style="color:var(--text-muted);font-size:0.88rem;">${rows.length} interventi totali · ${dryCount} simulati (DRY-RUN) · ${rows.length - dryCount} scritti su COSMINA</div>`;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const urgClass = r.urgenza === "critica" ? "critical" : r.urgenza === "alta" ? "warning" : "";
+      return `
+      <tr>
+        <td><code>${escapeHtml(String(r.id).slice(0, 18))}</code></td>
+        <td>${escapeHtml(String(r.condominio).slice(0, 50))}</td>
+        <td>${escapeHtml(r.tipo)}</td>
+        <td>${urgClass ? `<span class="pharo-alert-badge ${urgClass}">${escapeHtml(r.urgenza)}</span>` : escapeHtml(r.urgenza)}</td>
+        <td><span class="pill">${escapeHtml(r.stato)}</span></td>
+        <td style="color:var(--text-muted);font-size:0.82rem;">${escapeHtml(r.source)}</td>
+        <td>${r.dryRun ? '<span style="color:#d97706;">SIM</span>' : '<span style="color:#059669;">✓</span>'}</td>
+        <td style="color:var(--text-muted);font-size:0.82rem;">${escapeHtml(fmtRel(r.createdAt))}</td>
+      </tr>
+    `;}).join("");
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="color:#dc2626;text-align:center;">Errore: ${escapeHtml(err.message || err)}</td></tr>`;
+  }
+}
 
 function renderPharoPage(c) {
   $("#page").innerHTML = `
