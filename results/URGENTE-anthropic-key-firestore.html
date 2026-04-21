@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>🚨 URGENTE — Anthropic API Key in Firestore</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#dc2626; border-bottom:3px solid #fecaca; padding-bottom:8px; }
+  .banner { padding:16px 20px; border-radius:12px; margin:16px 0; }
+  .banner.crit { background:#fee2e2; border:2px solid #dc2626; color:#991b1b; font-weight:600; }
+  .banner.warn { background:#fef3c7; border:1px solid #fde68a; color:#78350f; }
+  .banner.ok { background:#dcfce7; border:1px solid #bbf7d0; color:#14532d; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  pre { background:#0f172a; color:#e2e8f0; padding:14px; border-radius:8px; overflow-x:auto; font-size:0.85rem; line-height:1.45; }
+  .step { padding:10px 14px; background:#f8fafc; border-left:4px solid #0284c7; margin:8px 0; border-radius:4px; }
+  ol li { margin:8px 0; }
+</style>
+</head>
+<body>
+
+<h1>🚨 VULNERABILITÀ CRITICA: Anthropic API Key in Firestore</h1>
+
+<div class="banner crit">
+  Durante la scansione MEMO di garbymobile-f89ac Firestore è stata rilevata una
+  <strong>Anthropic API Key in chiaro</strong> nella collection <code>cosmina_config</code>
+  (campo <code>anthropic_api_key</code>). GitHub Push Protection ha bloccato il
+  primo tentativo di commit perché ha scansionato la key.
+</div>
+
+<h2>🔍 Dettagli</h2>
+<div class="card">
+  <ul>
+    <li><strong>Progetto Firebase</strong>: <code>garbymobile-f89ac</code></li>
+    <li><strong>Collection</strong>: <code>cosmina_config</code></li>
+    <li><strong>Campo</strong>: <code>anthropic_api_key</code> (plaintext)</li>
+    <li><strong>Rilevato da</strong>: MEMO scan 2026-04-22 + GitHub Push Protection</li>
+    <li><strong>Tipo</strong>: Anthropic API Key production</li>
+  </ul>
+</div>
+
+<h2>🎯 Impatto</h2>
+<div class="card">
+  <ul>
+    <li>Chiunque abbia <strong>read</strong> su <code>cosmina_config</code> può leggere la chiave (dipende dalle Firestore rules)</li>
+    <li>Se le rules permettono lettura ampia → chiave visibile a qualsiasi utente autenticato</li>
+    <li>La chiave è usata per chiamate a Claude API → un attaccante può <strong>consumare budget</strong> Anthropic</li>
+    <li>Rischio di <strong>esfiltrazione</strong>: la chiave può essere clonata e usata da terzi</li>
+  </ul>
+</div>
+
+<h2>✅ Azioni immediate richieste</h2>
+
+<div class="step">
+  <strong>Step 1 — Rotare la chiave</strong>
+  <ol>
+    <li>Accedi a <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a></li>
+    <li>Revoca la chiave attualmente in <code>cosmina_config.anthropic_api_key</code></li>
+    <li>Crea una nuova chiave con nome descrittivo (es. "ACG Suite — COSMINA 2026-04-22")</li>
+  </ol>
+</div>
+
+<div class="step">
+  <strong>Step 2 — Spostare la chiave in Secret Manager</strong>
+  <pre>firebase functions:secrets:set ANTHROPIC_API_KEY --project garbymobile-f89ac
+# Inserisci la NUOVA chiave quando richiesto</pre>
+  Poi nel codice Cloud Function COSMINA:
+  <pre>// Sostituisci:
+const key = (await db.collection('cosmina_config').doc('X').get()).data().anthropic_api_key;
+
+// Con:
+import { defineSecret } from "firebase-functions/params";
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+// ... nell'onRequest: secrets: [ANTHROPIC_API_KEY]
+const key = ANTHROPIC_API_KEY.value();</pre>
+</div>
+
+<div class="step">
+  <strong>Step 3 — Rimuovere la chiave dal documento Firestore</strong>
+  <p>Dopo aver messo la chiave in Secret Manager e deployato le functions che la usano:</p>
+  <pre># Da Python con firebase_admin:
+db.collection('cosmina_config').document('&lt;doc_id&gt;').update({
+    'anthropic_api_key': firestore.DELETE_FIELD
+})</pre>
+</div>
+
+<div class="step">
+  <strong>Step 4 — Verificare rules Firestore</strong>
+  <p>Controlla che <code>cosmina_config</code> abbia <code>read: if false</code> (o almeno auth required):</p>
+  <pre>match /cosmina_config/{docId} {
+  allow read: if request.auth != null && <em>ruolo admin</em>;
+  allow write: if false; // solo Admin SDK
+}</pre>
+</div>
+
+<div class="step">
+  <strong>Step 5 — Audit chi ha letto la chiave</strong>
+  <p>Controlla <code>audit_log</code> per endpoint che leggono <code>cosmina_config</code>:</p>
+  <pre>db.collection('audit_log').where('endpoint', '>=', 'GET /api/config').limit(100).stream()</pre>
+</div>
+
+<h2>🔒 Sanificazione commit effettuata</h2>
+<div class="banner ok">
+  ✅ Il commit <code>fc0b29e</code> contiene <code>memo_scan_garbymobile.json</code> <strong>sanitizzato</strong>:
+  tutte le API key (pattern <code>sk-ant-*</code>, <code>sk-proj-*</code>, <code>AIza*</code>) sono state
+  sostituite con <code>***API_KEY_REDACTED***</code> prima del push. Il documento di <code>cosmina_config</code>
+  è stato completamente escluso dal sample JSON.
+</div>
+
+<h2>📋 Altri segreti potenzialmente a rischio</h2>
+<div class="card">
+  <p>Controllare anche gli altri campi sensibili notati durante lo scan:</p>
+  <ul>
+    <li><code>acg_api_keys</code> (5 docs) — controllare permessi di lettura</li>
+    <li><code>apiKeys</code> (1 doc) — idem</li>
+    <li><code>cosmina_config</code> può contenere <strong>altri</strong> secret (trello_api_key, gmail_credentials, waha_token, etc.)</li>
+    <li>Su <code>guazzotti-tec</code>: <code>gmail_settings/global_config</code> e <code>guazzotti_config/gmail_credentials</code>
+      hanno Gmail app passwords in chiaro (già segnalato in <code>memo-guazzotti-tec-map.md</code> nota 4)</li>
+    <li>Su <code>guazzotti-tec</code>: <code>users</code> (4 docs) — password in chiaro (già segnalato)</li>
+  </ul>
+</div>
+
+<h2>🎯 Raccomandazione generale</h2>
+<div class="card">
+  <p>Fare un audit sistematico di tutti i campi Firestore che contengono secret e spostarli in:</p>
+  <ul>
+    <li><strong>Secret Manager</strong> (per secret usati da Cloud Functions)</li>
+    <li><strong>Hashed storage</strong> (per password utenti — usare Firebase Auth invece di password in chiaro!)</li>
+    <li>L'audit può essere fatto con uno script che cerca pattern comuni (<code>sk-</code>, <code>AIza</code>, <code>xoxb-</code>, <code>-----BEGIN</code>, pattern JWT, etc.)</li>
+  </ul>
+</div>
+
+<h2>🔗 Riferimenti</h2>
+<ul>
+  <li>GitHub Push Protection doc: <a href="https://docs.github.com/en/code-security/secret-scanning" target="_blank">docs.github.com/en/code-security/secret-scanning</a></li>
+  <li>Firebase Secret Manager: <a href="https://firebase.google.com/docs/functions/config-env" target="_blank">firebase.google.com/docs/functions/config-env</a></li>
+  <li>Anthropic API key rotation: <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com/settings/keys</a></li>
+</ul>
+
+</body>
+</html>
