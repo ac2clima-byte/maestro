@@ -1,0 +1,72 @@
+[
+  {
+    "id": "ares",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con ARES via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "chronos",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con CHRONOS via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "memo",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con MEMO via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "charta",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con CHARTA via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "echo",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con ECHO via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "emporion",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con EMPORION via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "dikea",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con DIKEA via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "delphi",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con DELPHI via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "pharo",
+    "badge": "badge live|✅ Operativo v0.1",
+    "btn": "💬 Parla con PHARO via NEXUS",
+    "hasWip": false,
+    "ok": true
+  },
+  {
+    "id": "calliope",
+    "badge": "badge soon|⏳ Solo via NEXUS Chat",
+    "btn": "💬 Parla con CALLIOPE via NEXUS",
+    "hasWip": false,
+    "ok": true
+  }
+]

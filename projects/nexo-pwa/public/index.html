@@ -350,9 +350,9 @@
   .collega-wip .readme ul { margin: 8px 0 8px 18px; color: var(--text-muted); }
   .collega-wip .readme li { margin-bottom: 4px; }
 
-  /* ── Collega page ATTIVO (v0.1) ─────────────────────── */
+  /* ── Collega page (semplice + bottone NEXUS) ─────────── */
   .collega-page {
-    max-width: 920px;
+    max-width: 720px;
     margin: 0 auto;
   }
   .collega-header {
@@ -388,82 +388,27 @@
     margin-bottom: 16px;
     box-shadow: var(--shadow-md);
   }
-  .collega-card h3 { font-size: 0.95rem; margin: 0 0 12px; color: var(--text); font-weight: 600; }
-  .collega-card .loading { color: var(--text-muted); font-size: 0.9rem; }
-  .collega-card .data-row {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-    font-size: 0.88rem;
-    display: flex;
-    gap: 10px;
-    align-items: baseline;
-  }
-  .collega-card .data-row:last-child { border-bottom: none; }
-  .collega-card .data-row .idx { color: var(--text-muted); min-width: 22px; font-variant-numeric: tabular-nums; }
-  .collega-card .data-row .main { flex: 1; color: var(--text); }
-  .collega-card .data-row .meta { color: var(--text-muted); font-size: 0.82rem; }
-  .collega-card pre { white-space: pre-wrap; font-family: inherit; font-size: 0.88rem; color: var(--text); margin: 0; line-height: 1.5; }
-  .collega-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-  .collega-actions button,
-  .collega-actions .btn {
-    background: var(--accent, #2563eb);
+  .collega-card h3 { font-size: 0.9rem; margin: 0 0 10px; color: var(--text); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .collega-card p { margin: 0 0 10px; color: var(--text-muted); line-height: 1.6; font-size: 0.92rem; }
+  .nexus-big-btn {
+    display: block;
+    width: 100%;
+    padding: 18px 24px;
+    background: #10b981;
     color: white;
     border: none;
-    border-radius: 8px;
-    padding: 9px 16px;
-    font-size: 0.88rem;
-    font-weight: 500;
+    border-radius: 14px;
+    font-size: 1.05rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.15s;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    transition: transform 0.1s, box-shadow 0.15s;
+    margin-top: 6px;
   }
-  .collega-actions button:hover { opacity: 0.9; }
-  .collega-actions .btn-secondary {
-    background: var(--surface-soft);
-    color: var(--text);
-    border: 1px solid var(--border);
+  .nexus-big-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
   }
-  .collega-search {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .collega-search input {
-    flex: 1;
-    padding: 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    background: var(--surface-soft);
-    color: var(--text);
-  }
-  .collega-search button {
-    padding: 9px 16px;
-    background: var(--accent, #2563eb);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.88rem;
-    cursor: pointer;
-  }
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 10px;
-  }
-  .kpi-tile {
-    background: var(--surface-soft);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-    text-align: center;
-  }
-  .kpi-tile .num { font-size: 1.6rem; font-weight: 600; color: var(--text); display: block; }
-  .kpi-tile .lab { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
 
   /* Iris iframe wrapper */
   .iris-frame-wrap {
@@ -1181,539 +1126,69 @@ async function loadAlertsWidget() {
   }
 }
 
-// ── Collega page (dispatcher) ───────────────────────────────────
-// Per ogni Collega attivo v0.1 mostriamo dati reali + bottone NEXUS.
-// Per CALLIOPE (soon) mostriamo stato + shortcut a NEXUS.
+// ── Collega page (semplice + bottone NEXUS) ─────────────────────
+// Ogni Collega è operativo v0.1 via NEXUS Chat. La pagina è solo
+// informativa con un bottone grande per aprire la chat.
 
 function renderCollegaWip(c) {
-  const dispatchers = {
-    ares: renderColAres,
-    chronos: renderColChronos,
-    memo: renderColMemo,
-    charta: renderColCharta,
-    echo: renderColEcho,
-    emporion: renderColEmporion,
-    dikea: renderColDikea,
-    delphi: renderColDelphi,
-    pharo: renderColPharo,
-    calliope: renderColCalliope,
-  };
-  const fn = dispatchers[c.id];
-  if (fn) { fn(c); return; }
+  const isSoon = c.status === "soon";
+  const badgeClass = isSoon ? "soon" : "live";
+  const badgeText = isSoon ? "⏳ Solo via NEXUS Chat" : "✅ Operativo v0.1";
+  const samplePrompt = EXAMPLE_PROMPT[c.id] || "";
+  const prompt = `Parla con ${c.name} via NEXUS`;
 
-  // Fallback WIP per Colleghi non ancora implementati
-  $("#page").innerHTML = `
-    <div class="collega-wip">
-      <div class="collega-wip-icon">${c.icon}</div>
-      <h2>${escapeHtml(c.name)}</h2>
-      <div class="subtitle">${escapeHtml(c.domain)}</div>
-      <div class="badge-status">⏳ Collega in costruzione</div>
-      <div class="readme">
-        <h3>Cosa farà</h3>
-        <p>${escapeHtml(c.desc)}</p>
-        <h3>Azioni previste</h3>
-        <ul>${c.actions.map(a => `<li><code>${escapeHtml(a)}</code></li>`).join("")}</ul>
-      </div>
-    </div>
-  `;
-}
-
-// ── Helper condivisi Collega ────────────────────────────────────
-function collegaHeader(c, badge = "live") {
-  const badgeText = badge === "live" ? "✅ Operativo v0.1"
-    : badge === "soon" ? "⏳ Solo via NEXUS Chat"
-    : "⏳ In costruzione";
-  return `
-    <div class="collega-header">
-      <div class="icon">${c.icon}</div>
-      <div class="titles">
-        <h2>${escapeHtml(c.name)}</h2>
-        <div class="domain">${escapeHtml(c.domain)}</div>
-        <span class="badge ${badge}">${badgeText}</span>
-      </div>
-    </div>
-  `;
-}
-
-function nexusButton(prompt, label = "Apri in NEXUS Chat") {
-  return `<button data-nexus-prompt="${escapeHtml(prompt)}">💬 ${escapeHtml(label)}</button>`;
-}
-
-function bindNexusButtons(root = document) {
-  root.querySelectorAll("[data-nexus-prompt]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const p = btn.getAttribute("data-nexus-prompt");
-      nexusOpen();
-      const input = $("#nexusInput");
-      if (input) { input.value = p; input.focus(); }
-    });
-  });
-}
-
-/**
- * Chiama nexusRouter con un prompt preciso e ritorna il `directAnswer.content`
- * (la stringa che NEXUS mostrerebbe in chat). Usato come proxy per le query
- * COSMINA che il client browser non può fare direttamente (permessi).
- */
-async function callNexusProxy(prompt) {
-  const sessionId = "pwa_page_" + Math.random().toString(36).slice(2, 10);
-  const resp = await fetch(NEXUS_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userMessage: prompt, sessionId, userId: "pwa-page" }),
-  });
-  if (!resp.ok) throw new Error(`NEXUS ${resp.status}`);
-  const data = await resp.json();
-
-  // Il router ritorna `nexusMessageId` che è l'id del record assistant
-  // scritto su nexus_chat. Leggendolo direttamente prendiamo il testo
-  // finale (direct answer o fallback, già risolto lato server).
-  const msgId = data.nexusMessageId;
-  if (msgId) {
-    try {
-      const { db, fsMod } = await getFirestore();
-      const snap = await fsMod.getDoc(fsMod.doc(db, "nexus_chat", msgId));
-      if (snap.exists()) {
-        const content = (snap.data() || {}).content || "";
-        if (content) return { content, intent: data.intent, direct: data.direct };
-      }
-    } catch {}
-  }
-
-  // Fallback: rispostaUtente
-  return {
-    content: data.intent?.rispostaUtente || "(nessuna risposta)",
-    intent: data.intent,
-    direct: data.direct,
-  };
-}
-
-function renderCollegaSkeleton(c, sections, badge = "live") {
   $("#page").innerHTML = `
     <div class="collega-page">
-      ${collegaHeader(c, badge)}
-      ${sections}
+      <div class="collega-header">
+        <div class="icon">${c.icon}</div>
+        <div class="titles">
+          <h2>${escapeHtml(c.name)}</h2>
+          <div class="domain">${escapeHtml(c.domain)}</div>
+          <span class="badge ${badgeClass}">${badgeText}</span>
+        </div>
+      </div>
+
+      <div class="collega-card">
+        <h3>Cosa fa</h3>
+        <p style="color:var(--text-muted);line-height:1.6;margin:0 0 14px;">${escapeHtml(c.desc)}</p>
+        <h3 style="margin-top:18px;">Azioni disponibili</h3>
+        <ul style="margin:0 0 4px 18px;color:var(--text-muted);line-height:1.7;">
+          ${c.actions.map(a => `<li>${escapeHtml(a)}</li>`).join("")}
+        </ul>
+      </div>
+
+      <button class="nexus-big-btn" id="openNexusBtn">
+        💬 Parla con ${escapeHtml(c.name)} via NEXUS
+      </button>
+      ${samplePrompt ? `
+        <div style="text-align:center;margin-top:10px;color:var(--text-muted);font-size:0.88rem;">
+          Esempio: <em>"${escapeHtml(samplePrompt)}"</em>
+        </div>
+      ` : ""}
     </div>
   `;
-}
 
-// ── ARES ────────────────────────────────────────────────────────
-function renderColAres(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>🔧 Interventi aperti (COSMINA)</h3>
-      <div id="aresInterventi" class="loading">Caricamento via nexusRouter…</div>
-      <div class="collega-actions">
-        ${nexusButton("interventi aperti oggi", "Vedi interventi di oggi")}
-        ${nexusButton("apri un intervento urgente", "Apri un nuovo intervento")}
-      </div>
-    </div>
-  `);
-  loadAresInterventi();
-  bindNexusButtons();
-}
-async function loadAresInterventi() {
-  const el = $("#aresInterventi");
-  try {
-    const { content } = await callNexusProxy("interventi aperti oggi");
-    el.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
-  } catch (e) {
-    el.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── CHRONOS ─────────────────────────────────────────────────────
-function renderColChronos(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>📆 Scadenze manutenzione prossime</h3>
-      <div id="chrScadenze" class="loading">Caricamento…</div>
-    </div>
-    <div class="collega-card">
-      <h3>📅 Agenda tecnici (prossimi 14 giorni)</h3>
-      <div id="chrSlot" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("agenda di Malvicino domani", "Agenda Malvicino domani")}
-        ${nexusButton("scadenze prossime", "Tutte le scadenze")}
-      </div>
-    </div>
-  `);
-  loadChronosData();
-  bindNexusButtons();
-}
-async function loadChronosData() {
-  const sc = $("#chrScadenze");
-  const slot = $("#chrSlot");
-  try {
-    const r1 = await callNexusProxy("scadenze prossime");
-    sc.innerHTML = `<pre>${escapeHtml(r1.content)}</pre>`;
-  } catch (e) {
-    sc.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-  try {
-    const r2 = await callNexusProxy("cosa fa Marco nei prossimi 14 giorni?");
-    slot.innerHTML = `<pre>${escapeHtml(r2.content)}</pre>`;
-  } catch (e) {
-    slot.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── MEMO ────────────────────────────────────────────────────────
-function renderColMemo(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>🔍 Cerca dossier cliente / condominio</h3>
-      <div class="collega-search">
-        <input type="text" id="memoQuery" placeholder="Es. La Bussola, Rossi, Via Roma..." />
-        <button id="memoGo">Cerca</button>
-      </div>
-      <div id="memoResult" class="loading" style="display:none;">Cerco…</div>
-      <div class="collega-actions">
-        ${nexusButton("dimmi tutto sul Condominio La Bussola", "Esempio in NEXUS")}
-      </div>
-    </div>
-  `);
-  const q = $("#memoQuery"), btn = $("#memoGo"), out = $("#memoResult");
-  const go = async () => {
-    const v = (q.value || "").trim();
-    if (!v) return;
-    out.style.display = "";
-    out.innerHTML = `<div class="loading">Cerco "${escapeHtml(v)}"…</div>`;
-    try {
-      const { content } = await callNexusProxy(`dimmi tutto su ${v}`);
-      out.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
-    } catch (e) {
-      out.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
+  $("#openNexusBtn").addEventListener("click", () => {
+    nexusOpen();
+    if (samplePrompt) {
+      const input = $("#nexusInput");
+      if (input) { input.value = samplePrompt; input.focus(); }
     }
-  };
-  btn.addEventListener("click", go);
-  q.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
-  bindNexusButtons();
+  });
 }
 
-// ── CHARTA ──────────────────────────────────────────────────────
-function renderColCharta(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>💰 Email amministrative recenti (da IRIS)</h3>
-      <div id="chartaFatt" class="loading">Caricamento…</div>
-    </div>
-    <div class="collega-card">
-      <h3>📊 Report mensile corrente</h3>
-      <div id="chartaReport" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("report mensile", "Report mese corrente in NEXUS")}
-      </div>
-    </div>
-  `);
-  loadChartaData();
-  bindNexusButtons();
-}
-async function loadChartaData() {
-  try {
-    const { db, fsMod } = await getFirestore();
-    const q = fsMod.query(
-      fsMod.collection(db, "iris_emails"),
-      fsMod.orderBy("raw.received_time", "desc"),
-      fsMod.limit(300),
-    );
-    const snap = await fsMod.getDocs(q);
-    const rows = [];
-    snap.forEach(d => {
-      const x = d.data() || {};
-      const cat = (x.classification || {}).category || "";
-      if (!/FATTURA|PAGAM|DDT|RICHIESTA_PAGAMENTO/.test(cat)) return;
-      const raw = x.raw || {};
-      rows.push({
-        subject: raw.subject || "(senza oggetto)",
-        sender: raw.sender_name || raw.sender || "—",
-        cat,
-        when: fmtRel(raw.received_time),
-      });
-    });
-    const el = $("#chartaFatt");
-    if (!rows.length) {
-      el.innerHTML = `<div class="widget-empty">Nessuna email amministrativa recente.</div>`;
-    } else {
-      el.innerHTML = rows.slice(0, 10).map((r, i) => `
-        <div class="data-row">
-          <div class="idx">${i + 1}.</div>
-          <div class="main">${escapeHtml(r.sender)} — ${escapeHtml(r.subject)}</div>
-          <div class="meta">${escapeHtml(r.cat)} · ${escapeHtml(r.when)}</div>
-        </div>
-      `).join("");
-    }
-  } catch (e) {
-    $("#chartaFatt").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-  try {
-    const yyyymm = new Date().toISOString().slice(0, 7);
-    const { content } = await callNexusProxy(`report mensile ${yyyymm}`);
-    $("#chartaReport").innerHTML = `<pre>${escapeHtml(content)}</pre>`;
-  } catch (e) {
-    $("#chartaReport").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── ECHO ────────────────────────────────────────────────────────
-function renderColEcho(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>📢 Ultimi messaggi inviati (echo_messages)</h3>
-      <div id="echoMsgs" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("manda whatsapp a Alberto: test", "Manda WhatsApp via NEXUS")}
-      </div>
-    </div>
-  `);
-  loadEchoData();
-  bindNexusButtons();
-}
-async function loadEchoData() {
-  const el = $("#echoMsgs");
-  try {
-    const { db, fsMod } = await getFirestore();
-    const q = fsMod.query(
-      fsMod.collection(db, "echo_messages"),
-      fsMod.orderBy("createdAt", "desc"),
-      fsMod.limit(15),
-    );
-    const snap = await fsMod.getDocs(q);
-    const rows = [];
-    snap.forEach(d => {
-      const x = d.data() || {};
-      rows.push({
-        canale: x.canale || x.channel || "?",
-        to: x.to || x.destinatario || "?",
-        status: x.status || x.stato || "?",
-        preview: (x.body || x.message || x.testo || "").toString().slice(0, 80),
-        when: x.createdAt?.toDate ? fmtRel(x.createdAt.toDate().toISOString()) : "",
-      });
-    });
-    if (!rows.length) {
-      el.innerHTML = `<div class="widget-empty">Nessun messaggio inviato finora.</div>`;
-      return;
-    }
-    el.innerHTML = rows.map((r, i) => `
-      <div class="data-row">
-        <div class="idx">${i + 1}.</div>
-        <div class="main"><strong>${escapeHtml(r.canale)}</strong> → ${escapeHtml(r.to)}<br>${escapeHtml(r.preview)}</div>
-        <div class="meta">${escapeHtml(r.status)} · ${escapeHtml(r.when)}</div>
-      </div>
-    `).join("");
-  } catch (e) {
-    el.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── EMPORION ────────────────────────────────────────────────────
-function renderColEmporion(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>⚠️ Articoli sotto scorta</h3>
-      <div id="empSottoScorta" class="loading">Caricamento…</div>
-    </div>
-    <div class="collega-card">
-      <h3>🔎 Cerca articolo</h3>
-      <div class="collega-search">
-        <input type="text" id="empQuery" placeholder="Codice o descrizione (es. valvola, 00001)" />
-        <button id="empGo">Cerca</button>
-      </div>
-      <div id="empResult"></div>
-      <div class="collega-actions">
-        ${nexusButton("cosa manca in magazzino?", "Tutti sotto scorta")}
-      </div>
-    </div>
-  `);
-  loadEmporionData();
-  const q = $("#empQuery"), btn = $("#empGo"), out = $("#empResult");
-  const go = async () => {
-    const v = (q.value || "").trim();
-    if (!v) return;
-    out.innerHTML = `<div class="loading">Cerco "${escapeHtml(v)}"…</div>`;
-    try {
-      const { content } = await callNexusProxy(`disponibilità ${v}`);
-      out.innerHTML = `<pre>${escapeHtml(content)}</pre>`;
-    } catch (e) {
-      out.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-    }
-  };
-  btn.addEventListener("click", go);
-  q.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
-  bindNexusButtons();
-}
-async function loadEmporionData() {
-  try {
-    const { content } = await callNexusProxy("articoli sotto scorta magazzino");
-    $("#empSottoScorta").innerHTML = `<pre>${escapeHtml(content)}</pre>`;
-  } catch (e) {
-    $("#empSottoScorta").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── DIKEA ───────────────────────────────────────────────────────
-function renderColDikea(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>⚖️ Scadenze CURIT / REE / manutenzione</h3>
-      <div id="dikeaCurit" class="loading">Caricamento…</div>
-    </div>
-    <div class="collega-card">
-      <h3>🏷️ Impianti senza targa</h3>
-      <div id="dikeaTarga" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("scadenze CURIT", "Scadenze in NEXUS")}
-      </div>
-    </div>
-  `);
-  loadDikeaData();
-  bindNexusButtons();
-}
-async function loadDikeaData() {
-  try {
-    const r1 = await callNexusProxy("scadenze CURIT");
-    $("#dikeaCurit").innerHTML = `<pre>${escapeHtml(r1.content)}</pre>`;
-  } catch (e) {
-    $("#dikeaCurit").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-  try {
-    const r2 = await callNexusProxy("impianti senza targa");
-    $("#dikeaTarga").innerHTML = `<pre>${escapeHtml(r2.content)}</pre>`;
-  } catch (e) {
-    $("#dikeaTarga").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── DELPHI ──────────────────────────────────────────────────────
-function renderColDelphi(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>📊 KPI Dashboard (ultime 4 settimane)</h3>
-      <div id="delKpi" class="loading">Caricamento…</div>
-    </div>
-    <div class="collega-card">
-      <h3>💳 Costo AI ultimi 30 giorni</h3>
-      <div id="delCost" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("come siamo andati questo mese?", "KPI in NEXUS")}
-      </div>
-    </div>
-  `);
-  loadDelphiData();
-  bindNexusButtons();
-}
-async function loadDelphiData() {
-  try {
-    const r1 = await callNexusProxy("come siamo andati questo mese?");
-    $("#delKpi").innerHTML = `<pre>${escapeHtml(r1.content)}</pre>`;
-  } catch (e) {
-    $("#delKpi").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-  try {
-    const r2 = await callNexusProxy("costo AI ultimi 30 giorni");
-    $("#delCost").innerHTML = `<pre>${escapeHtml(r2.content)}</pre>`;
-  } catch (e) {
-    $("#delCost").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── PHARO ───────────────────────────────────────────────────────
-function renderColPharo(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>👁️ Stato Suite NEXO</h3>
-      <div id="pharoStato" class="loading">Caricamento…</div>
-    </div>
-    <div class="collega-card">
-      <h3>🚨 Problemi aperti</h3>
-      <div id="pharoProblemi" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("stato della suite, tutto ok?", "Check completo in NEXUS")}
-      </div>
-    </div>
-  `);
-  loadPharoData();
-  bindNexusButtons();
-}
-async function loadPharoData() {
-  try {
-    const r1 = await callNexusProxy("stato della suite, tutto ok?");
-    $("#pharoStato").innerHTML = `<pre>${escapeHtml(r1.content)}</pre>`;
-  } catch (e) {
-    $("#pharoStato").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-  try {
-    const r2 = await callNexusProxy("problemi aperti");
-    $("#pharoProblemi").innerHTML = `<pre>${escapeHtml(r2.content)}</pre>`;
-  } catch (e) {
-    $("#pharoProblemi").innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
-
-// ── CALLIOPE (soon — solo NEXUS) ────────────────────────────────
-function renderColCalliope(c) {
-  renderCollegaSkeleton(c, `
-    <div class="collega-card">
-      <h3>✍️ Ultime bozze generate (calliope_bozze)</h3>
-      <div id="calBozze" class="loading">Caricamento…</div>
-      <div class="collega-actions">
-        ${nexusButton("scrivi una bozza cordiale a ", "Genera bozza in NEXUS")}
-      </div>
-      <p style="margin-top:14px;color:var(--text-muted);font-size:0.88rem;line-height:1.5;">
-        CALLIOPE non ha una UI dedicata in v0.1: genera bozze <strong>solo via NEXUS Chat</strong>
-        usando Claude Sonnet 4.6. Le bozze sono salvate in <code>calliope_bozze</code>
-        con stato <code>in_revisione</code> (DRY-RUN) e devono essere approvate manualmente
-        prima che ECHO le invii.
-      </p>
-    </div>
-  `, "soon");
-  loadCalliopeData();
-  bindNexusButtons();
-}
-async function loadCalliopeData() {
-  const el = $("#calBozze");
-  try {
-    const { db, fsMod } = await getFirestore();
-    const q = fsMod.query(
-      fsMod.collection(db, "calliope_bozze"),
-      fsMod.orderBy("createdAt", "desc"),
-      fsMod.limit(10),
-    );
-    const snap = await fsMod.getDocs(q);
-    const rows = [];
-    snap.forEach(d => {
-      const x = d.data() || {};
-      const corr = x.corrente || {};
-      rows.push({
-        id: d.id,
-        tipo: x.tipo || "?",
-        tono: x.tono || "?",
-        stato: x.stato || "?",
-        dest: (x.destinatario || {}).nome || (x.destinatario || {}).to || "?",
-        oggetto: corr.oggetto || "",
-        preview: (corr.corpo || "").slice(0, 120),
-        when: x.createdAt?.toDate ? fmtRel(x.createdAt.toDate().toISOString()) : "",
-      });
-    });
-    if (!rows.length) {
-      el.innerHTML = `<div class="widget-empty">Nessuna bozza generata finora. Usa NEXUS Chat con "scrivi una bozza a [destinatario]".</div>`;
-      return;
-    }
-    el.innerHTML = rows.map((r, i) => `
-      <div class="data-row">
-        <div class="idx">${i + 1}.</div>
-        <div class="main">
-          → <strong>${escapeHtml(r.dest)}</strong> · ${escapeHtml(r.tono)}<br>
-          <em>${escapeHtml(r.oggetto)}</em><br>
-          <span style="color:var(--text-muted);font-size:0.85em">${escapeHtml(r.preview)}…</span>
-        </div>
-        <div class="meta">${escapeHtml(r.stato)} · ${escapeHtml(r.when)}</div>
-      </div>
-    `).join("");
-  } catch (e) {
-    el.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(e.message)}</div>`;
-  }
-}
+const EXAMPLE_PROMPT = {
+  ares: "interventi aperti oggi",
+  chronos: "cosa fa Marco nei prossimi 14 giorni?",
+  memo: "dimmi tutto sul Condominio La Bussola",
+  charta: "report mensile",
+  echo: "manda whatsapp a Alberto: test",
+  emporion: "c'è il pezzo codice 00001?",
+  dikea: "scadenze CURIT",
+  delphi: "come siamo andati questo mese?",
+  pharo: "stato della suite, tutto ok?",
+  calliope: "scrivi una bozza cordiale a ",
+};
 
 // ── NEXUS Chat ─────────────────────────────────────────────────
 const NEXUS_API_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter";
