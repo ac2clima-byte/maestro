@@ -632,63 +632,269 @@ async function handleEmailPerCategoria(parametri) {
   };
 }
 
-async function handleEmailPerCliente(parametri) {
-  // "Dimmi tutto sul cliente X" → mini-dossier da iris_emails.
-  //
-  // MEMO v0.1 esiste come libreria (projects/memo/) ma il dossier
-  // completo legge da `garbymobile-f89ac` (CRM, impianti, interventi)
-  // — la Cloud Function NEXUS non ha ancora i permessi cross-progetto
-  // (TODO: IAM Firestore Viewer su garbymobile-f89ac per il SA della
-  // function). Per ora rispondo con l'unica fonte accessibile sul
-  // progetto NEXO: iris_emails.
-  // Cerca il nome in tutte le chiavi plausibili che Haiku potrebbe usare.
+// MEMO v0.2 — Dossier reale da COSMINA (garbymobile-f89ac) + Guazzotti TEC + iris_emails
+//
+// Sorgenti usate:
+//   - garbymobile-f89ac / crm_clienti     (anagrafica)
+//   - garbymobile-f89ac / cosmina_impianti (impianti CURIT, targhe, scadenze)
+//   - garbymobile-f89ac / bacheca_cards    (interventi, listName=INTERVENTI)
+//   - guazzotti-tec    / rti              (RTI Guazzotti)
+//   - nexo-hub-15f2d   / iris_emails      (email correlate)
+//
+// Fuzzy match: toLowerCase + includes su bag di campi testuali.
+// Il SA della Cloud Function ha già roles/datastore.user su entrambi i progetti
+// (usato da ARES per bacheca_cards, da PHARO per rti).
+
+function memoBag(data) {
+  const parts = [];
+  for (const v of Object.values(data || {})) {
+    if (typeof v === "string") parts.push(v.toLowerCase());
+    else if (typeof v === "number" || typeof v === "boolean") parts.push(String(v).toLowerCase());
+  }
+  return parts.join(" ");
+}
+
+function memoFormatDate(v) {
+  if (!v) return "";
+  try {
+    const d = v.toDate ? v.toDate() : new Date(v);
+    if (Number.isNaN(d.getTime())) return String(v).slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  } catch {
+    return String(v).slice(0, 10);
+  }
+}
+
+async function handleMemoDossier(parametri, ctx) {
   const candidate =
     parametri.cliente || parametri.condominio || parametri.nome ||
     parametri.query || parametri.soggetto || parametri.target ||
     parametri.entita || parametri.entityName || parametri.name ||
-    // fallback: prendi il primo valore string non vuoto
-    Object.values(parametri).find((v) => typeof v === "string" && v.trim().length > 0) ||
+    Object.values(parametri || {}).find(v => typeof v === "string" && v.trim().length > 0) ||
     "";
-  const q = String(candidate).trim().toLowerCase();
-  if (!q) return { content: "Su quale cliente o condominio? Dammi un nome." };
+  let q = String(candidate).trim().toLowerCase();
+  // Rimuovi articoli iniziali ("la bussola" → "bussola")
+  q = q.replace(/^(il|la|lo|gli|le|i|condominio)\s+/, "").trim();
+  if (!q) return { content: "Su quale cliente o condominio cerco? Dammi un nome." };
 
-  const emails = await fetchIrisEmails(500);
-  const match = emails.filter(e => {
+  const cosm = getCosminaDb();
+  const gua = getGuazzottiDb();
+
+  // ── Lanci parallelismo read
+  const [clientiSnap, impiantiSnap, cardsSnap, rtiSnap, irisEmails] = await Promise.all([
+    cosm.collection("crm_clienti").limit(700).get().catch(e => ({ _err: String(e) })),
+    cosm.collection("cosmina_impianti").limit(500).get().catch(e => ({ _err: String(e) })),
+    cosm.collection("bacheca_cards").where("listName", "==", "INTERVENTI").limit(400).get().catch(e => ({ _err: String(e) })),
+    gua.collection("rti").limit(700).get().catch(e => ({ _err: String(e) })),
+    fetchIrisEmails(500).catch(e => []),
+  ]);
+
+  const errors = [];
+  if (clientiSnap._err) errors.push({ source: "crm_clienti", error: clientiSnap._err.slice(0, 120) });
+  if (impiantiSnap._err) errors.push({ source: "cosmina_impianti", error: impiantiSnap._err.slice(0, 120) });
+  if (cardsSnap._err) errors.push({ source: "bacheca_cards", error: cardsSnap._err.slice(0, 120) });
+  if (rtiSnap._err) errors.push({ source: "guazzotti_rti", error: rtiSnap._err.slice(0, 120) });
+
+  // ── Match clienti
+  const clienti = [];
+  if (clientiSnap.forEach) {
+    clientiSnap.forEach(d => {
+      const v = d.data() || {};
+      if (memoBag(v).includes(q)) {
+        clienti.push({
+          id: d.id,
+          nome: v.nome || v.ragione_sociale || v.denominazione || d.id,
+          indirizzo: v.indirizzo || v.via || "",
+          comune: v.comune || "",
+          amministratore: v.amministratore || "",
+          codice: v.codice || "",
+          telefono: v.telefono || "",
+          email: v.email || "",
+        });
+      }
+    });
+  }
+
+  // ── Match impianti (per codice condominio/indirizzo/occupante)
+  const impianti = [];
+  if (impiantiSnap.forEach) {
+    impiantiSnap.forEach(d => {
+      const v = d.data() || {};
+      if (memoBag(v).includes(q)) {
+        impianti.push({
+          id: d.id,
+          codice: v.codice || "",
+          targa: v.targa || "",
+          indirizzo: v.indirizzo || "",
+          occupante: v.occupante_cognome || "",
+          combustibile: v.combustibile || "",
+          scadenza: v.data_scadenza_dichiarazione || "",
+          ritardo_manut: v.giorni_ritardo_manutenzione || 0,
+          ditta: v.ditta_responsabile_cognome || "",
+        });
+      }
+    });
+  }
+
+  // ── Match interventi (bacheca_cards)
+  const interventi = [];
+  if (cardsSnap.forEach) {
+    cardsSnap.forEach(d => {
+      const v = d.data() || {};
+      if (memoBag(v).includes(q)) {
+        let due;
+        try { due = v.due ? (v.due.toDate ? v.due.toDate() : new Date(v.due)) : null; } catch {}
+        interventi.push({
+          id: d.id,
+          name: v.name || "",
+          stato: v.stato || "?",
+          tecnico: v.techName || (Array.isArray(v.techNames) && v.techNames[0]) || "",
+          boardName: v.boardName || "",
+          due: due ? due.toISOString().slice(0, 10) : "",
+          updated: memoFormatDate(v.updated_at),
+          workDescription: (v.workDescription || v.desc || "").slice(0, 200),
+        });
+      }
+    });
+    interventi.sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
+  }
+
+  // ── Match RTI Guazzotti
+  const rti = [];
+  if (rtiSnap.forEach) {
+    rtiSnap.forEach(d => {
+      const v = d.data() || {};
+      if (memoBag(v).includes(q)) {
+        rti.push({
+          numero_rti: v.numero_rti || d.id,
+          data: memoFormatDate(v.data_intervento),
+          stato: v.stato || "?",
+          tipo: v.tipo || "?",
+          tecnico: v.tecnico_intervento || v.tecnico || "",
+          condominio: v.condominio || "",
+          cliente: v.cliente || "",
+          intervento: (v.intervento_effettuato || "").slice(0, 150),
+          fatturabile: v.fatturabile,
+        });
+      }
+    });
+    rti.sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  }
+
+  // ── Match email
+  const emails = (irisEmails || []).filter(e => {
     const bag = [
       e.sender, e.senderName, e.subject, e.summary,
-      e.entities.cliente, e.entities.condominio, e.entities.indirizzo,
+      e.entities && e.entities.cliente, e.entities && e.entities.condominio, e.entities && e.entities.indirizzo,
     ].filter(Boolean).join(" ").toLowerCase();
     return bag.includes(q);
   });
 
-  // Header chiaro: dico cosa MEMO vede e cosa NO.
-  const header =
-    `📇 **Mini-dossier per "${q}"** (MEMO v0.1 – solo email)\n\n` +
-    `Per ora ho accesso solo a iris_emails. Il dossier completo (CRM ` +
-    `cliente, impianti, interventi recenti) sarà disponibile quando ` +
-    `attiveremo i permessi cross-progetto su garbymobile-f89ac.`;
+  // ── Costruisco dossier
+  const sections = [];
+  sections.push(`📇 **Dossier per "${q}"** (MEMO v0.2 — COSMINA + Guazzotti + email)`);
+  sections.push("");
 
-  if (!match.length) {
-    return { content: `${header}\n\nNon trovo email correlate a "${q}" nelle ultime 500.` };
+  // Anagrafica
+  if (clienti.length) {
+    sections.push(`**🏢 Anagrafica CRM** (${clienti.length} match):`);
+    clienti.slice(0, 5).forEach(c => {
+      sections.push(`  · **${c.nome}** [${c.codice || c.id}] — ${c.indirizzo}${c.comune ? ", " + c.comune : ""}`);
+      if (c.amministratore) sections.push(`    Amministratore: ${c.amministratore}`);
+      if (c.telefono) sections.push(`    Tel: ${c.telefono}`);
+    });
+    if (clienti.length > 5) sections.push(`  …e altri ${clienti.length - 5}.`);
+  } else {
+    sections.push(`**🏢 Anagrafica CRM**: nessun cliente diretto trovato.`);
   }
-  const lines = match.slice(0, 10).map(emailLine).join("\n");
-  const more = match.length > 10 ? `\n…e altre ${match.length - 10}.` : "";
+  sections.push("");
 
-  // Aggrego entità ricorrenti per dare contesto utile.
-  const indirizzi = new Set();
-  const tecnici = new Set();
-  for (const e of match) {
-    if (e.entities.indirizzo) indirizzi.add(e.entities.indirizzo);
-    if (e.entities.tecnico) tecnici.add(e.entities.tecnico);
+  // Impianti
+  if (impianti.length) {
+    sections.push(`**⚙️ Impianti CURIT** (${impianti.length}):`);
+    impianti.slice(0, 5).forEach(i => {
+      sections.push(`  · Targa ${i.targa} — ${i.indirizzo} — ${i.combustibile}`);
+      if (i.occupante) sections.push(`    Occupante: ${i.occupante}`);
+      if (i.ritardo_manut > 0) sections.push(`    ⚠️ ${i.ritardo_manut}g di ritardo manutenzione`);
+      if (i.scadenza) sections.push(`    Scadenza dichiarazione: ${i.scadenza}`);
+    });
+    if (impianti.length > 5) sections.push(`  …e altri ${impianti.length - 5}.`);
+  } else {
+    sections.push(`**⚙️ Impianti**: nessuno trovato.`);
   }
-  const ctxLines = [];
-  if (indirizzi.size) ctxLines.push(`Indirizzi citati: ${[...indirizzi].slice(0, 3).join(" · ")}`);
-  if (tecnici.size) ctxLines.push(`Tecnici citati: ${[...tecnici].slice(0, 3).join(" · ")}`);
-  const ctx = ctxLines.length ? `\n\n${ctxLines.join("\n")}` : "";
+  sections.push("");
+
+  // Interventi
+  if (interventi.length) {
+    sections.push(`**🔧 Interventi (bacheca COSMINA)** — ultimi ${Math.min(interventi.length, 10)} di ${interventi.length}:`);
+    interventi.slice(0, 10).forEach(it => {
+      const t = it.tecnico ? ` · ${it.tecnico}` : "";
+      const s = it.stato ? ` [${it.stato}]` : "";
+      sections.push(`  · ${it.updated || it.due || "?"}${t}${s} — ${(it.name || "").slice(0, 80)}`);
+      if (it.workDescription) sections.push(`    → ${it.workDescription.slice(0, 100)}`);
+    });
+  } else {
+    sections.push(`**🔧 Interventi**: nessuno trovato sulla bacheca.`);
+  }
+  sections.push("");
+
+  // RTI Guazzotti
+  if (rti.length) {
+    sections.push(`**📋 RTI/RTIDF Guazzotti TEC** (${rti.length}):`);
+    rti.slice(0, 8).forEach(r => {
+      const fat = r.fatturabile === false ? " [non fatturabile]" : "";
+      sections.push(`  · ${r.numero_rti} (${r.tipo}) — ${r.data} — ${r.stato}${fat} · ${r.tecnico}`);
+      if (r.intervento) sections.push(`    → ${r.intervento}`);
+    });
+    if (rti.length > 8) sections.push(`  …e altri ${rti.length - 8}.`);
+  } else {
+    sections.push(`**📋 RTI Guazzotti**: nessuno trovato.`);
+  }
+  sections.push("");
+
+  // Email
+  if (emails.length) {
+    sections.push(`**📧 Email correlate** (${emails.length}):`);
+    emails.slice(0, 5).forEach(e => sections.push(`  · ${emailLine(e)}`));
+    if (emails.length > 5) sections.push(`  …e altre ${emails.length - 5}.`);
+  } else {
+    sections.push(`**📧 Email**: nessuna email correlata nelle ultime 500 indicizzate.`);
+  }
+
+  // Nessun risultato ovunque → messaggio esplicito
+  const totalMatches = clienti.length + impianti.length + interventi.length + rti.length + emails.length;
+  if (totalMatches === 0) {
+    return {
+      content:
+        `📇 **Dossier per "${q}"** (MEMO v0.2)\n\n` +
+        `Non ho trovato nulla su "${q}" nelle fonti disponibili:\n` +
+        `  · crm_clienti (${clientiSnap.size || 0} docs)\n` +
+        `  · cosmina_impianti (${impiantiSnap.size || 0} docs)\n` +
+        `  · bacheca_cards interventi (${cardsSnap.size || 0} docs)\n` +
+        `  · rti guazzotti (${rtiSnap.size || 0} docs)\n` +
+        `  · iris_emails (${(irisEmails || []).length} docs)\n\n` +
+        `Possibili cause:\n` +
+        `  · Nome scritto diversamente (prova varianti)\n` +
+        `  · È una persona e non un condominio/cliente\n` +
+        `  · Cliente dismesso o non ancora caricato\n` +
+        (errors.length ? `\n❌ Errori lettura: ${errors.map(e => e.source).join(", ")}` : ""),
+      data: { query: q, totalMatches: 0, errors },
+    };
+  }
+
+  if (errors.length) {
+    sections.push("");
+    sections.push(`❌ Errori lettura parziali: ${errors.map(e => e.source).join(", ")}`);
+  }
 
   return {
-    content: `${header}\n\n**${match.length} email** correlate:\n\n${lines}${more}${ctx}`,
-    data: { count: match.length, query: q, indirizzi: [...indirizzi], tecnici: [...tecnici] },
+    content: sections.join("\n"),
+    data: {
+      query: q,
+      clienti: clienti.length, impianti: impianti.length,
+      interventi: interventi.length, rti: rti.length, emails: emails.length,
+      errors,
+    },
   };
 }
 
@@ -2811,7 +3017,11 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(mittente|sender|cerca_email|ricerca|email_da|da_mittente)/.test(az), fn: handleRicercaEmailMittente },
   { match: (col, az) => col === "iris" && /(senza_risposta|no_reply|attesa|followup|follow_up)/.test(az), fn: handleEmailSenzaRisposta },
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
-  { match: (col, az) => col === "memo" && /(dossier|cliente|condominio|tutto_su|storico)/.test(az), fn: handleEmailPerCliente },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "memo" && /(dossier|cliente|condominio|tutto_su|storico|impian|ricerca)/.test(az))
+      || /dimmi\s+tutto.*(su|di|sul|sulla)|chi\s+e|dossier|storico\s+di/.test(m);
+  }, fn: handleMemoDossier },
   { match: (col, az) => /lavagna/.test(az) && col !== "pharo", fn: handleStatoLavagna },
   // CHARTA — SCRITTURA: registra incasso (DRY_RUN default)
   { match: (col, az, ctx) => {
