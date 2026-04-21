@@ -1,0 +1,7 @@
+{
+  "prompt": "manda whatsapp a Alberto: Ciao, questo è un test di NEXO. ECHO funziona!",
+  "reply": "✅ WA inviato a **Alberto Contardi** (+393***3101)\n— Ciao, questo è un test di NEXO. ECHO funziona!\n\n_Fonte contatto: cosmina_contatti_interni · ID: `wa_mo8lxn82_e0x7i6`_\n      ECHOcompletata",
+  "outcome": "INVIATO_REALE",
+  "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-reale/invio-reale.png",
+  "timestamp": "2026-04-21T12:35:58.342Z"
+}

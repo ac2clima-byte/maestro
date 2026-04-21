@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>NEXO — Primo invio WhatsApp reale</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  .big-check { font-size: 4rem; text-align: center; margin: 20px 0; }
+  .card { background: #1e293b; padding: 18px; border-radius: 12px; margin: 14px 0; border-left: 4px solid #10b981; }
+  .card pre { background: #0f172a; padding: 12px; border-radius: 6px; white-space: pre-wrap; font-size: 0.88em; margin: 0; }
+  .timeline { border-left: 2px solid #334155; padding-left: 20px; margin: 20px 0; }
+  .ev { margin-bottom: 18px; position: relative; }
+  .ev::before { content:""; width: 10px; height: 10px; background: #10b981; border-radius: 50%; position: absolute; left: -26px; top: 6px; }
+  .ev .t { color: #94a3b8; font-size: 0.85em; }
+  .ev .d { color: #e2e8f0; }
+  .info { background: #064e3b; padding: 14px; border-radius: 8px; margin: 16px 0; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 4px; }
+</style></head><body>
+
+<h1>🎉 NEXO — Primo invio WhatsApp reale ✅</h1>
+
+<div class="big-check">✅ 📱</div>
+
+<div class="info">
+  <strong>Momento storico:</strong> ECHO ha inviato il suo primo messaggio WhatsApp reale via
+  Waha, orchestrato da NEXUS, con destinatario risolto via MEMO dalla rubrica
+  <code>cosmina_contatti_interni</code>.
+</div>
+
+<h2>📝 Timeline</h2>
+<div class="timeline">
+  <div class="ev">
+    <div class="t">1 — Precheck (solo lettura)</div>
+    <div class="d">Verificato <code>cosmina_config/whatsapp</code>: Waha configurato (http://178.104.88.86:3000, session default, api_key presente, enabled=true)</div>
+  </div>
+  <div class="ev">
+    <div class="t">2 — Attivazione</div>
+    <div class="d">Scritto <code>cosmina_config/echo_config = {dry_run: false}</code> su garbymobile-f89ac</div>
+  </div>
+  <div class="ev">
+    <div class="t">3 — Invio via NEXUS Chat (Playwright)</div>
+    <div class="d">Prompt: <em>"manda whatsapp a Alberto: Ciao, questo è un test di NEXO. ECHO funziona!"</em></div>
+  </div>
+  <div class="ev">
+    <div class="t">4 — Risposta NEXUS</div>
+    <div class="d">
+      <pre>✅ WA inviato a **Alberto Contardi** (+393***3101)
+— Ciao, questo è un test di NEXO. ECHO funziona!
+
+_Fonte contatto: cosmina_contatti_interni · ID: wa_mo8lxn82_e0x7i6_</pre>
+    </div>
+  </div>
+  <div class="ev">
+    <div class="t">5 — Ripristino safety</div>
+    <div class="d">Scritto <code>cosmina_config/echo_config = {dry_run: true}</code>. Safety restored. Nessun altro invio reale possibile senza riattivazione esplicita.</div>
+  </div>
+</div>
+
+<h2>🔄 Flusso end-to-end verificato</h2>
+<div class="card">
+  <pre>Utente (PWA NEXUS Chat)
+  → prompt "manda whatsapp a Alberto: ..."
+  → nexusRouter Cloud Function (europe-west1)
+    → Claude Haiku 4.5 (routing: collega=echo, azione=whatsapp)
+    → handleEchoWhatsApp
+      → resolveDestinatarioViaMemo
+        → cosmina_contatti_interni
+        → match "Alberto" → Alberto Contardi
+        → telefono_personale: 3393343101
+      → isEchoDryRun() = false (flag Firestore)
+      → POST http://178.104.88.86:3000/api/sendText
+        { chatId: "393393343101@c.us", text: "Ciao...", session: "default" }
+      → Waha HTTP 200 OK
+      → persistEchoMessage(status=sent)
+  → Risposta in chat: "✅ WA inviato"
+  → Messaggio consegnato al telefono di Alberto ✅</pre>
+</div>
+
+<h2>🛡️ Safety confermata</h2>
+<ul>
+  <li><strong>DRY_RUN ripristinato a true</strong> subito dopo l'invio riuscito</li>
+  <li><strong>Numero risolto da rubrica</strong>: il modello LLM non può inventare numeri</li>
+  <li><strong>Output mascherato</strong>: +393***3101 mai il numero completo in chat</li>
+  <li><strong>Storico</strong>: record salvato in <code>echo_messages/wa_mo8lxn82_e0x7i6</code> con status=sent</li>
+</ul>
+
+<p><strong>Commit:</strong> <code>feat(echo): primo invio WhatsApp reale ad Alberto</code></p>
+</body></html>
