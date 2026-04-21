@@ -823,6 +823,238 @@ async function handleAresInterventiAperti(parametri) {
   return { content: `${header}\n\n${lines}`, data: { count: top.length } };
 }
 
+// ─── ECHO — invio WhatsApp via Waha ────────────────────────────
+//
+// Sicurezza (pattern a 3 livelli):
+//   1. ECHO_DRY_RUN=true (default) → NIENTE invio reale. Scrive
+//      echo_messages con status="skipped" e rispondo "simulato".
+//   2. Whitelist destinatari: solo numeri listati in
+//      cosmina_config/echo_config.allowed_numbers ricevono davvero.
+//      Se whitelist vuota → DRY_RUN forzato comunque.
+//   3. Alias: se l'utente dice "manda a Alberto", cerco l'alias in
+//      cosmina_config/echo_config.aliases.alberto che mappa a un numero
+//      ESPLICITAMENTE whitelistato. Mai numeri suggeriti dal modello.
+//
+// Niente numero in codice né nei log: tutto in Firestore (progetto
+// garbymobile-f89ac, come già fa ECHO per waha_config).
+
+let _echoConfigCache = null;
+const ECHO_CONFIG_TTL_MS = 60 * 1000;
+
+async function loadEchoConfig() {
+  if (_echoConfigCache && Date.now() < _echoConfigCache.exp) return _echoConfigCache.v;
+  try {
+    const snap = await getCosminaDb().collection("cosmina_config").doc("echo_config").get();
+    const v = snap.exists ? (snap.data() || {}) : {};
+    _echoConfigCache = { v, exp: Date.now() + ECHO_CONFIG_TTL_MS };
+    return v;
+  } catch (e) {
+    logger.warn("echo config load failed", { error: String(e) });
+    return {};
+  }
+}
+
+async function loadWahaConfigFromCosmina() {
+  try {
+    const snap = await getCosminaDb().collection("cosmina_config").doc("whatsapp").get();
+    if (!snap.exists) return null;
+    const d = snap.data() || {};
+    return {
+      url: String(d.waha_url || "").replace(/\/$/, ""),
+      session: String(d.waha_session || "default"),
+      apiKey: d.waha_api_key || d.waha_secret || null,
+      enabled: d.enabled !== false,
+    };
+  } catch (e) {
+    logger.error("waha config load failed", { error: String(e) });
+    return null;
+  }
+}
+
+function normalizeWhatsappChatId(input) {
+  let clean = String(input || "")
+    .replace(/[\s\-()/.]/g, "")
+    .replace(/^@/, "")
+    .replace(/@(c\.us|s\.whatsapp\.net|lid)$/i, "");
+  if (clean.startsWith("+")) clean = clean.slice(1);
+  if (clean.length === 10 && clean.startsWith("3")) clean = "39" + clean;
+  if (clean.startsWith("3939") && clean.length >= 14) clean = clean.slice(2);
+  if (!/^\d{10,15}$/.test(clean)) return null;
+  return `${clean}@c.us`;
+}
+
+/**
+ * Risolve il destinatario:
+ *   - Se è già un numero → normalizza
+ *   - Se è un alias noto (case-insensitive) → numero dall'alias
+ *   - Altrimenti null
+ *
+ * In entrambi i casi ritorna solo se il numero risultante è in whitelist.
+ */
+function resolveDestinatario(rawInput, cfg) {
+  if (!rawInput) return { error: "destinatario_mancante" };
+  const aliases = (cfg.aliases || {});
+  const whitelist = Array.isArray(cfg.allowed_numbers) ? cfg.allowed_numbers : [];
+  const wlNorm = whitelist.map(normalizeWhatsappChatId).filter(Boolean);
+
+  if (wlNorm.length === 0) {
+    return { error: "whitelist_vuota" };
+  }
+
+  // Normalizza input (rimuovi @ iniziale, minuscolo)
+  const clean = String(rawInput).trim().replace(/^@/, "");
+  const lower = clean.toLowerCase();
+
+  // Prova come alias
+  if (aliases[lower]) {
+    const chat = normalizeWhatsappChatId(aliases[lower]);
+    if (chat && wlNorm.includes(chat)) return { chatId: chat, resolvedFrom: "alias", alias: lower };
+    return { error: "alias_non_in_whitelist" };
+  }
+
+  // Prova come numero
+  const chat = normalizeWhatsappChatId(clean);
+  if (!chat) return { error: "numero_non_valido" };
+  if (!wlNorm.includes(chat)) return { error: "non_in_whitelist" };
+  return { chatId: chat, resolvedFrom: "numero" };
+}
+
+function isEchoDryRun(cfg) {
+  // Priorità: Firestore flag → env var → default true (sicuro)
+  if (cfg && typeof cfg.dry_run === "boolean") return cfg.dry_run;
+  const v = (process.env.ECHO_DRY_RUN ?? process.env.DRY_RUN ?? "true").toLowerCase();
+  return v === "true";
+}
+
+async function persistEchoMessage(msg) {
+  try {
+    await db.collection("echo_messages").doc(msg.id).set({
+      ...msg,
+      _serverTime: FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    logger.error("persistEchoMessage failed", { error: String(e) });
+  }
+}
+
+function echoMsgId() {
+  return "wa_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8);
+}
+
+async function handleEchoWhatsApp(parametri, ctx) {
+  // Estrai destinatario + corpo dal modello o dal messaggio utente.
+  const msg = (ctx?.userMessage || "").trim();
+  let dest = String(parametri.to || parametri.destinatario || parametri.a || parametri.numero || "").trim();
+  let body = String(parametri.body || parametri.testo || parametri.messaggio || parametri.text || "").trim();
+
+  // Fallback: parser regex su userMessage.
+  //   Pattern: "whatsapp a X: testo" | "manda whatsapp a X testo..."
+  if ((!dest || !body) && msg) {
+    const m1 = /(?:whatsapp|wa|messaggio|whats'?app)\s+(?:a|per|al)\s+([^\s:,]+(?:\s+[^\s:,]+)?)\s*[:,]\s*(.+)$/i.exec(msg);
+    if (m1) {
+      if (!dest) dest = m1[1].trim();
+      if (!body) body = m1[2].trim();
+    } else {
+      const m2 = /(?:whatsapp|wa|messaggio)\s+(?:a|per|al)\s+([^\s:,]+)\s+(.+)$/i.exec(msg);
+      if (m2) {
+        if (!dest) dest = m2[1].trim();
+        if (!body) body = m2[2].trim();
+      }
+    }
+  }
+
+  if (!dest) return { content: "Mi manca il destinatario. Prova: 'manda whatsapp a Alberto: testo'." };
+  if (!body) return { content: "Mi manca il testo del messaggio." };
+  if (body.length > 2000) return { content: "Testo troppo lungo (max 2000 caratteri)." };
+
+  // Carica config (alias + whitelist)
+  const cfg = await loadEchoConfig();
+  const resolved = resolveDestinatario(dest, cfg);
+
+  if (resolved.error) {
+    const messages = {
+      whitelist_vuota: "ECHO: nessun destinatario autorizzato. Alberto deve popolare `cosmina_config/echo_config.allowed_numbers` prima di poter inviare.",
+      alias_non_in_whitelist: `ECHO: l'alias "${dest}" esiste ma il numero non è in whitelist.`,
+      numero_non_valido: `ECHO: numero "${dest}" non valido. Usa un alias (es. Alberto) o un numero E.164.`,
+      non_in_whitelist: `ECHO: destinatario "${dest}" NON in whitelist. Per sicurezza rifiuto. Aggiungilo in \`cosmina_config/echo_config.allowed_numbers\` se vuoi davvero inviargli.`,
+      destinatario_mancante: "ECHO: destinatario mancante.",
+    };
+    return { content: messages[resolved.error] || `ECHO: ${resolved.error}` };
+  }
+
+  const chatId = resolved.chatId;
+  const id = echoMsgId();
+  const now = new Date().toISOString();
+  const baseMsg = {
+    id, channel: "whatsapp", to: chatId, body,
+    priority: "normal", status: "queued",
+    createdAt: now, updatedAt: now, attempts: 0,
+    source: "nexus", resolvedFrom: resolved.resolvedFrom,
+    sessionId: parametri.sessionId,
+  };
+
+  // DRY-RUN: simula (flag da Firestore cosmina_config/echo_config.dry_run)
+  if (isEchoDryRun(cfg)) {
+    await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "ECHO_DRY_RUN attivo" });
+    return {
+      content:
+        `📤 Messaggio WhatsApp **simulato** (DRY_RUN attivo)\n\n` +
+        `**A:** ${chatId}${resolved.alias ? ` (alias: ${resolved.alias})` : ""}\n` +
+        `**Testo:** ${body}\n\n` +
+        `_Per invio reale serve ECHO_DRY_RUN=false sulla Cloud Function._`,
+      data: { chatId, dryRun: true, id },
+    };
+  }
+
+  // Invio reale via Waha
+  const waha = await loadWahaConfigFromCosmina();
+  if (!waha || !waha.url) {
+    await persistEchoMessage({ ...baseMsg, status: "failed", failedReason: "waha_config_missing" });
+    return { content: "ECHO: config Waha mancante in `cosmina_config/whatsapp`." };
+  }
+  if (waha.enabled === false) {
+    await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "waha_disabled" });
+    return { content: "ECHO: Waha è disabilitato (`cosmina_config/whatsapp.enabled=false`)." };
+  }
+
+  const headers = { "Content-Type": "application/json" };
+  if (waha.apiKey) headers["X-Api-Key"] = waha.apiKey;
+  const url = `${waha.url}/api/sendText`;
+  const payload = JSON.stringify({ chatId, text: body, session: waha.session });
+
+  let lastErr;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    baseMsg.attempts = attempt;
+    try {
+      const resp = await fetch(url, { method: "POST", headers, body: payload });
+      const txt = await resp.text().catch(() => "");
+      if (resp.ok) {
+        await persistEchoMessage({
+          ...baseMsg, status: "sent",
+          sentAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+        return {
+          content:
+            `✅ Messaggio WhatsApp **inviato**\n\n` +
+            `**A:** ${chatId}${resolved.alias ? ` (alias: ${resolved.alias})` : ""}\n` +
+            `**Testo:** ${body}\n\n` +
+            `ID: \`${id}\``,
+          data: { chatId, id, sent: true },
+        };
+      }
+      lastErr = `HTTP ${resp.status}: ${txt.slice(0, 200)}`;
+      if (resp.status < 500) break;
+    } catch (e) {
+      lastErr = e?.message || String(e);
+    }
+    if (attempt < 2) await new Promise(r => setTimeout(r, 800));
+  }
+
+  await persistEchoMessage({ ...baseMsg, status: "failed", failedReason: lastErr });
+  return { content: `❌ ECHO: invio fallito. ${lastErr || "errore sconosciuto"}` };
+}
+
 // ─── CALLIOPE — bozze via Claude Sonnet ────────────────────────
 //
 // DRY_RUN di default: la bozza NON viene inviata. Viene salvata in
@@ -1749,6 +1981,12 @@ const DIRECT_HANDLERS = [
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
   // ARES — interventi (lettura COSMINA bacheca_cards)
   { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
+  // ECHO — invio WhatsApp (DRY-RUN default, whitelist obbligatoria)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "echo" && /(whatsapp|wa|send_whatsapp|send_wa|send_message|invia)/.test(az))
+      || /(manda|invia|scrivi).*(whatsapp|wa\b|messaggio.*whats)/.test(m);
+  }, fn: handleEchoWhatsApp },
   // CALLIOPE — bozze risposta email (Claude Sonnet, DRY-RUN)
   { match: (col, az) => col === "calliope" && /(bozza|scriv|risp|preventiv|sollecit|comunicazion)/.test(az), fn: handleCalliopeBozza },
   // PHARO — monitoring (match anche senza richiedere col=pharo, perché Haiku

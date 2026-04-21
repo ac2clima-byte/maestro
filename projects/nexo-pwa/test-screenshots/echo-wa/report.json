@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "manda whatsapp a Alberto: NEXO è operativo",
+    "reply": "ECHO: nessun destinatario autorizzato. Alberto deve popolare `cosmina_config/echo_config.allowed_numbers` prima di poter inviare.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-wa/wa-1.png"
+  },
+  {
+    "prompt": "invia un whatsapp a Alberto con testo: test ECHO reale",
+    "reply": "ECHO: nessun destinatario autorizzato. Alberto deve popolare `cosmina_config/echo_config.allowed_numbers` prima di poter inviare.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-wa/wa-2.png"
+  },
+  {
+    "prompt": "manda whatsapp a 3339999999: ciao",
+    "reply": "ECHO: nessun destinatario autorizzato. Alberto deve popolare `cosmina_config/echo_config.allowed_numbers` prima di poter inviare.\n      ECHOcompletata",
+    "screenshot": "/home/albertocontardi/maestro-bridge/projects/nexo-pwa/test-screenshots/echo-wa/wa-3.png"
+  }
+]

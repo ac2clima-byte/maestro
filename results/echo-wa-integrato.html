@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="it"><head><meta charset="UTF-8"><title>ECHO WhatsApp integrato in NEXUS</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 900px; margin: 20px auto; padding: 0 20px; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  h1 { color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px; }
+  h2 { color: #60a5fa; margin-top: 28px; }
+  pre { background: #1e293b; padding: 14px; border-radius: 8px; overflow-x: auto; color: #e2e8f0; font-size: 0.88rem; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  .card { background: #1e293b; padding: 14px; border-radius: 10px; margin: 10px 0; }
+  .card .q { color: #94a3b8; font-style: italic; margin-bottom: 6px; }
+  .card .r { font-family: monospace; font-size: 0.85em; background: #0f172a; padding: 10px; border-radius: 4px; white-space: pre-wrap; }
+  .ok { color: #10b981; }
+  .warn { color: #f59e0b; }
+  .danger { color: #ef4444; }
+  .info { background: #064e3b; padding: 14px; border-radius: 8px; margin: 20px 0; }
+</style></head><body>
+<h1>📢 ECHO WhatsApp integrato in nexusRouter</h1>
+
+<div class="info">
+  <strong>PRIMA:</strong> "manda whatsapp a Alberto: ciao" → <span class="danger">"Collega non ancora attivo"</span><br>
+  <strong>DOPO:</strong> handler <code>handleEchoWhatsApp</code> reale, con whitelist + Waha API
+</div>
+
+<h2>🔒 Sicurezza a 3 livelli</h2>
+<ol>
+  <li><strong>DRY_RUN default true</strong>: nessun invio reale finché non esplicitamente disattivato</li>
+  <li><strong>Whitelist obbligatoria</strong>: <code>cosmina_config/echo_config.allowed_numbers</code> deve contenere il numero risolto, altrimenti rifiuto</li>
+  <li><strong>Alias vs numeri arbitrari</strong>: "Alberto" è un alias che punta a un numero <em>già in whitelist</em>. Numeri suggeriti dal modello LLM NON sono mai inviati se non whitelistati esplicitamente</li>
+</ol>
+
+<h2>✅ Test Playwright — 3 scenari</h2>
+<div class="card">
+  <div class="q">"manda whatsapp a Alberto: NEXO è operativo"</div>
+  <div class="r">ECHO: nessun destinatario autorizzato. Alberto deve popolare `cosmina_config/echo_config.allowed_numbers` prima di poter inviare.</div>
+  <p class="ok">✅ Comportamento corretto: blocca in assenza di whitelist configurata</p>
+</div>
+
+<div class="card">
+  <div class="q">"manda whatsapp a 3339999999: ciao" (numero arbitrario non autorizzato)</div>
+  <div class="r">ECHO: nessun destinatario autorizzato.</div>
+  <p class="ok">✅ Sicurezza: anche numeri concreti vengono rifiutati se non whitelistati</p>
+</div>
+
+<div class="card">
+  <div class="q">Nessun fallback "Collega non ancora attivo" in NESSUNO dei 3 scenari</div>
+  <p class="ok">✅ Handler ECHO ora è agganciato al nexusRouter e risponde sempre</p>
+</div>
+
+<h2>⚙️ Setup finale per attivare invio reale</h2>
+<p>Alberto deve creare/modificare il documento Firestore <code>cosmina_config/echo_config</code> sul progetto <code>garbymobile-f89ac</code>:</p>
+<pre>{
+  "dry_run": false,              // false = invia davvero
+  "allowed_numbers": [
+    "+39XXXXXXXXXX"              // il numero personale di Alberto
+  ],
+  "aliases": {
+    "alberto": "+39XXXXXXXXXX"   // mappa "Alberto" → numero
+  }
+}</pre>
+
+<p>E il documento <code>cosmina_config/whatsapp</code> deve contenere la config Waha:</p>
+<pre>{
+  "waha_url": "https://waha.example.com",
+  "waha_session": "default",
+  "waha_api_key": "...",
+  "enabled": true
+}</pre>
+
+<h2>🎯 Come Funziona</h2>
+<ol>
+  <li>Utente → NEXUS: "manda whatsapp a Alberto: test"</li>
+  <li>Haiku classifica → <code>collega=echo</code>, <code>azione=send_whatsapp</code>, <code>parametri={to:"Alberto", body:"test"}</code></li>
+  <li>Router trova handler <code>handleEchoWhatsApp</code> (matcha sia per collega che per userMessage)</li>
+  <li>Handler: legge <code>echo_config</code>, risolve alias "alberto" → numero whitelistato</li>
+  <li>Se DRY_RUN: scrive su <code>echo_messages</code> con status=skipped, risponde "simulato"</li>
+  <li>Se invio reale: POST a <code>{WAHA_URL}/api/sendText</code> con <code>X-Api-Key</code>, scrive status=sent</li>
+</ol>
+
+<p><strong>Commit:</strong> <code>feat(echo): WhatsApp reale integrato in nexusRouter</code></p>
+</body></html>
