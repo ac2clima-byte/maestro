@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MEMO — Analisi RTI/RTIDF Guazzotti TEC</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color: #0284c7; border-bottom: 2px solid #bae6fd; padding-bottom: 8px; }
+  h2 { margin-top: 28px; }
+  .kpi-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin: 14px 0; }
+  .kpi { background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .kpi .label { font-size:0.72rem; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; }
+  .kpi .value { font-size:1.9rem; font-weight:700; margin-top:2px; }
+  .kpi .sub { color:#64748b; font-size:0.82rem; margin-top:2px; }
+  .kpi.red .value { color:#dc2626; }
+  .kpi.orange .value { color:#d97706; }
+  .kpi.blue .value { color:#0284c7; }
+  .kpi.green .value { color:#059669; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.75rem; text-transform:uppercase; color:#475569; }
+  td.num, th.num { text-align:right; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.72rem; font-weight:600; }
+  .pill.critical { background:#fee2e2; color:#b91c1c; }
+  .pill.warning { background:#fef3c7; color:#b45309; }
+  .pill.info { background:#dbeafe; color:#1e40af; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow-x:auto; font-size:0.82rem; }
+</style>
+</head>
+<body>
+
+<h1>🧠 MEMO — Analisi RTI/RTIDF Guazzotti TEC (dati reali)</h1>
+<p style="color:#64748b;">Scansione 2026-04-21 18:37 UTC · 584 RTI · 193 RTIDF · 84 pending · 615 tickets — <strong>tutti letti</strong></p>
+
+<h2>🚨 I numeri che contano</h2>
+<div class="kpi-row">
+  <div class="kpi red">
+    <div class="label">RTI definiti senza RTIDF &gt;7g</div>
+    <div class="value">348</div>
+    <div class="sub">🔴 Blocco fatturazione diretto</div>
+  </div>
+  <div class="kpi red">
+    <div class="label">RTIDF pronti fattura</div>
+    <div class="value">41</div>
+    <div class="sub">🔴 Stato 'inviato', attesa commessa</div>
+  </div>
+  <div class="kpi red">
+    <div class="label">RTIDF senza costo</div>
+    <div class="value">133</div>
+    <div class="sub">69% · fattura non producibile</div>
+  </div>
+  <div class="kpi orange">
+    <div class="label">Ticket aperti &gt;30g</div>
+    <div class="value">94</div>
+    <div class="sub">Debito operativo</div>
+  </div>
+  <div class="kpi orange">
+    <div class="label">Ticket chiusi senza RTI</div>
+    <div class="value">88</div>
+    <div class="sub">Interventi non documentati</div>
+  </div>
+  <div class="kpi orange">
+    <div class="label">Bozze RTI &gt;90g</div>
+    <div class="value">10</div>
+    <div class="sub">Max 169 giorni (LORENZO)</div>
+  </div>
+  <div class="kpi blue">
+    <div class="label">Tempo medio ticket</div>
+    <div class="value">36.7g</div>
+    <div class="sub">Mediana 19g · Max 676g</div>
+  </div>
+  <div class="kpi blue">
+    <div class="label">Stato sconosciuto</div>
+    <div class="value">14</div>
+    <div class="sub">'da_verificare' emerso ora</div>
+  </div>
+</div>
+
+<h2>🎯 Alert suggeriti (ordinati per impatto economico)</h2>
+
+<div class="card">
+<h3>🔴 Priorità 1 — Ricavi bloccati</h3>
+<table>
+  <thead><tr><th>#</th><th>Alert</th><th>Severità</th><th class="num">Docs</th><th>Impatto</th></tr></thead>
+  <tbody>
+    <tr><td>A1</td><td>RTIDF pronti fatturazione non in commessa</td><td><span class="pill critical">critical</span></td><td class="num">~41</td><td>Ricavi bloccati, 1 fattura per RTIDF</td></tr>
+    <tr><td>A2</td><td>RTIDF senza <code>costo_intervento</code></td><td><span class="pill critical">critical</span></td><td class="num">~133</td><td>Documento non producibile</td></tr>
+    <tr><td>A3</td><td>RTI 'definito' senza RTIDF &gt;7g</td><td><span class="pill critical">critical</span></td><td class="num">348</td><td>Snapshot fatturazione mai creato</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>🟠 Priorità 2 — Operatività / documentazione</h3>
+<table>
+  <thead><tr><th>#</th><th>Alert</th><th>Severità</th><th class="num">Docs</th><th>Impatto</th></tr></thead>
+  <tbody>
+    <tr><td>A4</td><td>Ticket aperti &gt;30g senza RTI</td><td><span class="pill critical">critical</span></td><td class="num">94</td><td>Interventi in stallo, rischio perdita cliente</td></tr>
+    <tr><td>A5</td><td>Ticket chiusi senza RTI</td><td><span class="pill warning">warning</span></td><td class="num">88</td><td>Non fatturabili retroattivamente</td></tr>
+    <tr><td>A6</td><td>RTI in bozza &gt;30g</td><td><span class="pill warning">warning</span></td><td class="num">31</td><td>Rapporti dimenticati (LORENZO dominante)</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="card">
+<h3>🟡 Priorità 3 — Debito dati / integrità</h3>
+<table>
+  <thead><tr><th>#</th><th>Alert</th><th>Severità</th><th class="num">Docs</th><th>Impatto</th></tr></thead>
+  <tbody>
+    <tr><td>A7</td><td>RTIDF orfani (senza RTI sorgente)</td><td><span class="pill warning">warning</span></td><td class="num">8</td><td>Rottura referenziale</td></tr>
+    <tr><td>A8</td><td>RTI stato <code>da_verificare</code></td><td><span class="pill info">info</span></td><td class="num">14</td><td>Workflow non chiaro</td></tr>
+    <tr><td>A9</td><td>RTI senza <code>tecnico_intervento</code></td><td><span class="pill info">info</span></td><td class="num">23</td><td>Dato incompleto</td></tr>
+    <tr><td>A10</td><td>Debito semantico <code>definito</code> vs <code>definitivo</code></td><td><span class="pill info">info</span></td><td class="num">80</td><td>Migration one-shot richiesta</td></tr>
+    <tr><td>A11</td><td>Ticket <code>affidato_energreen</code> non mappato</td><td><span class="pill info">info</span></td><td class="num">1</td><td>Nuovo processo outsourcing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>📋 Stati reali osservati (emersi solo ora)</h2>
+<div class="card">
+<h3>RTI — 7 stati distinti</h3>
+<pre>definito          352  (60%)  ← chiuso dal tecnico
+rtidf_presente    124  (21%)  ← già duplicato
+bozza              46   (8%)
+rtidf_inviato      39   (7%)
+da_verificare      14   (2%)  ⚠️ NUOVO stato non documentato prima
+rtidf_fatturato     8   (1%)
+inviato             1  (<1%)  ⚠️ anomalia singola</pre>
+<h3>Tickets — 7 stati (con debito label)</h3>
+<pre>chiuso/inviato      492  (80%)
+aperto               79  (13%)
+pianificato          19   (3%)
+da_chiudere          13   (2%)
+in_attesa             8   (1%)
+chiuso                3  (<1%)  ⚠️ label duplicata (conviene unificare con 'chiuso/inviato')
+affidato_energreen    1  (<1%)  ⚠️ NUOVO stato outsourcing</pre>
+</div>
+
+<h2>⚠️ Scoperte non previste</h2>
+<div class="card">
+<ul>
+  <li><strong>Nessun RTI ha il campo <code>costo_intervento</code></strong>: è popolato solo alla duplicazione in RTIDF. Il costo è quindi una decisione <em>posteriore</em> al rapporto tecnico.</li>
+  <li><strong>75% degli RTI ha <code>materiali</code> vuoto</strong>, 78% ha <code>materiale_utilizzato</code> vuoto. I materiali in realtà vengono tracciati in commesse/MPLS, non nel rapporto.</li>
+  <li><strong>Stato <code>da_verificare</code> (14 RTI)</strong>: non documentato nel precedente doc MEMO. Probabile anomalia rilevata a valle dell'intervento.</li>
+  <li><strong>Stato ticket <code>affidato_energreen</code></strong>: esterno/outsourcing, non mappato nel workflow standard.</li>
+  <li><strong>Nessun pending effettivo</strong>: tutti i 84 <code>pending_rti</code> sono già <code>processed</code>. La collection è log storico, non coda live.</li>
+  <li><strong>Tempo medio ticket 36.7g (mediana 19g)</strong>: esistono outlier estremi fino a 676 giorni.</li>
+</ul>
+</div>
+
+<h2>📄 Documento completo</h2>
+<p>Schema esteso, relazioni e query Firestore in <code>context/memo-analisi-rti-rtidf.md</code>.<br>
+Export JSON raw: <code>scripts/memo_analisi_rti_rtidf.json</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,1045 @@
+{
+  "scan_at": "2026-04-21T18:37:16.103970+00:00",
+  "totals": {
+    "rti": 584,
+    "rtidf": 193,
+    "pending_rti": 84,
+    "tickets": 615
+  },
+  "rti": {
+    "stati": {
+      "bozza": 46,
+      "definito": 352,
+      "rtidf_inviato": 39,
+      "rtidf_presente": 124,
+      "rtidf_fatturato": 8,
+      "da_verificare": 14,
+      "inviato": 1
+    },
+    "tipi": {
+      "?": 3,
+      "contabilizzazione": 156,
+      "generico": 425
+    },
+    "campi_importanti_vuoti": {
+      "tecnico_intervento": {
+        "vuoto": 20,
+        "assente": 3,
+        "totale": 584
+      },
+      "tecnico": {
+        "vuoto": 0,
+        "assente": 581,
+        "totale": 584
+      },
+      "ore_lavorate": {
+        "vuoto": 87,
+        "assente": 3,
+        "totale": 584
+      },
+      "materiali": {
+        "vuoto": 441,
+        "assente": 139,
+        "totale": 584
+      },
+      "materiale_utilizzato": {
+        "vuoto": 455,
+        "assente": 3,
+        "totale": 584
+      },
+      "intervento_effettuato": {
+        "vuoto": 0,
+        "assente": 3,
+        "totale": 584
+      },
+      "intervento_richiesto": {
+        "vuoto": 0,
+        "assente": 187,
+        "totale": 584
+      },
+      "cliente": {
+        "vuoto": 0,
+        "assente": 1,
+        "totale": 584
+      },
+      "numero_rti": {
+        "vuoto": 0,
+        "assente": 1,
+        "totale": 584
+      },
+      "data_intervento": {
+        "vuoto": 4,
+        "assente": 3,
+        "totale": 584
+      },
+      "fatturabile": {
+        "vuoto": 0,
+        "assente": 3,
+        "totale": 584
+      },
+      "numero_ticket": {
+        "vuoto": 0,
+        "assente": 582,
+        "totale": 584
+      },
+      "numero_ticket_collegato": {
+        "vuoto": 35,
+        "assente": 91,
+        "totale": 584
+      },
+      "ticket_collegato": {
+        "vuoto": 80,
+        "assente": 2,
+        "totale": 584
+      },
+      "costo_intervento": {
+        "vuoto": 0,
+        "assente": 584,
+        "totale": 584
+      }
+    },
+    "bozze_totali": 46,
+    "bozze_7g": 43,
+    "bozze_30g": 31,
+    "bozze_90g": 10,
+    "bozze_top5_piu_vecchie": [
+      [
+        "CRTI-2026-001",
+        169,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-003",
+        144,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-004",
+        144,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-111",
+        144,
+        "LORENZO"
+      ],
+      [
+        "CRTI-2026-005",
+        124,
+        "LORENZO"
+      ]
+    ],
+    "rti_definito_senza_rtidf": 350,
+    "rti_definito_senza_rtidf_7g": 348,
+    "schema": {
+      "numero_ticket": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "str": 1
+        },
+        "samples": [
+          "775/2026"
+        ]
+      },
+      "stato": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "bozza",
+          "definito"
+        ]
+      },
+      "cliente": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "BIANCHI LUIGI TEST",
+          "0671-034 - KARRIQI KELDI"
+        ]
+      },
+      "descrizione": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "str": 1
+        },
+        "samples": [
+          "Test dialog inviato - bridge e2e"
+        ]
+      },
+      "ticket_collegato": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "ticket_cosmina_1774806930269",
+          "ticket_1757513028801"
+        ]
+      },
+      "created_at": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "DatetimeWithNanoseconds": 1
+        },
+        "samples": [
+          "2026-03-29 19:17:18.916000+00:00"
+        ]
+      },
+      "data": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "str": 1
+        },
+        "samples": [
+          "2026-03-29"
+        ]
+      },
+      "tecnico": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "str": 1
+        },
+        "samples": [
+          "ACG CLIMA SERVICE SRL"
+        ]
+      },
+      "numero_rti": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "GRTI-2026-TEST",
+          "CRTI-2025-003"
+        ]
+      },
+      "timestamp": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "DatetimeWithNanoseconds": 1,
+          "str": 19
+        },
+        "samples": [
+          "2026-03-29 19:18:27.655000+00:00",
+          "2025-09-27T08:02:57.948Z"
+        ]
+      },
+      "condominio": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "CONDOMINIO BRIDGE TEST",
+          "CONDOMINIO PISCINA"
+        ]
+      },
+      "_id": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "3ltERABJUfM2wcAwWtn9",
+          "CRTI-2025-003"
+        ]
+      },
+      "data_documento": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "2025-09-11",
+          "2025-09-11"
+        ]
+      },
+      "materiali": {
+        "present": 19,
+        "empty": 19,
+        "types": {
+          "list": 19
+        },
+        "samples": [
+          "<list len=0>",
+          "<list len=0>"
+        ]
+      },
+      "_modifiedBy": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "Claude",
+          "migration"
+        ]
+      },
+      "commessa": {
+        "present": 19,
+        "empty": 17,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "1757593705537",
+          "1757593705537"
+        ]
+      },
+      "materiale_utilizzato": {
+        "present": 19,
+        "empty": 11,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "N.1 sigillo Perry 100N2",
+          "N. 2 sigilli Perry 100N2\nN. 1 basetta di alluminio\nN. 4 viti autofilettanti per \u2026"
+        ]
+      },
+      "fatturabile_modificato_il": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "2026-03-28T17:20:50.324Z",
+          "2026-03-28T17:20:50.370Z"
+        ]
+      },
+      "_lastModified": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "2026-03-28T17:20:50.325Z",
+          "2026-04-21T17:25:51.818Z"
+        ]
+      },
+      "intervento_effettuato": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "DA CHIUDERE COME NON ESEGUITO - L'UTENTE NON ABITA PI\u00d9 L\u00cc",
+          "Rimontaggio del ripartitore ISTA sul termosifone della cucina a causa della rott\u2026"
+        ]
+      },
+      "indirizzo": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "LUNGO TANARO SAN MARTINO 39/43 Int. ,",
+          "VIA XX SETTEMBRE 8, ANG. VIA WAGNER 27 ANG. VIA"
+        ]
+      },
+      "note": {
+        "present": 19,
+        "empty": 17,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "Portato via il ripartitore rimosso.",
+          "Portato via il ripartitore rimosso."
+        ]
+      },
+      "data_ticket": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "2025-03-25",
+          "2025-03-28"
+        ]
+      },
+      "stato_modificato_il": {
+        "present": 8,
+        "empty": 0,
+        "types": {
+          "str": 8
+        },
+        "samples": [
+          "2025-11-20T23:04:38.233Z",
+          "2025-11-20T23:05:23.599Z"
+        ]
+      },
+      "fatturabile": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "bool": 19
+        },
+        "samples": [
+          "False",
+          "True"
+        ]
+      },
+      "id": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "rti_1757594257336",
+          "rti_1757594435209"
+        ]
+      },
+      "numero_ticket_collegato": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "730/2025",
+          "756/2025"
+        ]
+      },
+      "intervento_richiesto": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "MOTIVO DELLA CHIAMATA: Contabilizzazione cell 3880913606",
+          "MOTIVO DELLA CHIAMATA: Contabilizzazione SI E' STACCATO UN CONTABILIZZATORE 3474\u2026"
+        ]
+      },
+      "telefono": {
+        "present": 19,
+        "empty": 11,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "324 9036494",
+          "324 9036494"
+        ]
+      },
+      "ora_intervento": {
+        "present": 19,
+        "empty": 10,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "10:00",
+          "10:00"
+        ]
+      },
+      "data_intervento": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "2025-09-08",
+          "2025-09-09"
+        ]
+      },
+      "numero_operai": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "1",
+          "1"
+        ]
+      },
+      "tipo": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "contabilizzazione",
+          "contabilizzazione"
+        ]
+      },
+      "ore_lavorate": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "0",
+          "1"
+        ]
+      },
+      "tecnico_intervento": {
+        "present": 19,
+        "empty": 0,
+        "types": {
+          "str": 19
+        },
+        "samples": [
+          "Dellafiore Lorenzo",
+          "Dellafiore Lorenzo"
+        ]
+      },
+      "rtiPdfContent": {
+        "present": 11,
+        "empty": 0,
+        "types": {
+          "str": 11
+        },
+        "samples": [
+          "JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNl\u2026",
+          "JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNl\u2026"
+        ]
+      },
+      "rtiPdfFormat": {
+        "present": 11,
+        "empty": 0,
+        "types": {
+          "str": 11
+        },
+        "samples": [
+          "PDF",
+          "PDF"
+        ]
+      },
+      "rtiPdfType": {
+        "present": 11,
+        "empty": 0,
+        "types": {
+          "str": 11
+        },
+        "samples": [
+          "RTI",
+          "RTI"
+        ]
+      },
+      "rtiPdfGeneratedAt": {
+        "present": 11,
+        "empty": 0,
+        "types": {
+          "str": 11
+        },
+        "samples": [
+          "2025-09-19T07:10:41.275Z",
+          "2025-09-19T07:02:32.561Z"
+        ]
+      }
+    }
+  },
+  "rtidf": {
+    "stati": {
+      "inviato": 41,
+      "bozza": 64,
+      "definito": 32,
+      "definitivo": 48,
+      "fatturato": 8
+    },
+    "tipi": {
+      "contabilizzazione": 61,
+      "generico": 132
+    },
+    "orfani_count": 8,
+    "orfani_samples": [
+      "CRTIDF-2025-048",
+      "GRTIDF-2025-069",
+      "GRTIDF-2025-082",
+      "GRTIDF-2025-192",
+      "GRTIDF-2025-213"
+    ],
+    "inviati_pronti_fatturazione": 41,
+    "senza_costo_intervento": 133,
+    "schema": {
+      "data_documento": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "2025-09-11",
+          "2025-09-11"
+        ]
+      },
+      "ticket_collegato": {
+        "present": 20,
+        "empty": 4,
+        "types": {
+          "str": 16,
+          "NoneType": 4
+        },
+        "samples": [
+          "ticket_1757513068064",
+          "ticket_1757596163933"
+        ]
+      },
+      "numero_rtidf": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "CRTIDF-2025-004",
+          "CRTIDF-2025-005"
+        ]
+      },
+      "materiali": {
+        "present": 20,
+        "empty": 20,
+        "types": {
+          "list": 20
+        },
+        "samples": [
+          "<list len=0>",
+          "<list len=0>"
+        ]
+      },
+      "rti_origine_id": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "CRTI-2025-004",
+          "CRTI-2025-005"
+        ]
+      },
+      "costo_intervento": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "int": 20
+        },
+        "samples": [
+          "0",
+          "25"
+        ]
+      },
+      "_modifiedBy": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "admin",
+          "admin"
+        ]
+      },
+      "stato": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "inviato",
+          "inviato"
+        ]
+      },
+      "commessa": {
+        "present": 20,
+        "empty": 20,
+        "types": {
+          "str": 20
+        },
+        "samples": []
+      },
+      "materiale_utilizzato": {
+        "present": 20,
+        "empty": 6,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "N. 1 sigillo ISTA Doprimo 3.\nN. 1 ancora di fissaggio.\n(da voi fornito)",
+          "N.1 sigillo Perry 100N2\n(da voi fornito)"
+        ]
+      },
+      "tipo_documento": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "RTIDF",
+          "RTIDF"
+        ]
+      },
+      "rtiPdfContent": {
+        "present": 10,
+        "empty": 0,
+        "types": {
+          "str": 10
+        },
+        "samples": [
+          "JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNl\u2026",
+          "JVBERi0xLjMKJbrfrOAKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL1Jlc291cmNl\u2026"
+        ]
+      },
+      "_lastModified": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "2025-11-20T23:14:55.188Z",
+          "2025-11-21T02:02:58.022Z"
+        ]
+      },
+      "intervento_effettuato": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "Rimontaggio del ripartitore ISTA sul termosifone della cucina a causa della rott\u2026",
+          "Modificato file di mappatura aggiornata per radiatori installati. "
+        ]
+      },
+      "indirizzo": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "VIA XX SETTEMBRE 8, ANG. VIA WAGNER 27 ANG. VIA",
+          "VIA DI VITTORIO, 4 Int. , VALENZA, 15048 (AL)"
+        ]
+      },
+      "note": {
+        "present": 20,
+        "empty": 17,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "Portato via il ripartitore rimosso.",
+          "Portato via il ripartitore rimosso."
+        ]
+      },
+      "data_ticket": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "2025-03-28",
+          "2025-04-08"
+        ]
+      },
+      "rtiPdfFormat": {
+        "present": 10,
+        "empty": 0,
+        "types": {
+          "str": 10
+        },
+        "samples": [
+          "PDF",
+          "PDF"
+        ]
+      },
+      "cliente": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "0000000353 - CONDOMINIO XX SETTEMBRE",
+          "0000000051 - CONDOMINIO AOSTA"
+        ]
+      },
+      "id": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "rtidf_1763680495188",
+          "rtidf_1757594755395"
+        ]
+      },
+      "numero_ticket_collegato": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "756/2025",
+          "808/2025"
+        ]
+      },
+      "numero_rti_origine": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "CRTI-2025-004",
+          "CRTI-2025-005"
+        ]
+      },
+      "telefono": {
+        "present": 20,
+        "empty": 12,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "324 9036494",
+          "3298823359"
+        ]
+      },
+      "ora_intervento": {
+        "present": 20,
+        "empty": 12,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "10:00",
+          "14:00"
+        ]
+      },
+      "data_intervento": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "2025-09-09",
+          "2025-09-09"
+        ]
+      },
+      "timestamp_duplicazione": {
+        "present": 16,
+        "empty": 0,
+        "types": {
+          "str": 16
+        },
+        "samples": [
+          "2025-11-20T23:14:55.188Z",
+          "2025-11-20T23:15:05.600Z"
+        ]
+      },
+      "numero_operai": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "1",
+          "1"
+        ]
+      },
+      "rtiPdfType": {
+        "present": 10,
+        "empty": 0,
+        "types": {
+          "str": 10
+        },
+        "samples": [
+          "RTI",
+          "RTI"
+        ]
+      },
+      "tipo": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "contabilizzazione",
+          "contabilizzazione"
+        ]
+      },
+      "ore_lavorate": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "1",
+          "1"
+        ]
+      },
+      "condominio": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "CONDOMINIO XX SETTEMBRE",
+          "CONDOMINIO AOSTA"
+        ]
+      },
+      "timestamp": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "2025-09-19T07:08:01.551Z",
+          "2025-09-27T10:34:36.781Z"
+        ]
+      },
+      "rtiPdfGeneratedAt": {
+        "present": 10,
+        "empty": 0,
+        "types": {
+          "str": 10
+        },
+        "samples": [
+          "2025-09-19T07:10:41.275Z",
+          "2025-09-15T18:20:16.231Z"
+        ]
+      },
+      "tecnico_intervento": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "Dellafiore Lorenzo",
+          "Dellafiore Lorenzo"
+        ]
+      },
+      "_id": {
+        "present": 20,
+        "empty": 0,
+        "types": {
+          "str": 20
+        },
+        "samples": [
+          "CRTIDF-2025-004",
+          "CRTIDF-2025-005"
+        ]
+      },
+      "fatturabile": {
+        "present": 14,
+        "empty": 0,
+        "types": {
+          "bool": 14
+        },
+        "samples": [
+          "True",
+          "True"
+        ]
+      },
+      "numero_rti": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "str": 1
+        },
+        "samples": [
+          "CRTIDF-2025-013"
+        ]
+      },
+      "descrizione_originale": {
+        "present": 1,
+        "empty": 1,
+        "types": {
+          "str": 1
+        },
+        "samples": []
+      },
+      "costo_totale": {
+        "present": 1,
+        "empty": 0,
+        "types": {
+          "int": 1
+        },
+        "samples": [
+          "33"
+        ]
+      },
+      "commessa_cliente": {
+        "present": 1,
+        "empty": 1,
+        "types": {
+          "str": 1
+        },
+        "samples": []
+      }
+    }
+  },
+  "pending_rti": {
+    "stati": {
+      "processed": 84
+    },
+    "non_processed": 0,
+    "vecchi_7g": 0,
+    "vecchi_3g": 0,
+    "con_ticket": 0
+  },
+  "tickets": {
+    "stati": {
+      "chiuso/inviato": 492,
+      "pianificato": 19,
+      "chiuso": 3,
+      "aperto": 79,
+      "in_attesa": 8,
+      "da_chiudere": 13,
+      "affidato_energreen": 1
+    },
+    "aperti": 119,
+    "aperti_senza_rti": 117,
+    "aperti_14g": 103,
+    "aperti_30g": 94,
+    "chiusi_senza_rti": 88,
+    "durata_media_giorni": 36.733739837398375,
+    "durata_mediana_giorni": 19,
+    "durata_max_giorni": 676
+  }
+}
