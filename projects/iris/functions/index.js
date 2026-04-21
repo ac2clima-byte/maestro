@@ -2892,42 +2892,206 @@ export const irisRuleEngine = onDocumentCreated(
 );
 
 // ─────────────────────────────────────────────────────────────────
-//  Scheduler: irisPoll (5 min) — poller EWS
+//  irisPoller — polling 24/7 via Cloud Scheduler (every 5 min)
 // ─────────────────────────────────────────────────────────────────
 //
-// In v0.1 è uno scheletro: non ho accesso alle credenziali EWS.
-// Quando Alberto popola cosmina_config/ews_config con user/password/server,
-// questa function leggerà email da Exchange e le salverà in iris_emails
-// (triggerando irisRuleEngine).
+// Config Firestore (progetto garbymobile-f89ac):
+//   cosmina_config/iris_config = {
+//     enabled: true,
+//     auth: "basic",
+//     user: "user@example.com",
+//     password: "...",
+//     server: "https://mail.example.com/EWS/Exchange.asmx",
+//     exchange_version: "2013_SP1" | "2010_SP2",
+//     limit_per_run: 50,       // opzionale
+//     initial_lookback_hours: 24  // opzionale per primo run
+//   }
 //
-// Per ora: logga lo stato della config e non fa nulla.
+// Watermark: nexo-hub.iris_poller_state/default.lastProcessedIso
+//   Incrementato dopo ogni run all'ora dell'ultima email processata.
+//
+// Deduplica: skip se iris_emails/{message_id_hash} esiste già.
+// Classificazione Haiku inline (vedi iris-poller.mjs).
+// irisRuleEngine si attiva automaticamente via onDocumentCreated.
 
-export const irisPollScheduled = onSchedule(
-  { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "256MiB" },
+const IRIS_POLLER_STATE_COLL = "iris_poller_state";
+const IRIS_POLLER_STATE_DOC = "default";
+
+function hashMessageId(msgId) {
+  // Hash deterministico per doc id Firestore (evita caratteri speciali negli IMAP IDs)
+  let h = 0;
+  for (let i = 0; i < msgId.length; i++) {
+    h = ((h << 5) - h + msgId.charCodeAt(i)) | 0;
+  }
+  return `ews_${Math.abs(h).toString(36)}_${msgId.length}`;
+}
+
+async function runIrisPoller() {
+  // 1. Leggi config
+  const cfgSnap = await getCosminaDb().collection("cosmina_config").doc("iris_config").get();
+  if (!cfgSnap.exists) {
+    logger.info("irisPoller: iris_config missing, skipping");
+    return { skipped: "no_config" };
+  }
+  const cfg = cfgSnap.data() || {};
+  if (cfg.enabled === false) {
+    logger.info("irisPoller: disabled via config");
+    return { skipped: "disabled" };
+  }
+  if (!cfg.server || !cfg.user || !cfg.password) {
+    logger.warn("irisPoller: iris_config incomplete", {
+      hasServer: !!cfg.server, hasUser: !!cfg.user, hasPassword: !!cfg.password,
+    });
+    return { skipped: "incomplete_config" };
+  }
+
+  // 2. Leggi watermark
+  const stateRef = db.collection(IRIS_POLLER_STATE_COLL).doc(IRIS_POLLER_STATE_DOC);
+  const stateSnap = await stateRef.get();
+  let lastProcessedIso = stateSnap.exists ? (stateSnap.data() || {}).lastProcessedIso : null;
+  if (!lastProcessedIso) {
+    // Primo run: ultime N ore (default 24)
+    const hrs = cfg.initial_lookback_hours || 24;
+    lastProcessedIso = new Date(Date.now() - hrs * 3600 * 1000).toISOString();
+    logger.info("irisPoller: first run, lookback", { hours: hrs, from: lastProcessedIso });
+  }
+
+  // 3. Fetch EWS
+  const { fetchNewEmails, classifyEmail } = await import("./iris-poller.mjs");
+  const limit = Number(cfg.limit_per_run) || 50;
+  let emails;
+  try {
+    emails = await fetchNewEmails({ cfg, dateFromIso: lastProcessedIso, limit });
+  } catch (e) {
+    logger.error("irisPoller: EWS fetch failed", { error: String(e) });
+    return { error: "ews_fetch_failed", detail: String(e).slice(0, 300) };
+  }
+
+  if (!emails.length) {
+    logger.info("irisPoller: no new emails", { from: lastProcessedIso });
+    return { processed: 0, skipped_existing: 0 };
+  }
+
+  // 4. Classifica + scrivi Firestore (skip duplicati)
+  const anthropicKey = ANTHROPIC_API_KEY.value();
+  if (!anthropicKey) {
+    logger.error("irisPoller: ANTHROPIC_API_KEY missing");
+    return { error: "no_api_key" };
+  }
+
+  let processed = 0;
+  let skippedExisting = 0;
+  let classifyErrors = 0;
+  let latestReceivedIso = lastProcessedIso;
+
+  for (const email of emails) {
+    const docId = hashMessageId(email.message_id);
+    const existing = await db.collection("iris_emails").doc(docId).get();
+    if (existing.exists) {
+      skippedExisting++;
+      continue;
+    }
+
+    let classification;
+    try {
+      const r = await classifyEmail(anthropicKey, email);
+      classification = r.classification;
+    } catch (e) {
+      classifyErrors++;
+      logger.warn("irisPoller: classify failed", { error: String(e), msgId: email.message_id });
+      classification = { category: "ALTRO", summary: "", sentiment: "neutro", entities: {} };
+    }
+
+    try {
+      await db.collection("iris_emails").doc(docId).set({
+        id: docId,
+        raw: email,
+        classification,
+        source: "irisPoller",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      processed++;
+    } catch (e) {
+      logger.error("irisPoller: firestore write failed", { error: String(e) });
+    }
+
+    // Aggiorna watermark solo se il write è riuscito
+    if (email.received_time > latestReceivedIso) {
+      latestReceivedIso = email.received_time;
+    }
+  }
+
+  // 5. Salva watermark
+  await stateRef.set({
+    lastProcessedIso: latestReceivedIso,
+    lastRunAt: FieldValue.serverTimestamp(),
+    lastRunProcessed: processed,
+    lastRunSkippedExisting: skippedExisting,
+    lastRunClassifyErrors: classifyErrors,
+  }, { merge: true });
+
+  logger.info("irisPoller: done", {
+    processed, skippedExisting, classifyErrors, latestReceivedIso,
+  });
+  return { processed, skippedExisting, classifyErrors, latestReceivedIso };
+}
+
+export const irisPoller = onSchedule(
+  {
+    region: REGION,
+    schedule: "every 5 minutes",
+    timeZone: "Europe/Rome",
+    memory: "512MiB",
+    timeoutSeconds: 120,
+    secrets: [ANTHROPIC_API_KEY],
+  },
   async () => {
     try {
-      const snap = await getCosminaDb().collection("cosmina_config").doc("ews_config").get();
-      if (!snap.exists) {
-        logger.info("irisPoll: ews_config missing, skipping");
-        return;
-      }
-      const cfg = snap.data() || {};
-      if (cfg.enabled === false) {
-        logger.info("irisPoll: disabled via config");
-        return;
-      }
-      if (!cfg.server || !cfg.user) {
-        logger.warn("irisPoll: ews_config incomplete (server/user missing)");
-        return;
-      }
-      // TODO v0.2: implementare fetch EWS in Node (ews-javascript-api) o
-      // delegare a un worker Python schedulato esternamente.
-      logger.info("irisPoll: config present but poller Node non implementato in v0.1", {
-        server: cfg.server, user: cfg.user,
-      });
+      const r = await runIrisPoller();
+      logger.info("irisPoller scheduled complete", r);
     } catch (e) {
-      logger.error("irisPoll failed", { error: String(e) });
+      logger.error("irisPoller scheduled failed", { error: String(e) });
     }
+  }
+);
+
+// HTTP trigger per forzare un run manuale (utile per debug/first-run).
+// Richiede header X-Admin-Key matching cosmina_config/iris_config.admin_key.
+export const irisPollerRun = onRequest(
+  {
+    region: REGION,
+    secrets: [ANTHROPIC_API_KEY],
+    timeoutSeconds: 120,
+    memory: "512MiB",
+    cors: false,
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ error: "method_not_allowed" });
+      return;
+    }
+    // Auth via admin_key da config
+    const cfgSnap = await getCosminaDb().collection("cosmina_config").doc("iris_config").get();
+    const adminKey = (cfgSnap.data() || {}).admin_key;
+    if (!adminKey || req.get("X-Admin-Key") !== adminKey) {
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+    try {
+      const r = await runIrisPoller();
+      res.status(200).json(r);
+    } catch (e) {
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// LEGACY: export dormiente mantenuto per compatibilità con vecchi
+// scheduler job già creati. Alla prossima pulizia si può rimuovere.
+export const irisPollScheduled = onSchedule(
+  { region: REGION, schedule: "every 1 hours", timeZone: "Europe/Rome", memory: "128MiB" },
+  async () => {
+    logger.info("irisPollScheduled: deprecated, noop. Use irisPoller.");
   }
 );
 
