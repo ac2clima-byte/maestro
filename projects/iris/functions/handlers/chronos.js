@@ -176,8 +176,11 @@ export async function handleChronosScadenze(parametri) {
   const rows = [];
   snap.forEach((d) => {
     const data = d.data() || {};
+    // Campi scadenza reali (da scan MEMO: memo-firestore-garbymobile.md §1.3)
     const candidates = [
       data.data_prossima_manutenzione,
+      data.data_prossimo_contributo,       // cosmina_impianti field reale
+      data.data_scadenza_dichiarazione,
       data.prossima_manutenzione,
       data.data_scadenza,
       data.scadenza_curit,

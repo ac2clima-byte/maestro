@@ -19,11 +19,14 @@ import {
 
 import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
-  parseAndValidateIntent, callHaikuForIntent,
+  parseAndValidateIntent, callHaikuForIntent, loadConversationContext,
 } from "./handlers/nexus.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
+import { runDigestMattutino } from "./handlers/echo-digest.js";
+import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
+import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
 
 // ─── suggestReply (legacy IRIS draft helper) ───────────────────
 
@@ -185,13 +188,23 @@ export const nexusRouter = onRequest(
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
 
-    const messages = [];
+    // Carica gli ultimi 5 scambi della sessione (contesto multi-turno)
+    // per far capire a Haiku riferimenti come "lui", "loro", "quel cliente".
+    const sessionContext = await loadConversationContext(sessionId, 5);
+
+    const messages = [...sessionContext];
+    // Merge con history esplicita dal client (dedupe per contenuto+ruolo)
+    const seen = new Set(messages.map(m => m.role + "|" + m.content));
     for (const h of history) {
       if (!h || typeof h !== "object") continue;
       const role = h.role === "assistant" ? "assistant" : h.role === "user" ? "user" : null;
       if (!role) continue;
       const content = String(h.content || "").slice(0, 2000);
-      if (content) messages.push({ role, content });
+      if (!content) continue;
+      const key = role + "|" + content;
+      if (seen.has(key)) continue;
+      messages.push({ role, content });
+      seen.add(key);
     }
     messages.push({ role: "user", content: userMessage });
 
@@ -764,5 +777,77 @@ export const aresLavagnaListener = onDocumentCreated(
       }, { merge: true });
       logger.info("aresLavagnaListener: completed", { msgId, dryRun: result?.data?.dryRun });
     } catch (e) { logger.error("aresLavagnaListener: mark completed failed", { error: String(e), msgId }); }
+  }
+);
+
+// ─── ECHO digest mattutino (07:30 CET) ─────────────────────────
+
+export const echoDigestMattutino = onSchedule(
+  { region: REGION, schedule: "30 7 * * *", timeZone: "Europe/Rome", memory: "256MiB", timeoutSeconds: 120 },
+  async () => {
+    try {
+      const r = await runDigestMattutino();
+      logger.info("echoDigestMattutino: done", r);
+    } catch (e) {
+      logger.error("echoDigestMattutino: failed", { error: String(e) });
+    }
+  }
+);
+
+// Trigger HTTP manuale (per test + debug)
+export const echoDigestRun = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 120, memory: "256MiB" },
+  async (req, res) => {
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+    try {
+      const r = await runDigestMattutino({ force: req.method === "POST" });
+      res.status(200).json(r);
+    } catch (e) {
+      logger.error("echoDigestRun failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// ─── ECHO inbound webhook (Waha) ───────────────────────────────
+
+export const echoInboundWebhook = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 30, memory: "256MiB", maxInstances: 10 },
+  async (req, res) => {
+    try {
+      const result = await handleEchoInboundWebhook(req);
+      res.status(result.status || 200).json(result.body || { ok: true });
+    } catch (e) {
+      logger.error("echoInboundWebhook failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// ─── Orchestrator workflow listener ────────────────────────────
+
+export const orchestratorLavagnaListener = onDocumentCreated(
+  { region: REGION, document: "nexo_lavagna/{msgId}", memory: "256MiB", maxInstances: 5 },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const msgId = event.params.msgId;
+    const v = snap.data() || {};
+    if (v.status !== "pending") return;
+    const to = String(v.to || "").toLowerCase();
+    if (to !== "orchestrator") return;
+
+    logger.info("orchestrator: processing", { msgId, type: v.type });
+    try {
+      await runOrchestratorWorkflow(msgId, v, snap.ref);
+    } catch (e) {
+      logger.error("orchestrator: workflow failed", { error: String(e), msgId });
+      await snap.ref.set({
+        status: "failed",
+        error: String(e).slice(0, 300),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
   }
 );

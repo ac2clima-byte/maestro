@@ -15,10 +15,12 @@ export async function handleDikeaScadenzeCurit(parametri) {
       const snap = await db.collection(coll).limit(500).get();
       snap.forEach(d => {
         const data = d.data() || {};
+        // Campi reali (da scan MEMO §1.4 cosmina_impianti_cit, §1.3 cosmina_impianti)
         const candidates = [
-          { tipo: "CURIT", val: data.data_bollino_curit || data.scadenza_bollino },
-          { tipo: "REE", val: data.data_ultima_ree || data.data_ree },
-          { tipo: "MANUT", val: data.data_prossima_manutenzione || data.prossima_manutenzione },
+          { tipo: "CURIT", val: data.data_bollino_curit || data.scadenza_bollino || data.data_scadenza_dichiarazione },
+          { tipo: "REE",   val: data.data_prossimo_ree || data.data_ultima_ree || data.data_ree },
+          { tipo: "MANUT", val: data.data_scadenza_manutenzione || data.data_prossima_manutenzione || data.prossima_manutenzione },
+          { tipo: "CONTRIB", val: data.data_prossimo_contributo },
         ];
         for (const c of candidates) {
           if (!c.val) continue;

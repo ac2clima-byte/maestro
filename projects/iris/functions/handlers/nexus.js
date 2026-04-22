@@ -307,6 +307,41 @@ export async function postLavagnaFromNexus({ collega, azione, parametri, rispost
   return ref.id;
 }
 
+// ─── Contesto conversazionale: ultimi 5 messaggi della sessione ─
+//
+// Arricchisce messages[] con gli ultimi scambi dalla stessa sessione
+// così NEXUS interpreta riferimenti come "loro", "lui", "quel cliente".
+export async function loadConversationContext(sessionId, max = 5) {
+  if (!sessionId) return [];
+  try {
+    const snap = await db.collection("nexus_chat")
+      .where("sessionId", "==", sessionId)
+      .orderBy("createdAt", "desc")
+      .limit(max * 2 + 1) // escludi il current user message appena scritto
+      .get();
+    const rows = [];
+    snap.forEach(d => {
+      const v = d.data() || {};
+      if (v.role !== "user" && v.role !== "assistant") return;
+      rows.push({
+        role: v.role,
+        content: String(v.content || "").slice(0, 1500),
+        ts: v.createdAt?.toDate ? v.createdAt.toDate().getTime() : 0,
+      });
+    });
+    // Ordina cronologicamente (più vecchio prima), escludi l'ultimo user (è il current)
+    rows.sort((a, b) => a.ts - b.ts);
+    // Pop ultimo se è user (è la query corrente — il chiamante la aggiungerà)
+    if (rows.length && rows[rows.length - 1].role === "user") rows.pop();
+    // Mantieni solo ultimi max*2 (coppie user/assistant)
+    const sliced = rows.slice(-max * 2);
+    return sliced.map(r => ({ role: r.role, content: r.content }));
+  } catch (e) {
+    logger.warn("loadConversationContext failed", { error: String(e) });
+    return [];
+  }
+}
+
 // ─── Haiku intent call ─────────────────────────────────────────
 export async function callHaikuForIntent(apiKey, messages) {
   const payload = {
