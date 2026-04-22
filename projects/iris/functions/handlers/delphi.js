@@ -1,6 +1,6 @@
 // handlers/delphi.js — KPI, confronti temporali, costo AI.
 import {
-  db, getCosminaDb, fetchIrisEmails, CATEGORIE_URGENTI_SET,
+  db, getCosminaDb, getGuazzottiDb, fetchIrisEmails, CATEGORIE_URGENTI_SET, logger,
 } from "./shared.js";
 
 export async function handleDelphiKpi(parametri) {
@@ -8,29 +8,71 @@ export async function handleDelphiKpi(parametri) {
   const now = new Date();
   const from = new Date(now.getTime() - finestraSett * 7 * 86400000);
 
-  const emails = await fetchIrisEmails(500);
+  // Parallelizza letture cross-source
+  const [emails, lavCount, cosmStats, guazStats] = await Promise.all([
+    fetchIrisEmails(500),
+    countLavagnaMessages(from),
+    countCosminaInterventi(from),
+    countGuazzottiRtiEsposizione(),
+  ]);
+
   let urg = 0, senzaRisposta = 0;
   for (const e of emails) {
     if (CATEGORIE_URGENTI_SET.has(e.category)) urg++;
     if ((e.followup || {}).needsAttention) senzaRisposta++;
   }
 
-  let lavMsgCount = 0;
+  const lines = [
+    `📊 **DELPHI — KPI ultimi ${finestraSett * 7} giorni** (cross-source)`,
+    ``,
+    `**📧 Email (IRIS)**`,
+    `  · Indicizzate: ${emails.length}`,
+    `  · Urgenti: ${urg}`,
+    `  · Senza risposta >48h: ${senzaRisposta}`,
+    ``,
+    `**🗒️ Lavagna**`,
+    `  · Messaggi nel periodo: ${lavCount}`,
+    ``,
+    `**🔧 Interventi COSMINA**`,
+    `  · Attivi ora: ${cosmStats.attivi}`,
+    `  · Completati periodo: ${cosmStats.completati}`,
+    ``,
+    `**📋 Guazzotti TEC**`,
+    `  · RTI totali: ${guazStats.rtiTot} · RTIDF totali: ${guazStats.rtidfTot}`,
+    `  · GRTIDF pronti fatturazione (fatturabili): ${guazStats.grtidfPronti} docs = **€ ${guazStats.valoreBloccato.toFixed(2)}**`,
+    `  · Esposizione totale clienti: € ${guazStats.esposTot.toFixed(2)}`,
+    `  · Scaduto clienti: € ${guazStats.scadutoTot.toFixed(2)}`,
+  ];
+  return {
+    content: lines.join("\n"),
+    data: {
+      emails: emails.length, urgenti: urg, senzaRisposta,
+      lavMsgCount: lavCount,
+      attivi: cosmStats.attivi, completati: cosmStats.completati,
+      guazzotti: guazStats,
+    },
+  };
+}
+
+async function countLavagnaMessages(from) {
   try {
-    const lavSnap = await db.collection("nexo_lavagna")
-      .orderBy("createdAt", "desc").limit(200).get();
-    lavSnap.forEach(d => {
+    const snap = await db.collection("nexo_lavagna").orderBy("createdAt", "desc").limit(200).get();
+    let n = 0;
+    snap.forEach(d => {
       const ca = (d.data() || {}).createdAt;
       const dd = ca?.toDate ? ca.toDate() : (ca ? new Date(ca) : null);
-      if (dd && dd >= from) lavMsgCount++;
+      if (dd && dd >= from) n++;
     });
-  } catch {}
+    return n;
+  } catch { return 0; }
+}
 
-  let attivi = 0, completati = 0;
+async function countCosminaInterventi(from) {
   try {
     const cSnap = await getCosminaDb().collection("bacheca_cards")
       .where("listName", "==", "INTERVENTI").where("inBacheca", "==", true)
       .limit(500).get();
+    let attivi = 0, completati = 0;
     cSnap.forEach(d => {
       const data = d.data() || {};
       const stato = String(data.stato || "").toLowerCase();
@@ -40,27 +82,44 @@ export async function handleDelphiKpi(parametri) {
         if (upd && upd >= from) completati++;
       } else if (!stato.includes("annul")) attivi++;
     });
-  } catch {}
+    return { attivi, completati };
+  } catch { return { attivi: 0, completati: 0 }; }
+}
 
-  const lines = [
-    `📊 **DELPHI — KPI ultimi ${finestraSett * 7} giorni**`,
-    ``,
-    `**Email**`,
-    `  · Indicizzate: ${emails.length}`,
-    `  · Urgenti: ${urg}`,
-    `  · Senza risposta >48h: ${senzaRisposta}`,
-    ``,
-    `**Lavagna**`,
-    `  · Messaggi: ${lavMsgCount}`,
-    ``,
-    `**Interventi COSMINA**`,
-    `  · Attivi ora: ${attivi}`,
-    `  · Completati: ${completati}`,
-  ];
-  return {
-    content: lines.join("\n"),
-    data: { emails: emails.length, urgenti: urg, senzaRisposta, lavMsgCount, attivi, completati },
-  };
+async function countGuazzottiRtiEsposizione() {
+  const out = { rtiTot: 0, rtidfTot: 0, grtidfPronti: 0, valoreBloccato: 0, esposTot: 0, scadutoTot: 0 };
+  const gdb = getGuazzottiDb();
+  try {
+    const rtiSnap = await gdb.collection("rti").limit(700).get();
+    out.rtiTot = rtiSnap.size;
+  } catch (e) { logger.warn("delphi: rti read", { error: String(e).slice(0, 80) }); }
+  try {
+    const rtidfSnap = await gdb.collection("rtidf").limit(400).get();
+    out.rtidfTot = rtidfSnap.size;
+    rtidfSnap.forEach(d => {
+      const v = d.data() || {};
+      const tipo = String(v.tipo || "").toLowerCase();
+      const stato = String(v.stato || "").toLowerCase();
+      const isGen = tipo === "generico" || String(v.numero_rtidf || "").toUpperCase().startsWith("GRTIDF");
+      if (isGen && stato === "inviato" && v.fatturabile !== false) {
+        out.grtidfPronti++;
+        const c = Number(v.costo_intervento || 0);
+        if (!Number.isNaN(c)) out.valoreBloccato += c;
+      }
+    });
+    out.valoreBloccato = Math.round(out.valoreBloccato * 100) / 100;
+  } catch (e) { logger.warn("delphi: rtidf read", { error: String(e).slice(0, 80) }); }
+  try {
+    const pSnap = await gdb.collection("pagamenti_clienti").limit(300).get();
+    pSnap.forEach(d => {
+      const v = d.data() || {};
+      out.esposTot += Number(v.TotaleEsposizione || 0);
+      out.scadutoTot += Number(v.TotaleScaduto || 0);
+    });
+    out.esposTot = Math.round(out.esposTot * 100) / 100;
+    out.scadutoTot = Math.round(out.scadutoTot * 100) / 100;
+  } catch (e) { logger.warn("delphi: pagamenti read", { error: String(e).slice(0, 80) }); }
+  return out;
 }
 
 export async function handleDelphiConfrontoMoM() {

@@ -150,8 +150,13 @@ function isEchoDryRun(cfg) {
 
 async function persistEchoMessage(msg) {
   try {
+    // Rimuovi chiavi con valore undefined (Firestore non le accetta)
+    const clean = {};
+    for (const [k, v] of Object.entries(msg)) {
+      if (v !== undefined) clean[k] = v;
+    }
     await db.collection("echo_messages").doc(msg.id).set({
-      ...msg,
+      ...clean,
       _serverTime: FieldValue.serverTimestamp(),
     });
   } catch (e) {

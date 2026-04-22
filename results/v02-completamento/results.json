@@ -1,0 +1,129 @@
+{
+  "timestamp": "2026-04-22T08:38:24.965Z",
+  "summary": {
+    "pass": 15,
+    "fail": 0,
+    "total": 15
+  },
+  "colleghi": [
+    {
+      "collega": "IRIS",
+      "query": "quante email urgenti?",
+      "ok": true,
+      "ms": 18541,
+      "handler": "handleContaEmailUrgenti",
+      "contentPreview": "Nessuna email urgente al momento. 👍"
+    },
+    {
+      "collega": "ECHO",
+      "query": "manda WA a Alberto: test v0.2",
+      "ok": true,
+      "ms": 1055,
+      "handler": "handleEchoWhatsApp",
+      "contentPreview": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test v0.2\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._"
+    },
+    {
+      "collega": "ARES",
+      "query": "interventi aperti",
+      "ok": true,
+      "ms": 960,
+      "handler": "handleAresInterventiAperti",
+      "contentPreview": "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — aperto · tecnico=FEDERICO\n4. [13/10/2025] S021 - CONDOMINIO CLASTIDIUM - VIA MAZ"
+    },
+    {
+      "collega": "CHRONOS",
+      "query": "scadenze prossime",
+      "ok": true,
+      "ms": 2913,
+      "handler": "handleChronosScadenze",
+      "contentPreview": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni."
+    },
+    {
+      "collega": "MEMO",
+      "query": "dimmi tutto su Kristal",
+      "ok": true,
+      "ms": 15845,
+      "handler": "handleMemoDossier",
+      "contentPreview": "📇 **Dossier per \"kristal\"** (MEMO v0.2 — COSMINA + Guazzotti + email)\n\n**🏢 Anagrafica CRM** (1 match):\n  · **CONDOMINIO KRISTAL** [U058] — VIA AMATI, 1/3/5/7\n    Amministratore: Arrigone\n\n**⚙️ Impianti CURIT** (1):\n  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE\n    Occupante: CONDOMINIO KRISTAL\n    Scadenza dichiarazione: 31/07/2025\n\n**🔧 Interventi (bacheca COSMINA)** — ultimi 1 di 1:"
+    },
+    {
+      "collega": "CHARTA",
+      "query": "fatture scadute",
+      "ok": true,
+      "ms": 181,
+      "handler": "handleFattureScadute",
+      "contentPreview": "💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)\n\n📥 0 fatture fornitori + 0 richieste pagamento."
+    },
+    {
+      "collega": "EMPORION",
+      "query": "cosa manca in magazzino?",
+      "ok": true,
+      "ms": 13452,
+      "handler": "handleEmporionSottoScorta",
+      "contentPreview": "✅ Nessun articolo sotto scorta al momento."
+    },
+    {
+      "collega": "DIKEA",
+      "query": "scadenze CURIT",
+      "ok": true,
+      "ms": 4075,
+      "handler": "handleDikeaScadenzeCurit",
+      "contentPreview": "⚖️ **3 scadenze normative** nei prossimi 90g:\n\n1. [06/05/2026] (14g) ⚠️ MANUT · VIA CLARETTO LUIGI, 18/20 P.T\n2. [10/06/2026] (49g) MANUT · VIA BELLOCCHIO, 6\n3. [10/06/2026] (49g) MANUT · VIA MORUZZI, 13"
+    },
+    {
+      "collega": "DELPHI",
+      "query": "KPI di aprile",
+      "ok": true,
+      "ms": 18932,
+      "handler": "handleDelphiKpi",
+      "contentPreview": "📊 **DELPHI — KPI ultimi 28 giorni** (cross-source)\n\n**📧 Email (IRIS)**\n  · Indicizzate: 0\n  · Urgenti: 0\n  · Senza risposta >48h: 0\n\n**🗒️ Lavagna**\n  · Messaggi nel periodo: 0\n\n**🔧 Interventi COSMINA**\n  · Attivi ora: 383\n  · Completati periodo: 0\n\n**📋 Guazzotti TEC**\n  · RTI totali: 582 · RTIDF totali: 166\n  · GRTIDF pronti fatturazione (fatturabili): 45 docs = **€ 9473.43**\n  · Esposizione "
+    },
+    {
+      "collega": "PHARO",
+      "query": "stato della suite",
+      "ok": true,
+      "ms": 762,
+      "handler": "handlePharoStatoSuite",
+      "contentPreview": "✅ **Stato Suite NEXO** — punteggio: 100/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 0\n  · Email senza risposta >48h: 0\n  · Lavagna pending: 0\n  · Lavagna errori: 0"
+    },
+    {
+      "collega": "CALLIOPE",
+      "query": "scrivi risposta a Moraschi",
+      "ok": true,
+      "ms": 207,
+      "handler": "handleCalliopeBozza",
+      "contentPreview": "Non trovo email recenti correlate a \"Moraschi\". Se è un cliente nuovo, specifica 'bozza preventivo per X' e useremo dati CRM."
+    },
+    {
+      "collega": "CHARTA-esp",
+      "query": "esposizione Kristal",
+      "ok": true,
+      "ms": 613,
+      "handler": "handleChartaEsposizioneCliente",
+      "contentPreview": "💰 **Esposizione \"kristal\"** (1 match, top 5):\n\n**CONDOMINIO KRISTAL** [0000000312]\n  · Esposizione: € 1652.00 (scaduto: € 1652.00, a scadere: € 0.00)\n  · Aging: 30g=1652 · 60g=0 · 90g=0 · oltre=0\n  · Risk: MEDIO · Rif: 2025-12-03"
+    }
+  ],
+  "extra": [
+    {
+      "name": "Digest mattutino",
+      "ok": true,
+      "ms": 6236,
+      "testo": "Buongiorno. Oggi 5 interventi pianificati (VICTOR 3, LORENZO 2).",
+      "waDryRun": true
+    },
+    {
+      "name": "Orchestrator guasto",
+      "ok": true,
+      "ms": 17555,
+      "steps": 3,
+      "stepsOk": 3
+    },
+    {
+      "name": "Contesto multi-turno",
+      "ok": true,
+      "ms": 202,
+      "loadedMessages": 0,
+      "note": "loadConversationContext importabile + chiamabile. Sessione vuota = 0 msg atteso."
+    }
+  ]
+}

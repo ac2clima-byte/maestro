@@ -16,11 +16,26 @@ function flowId() {
   return `flow_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function sanitizeForFirestore(obj) {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  if (typeof obj === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === undefined) continue;
+      out[k] = sanitizeForFirestore(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
 async function logStep(flowInstanceId, step) {
   try {
     await db.collection("nexo_orchestrator_log").doc(flowInstanceId)
       .collection("steps").add({
-        ...step,
+        ...sanitizeForFirestore(step),
         at: FieldValue.serverTimestamp(),
       });
   } catch (e) {
@@ -48,7 +63,7 @@ async function finalizeFlow(id, status, summary) {
   try {
     await db.collection("nexo_orchestrator_log").doc(id).set({
       status,
-      summary,
+      summary: sanitizeForFirestore(summary),
       completedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });

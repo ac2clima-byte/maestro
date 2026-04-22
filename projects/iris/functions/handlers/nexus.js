@@ -17,6 +17,7 @@ import { handleCalliopeBozza } from "./calliope.js";
 import {
   handleChartaRegistraIncasso, handleFattureScadute,
   handleChartaIncassiOggi, handleChartaReportMensile,
+  handleChartaEsposizioneCliente,
 } from "./charta.js";
 import {
   handlePharoStatoSuite, handlePharoProblemiAperti, handlePharoRtiMonitoring,
@@ -169,6 +170,12 @@ export const DIRECT_HANDLERS = [
       || /^\s*(registr|aggiung|nuov|salv)\w*\s+(?:un\s+)?(incass|pagament)/.test(m);
   }, fn: handleChartaRegistraIncasso },
   { match: (col, az) => (col === "charta" || col === "delphi") && /(report.*mens|mens.*report|report_mensile|mese|mensile)/.test(az), fn: handleChartaReportMensile },
+  // CHARTA esposizione cliente (leggi Guazzotti pagamenti_clienti)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "charta" && /(esposizion|scadut.*client|credit|debit)/.test(az))
+      || /esposizione.*client|quanto.*deve|credit.*verso/.test(m);
+  }, fn: handleChartaEsposizioneCliente },
   { match: (col, az) => col === "charta" && /(incass|pagament|accredit|bonifico)/.test(az) && /(oggi|today)/.test(az), fn: handleChartaIncassiOggi },
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
   { match: (col, az, ctx) => {
