@@ -1,0 +1,162 @@
+{
+  "timestamp": "2026-04-22T00:43:20.236Z",
+  "summary": {
+    "pass": 11,
+    "fail": 0,
+    "total": 11
+  },
+  "results": [
+    {
+      "collega": "IRIS",
+      "query": "quante email urgenti?",
+      "ok": true,
+      "handler": "handleContaEmailUrgenti",
+      "ms": 26680,
+      "contentPreview": "Nessuna email urgente al momento. 👍",
+      "contentFull": "Nessuna email urgente al momento. 👍",
+      "hasData": false,
+      "dataKeys": []
+    },
+    {
+      "collega": "ECHO",
+      "query": "manda WA a Alberto: test v0.2",
+      "ok": true,
+      "handler": "handleEchoWhatsApp",
+      "ms": 1476,
+      "contentPreview": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test v0.2\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._",
+      "contentFull": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test v0.2\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._",
+      "hasData": true,
+      "dataKeys": [
+        "dryRun",
+        "id",
+        "resolvedFrom"
+      ]
+    },
+    {
+      "collega": "ARES",
+      "query": "interventi aperti",
+      "ok": true,
+      "handler": "handleAresInterventiAperti",
+      "ms": 1352,
+      "contentPreview": "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VI",
+      "contentFull": "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — aperto · tecnico=FEDERICO\n4. [13/10/2025] S021 - CONDOMINIO CLASTIDIUM - VIA MAZZINI, 11 - C — chiuso · non assegnato\n5. [17/10/2025] Z028 - CONDOMINIO RAVERA - VIA GARIBALDI 65 - NOVI — chiuso · non assegnato\n6. [22/10/2025] Z024 - CONDOMINIO EMET - VIA CAVALLOTTI 57 - NOVI  — chiuso · non assegnato\n7. [23/10/2025] R009 - PALAZZINA I MELOGRANI D - VIA PELIZZA DA VO — chiuso · non assegnato\n8. [24/10/2025] V021 - CONDOMINIO VENERE - VIA MILAZZO, 34 - TORTO — chiuso · non assegnato\n9. [24/10/2025] V021 - CONDOMINIO VENERE - VIA MILAZZO, 34 - TORTO — chiuso · non assegnato\n10. [28/10/2025] R026 - CONDOMINIO ITALIA - VIA LUIGI MAZZA 20 - VA — chiuso · non assegnato\n11. [29/10/2025] G028 - CONDOMINIO SAN FRANCISCO - VIA CAVALLOTTI F — chiuso · non assegnato\n12. [29/10/2025] Z024 - CONDOMINIO EMET - VIA CAVALLOTTI 57 - NOVI  — chiuso · non assegnato\n13. [31/10/2025] U077 - CONDOMINIO SUSY - VIALE SICILIA 107 - PAVIA — chiuso · non assegnato\n14. [03/11/2025] G026 - CONDOMINIO LESIMA - VIA SANT’AMBROGIO, 22/2 — chiuso · non assegnato\n15. [03/11/2025] R012 - CONDOMINIO AUGUSTA - PIAZZA CORNAGGIA 25 -  — chiuso · non assegnato\n16. [04/11/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — chiuso · non assegnato\n17. [04/11/2025] R009 - PALAZZINA I MELOGRANI D - VIA PELIZZA DA VO — chiuso · non assegnato\n18. [06/11/2025] F007 - CONDOMINIO TORRALBA - VIA CARLO MARX 3 - VO — chiuso · non assegnato\n19. [06/11/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — chiuso · non assegnato\n20. [06/11/2025] U060 - CONDOMINIO FEBBRONI (PAVIA) - VIA GORINI, 9 — chiuso · non assegnato",
+      "hasData": true,
+      "dataKeys": [
+        "count"
+      ]
+    },
+    {
+      "collega": "CHRONOS",
+      "query": "scadenze prossime",
+      "ok": true,
+      "handler": "handleChronosScadenze",
+      "ms": 5189,
+      "contentPreview": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.",
+      "contentFull": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.",
+      "hasData": false,
+      "dataKeys": []
+    },
+    {
+      "collega": "MEMO",
+      "query": "dimmi tutto su Kristal",
+      "ok": true,
+      "handler": "handleMemoDossier",
+      "ms": 28468,
+      "contentPreview": "📇 **Dossier per \"kristal\"** (MEMO v0.2 — COSMINA + Guazzotti + email)\n\n**🏢 Anagrafica CRM** (1 match):\n  · **CONDOMINIO KRISTAL** [U058] — VIA AMATI, 1/3/5/7\n    Amministratore: Arrigone\n\n**⚙️ Impianti CURIT** (1):\n  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE\n    Occupante: CONDOMINIO ",
+      "contentFull": "📇 **Dossier per \"kristal\"** (MEMO v0.2 — COSMINA + Guazzotti + email)\n\n**🏢 Anagrafica CRM** (1 match):\n  · **CONDOMINIO KRISTAL** [U058] — VIA AMATI, 1/3/5/7\n    Amministratore: Arrigone\n\n**⚙️ Impianti CURIT** (1):\n  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE\n    Occupante: CONDOMINIO KRISTAL\n    Scadenza dichiarazione: 31/07/2025\n\n**🔧 Interventi (bacheca COSMINA)** — ultimi 1 di 1:\n  · ? [chiuso] — U58 - CONDOMINIO KRISTAL\n    → VIA AMATI, 1/3/5/7 - PAVIA\n\n**📋 RTI/RTIDF Guazzotti TEC** (1):\n  · GRTI-2026-140 (generico) — 2026-03-11 — rtidf_presente · Tosca Federico\n    → Sostituito contakw riscaldamento e acs da voi forniti\n\n**📧 Email**: nessuna email correlata nelle ultime 500 indicizzate.",
+      "hasData": true,
+      "dataKeys": [
+        "query",
+        "clienti",
+        "impianti",
+        "interventi",
+        "rti",
+        "emails",
+        "errors"
+      ]
+    },
+    {
+      "collega": "CHARTA",
+      "query": "fatture scadute",
+      "ok": true,
+      "handler": "handleFattureScadute",
+      "ms": 335,
+      "contentPreview": "💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)\n\n📥 0 fatture fornitori + 0 richieste pagamento.",
+      "contentFull": "💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)\n\n📥 0 fatture fornitori + 0 richieste pagamento.",
+      "hasData": true,
+      "dataKeys": [
+        "fatture",
+        "richieste"
+      ]
+    },
+    {
+      "collega": "EMPORION",
+      "query": "cosa manca in magazzino?",
+      "ok": true,
+      "handler": "handleEmporionSottoScorta",
+      "ms": 25249,
+      "contentPreview": "✅ Nessun articolo sotto scorta al momento.",
+      "contentFull": "✅ Nessun articolo sotto scorta al momento.",
+      "hasData": false,
+      "dataKeys": []
+    },
+    {
+      "collega": "DIKEA",
+      "query": "scadenze CURIT",
+      "ok": true,
+      "handler": "handleDikeaScadenzeCurit",
+      "ms": 5934,
+      "contentPreview": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).",
+      "contentFull": "⚖️ Nessuna scadenza CURIT/REE/manutenzione nei prossimi 90 giorni (o collection non accessibile).",
+      "hasData": false,
+      "dataKeys": []
+    },
+    {
+      "collega": "DELPHI",
+      "query": "KPI di aprile",
+      "ok": true,
+      "handler": "handleDelphiKpi",
+      "ms": 4460,
+      "contentPreview": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 0\n  · Urgenti: 0\n  · Senza risposta >48h: 0\n\n**Lavagna**\n  · Messaggi: 0\n\n**Interventi COSMINA**\n  · Attivi ora: 380\n  · Completati: 0",
+      "contentFull": "📊 **DELPHI — KPI ultimi 28 giorni**\n\n**Email**\n  · Indicizzate: 0\n  · Urgenti: 0\n  · Senza risposta >48h: 0\n\n**Lavagna**\n  · Messaggi: 0\n\n**Interventi COSMINA**\n  · Attivi ora: 380\n  · Completati: 0",
+      "hasData": true,
+      "dataKeys": [
+        "emails",
+        "urgenti",
+        "senzaRisposta",
+        "lavMsgCount",
+        "attivi",
+        "completati"
+      ]
+    },
+    {
+      "collega": "PHARO",
+      "query": "stato della suite",
+      "ok": true,
+      "handler": "handlePharoStatoSuite",
+      "ms": 817,
+      "contentPreview": "✅ **Stato Suite NEXO** — punteggio: 100/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 0\n  · Email senza risposta >48h: 0\n  · Lavagna pending: 0\n  · Lavagna errori: 0",
+      "contentFull": "✅ **Stato Suite NEXO** — punteggio: 100/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 0\n  · Email senza risposta >48h: 0\n  · Lavagna pending: 0\n  · Lavagna errori: 0",
+      "hasData": true,
+      "dataKeys": [
+        "punteggio",
+        "pending",
+        "errori",
+        "emailAttesa",
+        "emails",
+        "firestoreOk"
+      ]
+    },
+    {
+      "collega": "CALLIOPE",
+      "query": "scrivi risposta a Moraschi",
+      "ok": true,
+      "handler": "handleCalliopeBozza",
+      "ms": 282,
+      "contentPreview": "Non trovo email recenti correlate a \"Moraschi\".",
+      "contentFull": "Non trovo email recenti correlate a \"Moraschi\".",
+      "hasData": false,
+      "dataKeys": []
+    }
+  ]
+}
