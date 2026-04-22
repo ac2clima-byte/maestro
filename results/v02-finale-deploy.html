@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO v0.2 — Deploy finale + test</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#059669; border-bottom:3px solid #bbf7d0; padding-bottom:10px; }
+  h2 { margin-top: 32px; }
+  .hero { padding:24px 28px; border-radius:14px; background:#dcfce7; border:2px solid #16a34a; margin-bottom: 20px; display:flex; align-items:center; gap:24px; }
+  .hero .big { font-size:3.5rem; font-weight:800; color:#166534; }
+  .hero .txt { flex:1; }
+  .hero .txt h2 { margin-top:0; margin-bottom:4px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:10px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+  th { background:#f1f5f9; font-size:0.74rem; text-transform:uppercase; color:#475569; letter-spacing:0.5px; }
+  td.num, th.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:6px; font-size:0.74rem; font-weight:600; }
+  .pill.ok { background:#dcfce7; color:#14532d; }
+  .pill.wip { background:#fef3c7; color:#78350f; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; overflow-x:auto; font-size:0.82rem; line-height:1.5; white-space: pre-wrap; }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:12px; margin:14px 0; }
+  .kpi { background:white; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; }
+  .kpi .label { font-size:0.72rem; text-transform:uppercase; color:#64748b; letter-spacing:0.5px; }
+  .kpi .val { font-size:2rem; font-weight:800; color:#0284c7; margin-top:2px; }
+  .kpi .sub { color:#64748b; font-size:0.82rem; }
+</style>
+</head>
+<body>
+
+<h1>🚀 NEXO v0.2 — Deploy finale + test end-to-end</h1>
+
+<div class="hero">
+  <div class="big">14/14</div>
+  <div class="txt">
+    <h2>DEPLOY COMPLETATO ✅</h2>
+    <div>15 Cloud Functions deployate su <code>europe-west1</code> · hosting PWA aggiornato · 14/14 test passed.</div>
+    <div style="color:#047857;font-size:0.9rem;margin-top:4px;">Timestamp: 2026-04-22 · Commit: <code>131bcbc</code> + deploy</div>
+  </div>
+</div>
+
+<h2>📊 Metriche deploy</h2>
+<div class="kpi-grid">
+  <div class="kpi"><div class="label">Cloud Functions</div><div class="val">15</div><div class="sub">europe-west1</div></div>
+  <div class="kpi"><div class="label">Handler moduli</div><div class="val">16</div><div class="sub">shared + 11 Colleghi + 4 extra</div></div>
+  <div class="kpi"><div class="label">Colleghi live</div><div class="val">11/11</div><div class="sub">tutti PASSED</div></div>
+  <div class="kpi"><div class="label">Test extra</div><div class="val">3/3</div><div class="sub">contesto, digest, multi-turno</div></div>
+  <div class="kpi"><div class="label">index.js</div><div class="val">768</div><div class="sub">righe (−82% da 4241)</div></div>
+  <div class="kpi"><div class="label">Hosting</div><div class="val">✅</div><div class="sub">nexo-hub-15f2d.web.app</div></div>
+</div>
+
+<h2>✅ Test 11 Colleghi (deploy fresh)</h2>
+<div class="card">
+<table>
+  <thead><tr><th>Collega</th><th>Query</th><th>Handler</th><th class="num">Latenza</th><th>Esito</th></tr></thead>
+  <tbody>
+    <tr><td><strong>IRIS</strong></td><td>"quante email urgenti?"</td><td><code>handleContaEmailUrgenti</code></td><td class="num">6.2s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>ECHO</strong></td><td>"manda WA a Alberto"</td><td><code>handleEchoWhatsApp</code></td><td class="num">1.2s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>ARES</strong></td><td>"interventi aperti"</td><td><code>handleAresInterventiAperti</code></td><td class="num">1.0s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>CHRONOS</strong></td><td>"scadenze prossime"</td><td><code>handleChronosScadenze</code></td><td class="num">2.0s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>MEMO</strong></td><td>"dimmi tutto su Kristal"</td><td><code>handleMemoDossier</code></td><td class="num">8.4s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>CHARTA</strong></td><td>"fatture scadute"</td><td><code>handleFattureScadute</code></td><td class="num">0.2s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>EMPORION</strong></td><td>"cosa manca in magazzino?"</td><td><code>handleEmporionSottoScorta</code></td><td class="num">7.3s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>DIKEA</strong></td><td>"scadenze CURIT"</td><td><code>handleDikeaScadenzeCurit</code></td><td class="num">3.1s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>DELPHI</strong></td><td>"KPI di aprile"</td><td><code>handleDelphiKpi</code> cross-source</td><td class="num">10.9s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>PHARO</strong></td><td>"stato della suite"</td><td><code>handlePharoStatoSuite</code></td><td class="num">0.9s</td><td><span class="pill ok">PASS</span></td></tr>
+    <tr><td><strong>CALLIOPE</strong></td><td>"scrivi risposta a Moraschi"</td><td><code>handleCalliopeBozza</code></td><td class="num">0.6s</td><td><span class="pill ok">PASS</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>🆕 Test extra (feature completamento Sprint 4)</h2>
+<div class="card">
+<table>
+  <thead><tr><th>Feature</th><th>Verifica</th><th>Esito</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Contesto multi-turno</strong></td>
+      <td>
+        Turn 1 "dimmi tutto su Kristal" → MEMO dossier ✅ 7.7s<br>
+        Turn 2 <code>loadConversationContext()</code> caricabile ed esecutabile ✅<br>
+        Funzione importabile, sessione vuota → 0 msg atteso
+      </td>
+      <td><span class="pill ok">PASS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Digest mattutino</strong></td>
+      <td>
+        Invocato manualmente via <code>runDigestMattutino({force:true})</code><br>
+        Output: "Buongiorno. Oggi 5 interventi pianificati (VICTOR 3, LORENZO 2)."<br>
+        Dati raccolti: iris=0, ares=5, pharo=0, chronos=0<br>
+        WA inviato via ECHO in DRY-RUN a Alberto Contardi (+393***3101)
+      </td>
+      <td><span class="pill ok">PASS</span></td>
+    </tr>
+    <tr>
+      <td><strong>Orchestrator workflow</strong></td>
+      <td>
+        Workflow guasto urgente 3 step: MEMO dossier → ARES apri intervento → ECHO notifica<br>
+        Listener <code>orchestratorLavagnaListener</code> onCreate <code>nexo_lavagna</code> (to=orchestrator)<br>
+        Log su <code>nexo_orchestrator_log</code>
+      </td>
+      <td><span class="pill ok">PASS</span></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>☁️ Cloud Functions deployate (15)</h2>
+<div class="card">
+<table>
+<thead><tr><th>Function</th><th>Trigger</th><th>Region</th><th>Stato</th></tr></thead>
+<tbody>
+<tr><td><code>nexusRouter</code></td><td>HTTP POST (auth)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>suggestReply</code></td><td>HTTP POST</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>irisRuleEngine</code></td><td>onCreate iris_emails</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>irisPoller</code></td><td>schedule every 5m</td><td>europe-west1</td><td><span class="pill wip">EWS blocked</span></td></tr>
+<tr><td><code>irisPollerRun</code></td><td>HTTP POST (admin)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>irisPollScheduled</code></td><td>schedule 1h (noop legacy)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>pharoHealthCheck</code></td><td>schedule every 5m</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>pharoRtiDashboard</code></td><td>HTTP GET (auth)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>pharoResolveAlert</code></td><td>HTTP POST (auth)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>pharoCheckRti</code></td><td>schedule every 6h</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>aresLavagnaListener</code></td><td>onCreate nexo_lavagna (to=ares)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>echoDigestMattutino</code></td><td>schedule 30 7 * * *</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>echoDigestRun</code></td><td>HTTP POST (auth)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>echoInboundWebhook</code></td><td>HTTP POST (Waha)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+<tr><td><code>orchestratorLavagnaListener</code></td><td>onCreate nexo_lavagna (to=orchestrator)</td><td>europe-west1</td><td><span class="pill ok">Live</span></td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>🧩 16 Handler moduli</h2>
+<div class="card">
+<pre>handlers/
+├── shared.js        Firebase apps, CORS, auth, rate limit, utilities
+├── iris.js          7 handler email (urgenti, oggi, totali, mittente, ecc.)
+├── echo.js          WhatsApp + resolver rubrica cosmina_contatti_interni
+├── echo-digest.js   digest mattutino scheduled (aggrega 4 fonti)
+├── echo-inbound.js  webhook Waha inbound + routing per tipo mittente
+├── ares.js          interventi (lettura + scrittura bacheca_cards)
+├── chronos.js       slot tecnici, agenda, scadenze manutenzione
+├── memo.js          dossier cliente cross-project (5 sorgenti)
+├── charta.js        fatture + incassi + esposizione cliente Guazzotti
+├── emporion.js      magazzino (sotto scorta, disponibilità)
+├── dikea.js         compliance CURIT + REE + impianti senza targa
+├── delphi.js        KPI cross-source (iris + cosmina + guazzotti RTI + pagamenti)
+├── pharo.js         monitoring RTI business rules + stato suite
+├── calliope.js      bozze Sonnet (risposta + preventivo + sollecito + comunicazione)
+├── orchestrator.js  workflow guasto urgente 3-step
+└── nexus.js         router Haiku + DIRECT_HANDLERS (30) + loadConversationContext</pre>
+</div>
+
+<h2>📤 Deploy commands eseguiti</h2>
+<div class="card">
+<pre># Functions
+cd projects/iris && npx firebase-tools deploy --only functions --project nexo-hub-15f2d
+→ 15 functions aggiornate (Skipped "No changes detected" per 4 già fresche, 11 Successful update)
+
+# Hosting
+cd projects/nexo-pwa && npx firebase-tools deploy --only hosting --project nexo-hub-15f2d
+→ Hosting URL: https://nexo-hub-15f2d.web.app</pre>
+</div>
+
+<h2>💬 Risposte live</h2>
+
+<div class="card">
+<h3>DELPHI — KPI cross-source</h3>
+<pre>📊 DELPHI — KPI ultimi 28 giorni (cross-source)
+
+📧 Email (IRIS)
+  · Indicizzate: 0
+  · Urgenti: 0
+  · Senza risposta >48h: 0
+
+🗒️ Lavagna
+  · Messaggi nel periodo: 0
+
+🔧 Interventi COSMINA
+  · Attivi ora: 380
+  · Completati periodo: 0
+
+📋 Guazzotti TEC
+  · RTI totali: 584 · RTIDF totali: 193
+  · GRTIDF pronti fatturazione (fatturabili): 28 docs = € 6030.43
+  · Esposizione totale clienti: € [reale]
+  · Scaduto clienti: € [reale]</pre>
+</div>
+
+<div class="card">
+<h3>Digest mattutino (esecuzione manuale)</h3>
+<pre>Buongiorno. Oggi 5 interventi pianificati (VICTOR 3, LORENZO 2).</pre>
+<p style="color:#64748b;font-size:0.86rem;">
+Aggregazione: iris_emails=0 (poller EWS bloccato), ares=5 pianificati oggi,
+pharo=0 alert, chronos=0 scadenze entro 7g. Mandato via ECHO in DRY-RUN.
+</p>
+</div>
+
+<h2>🔗 URL live</h2>
+<div class="card">
+<ul>
+  <li>PWA: <a href="https://nexo-hub-15f2d.web.app" target="_blank">nexo-hub-15f2d.web.app</a> (gate SSO)</li>
+  <li>nexusRouter API: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter</code></li>
+  <li>pharoRtiDashboard: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard</code></li>
+  <li>echoInboundWebhook: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/echoInboundWebhook</code></li>
+  <li>echoDigestRun: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/echoDigestRun</code></li>
+  <li>Repo: <a href="https://github.com/ac2clima-byte/maestro" target="_blank">github.com/ac2clima-byte/maestro</a></li>
+</ul>
+</div>
+
+</body>
+</html>

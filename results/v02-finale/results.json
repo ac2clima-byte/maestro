@@ -1,0 +1,138 @@
+{
+  "timestamp": "2026-04-22T12:16:10.689Z",
+  "summary": {
+    "colleghi": {
+      "pass": 11,
+      "total": 11
+    },
+    "extra": {
+      "pass": 3,
+      "total": 3
+    },
+    "grandTotal": {
+      "pass": 14,
+      "total": 14
+    }
+  },
+  "colleghi": [
+    {
+      "collega": "IRIS",
+      "query": "quante email urgenti?",
+      "ok": true,
+      "ms": 6227,
+      "handler": "handleContaEmailUrgenti",
+      "content": "Nessuna email urgente al momento. 👍",
+      "hasData": false
+    },
+    {
+      "collega": "ECHO",
+      "query": "manda WA a Alberto: test v0.2",
+      "ok": true,
+      "ms": 1196,
+      "handler": "handleEchoWhatsApp",
+      "content": "📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]\n— test v0.2 finale deploy\n\n_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._",
+      "hasData": true
+    },
+    {
+      "collega": "ARES",
+      "query": "interventi aperti",
+      "ok": true,
+      "ms": 1033,
+      "handler": "handleAresInterventiAperti",
+      "content": "🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — aperto · tecnico=FEDERICO\n4. [13/10/2025] S021 - CONDOMINIO CLASTIDIUM - VIA MAZZINI, 11 - C — chiuso · non assegnato\n5. [17/10/2025] Z028 - CONDOMINIO RAVERA - VIA GARIBALDI 65 - ",
+      "hasData": true
+    },
+    {
+      "collega": "CHRONOS",
+      "query": "scadenze prossime",
+      "ok": true,
+      "ms": 1976,
+      "handler": "handleChronosScadenze",
+      "content": "Nessuna scadenza manutenzione trovata nei prossimi 60 giorni.",
+      "hasData": false
+    },
+    {
+      "collega": "MEMO",
+      "query": "dimmi tutto su Kristal",
+      "ok": true,
+      "ms": 8398,
+      "handler": "handleMemoDossier",
+      "content": "📇 **Dossier per \"kristal\"** (MEMO v0.2 — COSMINA + Guazzotti + email)\n\n**🏢 Anagrafica CRM** (1 match):\n  · **CONDOMINIO KRISTAL** [U058] — VIA AMATI, 1/3/5/7\n    Amministratore: Arrigone\n\n**⚙️ Impianti CURIT** (1):\n  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE\n    Occupante: CONDOMINIO KRISTAL\n    Scadenza dichiarazione: 31/07/2025\n\n**🔧 Interventi (bacheca COSMINA)** — ultimi 1 di 1:\n  · ? [chiuso] — U58 - CONDOMINIO KRISTAL\n    → VIA AMATI, 1/3/5/7 - PAVIA\n\n**📋 RTI/RTIDF Guazzott",
+      "hasData": true
+    },
+    {
+      "collega": "CHARTA",
+      "query": "fatture scadute",
+      "ok": true,
+      "ms": 170,
+      "handler": "handleFattureScadute",
+      "content": "💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)\n\n📥 0 fatture fornitori + 0 richieste pagamento.",
+      "hasData": true
+    },
+    {
+      "collega": "EMPORION",
+      "query": "cosa manca in magazzino?",
+      "ok": true,
+      "ms": 7332,
+      "handler": "handleEmporionSottoScorta",
+      "content": "✅ Nessun articolo sotto scorta al momento.",
+      "hasData": false
+    },
+    {
+      "collega": "DIKEA",
+      "query": "scadenze CURIT",
+      "ok": true,
+      "ms": 3126,
+      "handler": "handleDikeaScadenzeCurit",
+      "content": "⚖️ **3 scadenze normative** nei prossimi 90g:\n\n1. [06/05/2026] (14g) ⚠️ MANUT · VIA CLARETTO LUIGI, 18/20 P.T\n2. [10/06/2026] (49g) MANUT · VIA BELLOCCHIO, 6\n3. [10/06/2026] (49g) MANUT · VIA MORUZZI, 13",
+      "hasData": true
+    },
+    {
+      "collega": "DELPHI",
+      "query": "KPI di aprile",
+      "ok": true,
+      "ms": 10915,
+      "handler": "handleDelphiKpi",
+      "content": "📊 **DELPHI — KPI ultimi 28 giorni** (cross-source)\n\n**📧 Email (IRIS)**\n  · Indicizzate: 0\n  · Urgenti: 0\n  · Senza risposta >48h: 0\n\n**🗒️ Lavagna**\n  · Messaggi nel periodo: 0\n\n**🔧 Interventi COSMINA**\n  · Attivi ora: 389\n  · Completati periodo: 0\n\n**📋 Guazzotti TEC**\n  · RTI totali: 582 · RTIDF totali: 166\n  · GRTIDF pronti fatturazione (fatturabili): 45 docs = **€ 9473.43**\n  · Esposizione totale clienti: € 203074.12\n  · Scaduto clienti: € 179593.21",
+      "hasData": true
+    },
+    {
+      "collega": "PHARO",
+      "query": "stato della suite",
+      "ok": true,
+      "ms": 930,
+      "handler": "handlePharoStatoSuite",
+      "content": "✅ **Stato Suite NEXO** — punteggio: 100/100\n\n  · Firestore: ✅ OK\n  · Email indicizzate: 0\n  · Email senza risposta >48h: 0\n  · Lavagna pending: 0\n  · Lavagna errori: 0",
+      "hasData": true
+    },
+    {
+      "collega": "CALLIOPE",
+      "query": "scrivi risposta a Moraschi",
+      "ok": true,
+      "ms": 604,
+      "handler": "handleCalliopeBozza",
+      "content": "Non trovo email recenti correlate a \"Moraschi\". Se è un cliente nuovo, specifica 'bozza preventivo per X' e useremo dati CRM.",
+      "hasData": false
+    }
+  ],
+  "extra": {
+    "multiturno": {
+      "turn1": {
+        "collega": "MEMO",
+        "query": "dimmi tutto su Kristal",
+        "ok": true,
+        "ms": 7747,
+        "handler": "handleMemoDossier",
+        "content": "📇 **Dossier per \"kristal\"** (MEMO v0.2 — COSMINA + Guazzotti + email)\n\n**🏢 Anagrafica CRM** (1 match):\n  · **CONDOMINIO KRISTAL** [U058] — VIA AMATI, 1/3/5/7\n    Amministratore: Arrigone\n\n**⚙️ Impianti CURIT** (1):\n  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE\n    Occupante: CONDOMINIO KRISTAL\n    Scadenza dichiarazione: 31/07/2025\n\n**🔧 Interventi (bacheca COSMINA)** — ultimi 1 di 1:\n  · ? [chiuso] — U58 - CONDOMINIO KRISTAL\n    → VIA AMATI, 1/3/5/7 - PAVIA\n\n**📋 RTI/RTIDF Guazzott",
+        "hasData": true
+      },
+      "turn2_context_loader_ok": true,
+      "msgs_loaded": 0
+    },
+    "digest": {
+      "ok": true,
+      "testo": "Buongiorno. Oggi 5 interventi pianificati (VICTOR 3, LORENZO 2).",
+      "error": null
+    }
+  }
+}
