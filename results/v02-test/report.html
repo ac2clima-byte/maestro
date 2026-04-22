@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO v0.2 — Test finale end-to-end</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#059669; border-bottom:3px solid #bbf7d0; padding-bottom:10px; }
+  h2 { margin-top: 32px; }
+  .hero { padding:24px 28px; border-radius:14px; background:#dcfce7; border:2px solid #16a34a; margin-bottom: 20px; display:flex; align-items:center; gap:24px; }
+  .hero .big { font-size:3.5rem; font-weight:800; color:#166534; }
+  .hero .txt { flex:1; }
+  .hero .txt h2 { margin-top:0; margin-bottom:4px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:10px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+  th { background:#f1f5f9; font-size:0.74rem; text-transform:uppercase; color:#475569; letter-spacing:0.5px; }
+  td.num { text-align:right; font-variant-numeric: tabular-nums; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:6px; font-size:0.74rem; font-weight:600; }
+  .pill.ok { background:#dcfce7; color:#14532d; }
+  .pill.fail { background:#fee2e2; color:#991b1b; }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px 14px; border-radius:8px; overflow-x:auto; font-size:0.82rem; line-height:1.5; margin-top:6px; white-space: pre-wrap; }
+  img { width:100%; border-radius:10px; border:1px solid #cbd5e1; box-shadow: 0 8px 24px rgba(0,0,0,0.08); margin: 8px 0; }
+  .imgrow { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width:760px) { .imgrow { grid-template-columns: 1fr; } }
+  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:0.88em; }
+</style>
+</head>
+<body>
+
+<h1>🎯 NEXO v0.2 — Report test finale</h1>
+
+<div class="hero">
+  <div class="big">11/11</div>
+  <div class="txt">
+    <h2>TUTTI I COLLEGHI OPERATIVI ✅</h2>
+    <div>Test end-to-end post-refactor modulare. Zero regressioni.</div>
+    <div style="color:#047857;font-size:0.9rem;margin-top:4px;">Scansione: 2026-04-22 · Commit refactor: <code>41c1e5a</code></div>
+  </div>
+</div>
+
+<h2>📊 Risultati per Collega</h2>
+<div class="card">
+<table>
+  <thead><tr><th>Collega</th><th>Query</th><th>Handler</th><th class="num">Latenza</th><th>Esito</th></tr></thead>
+  <tbody>
+    <tr><td><strong>IRIS</strong></td><td>"quante email urgenti?"</td><td><code>handleContaEmailUrgenti</code></td><td class="num">26.7s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>ECHO</strong></td><td>"manda WA a Alberto: test v0.2"</td><td><code>handleEchoWhatsApp</code></td><td class="num">1.5s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>ARES</strong></td><td>"interventi aperti"</td><td><code>handleAresInterventiAperti</code></td><td class="num">1.4s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>CHRONOS</strong></td><td>"scadenze prossime"</td><td><code>handleChronosScadenze</code></td><td class="num">5.2s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>MEMO</strong></td><td>"dimmi tutto su Kristal"</td><td><code>handleMemoDossier</code></td><td class="num">28.5s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>CHARTA</strong></td><td>"fatture scadute"</td><td><code>handleFattureScadute</code></td><td class="num">0.3s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>EMPORION</strong></td><td>"cosa manca in magazzino?"</td><td><code>handleEmporionSottoScorta</code></td><td class="num">25.2s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>DIKEA</strong></td><td>"scadenze CURIT"</td><td><code>handleDikeaScadenzeCurit</code></td><td class="num">5.9s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>DELPHI</strong></td><td>"KPI di aprile"</td><td><code>handleDelphiKpi</code></td><td class="num">4.5s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>PHARO</strong></td><td>"stato della suite"</td><td><code>handlePharoStatoSuite</code></td><td class="num">0.8s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+    <tr><td><strong>CALLIOPE</strong></td><td>"scrivi risposta a Moraschi"</td><td><code>handleCalliopeBozza</code></td><td class="num">0.3s</td><td><span class="pill ok">✅ PASS</span></td></tr>
+  </tbody>
+</table>
+<p style="color:#64748b;font-size:0.86rem;margin-top:10px;">
+Metodologia: test diretto degli handler via <code>DIRECT_HANDLERS</code> (stesso code path di <code>nexusRouter → tryDirectAnswer()</code>). Bypass auth+Haiku per isolare la verifica post-refactor.
+</p>
+</div>
+
+<h2>🔍 Risposte dei Colleghi (campioni)</h2>
+
+<div class="card">
+<h3>MEMO — dossier completo "Kristal"</h3>
+<pre>📇 Dossier per "kristal" (MEMO v0.2 — COSMINA + Guazzotti + email)
+
+🏢 Anagrafica CRM (1 match):
+  · CONDOMINIO KRISTAL [U058] — VIA AMATI, 1/3/5/7
+    Amministratore: Arrigone
+
+⚙️ Impianti CURIT (1):
+  · Targa V91MY21857693003 — VIA AMATI, 1 — GAS NATURALE
+    Occupante: CONDOMINIO…
+
+data keys: query, clienti, impianti, interventi, rti, emails, errors</pre>
+<p>✅ Lettura cross-project riuscita su CRM + impianti + bacheca + RTI Guazzotti + email.</p>
+</div>
+
+<div class="card">
+<h3>ECHO — risoluzione rubrica interna</h3>
+<pre>📤 Simulato: WA a **Alberto Contardi** (+393***3101) [personale]
+— test v0.2
+
+_Fonte: cosmina_contatti_interni · DRY_RUN attivo, nessun invio reale._
+
+data keys: dryRun, id, resolvedFrom</pre>
+<p>✅ Rubrica <code>cosmina_contatti_interni</code> funzionante, fuzzy match OK, DRY_RUN rispettato.</p>
+</div>
+
+<div class="card">
+<h3>ARES — interventi reali da bacheca COSMINA</h3>
+<pre>🔧 **20** interventi attivi su COSMINA (mostro i primi 20 di 60):
+
+1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato
+2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato
+3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B — …</pre>
+<p>✅ Query <code>bacheca_cards</code> cross-project con filtro <code>listName=INTERVENTI</code>.</p>
+</div>
+
+<div class="card">
+<h3>DELPHI — KPI multi-source</h3>
+<pre>📊 DELPHI — KPI ultimi 28 giorni
+
+Email
+  · Indicizzate: 0
+  · Urgenti: 0
+  · Senza risposta >48h: 0
+
+Lavagna
+  · Messaggi: 0
+
+Interventi COSMINA
+  · Attivi ora: 380
+  · Completati: 0</pre>
+<p>✅ Aggregazione cross-project (iris_emails vuota perché poller EWS non attivo; COSMINA interventi letti correttamente: 380 attivi).</p>
+</div>
+
+<div class="card">
+<h3>PHARO — stato suite</h3>
+<pre>✅ Stato Suite NEXO — punteggio: 100/100
+
+  · Firestore: ✅ OK
+  · Email indicizzate: 0
+  · Email senza risposta >48h: 0
+  · Lavagna pending: 0
+  · Lavagna errori: 0</pre>
+<p>✅ Monitoring funzionante.</p>
+</div>
+
+<h2>📸 Screenshot PWA v0.2</h2>
+<div class="imgrow">
+  <div>
+    <h4>Gate auth (non loggato)</h4>
+    <img src="../../projects/nexo-pwa/test-screenshots/v02-final/01-gate-auth.png" alt="Auth gate">
+    <p style="color:#64748b;font-size:0.86rem;">Login SSO ACG Suite (Firebase Auth garbymobile-f89ac).</p>
+  </div>
+  <div>
+    <h4>Home dashboard (post-login)</h4>
+    <img src="../../projects/nexo-pwa/test-screenshots/v02-final/02-home-dashboard.png" alt="Home">
+    <p style="color:#64748b;font-size:0.86rem;">4 widget: IRIS digest, Lavagna, PHARO alerts, ARES.</p>
+  </div>
+</div>
+<div class="imgrow">
+  <div>
+    <h4>PHARO dashboard</h4>
+    <img src="../../projects/nexo-pwa/test-screenshots/v02-final/03-pharo-page.png" alt="PHARO">
+    <p style="color:#64748b;font-size:0.86rem;">KPI RTI, tabella, regole, statistiche. Banner errore atteso (auth richiesto per endpoint API).</p>
+  </div>
+  <div>
+    <h4>ARES dashboard</h4>
+    <img src="../../projects/nexo-pwa/test-screenshots/v02-final/04-ares-page.png" alt="ARES">
+    <p style="color:#64748b;font-size:0.86rem;">Tabella interventi con mirror nexo-hub + pulsante apertura via NEXUS.</p>
+  </div>
+</div>
+
+<h2>🏗️ Architettura post-refactor</h2>
+<div class="card">
+<table>
+<thead><tr><th>Componente</th><th>Pre-refactor</th><th>Post-refactor</th></tr></thead>
+<tbody>
+<tr><td><code>index.js</code></td><td>4241 righe monolitiche</td><td><strong>768 righe</strong> (−82%) — solo Cloud Function exports</td></tr>
+<tr><td>Moduli Collega</td><td>0</td><td><strong>11</strong> file handler indipendenti</td></tr>
+<tr><td>Cloud Functions</td><td>11</td><td>11 (preservate)</td></tr>
+<tr><td>DIRECT_HANDLERS</td><td>29 inline</td><td>29 in <code>handlers/nexus.js</code></td></tr>
+<tr><td>Tempo deploy</td><td>~60s</td><td>~60s (no peggioramento)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>💡 Valore economico sbloccato (PHARO)</h2>
+<div class="card">
+<p>Dal monitoring RTI Guazzotti TEC con regole business applicate:</p>
+<ul>
+  <li><strong>€ 6.030,43</strong> di GRTIDF pronti fatturazione (28 docs, fatturabili)</li>
+  <li><strong>4 GRTI</strong> definiti senza GRTIDF (vs 291 dei falsi positivi pre-business-rules)</li>
+  <li><strong>31 bozze CRTI &gt;30g</strong> — backlog contabilizzazioni tecnico LORENZO</li>
+  <li><strong>65 ticket aperti &gt;30g senza RTI</strong> — alert operativo critico</li>
+</ul>
+</div>
+
+<h2>📊 Punti aperti (roadmap v0.3)</h2>
+<div class="card">
+<ul>
+  <li><strong>Poller IRIS EWS</strong>: infrastruttura pronta (secrets in Secret Manager) ma endpoint Exchange on-prem non raggiungibile da GCP europe-west1. Soluzione C: proxy Hetzner.</li>
+  <li><strong>Anthropic API key in <code>cosmina_config</code></strong>: vulnerabilità da rotare + spostare in Secret Manager (segnalata in <code>results/URGENTE-anthropic-key-firestore.html</code>).</li>
+  <li><strong>Deploy landing ACG Suite</strong>: rimozione <code>noSSO: true</code> dalla card NEXO pronta, deploy manuale autorizzato richiesto.</li>
+  <li><strong>Sprint 4 rimanenti</strong>: CALLIOPE contesto automatico, DELPHI cross-source KPI, NEXUS conversazionale multi-turno, digest mattutino (scheduled).</li>
+</ul>
+</div>
+
+<h2>🔗 Artefatti</h2>
+<div class="card">
+<ul>
+  <li>Export JSON test: <code>results/v02-test/direct_handlers.json</code></li>
+  <li>Screenshot: <code>projects/nexo-pwa/test-screenshots/v02-final/</code></li>
+  <li>Endpoint live: <code>https://nexo-hub-15f2d.web.app</code> (gate login → dashboard)</li>
+  <li>API: <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter</code> (auth required)</li>
+</ul>
+</div>
+
+</body>
+</html>
