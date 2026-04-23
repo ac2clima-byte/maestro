@@ -537,68 +537,68 @@
   .chronos-camp-stats span.warn { color: #b91c1c; font-weight: 600; }
   .chronos-camp-stats span.muted { color: var(--text-muted); }
 
-  /* ── CHRONOS — griglia badge quadrati ────────────────────── */
+  /* ── CHRONOS — badge minimali compatti ───────────────────── */
   .chronos-section-title {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
-    margin: 20px 0 10px;
-    padding-bottom: 6px;
+    margin: 18px 0 8px;
+    padding-bottom: 4px;
     border-bottom: 1px solid var(--border);
   }
   .chronos-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    margin-bottom: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
   }
-  @media (max-width: 900px) { .chronos-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .chronos-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 560px) {
+    .chronos-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  }
 
   .chronos-badge {
-    aspect-ratio: 1 / 1;
+    height: 80px;
     background: #fff;
     border: 1px solid var(--border);
-    border-left: 4px solid #cbd5e1;
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: var(--shadow-sm);
+    border-left: 3px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 10px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    transition: transform 0.15s, box-shadow 0.15s;
     cursor: pointer;
-    min-height: 240px;
     overflow: hidden;
+    transition: box-shadow 0.12s, border-color 0.12s;
   }
-  .chronos-badge:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-  .chronos-badge.ok     { border-left-color: #16a34a; }
-  .chronos-badge.mid    { border-left-color: #f59e0b; }
-  .chronos-badge.low    { border-left-color: #dc2626; }
-  .chronos-badge.zero   { border-left-color: #94a3b8; }
-  .chronos-badge.info   { border-left-color: #3b82f6; }
+  .chronos-badge:hover { box-shadow: var(--shadow-sm); border-color: #94a3b8; }
+  .chronos-badge.ok   { border-left-color: #16a34a; }
+  .chronos-badge.mid  { border-left-color: #f59e0b; }
+  .chronos-badge.low  { border-left-color: #dc2626; }
+  .chronos-badge.zero { border-left-color: #94a3b8; }
+  .chronos-badge.info { border-left-color: #3b82f6; }
 
   .chronos-badge-head {
-    font-size: 0.92rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--text);
-    line-height: 1.25;
-    min-height: 2.4em;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    line-height: 1.2;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
-  .chronos-badge-center {
-    text-align: center;
-    margin: 6px 0;
+  .chronos-badge-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    gap: 6px;
   }
   .chronos-badge-perc {
-    font-size: 2.1rem;
-    font-weight: 800;
-    line-height: 1;
+    font-size: 0.95rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
   }
   .chronos-badge-perc.ok   { color: #16a34a; }
@@ -606,41 +606,23 @@
   .chronos-badge-perc.low  { color: #dc2626; }
   .chronos-badge-perc.zero { color: #94a3b8; }
   .chronos-badge-perc.info { color: #3b82f6; }
+  .chronos-badge-frac {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 
   .chronos-badge-bar {
     display: flex;
-    height: 8px;
+    height: 4px;
     background: #f1f5f9;
-    border-radius: 4px;
+    border-radius: 2px;
     overflow: hidden;
-    margin-top: 6px;
   }
-  .chronos-badge-bar .seg { height: 100%; transition: width 0.2s; }
+  .chronos-badge-bar .seg { height: 100%; }
   .chronos-badge-bar .seg.done { background: #16a34a; }
   .chronos-badge-bar .seg.prog { background: #3b82f6; }
   .chronos-badge-bar .seg.daprog { background: #facc15; }
   .chronos-badge-bar .seg.scad { background: #dc2626; }
-
-  .chronos-badge-stats {
-    font-size: 0.78rem;
-    color: var(--text-muted);
-    line-height: 1.55;
-    margin-top: 4px;
-  }
-  .chronos-badge-stats .row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-  .chronos-badge-stats .row strong { color: var(--text); font-weight: 600; }
-  .chronos-badge-stats .row.ok strong   { color: #166534; }
-  .chronos-badge-stats .row.info strong { color: #1e40af; }
-  .chronos-badge-stats .row.warn strong { color: #b91c1c; }
-
-  .chronos-badge-kpi-icon {
-    font-size: 2rem;
-    line-height: 1;
-  }
 
   /* ── PHARO dashboard ───────────────────────────────────── */
   .pharo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
@@ -1823,6 +1805,23 @@ async function loadChronosCampagne() {
   }
 }
 
+// ── Badge minimale: 3 righe (titolo, perc+frac, bar) ───────────
+function renderMiniBadge({ nome, cls, perc, frac, segments, attrs = "" }) {
+  const segs = (segments || [])
+    .map(s => `<div class="seg ${s.kind}" style="width:${s.width}%"></div>`)
+    .join("");
+  return `
+    <div class="chronos-badge ${cls}"${attrs}>
+      <div class="chronos-badge-head" title="${nome}">${nome}</div>
+      <div class="chronos-badge-line">
+        <span class="chronos-badge-perc ${cls}">${perc}</span>
+        <span class="chronos-badge-frac">${frac}</span>
+      </div>
+      <div class="chronos-badge-bar">${segs}</div>
+    </div>
+  `;
+}
+
 function renderCampagnaBadge(c) {
   const stats = c.stats || {};
   const tot = stats.totale || 0;
@@ -1832,35 +1831,20 @@ function renderCampagnaBadge(c) {
   const daProg = stats.da_programmare || 0;
   const perc = c.completamento_pct ?? (tot > 0 ? Math.round((comp / tot) * 100) : 0);
   const cls = chronosPercClass(perc, tot);
-
-  const segComp = tot > 0 ? (comp / tot) * 100 : 0;
-  const segProg = tot > 0 ? (prog / tot) * 100 : 0;
-  const segDaProg = tot > 0 ? (daProg / tot) * 100 : 0;
-  const segScad = tot > 0 ? (scad / tot) * 100 : 0;
-
   const nome = escapeHtml(c.nome || c.campagna?.nome || "?");
 
-  return `
-    <div class="chronos-badge ${cls}" data-camp-nome="${nome}">
-      <div class="chronos-badge-head">${nome}</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${perc}%</div>
-        <div class="chronos-badge-bar">
-          <div class="seg done"   style="width:${segComp}%"></div>
-          <div class="seg prog"   style="width:${segProg}%"></div>
-          <div class="seg daprog" style="width:${segDaProg}%"></div>
-          <div class="seg scad"   style="width:${segScad}%"></div>
-        </div>
-      </div>
-      <div class="chronos-badge-stats">
-        <div class="row"><span>Totali</span><strong>${tot}</strong></div>
-        <div class="row ok"><span>Completati</span><strong>${comp}</strong></div>
-        <div class="row info"><span>Programmati</span><strong>${prog}</strong></div>
-        ${scad > 0 ? `<div class="row warn"><span>Scaduti</span><strong>${scad}</strong></div>` : ""}
-        ${daProg > 0 ? `<div class="row"><span>Da programmare</span><strong>${daProg}</strong></div>` : ""}
-      </div>
-    </div>
-  `;
+  return renderMiniBadge({
+    nome, cls,
+    perc: `${perc}%`,
+    frac: `${comp}/${tot}`,
+    segments: tot > 0 ? [
+      { kind: "done",   width: (comp / tot) * 100 },
+      { kind: "prog",   width: (prog / tot) * 100 },
+      { kind: "daprog", width: (daProg / tot) * 100 },
+      { kind: "scad",   width: (scad / tot) * 100 },
+    ] : [],
+    attrs: ` data-camp-nome="${nome}"`,
+  });
 }
 
 async function loadChronosOperativo() {
@@ -1877,7 +1861,7 @@ async function loadChronosOperativo() {
     const agenda = agendaResp.ok ? await agendaResp.json() : { error: `HTTP ${agendaResp.status}` };
     const scad   = scadenzeResp.ok ? await scadenzeResp.json() : { error: `HTTP ${scadenzeResp.status}` };
 
-    const html = [
+    container.innerHTML = [
       renderAgendaOggiBadge(agenda),
       renderAgendaSettimanaBadge(agenda),
       renderAgendaScadutiBadge(agenda),
@@ -1885,7 +1869,6 @@ async function loadChronosOperativo() {
       renderCoperturaScadenzeBadge(scad),
       renderSlotLiberiBadge(agenda),
     ].join("");
-    container.innerHTML = html;
   } catch (err) {
     container.innerHTML = `<div class="widget-error" style="grid-column:1/-1;">Errore: ${escapeHtml(err.message || err)}</div>`;
   }
@@ -1895,160 +1878,101 @@ function renderAgendaOggiBadge(agenda) {
   if (agenda?.error) return errorBadge("Agenda oggi", agenda.error);
   const t = agenda.totale || {};
   const oggi = t.oggi || 0;
-  const tecnici = agenda.tecnici || [];
-  const perTecOggi = tecnici
-    .filter(x => (x.oggi || 0) > 0)
-    .sort((a, b) => (b.oggi || 0) - (a.oggi || 0))
-    .slice(0, 4);
-  const rows = perTecOggi.length
-    ? perTecOggi.map(x => `<div class="row"><span>${escapeHtml(x.tecnico)}</span><strong>${x.oggi}</strong></div>`).join("")
-    : `<div class="row" style="color:var(--text-muted);font-style:italic;">Nessun intervento oggi</div>`;
-  const cls = oggi > 0 ? "info" : "zero";
-  return `
-    <div class="chronos-badge ${cls}">
-      <div class="chronos-badge-head">📅 Agenda oggi</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${oggi}</div>
-        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">interventi in programma</div>
-      </div>
-      <div class="chronos-badge-stats">${rows}</div>
-    </div>
-  `;
+  const totAttivi = Math.max((t.totale || 0) - (t.completati || 0), 1);
+  return renderMiniBadge({
+    nome: "Agenda oggi",
+    cls: oggi > 0 ? "info" : "zero",
+    perc: oggi,
+    frac: "interventi",
+    segments: oggi > 0 ? [{ kind: "prog", width: Math.min((oggi / totAttivi) * 100, 100) }] : [],
+  });
 }
 
 function renderAgendaSettimanaBadge(agenda) {
-  if (agenda?.error) return errorBadge("Agenda settimana", agenda.error);
+  if (agenda?.error) return errorBadge("Settimana", agenda.error);
   const t = agenda.totale || {};
   const sett = t.settimana || 0;
-  const tecnici = (agenda.tecnici || [])
-    .filter(x => (x.settimana || 0) > 0)
-    .sort((a, b) => (b.settimana || 0) - (a.settimana || 0))
-    .slice(0, 4);
-  const rows = tecnici.length
-    ? tecnici.map(x => `<div class="row"><span>${escapeHtml(x.tecnico)}</span><strong>${x.settimana}</strong></div>`).join("")
-    : `<div class="row" style="color:var(--text-muted);font-style:italic;">Nessun programmato</div>`;
-  const cls = sett > 0 ? "info" : "zero";
-  return `
-    <div class="chronos-badge ${cls}">
-      <div class="chronos-badge-head">🗓️ Settimana</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${sett}</div>
-        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">prossimi 7 giorni</div>
-      </div>
-      <div class="chronos-badge-stats">${rows}</div>
-    </div>
-  `;
+  const totAttivi = Math.max((t.totale || 0) - (t.completati || 0), 1);
+  return renderMiniBadge({
+    nome: "Settimana (7gg)",
+    cls: sett > 0 ? "info" : "zero",
+    perc: sett,
+    frac: "prossimi 7gg",
+    segments: sett > 0 ? [{ kind: "prog", width: Math.min((sett / totAttivi) * 100, 100) }] : [],
+  });
 }
 
 function renderAgendaScadutiBadge(agenda) {
-  if (agenda?.error) return errorBadge("Scaduti agenda", agenda.error);
+  if (agenda?.error) return errorBadge("Scaduti", agenda.error);
   const t = agenda.totale || {};
   const n = t.scaduti || 0;
-  const tecnici = (agenda.tecnici || [])
-    .filter(x => (x.scaduti || 0) > 0)
-    .sort((a, b) => (b.scaduti || 0) - (a.scaduti || 0))
-    .slice(0, 4);
-  const rows = tecnici.length
-    ? tecnici.map(x => `<div class="row warn"><span>${escapeHtml(x.tecnico)}</span><strong>${x.scaduti}</strong></div>`).join("")
-    : `<div class="row" style="color:#166534;font-style:italic;">Nessun arretrato</div>`;
-  const cls = n === 0 ? "ok" : n > 20 ? "low" : "mid";
-  const icon = n === 0 ? "✅" : "⚠️";
-  return `
-    <div class="chronos-badge ${cls}">
-      <div class="chronos-badge-head">${icon} Interventi scaduti</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${n}</div>
-        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">con data superata</div>
-      </div>
-      <div class="chronos-badge-stats">${rows}</div>
-    </div>
-  `;
+  const totAttivi = Math.max((t.totale || 0) - (t.completati || 0), 1);
+  return renderMiniBadge({
+    nome: "Interventi scaduti",
+    cls: n === 0 ? "ok" : n > 20 ? "low" : "mid",
+    perc: n,
+    frac: "data superata",
+    segments: n > 0 ? [{ kind: "scad", width: Math.min((n / totAttivi) * 100, 100) }] : [],
+  });
 }
 
 function renderScadenzeBadge(scad) {
   if (scad?.error) return errorBadge("Scadenze impianti", scad.error);
   const t = scad.totale || {};
-  const prossime = (t.g30 || 0) + (t.g60 || 0);
   const scaduti = t.scaduti || 0;
-  const cls = scaduti > 0 ? "low" : prossime > 0 ? "mid" : "ok";
-  const icon = scaduti > 0 ? "⚠️" : prossime > 0 ? "🔔" : "✅";
-  return `
-    <div class="chronos-badge ${cls}">
-      <div class="chronos-badge-head">${icon} Scadenze impianti</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${scaduti + prossime}</div>
-        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">entro 60 giorni</div>
-      </div>
-      <div class="chronos-badge-stats">
-        <div class="row warn"><span>Già scaduti</span><strong>${scaduti}</strong></div>
-        <div class="row"><span>Entro 30 giorni</span><strong>${t.g30 || 0}</strong></div>
-        <div class="row"><span>31-60 giorni</span><strong>${t.g60 || 0}</strong></div>
-      </div>
-    </div>
-  `;
+  const prossime = (t.g30 || 0) + (t.g60 || 0);
+  const n = scaduti + prossime;
+  const tot = Math.max(t.con_scadenza || 1, 1);
+  return renderMiniBadge({
+    nome: "Scadenze impianti",
+    cls: scaduti > 0 ? "low" : prossime > 0 ? "mid" : "ok",
+    perc: n,
+    frac: "entro 60gg",
+    segments: [
+      { kind: "scad", width: (scaduti / tot) * 100 },
+      { kind: "daprog", width: (prossime / tot) * 100 },
+    ],
+  });
 }
 
 function renderCoperturaScadenzeBadge(scad) {
-  if (scad?.error) return errorBadge("Copertura dati", scad.error);
+  if (scad?.error) return errorBadge("Copertura", scad.error);
   const t = scad.totale || {};
   const perc = t.copertura_pct || 0;
-  const cls = perc > 80 ? "ok" : perc >= 50 ? "mid" : "low";
-  return `
-    <div class="chronos-badge ${cls}">
-      <div class="chronos-badge-head">📊 Copertura scadenze</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${perc}%</div>
-        <div class="chronos-badge-bar">
-          <div class="seg done" style="width:${perc}%"></div>
-        </div>
-      </div>
-      <div class="chronos-badge-stats">
-        <div class="row"><span>Impianti totali</span><strong>${t.impianti_totali || 0}</strong></div>
-        <div class="row ok"><span>Con data</span><strong>${t.con_scadenza || 0}</strong></div>
-        <div class="row warn"><span>Senza data</span><strong>${t.senza_data || 0}</strong></div>
-      </div>
-    </div>
-  `;
+  return renderMiniBadge({
+    nome: "Copertura dati",
+    cls: perc > 80 ? "ok" : perc >= 50 ? "mid" : "low",
+    perc: `${perc}%`,
+    frac: `${t.con_scadenza || 0}/${t.impianti_totali || 0}`,
+    segments: [{ kind: "done", width: perc }],
+  });
 }
 
 function renderSlotLiberiBadge(agenda) {
   if (agenda?.error) return errorBadge("Slot liberi", agenda.error);
   const tecnici = agenda.tecnici || [];
-  // Capienza settimanale tipica: 40 slot/tecnico (5gg × 8 interventi).
   const CAPIENZA = 40;
   const assegnati = tecnici.reduce((s, t) => s + (t.oggi || 0) + (t.settimana || 0), 0);
   const totaleSlot = tecnici.filter(t => t.tecnico !== "(NON ASSEGNATO)").length * CAPIENZA;
   const liberi = Math.max(totaleSlot - assegnati, 0);
   const perc = totaleSlot > 0 ? Math.round((liberi / totaleSlot) * 100) : 0;
-  const cls = perc > 50 ? "ok" : perc >= 20 ? "mid" : "low";
-  return `
-    <div class="chronos-badge ${cls}">
-      <div class="chronos-badge-head">✅ Slot liberi</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc ${cls}">${liberi}</div>
-        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">questa settimana</div>
-      </div>
-      <div class="chronos-badge-stats">
-        <div class="row"><span>Capienza stimata</span><strong>${totaleSlot}</strong></div>
-        <div class="row info"><span>Già programmati</span><strong>${assegnati}</strong></div>
-        <div class="row"><span>Saturazione</span><strong>${100 - perc}%</strong></div>
-      </div>
-    </div>
-  `;
+  return renderMiniBadge({
+    nome: "Slot liberi",
+    cls: perc > 50 ? "ok" : perc >= 20 ? "mid" : "low",
+    perc: liberi,
+    frac: `${perc}% libero`,
+    segments: totaleSlot > 0 ? [{ kind: "done", width: perc }] : [],
+  });
 }
 
 function errorBadge(titolo, msg) {
-  return `
-    <div class="chronos-badge low">
-      <div class="chronos-badge-head">${escapeHtml(titolo)}</div>
-      <div class="chronos-badge-center">
-        <div class="chronos-badge-perc low">⚠️</div>
-      </div>
-      <div class="chronos-badge-stats">
-        <div class="row warn"><span>Errore</span><strong style="font-size:0.75rem;">${escapeHtml(String(msg).slice(0, 60))}</strong></div>
-      </div>
-    </div>
-  `;
+  return renderMiniBadge({
+    nome: titolo,
+    cls: "low",
+    perc: "⚠️",
+    frac: String(msg).slice(0, 20),
+    segments: [],
+  });
 }
 
 async function showChronosDetail(nome) {
