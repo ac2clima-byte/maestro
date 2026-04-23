@@ -1,33 +1,78 @@
-// sw.js — Service Worker PWA per Web Share Target (Android).
-// Intercetta POST /share-target, estrae testo/file, li passa alla pagina
-// tramite una redirect con sessionStorage pre-popolato via IndexedDB.
+// sw.js — Service Worker PWA NEXO.
+// Compiti:
+//  1. Web Share Target: intercetta POST /share (multipart o x-www-form-urlencoded),
+//     salva payload in IDB+CacheStorage, redirect a / con ?sharedAt=<ts>
+//  2. Precache minimo (shell app) per PWA installabile
+//  3. Fetch handler: cache-first per le risorse statiche, network-only per API
 //
-// Non fa caching (app interamente online, già gestita da Firebase Hosting).
+// NON gestisce FCM background (quello resta in firebase-messaging-sw.js,
+// che è registrato separatamente con scope diverso quando FCM sarà attivo).
 
+const CACHE_NAME = "nexo-shell-v3";
 const SHARE_CACHE_NAME = "nexo-share-v1";
+const PRECACHE = ["/", "/index.html", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.all(PRECACHE.map(url => cache.add(url).catch(() => null)))
+    )
+  );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== SHARE_CACHE_NAME)
+        .map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
 });
 
-// ─── Web Share Target ─────────────────────────────────────────
-// Android condivide a questo endpoint. Gestiamo:
-//  - title + text + url (form-urlencoded o multipart)
-//  - files (audio/image/pdf/text)
-// Salviamo il payload in Cache Storage (file) + IndexedDB (meta) e redirect
-// alla home con ?sharedAt=<timestamp>. La pagina legge da CacheStorage/IDB.
+// ─── Web Share Target + network handler ───────────────────────
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Share Target POST
-  if (event.request.method === "POST" && url.pathname === "/share-target") {
+  // Share Target POST (manifest share_target.action = /share)
+  if (event.request.method === "POST" &&
+      (url.pathname === "/share" || url.pathname === "/share-target")) {
     event.respondWith(handleShareTarget(event.request));
     return;
   }
+
+  // Solo stessa origine — non intercettiamo API esterne (Firebase/Cloud Functions)
+  if (url.origin !== self.location.origin) return;
+
+  // Solo GET per cache
+  if (event.request.method !== "GET") return;
+
+  // Non cachare chiamate API Firestore/Functions (pattern /api/, /__/, /nexo-shared-file/)
+  if (url.pathname.startsWith("/__/") ||
+      url.pathname.startsWith("/api/") ||
+      url.pathname.startsWith("/nexo-shared-file/")) return;
+
+  // Cache-first con fallback network
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      if (cached) {
+        // Refresh in background
+        fetch(event.request).then(resp => {
+          if (resp.ok && resp.status === 200) {
+            caches.open(CACHE_NAME).then(c => c.put(event.request, resp.clone())).catch(() => {});
+          }
+        }).catch(() => {});
+        return cached;
+      }
+      return fetch(event.request).then(resp => {
+        if (resp.ok && resp.status === 200) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(event.request, clone)).catch(() => {});
+        }
+        return resp;
+      });
+    })
+  );
 });
 
 async function handleShareTarget(request) {
@@ -50,10 +95,8 @@ async function handleShareTarget(request) {
       fileSize: file ? file.size : 0,
     };
 
-    // Salva meta in IndexedDB
     await idbPut("shares", String(sharedAt), meta);
 
-    // Salva file in Cache Storage (chiave = /nexo-shared-file/<sharedAt>)
     if (file && file.size) {
       const cache = await caches.open(SHARE_CACHE_NAME);
       const fakeUrl = `/nexo-shared-file/${sharedAt}`;
@@ -66,7 +109,6 @@ async function handleShareTarget(request) {
       await cache.put(fakeUrl, resp);
     }
 
-    // Redirect alla home con sharedAt nel query string
     return Response.redirect(`/?sharedAt=${sharedAt}`, 303);
   } catch (e) {
     return new Response(`Share failed: ${e.message || e}`, { status: 500 });

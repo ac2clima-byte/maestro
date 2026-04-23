@@ -1,31 +1,22 @@
 {
-  "name": "NEXO — Hub dei Colleghi",
+  "name": "NEXO — Colleghi AI",
   "short_name": "NEXO",
-  "description": "Hub AI per ACG Clima Service: NEXUS chat, IRIS email, ARES interventi, ECHO comunicazioni.",
+  "description": "Piattaforma AI per ACG Clima Service: NEXUS chat + 11 Colleghi (IRIS, ECHO, ARES, CHRONOS, MEMO, CHARTA, EMPORION, DIKEA, DELPHI, PHARO, CALLIOPE).",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "theme_color": "#00d4ff",
   "lang": "it-IT",
   "categories": ["productivity", "business"],
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "share_target": {
-    "action": "/share-target",
+    "action": "/share",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
@@ -35,7 +26,7 @@
       "files": [
         {
           "name": "media",
-          "accept": ["audio/*", "image/*", "application/pdf", "text/*"]
+          "accept": ["audio/*", "image/*", "video/*", "application/pdf", "text/*"]
         }
       ]
     }

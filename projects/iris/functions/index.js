@@ -958,6 +958,50 @@ export const echoInboundWebhook = onRequest(
   }
 );
 
+// ─── ECHO WA Inbox poller (cosmina_inbox cross-project) ────────
+import { runWaInboxPoller } from "./handlers/echo-wa-inbox.js";
+
+// Scheduler: ogni 5 min analizza i nuovi WA inbound arrivati in cosmina_inbox
+// (progetto garbymobile-f89ac). Non trigger onCreate perché la function è su
+// progetto diverso.
+export const echoWaInboxPoller = onSchedule(
+  {
+    region: REGION,
+    schedule: "every 5 minutes",
+    timeZone: "Europe/Rome",
+    memory: "256MiB",
+    timeoutSeconds: 120,
+    secrets: [ANTHROPIC_API_KEY],
+  },
+  async () => {
+    try {
+      const r = await runWaInboxPoller({ limit: 20 });
+      logger.info("echoWaInboxPoller done", r);
+    } catch (e) {
+      logger.error("echoWaInboxPoller failed", { error: String(e) });
+    }
+  }
+);
+
+// HTTP trigger manuale per test/debug
+export const echoWaInboxRun = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 120, memory: "256MiB", secrets: [ANTHROPIC_API_KEY] },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+    try {
+      const limit = Math.min(Number(req.query?.limit || req.body?.limit || 20), 50);
+      const r = await runWaInboxPoller({ limit });
+      res.status(200).json(r);
+    } catch (e) {
+      logger.error("echoWaInboxRun failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
 // ─── NEXUS audio transcription ─────────────────────────────────
 import { handleNexusTranscribeAudio } from "./handlers/nexus-audio.js";
 

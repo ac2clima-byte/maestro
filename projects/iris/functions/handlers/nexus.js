@@ -10,6 +10,7 @@ import {
   handleRicercaEmailMittente, handleEmailSenzaRisposta, handleEmailPerCategoria,
   handleStatoLavagna, handleIrisAnalizzaEmail,
 } from "./iris.js";
+import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleMemoDossier } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
@@ -54,7 +55,10 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
     azioni: cerca_email_urgenti, email_oggi, email_totali, email_senza_risposta,
             cerca_email_mittente, email_per_categoria,
             analizza_email (parametri: {mittente?} — "analizza l'ultima mail di X")
-- echo       → uscita: sendWhatsApp, sendTelegram, sendEmail, sendPush
+- echo       → inbound/outbound WA:
+    azioni: sendWhatsApp, sendTelegram, sendEmail, sendPush,
+            wa_inbox (lista messaggi WA ricevuti, "messaggi WA in arrivo"),
+            wa_analizza_ultimo (analizza ultimo WA ricevuto)
 - ares       → interventi: interventi_aperti, apri_intervento, assegna_tecnico
 - chronos    → pianificazione:
     azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera
@@ -162,6 +166,17 @@ export const DIRECT_HANDLERS = [
     return (col === "iris" && /analizz/.test(az))
       || /^\s*analizz\w+\s+(?:l['a]?\s+)?(?:ultim[ao]\s+)?(?:mail|email|messaggio|questa)/.test(m);
   }, fn: handleIrisAnalizzaEmail },
+  // ECHO — WA inbox (intercetta messaggi WhatsApp ricevuti in COSMINA)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "echo" && /(wa.*analizz.*ultim|analizz.*ultim.*wa|ultimo.*whats)/.test(az))
+      || /analizz(?:a|mi)?\s+(?:l[''])?ultim[oa]\s+(wa|whatsapp|messaggio.*wa)/.test(m);
+  }, fn: handleWaInboxAnalyzeLast },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "echo" && /(wa.*inbox|wa.*arrivo|messaggi.*wa|whatsapp.*arrivo|whatsapp.*inbox)/.test(az))
+      || /messaggi\s+(wa|whatsapp)\s+(?:in\s+)?arriv|wa\s+(?:in\s+)?arriv|whatsapp\s+non.*gest/.test(m);
+  }, fn: handleWaInboxList },
   { match: (col, az) => col === "iris" && /urgen/.test(az), fn: handleContaEmailUrgenti },
   { match: (col, az) => col === "iris" && /(oggi|today|di_oggi|ricevute_oggi)/.test(az), fn: handleEmailOggi },
   { match: (col, az) => col === "iris" && /(total|conta_email|count|quant(e|it))/.test(az) && !/urgen/.test(az), fn: handleEmailTotali },
