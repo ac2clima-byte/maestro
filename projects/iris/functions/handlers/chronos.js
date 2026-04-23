@@ -638,3 +638,188 @@ export async function handleChronosScadenze(parametri) {
     data: { count: rows.length },
   };
 }
+
+// ─── Dashboard Agenda (per-tecnico oggi/settimana) ──────────────
+//
+// Scansiona bacheca_cards listName=INTERVENTI + inBacheca, aggrega per
+// tecnico con bucket temporali: oggi, settimana, futuro, scaduti.
+// Normalizza case tecnico (VICTOR/Victor → VICTOR).
+export async function buildAgendaDashboard(parametri = {}) {
+  const db = getCosminaDb();
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startTomorrow = new Date(startToday.getTime() + 86400000);
+  const endWeek = new Date(startToday.getTime() + 7 * 86400000);
+
+  const snap = await db.collection("bacheca_cards")
+    .where("listName", "==", "INTERVENTI")
+    .where("inBacheca", "==", true)
+    .limit(1500).get();
+
+  const tecMap = new Map(); // { tec: { tot, oggi, domani, settimana, scaduti, futuri, completati, senzaData, items[] } }
+  const getBucket = (tec) => {
+    if (!tecMap.has(tec)) tecMap.set(tec, {
+      tecnico: tec, totale: 0, oggi: 0, domani: 0, settimana: 0,
+      scaduti: 0, futuri: 0, completati: 0, senza_data: 0, items: [],
+    });
+    return tecMap.get(tec);
+  };
+
+  snap.forEach(d => {
+    const v = d.data() || {};
+    const rawTec = v.techName || (Array.isArray(v.techNames) && v.techNames[0]) || "(non assegnato)";
+    const tec = String(rawTec).toUpperCase().trim();
+    let due = null;
+    try { due = v.due?.toDate ? v.due.toDate() : (v.due ? new Date(v.due) : null); } catch {}
+    if (due && Number.isNaN(due.getTime())) due = null;
+    const stato = String(v.stato || "").toLowerCase();
+
+    const b = getBucket(tec);
+    b.totale++;
+
+    if (stato === "chiuso" || stato === "completato") {
+      b.completati++;
+    } else if (!due) {
+      b.senza_data++;
+    } else if (due < startToday) {
+      b.scaduti++;
+    } else if (due >= startToday && due < startTomorrow) {
+      b.oggi++;
+    } else if (due >= startTomorrow && due < endWeek) {
+      b.settimana++;
+    } else {
+      b.futuri++;
+    }
+
+    if (b.items.length < 50 && stato !== "chiuso") {
+      b.items.push({
+        id: d.id,
+        name: String(v.name || "").slice(0, 80),
+        cond: String(v.boardName || "").slice(0, 80),
+        due: due ? due.toISOString() : null,
+        stato: v.stato || null,
+      });
+    }
+  });
+
+  const tecnici = Array.from(tecMap.values())
+    .map(t => {
+      const attivi = t.totale - t.completati;
+      t.completamento_pct = t.totale > 0 ? Math.round((t.completati / t.totale) * 100) : 0;
+      t.aperti = attivi;
+      t.items.sort((a, b) => {
+        if (!a.due) return 1;
+        if (!b.due) return -1;
+        return a.due.localeCompare(b.due);
+      });
+      return t;
+    })
+    .sort((a, b) => (b.totale || 0) - (a.totale || 0));
+
+  const totGlobal = {
+    tecnici: tecnici.length,
+    totale: tecnici.reduce((s, t) => s + t.totale, 0),
+    oggi: tecnici.reduce((s, t) => s + t.oggi, 0),
+    settimana: tecnici.reduce((s, t) => s + t.settimana, 0),
+    scaduti: tecnici.reduce((s, t) => s + t.scaduti, 0),
+    completati: tecnici.reduce((s, t) => s + t.completati, 0),
+  };
+  totGlobal.completamento_pct = totGlobal.totale > 0
+    ? Math.round((totGlobal.completati / totGlobal.totale) * 100) : 0;
+
+  logger.info("dashboard agenda done", {
+    scanned: snap.size, tecnici: tecnici.length, oggi: totGlobal.oggi,
+  });
+
+  return { totale: totGlobal, tecnici };
+}
+
+// ─── Dashboard Scadenze (bucket temporali impianti) ─────────────
+//
+// Scansiona cosmina_impianti, estrae date scadenza da più campi candidati,
+// aggrega per bucket: scaduti, 30g, 60g, 90g, futuro.
+export async function buildScadenzeDashboard(parametri = {}) {
+  const db = getCosminaDb();
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const snap = await db.collection("cosmina_impianti").limit(1000).get();
+
+  const buckets = {
+    scaduti: { label: "Scaduti", items: [], count: 0, color: "#dc2626" },
+    g30: { label: "Entro 30 giorni", items: [], count: 0, color: "#f59e0b" },
+    g60: { label: "31-60 giorni", items: [], count: 0, color: "#eab308" },
+    g90: { label: "61-90 giorni", items: [], count: 0, color: "#3b82f6" },
+    futuri: { label: "Oltre 90 giorni", items: [], count: 0, color: "#64748b" },
+  };
+  let totaleImpianti = snap.size;
+  let senzaData = 0;
+
+  const dateFields = [
+    "data_prossima_manutenzione",
+    "data_prossimo_contributo",
+    "data_scadenza_dichiarazione",
+    "prossima_manutenzione",
+    "data_scadenza",
+    "scadenza_curit",
+    "dataScadenza",
+  ];
+
+  snap.forEach(d => {
+    const v = d.data() || {};
+    let scadenza = null;
+    let sorgente = null;
+    for (const f of dateFields) {
+      if (!v[f]) continue;
+      try {
+        const dt = v[f].toDate ? v[f].toDate() : new Date(v[f]);
+        if (!Number.isNaN(dt.getTime())) { scadenza = dt; sorgente = f; break; }
+      } catch {}
+    }
+    if (!scadenza) { senzaData++; return; }
+
+    const giorni = Math.ceil((scadenza - startToday) / 86400000);
+    const item = {
+      id: d.id,
+      cond: v.condominio || v.indirizzo || v.codice_impianto || d.id,
+      comune: v.comune || null,
+      modello: v.modello || null,
+      scadenza: scadenza.toISOString().slice(0, 10),
+      giorni,
+      sorgente,
+    };
+
+    let bucket;
+    if (giorni < 0) bucket = buckets.scaduti;
+    else if (giorni <= 30) bucket = buckets.g30;
+    else if (giorni <= 60) bucket = buckets.g60;
+    else if (giorni <= 90) bucket = buckets.g90;
+    else bucket = buckets.futuri;
+
+    bucket.count++;
+    if (bucket.items.length < 50) bucket.items.push(item);
+  });
+
+  for (const b of Object.values(buckets)) {
+    b.items.sort((a, b) => a.giorni - b.giorni);
+  }
+
+  const totaleConScadenza = Object.values(buckets).reduce((s, b) => s + b.count, 0);
+  const totGlobal = {
+    impianti_totali: totaleImpianti,
+    con_scadenza: totaleConScadenza,
+    senza_data: senzaData,
+    copertura_pct: totaleImpianti > 0 ? Math.round((totaleConScadenza / totaleImpianti) * 100) : 0,
+    scaduti: buckets.scaduti.count,
+    g30: buckets.g30.count,
+    g60: buckets.g60.count,
+    g90: buckets.g90.count,
+    futuri: buckets.futuri.count,
+  };
+
+  logger.info("dashboard scadenze done", {
+    impianti: totaleImpianti, con_scadenza: totaleConScadenza,
+  });
+
+  return { totale: totGlobal, buckets };
+}

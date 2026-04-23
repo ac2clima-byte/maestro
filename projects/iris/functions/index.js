@@ -27,7 +27,7 @@ import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
 import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
-import { handleChronosCampagne, handleChronosListaCampagne, buildCampagneDashboard } from "./handlers/chronos.js";
+import { handleChronosCampagne, handleChronosListaCampagne, buildCampagneDashboard, buildAgendaDashboard, buildScadenzeDashboard } from "./handlers/chronos.js";
 
 // ─── suggestReply (legacy IRIS draft helper) ───────────────────
 
@@ -694,6 +694,44 @@ export const chronosCampagneDashboard = onRequest(
       }
     } catch (e) {
       logger.error("chronosCampagneDashboard failed", { error: String(e), stack: String(e?.stack || "").slice(0, 500) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// CHRONOS — dashboard agenda tecnici (oggi / settimana / scaduti per tecnico)
+export const chronosAgendaDashboard = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 60, memory: "512MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "GET") { res.status(405).json({ error: "method_not_allowed" }); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+    try {
+      const data = await buildAgendaDashboard({});
+      res.status(200).json(data);
+    } catch (e) {
+      logger.error("chronosAgendaDashboard failed", { error: String(e), stack: String(e?.stack || "").slice(0, 500) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// CHRONOS — dashboard scadenze impianti (bucket 30/60/90g)
+export const chronosScadenzeDashboard = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 60, memory: "512MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "GET") { res.status(405).json({ error: "method_not_allowed" }); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+    try {
+      const data = await buildScadenzeDashboard({});
+      res.status(200).json(data);
+    } catch (e) {
+      logger.error("chronosScadenzeDashboard failed", { error: String(e), stack: String(e?.stack || "").slice(0, 500) });
       res.status(500).json({ error: String(e).slice(0, 300) });
     }
   }

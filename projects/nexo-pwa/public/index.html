@@ -537,6 +537,96 @@
   .chronos-camp-stats span.warn { color: #b91c1c; font-weight: 600; }
   .chronos-camp-stats span.muted { color: var(--text-muted); }
 
+  /* ── CHRONOS tabs + expandable cards ─────────────────────── */
+  .chronos-tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 2px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .chronos-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 10px 16px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .chronos-tab:hover { color: var(--text); }
+  .chronos-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+    font-weight: 600;
+  }
+
+  .chronos-expandable {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: box-shadow 0.15s;
+  }
+  .chronos-expandable:hover { box-shadow: var(--shadow-md); }
+  .chronos-expand-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    cursor: pointer;
+    user-select: none;
+    gap: 12px;
+  }
+  .chronos-expand-head:hover { background: rgba(0, 0, 0, 0.02); }
+  .chronos-expand-title { font-weight: 600; color: var(--text); font-size: 1rem; }
+  .chronos-expand-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+  .chronos-expand-chev {
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    display: inline-block;
+    font-size: 1.1rem;
+  }
+  .chronos-expandable.expanded .chronos-expand-chev { transform: rotate(180deg); }
+  .chronos-expand-bar {
+    display: flex;
+    height: 6px;
+    background: #f1f5f9;
+    margin: 0 16px 0;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .chronos-expand-bar .seg { height: 100%; transition: width 0.2s; }
+  .chronos-expand-bar .seg.done { background: #16a34a; }
+  .chronos-expand-bar .seg.prog { background: #3b82f6; }
+  .chronos-expand-bar .seg.scad { background: #dc2626; }
+  .chronos-expand-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+    padding: 0 16px;
+  }
+  .chronos-expandable.expanded .chronos-expand-body {
+    max-height: 1200px;
+    padding: 10px 16px 16px;
+    border-top: 1px solid var(--border);
+    overflow: auto;
+  }
+  .badge-state {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 500;
+  }
+
   /* ── PHARO dashboard ───────────────────────────────────── */
   .pharo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
   @media (max-width: 760px) { .pharo-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -1622,6 +1712,11 @@ const PHARO_RULES_DEFAULT = [
 
 // ── CHRONOS dashboard (campagne + scadenze) ────────────────────
 const CHRONOS_CAMPAGNE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosCampagneDashboard";
+const CHRONOS_AGENDA_URL   = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosAgendaDashboard";
+const CHRONOS_SCADENZE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosScadenzeDashboard";
+
+let _chronosActiveTab = "campagne";
+const _chronosLoaded = { campagne: false, agenda: false, scadenze: false };
 
 function renderChronosPage(c) {
   $("#page").innerHTML = `
@@ -1629,24 +1724,37 @@ function renderChronosPage(c) {
       <div class="collega-header">
         <div class="icon">${c.icon}</div>
         <div class="titles">
-          <h2>${escapeHtml(c.name)} — Campagne operative</h2>
-          <div class="domain">Pianificatore · dashboard campagne da COSMINA bacheca_cards</div>
-          <span class="badge live">✅ Attivo v0.3</span>
+          <h2>${escapeHtml(c.name)} — Pianificatore</h2>
+          <div class="domain">Campagne · agenda tecnici · scadenze manutenzione</div>
+          <span class="badge live">✅ Attivo v0.4</span>
         </div>
       </div>
 
-      <div class="pharo-section">
-        <h3>
-          📋 Campagne attive
-          <button class="btn-small" id="chronosRefresh">↻ Aggiorna</button>
-        </h3>
+      <div class="chronos-tabs">
+        <button class="chronos-tab active" data-tab="campagne">📋 Campagne</button>
+        <button class="chronos-tab" data-tab="agenda">👷 Agenda</button>
+        <button class="chronos-tab" data-tab="scadenze">📆 Scadenze</button>
+        <button class="btn-small" id="chronosRefresh" style="margin-left:auto;">↻ Aggiorna</button>
+      </div>
+
+      <div class="pharo-section chronos-pane" id="chronosPaneCampagne">
         <div id="chronosBanner" style="margin-bottom:10px;"></div>
         <div id="chronosCampagne"><div class="widget-empty">Caricamento…</div></div>
       </div>
 
+      <div class="pharo-section chronos-pane" id="chronosPaneAgenda" style="display:none;">
+        <div id="chronosAgendaSummary" style="margin-bottom:12px;"></div>
+        <div id="chronosAgenda"><div class="widget-empty">Apri il tab per caricare…</div></div>
+      </div>
+
+      <div class="pharo-section chronos-pane" id="chronosPaneScadenze" style="display:none;">
+        <div id="chronosScadenzeSummary" style="margin-bottom:12px;"></div>
+        <div id="chronosScadenze"><div class="widget-empty">Apri il tab per caricare…</div></div>
+      </div>
+
       <div class="pharo-section" id="chronosDetailSection" style="display:none;">
         <h3>
-          <span id="chronosDetailTitle">Dettaglio campagna</span>
+          <span id="chronosDetailTitle">Dettaglio</span>
           <button class="btn-small" id="chronosCloseDetail">✕ Chiudi</button>
         </h3>
         <div id="chronosDetail"></div>
@@ -1658,7 +1766,10 @@ function renderChronosPage(c) {
     </div>
   `;
 
-  $("#chronosRefresh").addEventListener("click", loadChronosCampagne);
+  document.querySelectorAll(".chronos-tab").forEach(el => {
+    el.addEventListener("click", () => switchChronosTab(el.dataset.tab));
+  });
+  $("#chronosRefresh").addEventListener("click", () => loadChronosTab(_chronosActiveTab, true));
   $("#chronosCloseDetail").addEventListener("click", () => {
     $("#chronosDetailSection").style.display = "none";
   });
@@ -1668,7 +1779,30 @@ function renderChronosPage(c) {
     if (input) { input.value = "come va la campagna Letture WalkBy?"; input.focus(); }
   });
 
-  loadChronosCampagne();
+  _chronosActiveTab = "campagne";
+  _chronosLoaded.campagne = false;
+  _chronosLoaded.agenda = false;
+  _chronosLoaded.scadenze = false;
+  loadChronosTab("campagne");
+}
+
+function switchChronosTab(tab) {
+  _chronosActiveTab = tab;
+  document.querySelectorAll(".chronos-tab").forEach(el => {
+    el.classList.toggle("active", el.dataset.tab === tab);
+  });
+  document.querySelectorAll(".chronos-pane").forEach(el => { el.style.display = "none"; });
+  const paneId = tab === "campagne" ? "chronosPaneCampagne" : tab === "agenda" ? "chronosPaneAgenda" : "chronosPaneScadenze";
+  const pane = document.getElementById(paneId);
+  if (pane) pane.style.display = "";
+  if (!_chronosLoaded[tab]) loadChronosTab(tab);
+}
+
+function loadChronosTab(tab, force = false) {
+  if (force) _chronosLoaded[tab] = false;
+  if (tab === "campagne") loadChronosCampagne();
+  else if (tab === "agenda") loadChronosAgenda();
+  else if (tab === "scadenze") loadChronosScadenze();
 }
 
 async function loadChronosCampagne() {
@@ -1796,6 +1930,172 @@ async function showChronosDetail(nome) {
   } catch (err) {
     content.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
   }
+}
+
+// ── CHRONOS Agenda ─────────────────────────────────────────────
+async function loadChronosAgenda() {
+  const container = $("#chronosAgenda");
+  const summary = $("#chronosAgendaSummary");
+  container.innerHTML = `<div class="widget-empty">Caricamento agenda tecnici…</div>`;
+  summary.innerHTML = "";
+  try {
+    const idToken = await getAuthIdToken();
+    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
+    const resp = await fetch(CHRONOS_AGENDA_URL, { headers });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    _chronosLoaded.agenda = true;
+
+    const t = data.totale || {};
+    summary.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+        <div class="pharo-kpi"><div class="label">Tecnici</div><div class="value">${t.tecnici || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">Totale</div><div class="value">${t.totale || 0}</div></div>
+        <div class="pharo-kpi ${t.oggi > 0 ? "info" : ""}"><div class="label">Oggi</div><div class="value">${t.oggi || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">Settimana</div><div class="value">${t.settimana || 0}</div></div>
+        <div class="pharo-kpi ${t.scaduti > 0 ? "err" : ""}"><div class="label">Scaduti</div><div class="value">${t.scaduti || 0}</div></div>
+        <div class="pharo-kpi ok"><div class="label">% Completati</div><div class="value">${t.completamento_pct || 0}%</div></div>
+      </div>`;
+
+    const tecnici = data.tecnici || [];
+    if (!tecnici.length) {
+      container.innerHTML = `<div class="widget-empty">Nessun tecnico con interventi attivi.</div>`;
+      return;
+    }
+    container.innerHTML = tecnici.map(renderAgendaTecnicoCard).join("");
+    container.querySelectorAll(".chronos-expandable").forEach(el => {
+      el.querySelector(".chronos-expand-head").addEventListener("click", () => {
+        el.classList.toggle("expanded");
+      });
+    });
+  } catch (err) {
+    container.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+function renderAgendaTecnicoCard(t) {
+  const perc = t.completamento_pct || 0;
+  const percClass = perc === 100 ? "done" : perc >= 70 ? "high" : perc >= 30 ? "mid" : "low";
+  const aperti = t.aperti || 0;
+  const items = t.items || [];
+  const rows = items.slice(0, 30).map(it => {
+    const ora = it.due ? new Date(it.due).toLocaleString("it-IT", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "—";
+    const condShort = escapeHtml(String(it.cond || it.name || "?").slice(0, 70));
+    const statoLabel = escapeHtml(it.stato || "aperto");
+    return `<tr><td>${ora}</td><td>${condShort}</td><td><span class="badge-state">${statoLabel}</span></td></tr>`;
+  }).join("");
+  const more = items.length > 30 ? `<tr><td colspan="3" style="color:var(--text-muted);text-align:center;">…e altri ${items.length - 30}</td></tr>` : "";
+
+  return `
+    <div class="chronos-expandable">
+      <div class="chronos-expand-head">
+        <div>
+          <div class="chronos-expand-title">👷 ${escapeHtml(t.tecnico)}</div>
+          <div class="chronos-expand-sub">${t.totale} interventi · ${t.oggi} oggi · ${t.settimana} settimana · ${t.scaduti} scaduti</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="chronos-camp-perc ${percClass}">${perc}%</div>
+          <span class="chronos-expand-chev">▾</span>
+        </div>
+      </div>
+      <div class="chronos-expand-bar">
+        <div class="seg done" style="width:${t.totale > 0 ? (t.completati / t.totale) * 100 : 0}%"></div>
+        <div class="seg prog" style="width:${t.totale > 0 ? (t.oggi + t.settimana) / t.totale * 100 : 0}%"></div>
+        <div class="seg scad" style="width:${t.totale > 0 ? (t.scaduti / t.totale) * 100 : 0}%"></div>
+      </div>
+      <div class="chronos-expand-body">
+        <div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">
+          ${t.completati} completati · ${aperti} aperti · ${t.senza_data} senza data
+        </div>
+        ${items.length === 0 ? '<div class="widget-empty">Nessun intervento aperto.</div>' : `
+        <table class="pharo-table">
+          <thead><tr><th>Data/ora</th><th>Condominio</th><th>Stato</th></tr></thead>
+          <tbody>${rows}${more}</tbody>
+        </table>`}
+      </div>
+    </div>
+  `;
+}
+
+// ── CHRONOS Scadenze ───────────────────────────────────────────
+async function loadChronosScadenze() {
+  const container = $("#chronosScadenze");
+  const summary = $("#chronosScadenzeSummary");
+  container.innerHTML = `<div class="widget-empty">Caricamento scadenze…</div>`;
+  summary.innerHTML = "";
+  try {
+    const idToken = await getAuthIdToken();
+    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
+    const resp = await fetch(CHRONOS_SCADENZE_URL, { headers });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    _chronosLoaded.scadenze = true;
+
+    const t = data.totale || {};
+    summary.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+        <div class="pharo-kpi"><div class="label">Impianti</div><div class="value">${t.impianti_totali || 0}</div></div>
+        <div class="pharo-kpi ${t.copertura_pct < 50 ? "warn" : "ok"}"><div class="label">Copertura dati</div><div class="value">${t.copertura_pct || 0}%</div></div>
+        <div class="pharo-kpi ${t.scaduti > 0 ? "err" : ""}"><div class="label">Scaduti</div><div class="value">${t.scaduti || 0}</div></div>
+        <div class="pharo-kpi ${t.g30 > 0 ? "warn" : ""}"><div class="label">≤30g</div><div class="value">${t.g30 || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">31-60g</div><div class="value">${t.g60 || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">61-90g</div><div class="value">${t.g90 || 0}</div></div>
+      </div>
+      ${t.copertura_pct < 50 ? `<div style="color:var(--text-muted);font-size:0.85rem;margin-top:8px;">⚠️ Solo ${t.con_scadenza}/${t.impianti_totali} impianti hanno una data di scadenza registrata.</div>` : ""}
+    `;
+
+    const buckets = data.buckets || {};
+    const order = ["scaduti", "g30", "g60", "g90", "futuri"];
+    const html = order
+      .filter(k => buckets[k] && buckets[k].count > 0)
+      .map(k => renderScadenzaBucket(k, buckets[k], t.impianti_totali || 1))
+      .join("");
+    container.innerHTML = html || `<div class="widget-empty">Nessuna scadenza registrata nei prossimi 90 giorni.</div>`;
+    container.querySelectorAll(".chronos-expandable").forEach(el => {
+      el.querySelector(".chronos-expand-head").addEventListener("click", () => {
+        el.classList.toggle("expanded");
+      });
+    });
+  } catch (err) {
+    container.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+function renderScadenzaBucket(key, b, totaleImpianti) {
+  const perc = totaleImpianti > 0 ? Math.round((b.count / totaleImpianti) * 100) : 0;
+  const percClass = key === "scaduti" ? "low" : key === "g30" ? "mid" : key === "g60" ? "mid" : "high";
+  const icon = key === "scaduti" ? "⚠️" : key === "g30" ? "🔔" : "📆";
+
+  const rows = (b.items || []).slice(0, 30).map(it => {
+    const d = new Date(it.scadenza).toLocaleDateString("it-IT");
+    const giorniLabel = it.giorni < 0 ? `${Math.abs(it.giorni)}g fa` : `tra ${it.giorni}g`;
+    const cond = escapeHtml(String(it.cond).slice(0, 60));
+    const comune = it.comune ? `<span style="color:var(--text-muted);"> · ${escapeHtml(it.comune)}</span>` : "";
+    return `<tr><td>${d}</td><td>${giorniLabel}</td><td>${cond}${comune}</td></tr>`;
+  }).join("");
+  const more = (b.items || []).length > 30 ? `<tr><td colspan="3" style="color:var(--text-muted);text-align:center;">…e altri ${b.items.length - 30}</td></tr>` : "";
+
+  return `
+    <div class="chronos-expandable" style="border-left:4px solid ${b.color};">
+      <div class="chronos-expand-head">
+        <div>
+          <div class="chronos-expand-title">${icon} ${escapeHtml(b.label)}</div>
+          <div class="chronos-expand-sub">${b.count} impianti · ${perc}% del parco</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="chronos-camp-perc ${percClass}">${b.count}</div>
+          <span class="chronos-expand-chev">▾</span>
+        </div>
+      </div>
+      <div class="chronos-expand-body">
+        ${(b.items || []).length === 0 ? '<div class="widget-empty">Nessun dato.</div>' : `
+        <table class="pharo-table">
+          <thead><tr><th>Data</th><th>Scadenza</th><th>Impianto</th></tr></thead>
+          <tbody>${rows}${more}</tbody>
+        </table>`}
+      </div>
+    </div>
+  `;
 }
 
 // ── ARES dashboard ─────────────────────────────────────────────
