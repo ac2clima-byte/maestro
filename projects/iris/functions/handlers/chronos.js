@@ -6,8 +6,13 @@ import { getCosminaDb, logger } from "./shared.js";
 //   - cosmina_campagne: anagrafica
 //   - bacheca_cards: interventi operativi con campagna_id/campagna_nome
 //
-// Stato intervento derivato da labels (campo stato è uniforme "aperto"):
-//   da_non_fare > non_fatto > completato > scaduto > programmato > da_programmare
+// Regole reali COSMINA (verificate via dump SPEGNIMENTO 2026, 407 cards):
+//   stato="chiuso"          → completato     (371)
+//   stato="aperto" + due<now → scaduto         (7)
+//   stato="aperto" + due>=now → programmato    (21)
+//   stato="aperto" + no due  → da_programmare  (8)
+// + label overrides: DA NON FARE, NON FATTO, ORARIO RIDOTTO (contatore extra)
+// Nota: archiviato e inBacheca NON indicano completamento.
 
 function extractLabelNames(card) {
   const labels = card.labels || [];
@@ -20,6 +25,7 @@ function extractLabelNames(card) {
 
 function classifyCampaignCard(card, now = new Date()) {
   const labels = extractLabelNames(card);
+  const stato = String(card.stato || "").toLowerCase();
 
   // Due date
   let due = null;
@@ -30,15 +36,27 @@ function classifyCampaignCard(card, now = new Date()) {
     } catch { due = null; }
   }
 
+  // Label overrides (hanno priorità sui derivati)
   if (labels.includes("DA NON FARE") || labels.includes("NON DA FARE")) return "da_non_fare";
   if (labels.includes("NON FATTO")) return "non_fatto";
-  if (card.archiviato === true || labels.includes("COMPLETATO") || labels.includes("FATTO") || card.inBacheca === false) {
-    return "completato";
+
+  // Ground truth: stato da COSMINA
+  if (stato === "chiuso" || stato === "completato" || stato === "fatto") return "completato";
+
+  // Stato aperto (o mancante) → distingui via due date.
+  // COSMINA considera "scaduto" solo se la data è STRETTAMENTE precedente
+  // al giorno di oggi (non all'istante); stesso giorno = programmato.
+  if (due) {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (due < startOfToday) return "scaduto";
+    return "programmato";
   }
-  if (due && due < now) return "scaduto";
-  if (due) return "programmato";
-  if (labels.includes("PROGRAMMATO") && !due) return "programmato"; // label senza date
   return "da_programmare";
+}
+
+function hasOrarioRidotto(card) {
+  const labels = extractLabelNames(card);
+  return labels.includes("ORARIO RIDOTTO");
 }
 
 async function fetchCampagnaCards(campagnaNome, campagnaId) {
@@ -72,6 +90,7 @@ function aggregateCampaignStats(cards) {
     programmati: 0,
     scaduti: 0,
     da_programmare: 0,
+    orario_ridotto: 0,
     non_fatti: 0,
     da_non_fare: 0,
   };
@@ -87,6 +106,7 @@ function aggregateCampaignStats(cards) {
       da_non_fare: "da_non_fare",
     }[k];
     if (mapped) stats[mapped]++;
+    if (hasOrarioRidotto(c)) stats.orario_ridotto++;
     const tec = c.techName || (Array.isArray(c.techNames) && c.techNames[0]) || "(non assegnato)";
     perTecnico[tec] = (perTecnico[tec] || 0) + 1;
   }
@@ -180,6 +200,7 @@ export async function buildCampagneDashboard(parametri = {}) {
         scanned++;
         const v = d.data() || {};
         c._cards.push({
+          stato: v.stato || null,
           archiviato: v.archiviato === true,
           inBacheca: v.inBacheca !== false,
           labels: v.labels || null,

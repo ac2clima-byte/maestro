@@ -1739,12 +1739,13 @@ function renderCampagnaCard(c) {
       </div>
       <div class="chronos-camp-stats">
         <span title="Totale"><strong>${tot}</strong> totali</span>
-        <span class="ok">✅ ${comp}</span>
-        <span class="info">📅 ${prog}</span>
-        <span class="warn">⚠️ ${scad}</span>
-        <span class="muted">📝 ${daProg}</span>
-        <span class="muted">❌ ${stats.non_fatti || 0}</span>
-        <span class="muted">🚫 ${stats.da_non_fare || 0}</span>
+        <span class="ok" title="Completati">✅ ${comp}</span>
+        <span class="info" title="Programmati">📅 ${prog}</span>
+        <span class="warn" title="Scaduti">⚠️ ${scad}</span>
+        <span class="muted" title="Da programmare">📝 ${daProg}</span>
+        <span class="muted" title="Orario ridotto">🕒 ${stats.orario_ridotto || 0}</span>
+        <span class="muted" title="Non fatti">❌ ${stats.non_fatti || 0}</span>
+        <span class="muted" title="Da non fare">🚫 ${stats.da_non_fare || 0}</span>
       </div>
     </div>
   `;
@@ -1779,6 +1780,7 @@ async function showChronosDetail(nome) {
         <div class="pharo-kpi"><div class="label">Programmati</div><div class="value">${stats.programmati || 0}</div></div>
         <div class="pharo-kpi ${stats.scaduti > 0 ? "err" : ""}"><div class="label">Scaduti</div><div class="value">${stats.scaduti || 0}</div></div>
         <div class="pharo-kpi ${stats.da_programmare > 0 ? "warn" : ""}"><div class="label">Da Programmare</div><div class="value">${stats.da_programmare || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">Orario Ridotto</div><div class="value">${stats.orario_ridotto || 0}</div></div>
         <div class="pharo-kpi"><div class="label">Non Fatti</div><div class="value">${stats.non_fatti || 0}</div></div>
         <div class="pharo-kpi"><div class="label">Da Non Fare</div><div class="value">${stats.da_non_fare || 0}</div></div>
       </div>
