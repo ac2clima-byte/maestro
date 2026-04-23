@@ -1069,7 +1069,7 @@ export const nexusTts = onRequest(
 
     const body = req.body || {};
     const text = String(body.text || "").trim();
-    const voice = String(body.voice || "it-IT-DiegoNeural");
+    const voice = String(body.voice || "it-IT-ElsaNeural");
     const rate = String(body.rate || "+10%");
     if (!text) { res.status(400).json({ error: "missing_text" }); return; }
     if (text.length > 3000) { res.status(400).json({ error: "text_too_long", max: 3000 }); return; }

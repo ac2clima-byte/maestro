@@ -8,7 +8,7 @@
 //
 // Endpoint:
 //   POST /nexusTts
-//   Body: { text: "...", voice?: "it-IT-DiegoNeural", rate?: "+10%" }
+//   Body: { text: "...", voice?: "it-IT-ElsaNeural", rate?: "+10%" }
 //   Return: Content-Type: audio/mpeg, body: MP3 binary
 //
 // Cache: se text già generato di recente → restituisce da Firestore.
@@ -18,7 +18,7 @@ import crypto from "crypto";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import { db, FieldValue, logger } from "./shared.js";
 
-const DEFAULT_VOICE = "it-IT-DiegoNeural";
+const DEFAULT_VOICE = "it-IT-ElsaNeural";
 const DEFAULT_RATE = "+10%";
 const MAX_TEXT_LEN = 3000;
 const CACHE_COLLECTION = "nexus_tts_cache";
