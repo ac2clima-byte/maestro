@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CHRONOS campagne — NEXO vs COSMINA</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#0284c7; border-bottom:2px solid #bae6fd; padding-bottom:10px; }
+  h2 { color:#0369a1; margin-top:28px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow-x:auto; font-size:0.85rem; white-space: pre-wrap; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.75rem; text-transform:uppercase; color:#475569; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .ok { color:#166534; font-weight:700; }
+  .ko { color:#b91c1c; font-weight:700; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:0.75rem; font-weight:600; background:#dcfce7; color:#166534; }
+  .tag.arch { background:#fef3c7; color:#b45309; }
+</style>
+</head>
+<body>
+
+<h1>✅ CHRONOS campagne — NEXO vs COSMINA allineati</h1>
+
+<div class="card">
+  <h2>🎯 Problema iniziale</h2>
+  <p>Alberto vede sulla dashboard NEXO che "Letture WalkBy ACG FS 2026" ha <strong>13 interventi</strong>,
+  ma su COSMINA ne vede <strong>97</strong>. Anche altre campagne erano truncate.</p>
+</div>
+
+<div class="card">
+  <h2>🔍 Root cause</h2>
+  <ul>
+    <li><code>handleChronosListaCampagne</code> contava le cards scansionando <code>bacheca_cards</code>
+    con filtri ristretti su <code>listName</code> (LETTURE RIP / INTERVENTI / ACCENSIONE/SPEGNIMENTO)
+    e poi raggruppando per <code>campagna_nome</code>. Il limit(3000) tagliava le campagne grandi.</li>
+    <li>COSMINA stesso (<code>acg_suite/COSMINA/firebase/functions/src/campagne.js:121,148,1215</code>)
+    filtra sempre via <code>.where("campagna_id", "==", campagnaId)</code>. NEXO ora fa lo stesso.</li>
+  </ul>
+</div>
+
+<h2>📊 Verifica numeri (test locale 2026-04-23)</h2>
+<div class="card">
+<p>Ground truth: query diretta a Firestore <code>garbymobile-f89ac/bacheca_cards</code>
+via <code>count().get()</code> con <code>where("campagna_id", "==", id)</code>.</p>
+<table>
+<thead>
+  <tr>
+    <th>Campagna</th>
+    <th class="num">Ground Truth<br>(COSMINA)</th>
+    <th class="num">NEXO Dashboard<br>(buildCampagneDashboard)</th>
+    <th class="num">NEXO Lista<br>(handleChronosListaCampagne)</th>
+    <th>Match</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td>SPEGNIMENTO 2026</td><td class="num">407</td><td class="num">407</td><td class="num">407</td><td class="ok">✅</td></tr>
+  <tr><td>Letture WalkBy ACG FS 2026</td><td class="num">97</td><td class="num">97</td><td class="num">97</td><td class="ok">✅</td></tr>
+  <tr><td>LETTURE DIRETTE FS</td><td class="num">25</td><td class="num">25</td><td class="num">25</td><td class="ok">✅</td></tr>
+  <tr><td>Letture WalkBy GZT FS 2026</td><td class="num">13</td><td class="num">13</td><td class="num">13</td><td class="ok">✅</td></tr>
+  <tr><td>Predisposizione antenne</td><td class="num">13</td><td class="num">13</td><td class="num">13</td><td class="ok">✅</td></tr>
+  <tr><td>SVUOTAMENTI 2026</td><td class="num">9</td><td class="num">9</td><td class="num">9</td><td class="ok">✅</td></tr>
+  <tr><td>RIEMPIMENTI 2026</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="ok">✅</td></tr>
+  <tr style="background:#fef3c7;"><td>CAMBIO ORA S/L 2026 <span class="tag arch">archiviata</span></td><td class="num">127</td><td class="num">—</td><td class="num">—</td><td>escluso (archiviata)</td></tr>
+  <tr style="background:#fef3c7;"><td>POSTELEGRAFONICI — CAMBIO CONTATORI <span class="tag arch">archiviata</span></td><td class="num">3</td><td class="num">—</td><td class="num">—</td><td>escluso (archiviata)</td></tr>
+  <tr style="background:#fef3c7;"><td>Letture Rip Gzt 31/01/26 <span class="tag arch">archiviata</span></td><td class="num">20</td><td class="num">—</td><td class="num">—</td><td>escluso (archiviata)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>🤖 Test NEXUS (Haiku router)</h2>
+<div class="card">
+<h3>Query: "come va la campagna Letture WalkBy ACG?"</h3>
+<pre>📋 Campagna: Letture WalkBy ACG FS 2026
+Fine Stagione 2026
+Avanzamento: █████░░░░░░░░░░░░░░░ 26% completato
+  · ✅ Completati: 25
+  · 📅 Programmati: 55
+  · ⚠️ Scaduti: 0
+  · 📝 Da Programmare: 17
+  · ❌ Non Fatti: 0
+  · 🚫 Da Non Fare: 0
+  ─────────────
+  · Totale: 97       ← prima era 13 ❌, ora 97 ✅
+Per tecnico: MARCO=80, (non assegnato)=17</pre>
+</div>
+
+<h2>🛠️ File modificato</h2>
+<div class="card">
+<ul>
+  <li><code>projects/iris/functions/handlers/chronos.js</code>
+    <ul>
+      <li><code>fetchCampagnaCards</code>: prioritizza <code>campagna_id</code></li>
+      <li><code>buildCampagneDashboard</code>: query per <code>campagna_id</code> quando disponibile</li>
+      <li><code>handleChronosListaCampagne</code>: <code>count().get()</code> mirato per ogni campagna</li>
+    </ul>
+  </li>
+</ul>
+<p>Commit: <code>55fb947 — fix(chronos): numeri campagne allineati a COSMINA</code></p>
+</div>
+
+<h2>🚀 Deploy</h2>
+<div class="card">
+<ul>
+  <li>✅ <code>chronosCampagneDashboard</code> aggiornato (europe-west1, 512MiB)</li>
+  <li>✅ <code>nexusRouter</code> aggiornato (europe-west1)</li>
+  <li>✅ Push <code>origin/main</code></li>
+</ul>
+<p>Endpoint: <a href="https://nexo-hub-15f2d.web.app/#collega:chronos">https://nexo-hub-15f2d.web.app/#collega:chronos</a></p>
+<p style="color:#64748b;font-size:0.88rem;">Per vedere i numeri corretti sulla PWA: hard refresh con<br>
+<code>caches.keys().then(k=>k.forEach(c=>caches.delete(c))); location.reload(true);</code></p>
+</div>
+
+</body>
+</html>
