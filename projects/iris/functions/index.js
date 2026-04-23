@@ -575,6 +575,20 @@ async function runIrisPoller() {
   return { processed, skippedExisting, classifyErrors, latestReceivedIso };
 }
 
+// ⚠️ DISABILITATO 2026-04-23: il server Exchange on-prem (remote.gruppobadano.it)
+// non è raggiungibile da Cloud Function su europe-west1. Il poller EWS gira ora
+// su Hetzner (178.104.88.86) via cron ogni 5 min. Vedi:
+//   scripts/iris_hetzner_poller.py
+//   scripts/hetzner-setup.sh
+//
+// Lasciato `irisPollerRun` come HTTP trigger manuale per debug (richiede
+// admin_key). In futuro potrà essere rimosso del tutto quando il poller
+// Hetzner sarà stabile.
+//
+// Per riabilitare gli scheduler GCP (se un giorno Exchange diventa pubblico):
+//   - rimuovi `/*` e `*/` qui sotto
+//   - rideploya: `firebase deploy --only functions:irisPoller,functions:irisPollScheduled`
+/*
 export const irisPoller = onSchedule(
   { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "512MiB", timeoutSeconds: 120, secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL] },
   async () => {
@@ -583,6 +597,14 @@ export const irisPoller = onSchedule(
   }
 );
 
+export const irisPollScheduled = onSchedule(
+  { region: REGION, schedule: "every 1 hours", timeZone: "Europe/Rome", memory: "128MiB" },
+  async () => { logger.info("irisPollScheduled: deprecated, noop. Use irisPoller."); }
+);
+*/
+
+// HTTP trigger manuale: ancora disponibile per debug (richiede admin_key).
+// NON gira in automatico: il polling ora è su Hetzner.
 export const irisPollerRun = onRequest(
   { region: REGION, secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL], timeoutSeconds: 120, memory: "512MiB", cors: false },
   async (req, res) => {
@@ -593,12 +615,6 @@ export const irisPollerRun = onRequest(
     try { const r = await runIrisPoller(); res.status(200).json(r); }
     catch (e) { res.status(500).json({ error: String(e).slice(0, 300) }); }
   }
-);
-
-// LEGACY dormient (vecchi scheduler job)
-export const irisPollScheduled = onSchedule(
-  { region: REGION, schedule: "every 1 hours", timeZone: "Europe/Rome", memory: "128MiB" },
-  async () => { logger.info("irisPollScheduled: deprecated, noop. Use irisPoller."); }
 );
 
 // ─── PHARO schedulers + endpoints ──────────────────────────────
