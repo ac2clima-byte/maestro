@@ -22,6 +22,7 @@ import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
   parseAndValidateIntent, callHaikuForIntent, loadConversationContext,
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
+  tryInterceptDevRequest,
 } from "./handlers/nexus.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
@@ -236,6 +237,29 @@ export const nexusRouter = onRequest(
 
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
+
+    // Dev request: se l'utente chiede modifiche UI/feature/bug, salva in coda
+    try {
+      const devReq = await tryInterceptDevRequest({ userMessage, userId, sessionId });
+      if (devReq && devReq._devRequestHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: devReq.content,
+          direct: { data: devReq.data || null, failed: false },
+          stato: "completata",
+          modello: "dev_request",
+        });
+        res.status(200).json({
+          intent: { collega: "nexus", azione: "richiesta_sviluppo", parametri: {}, rispostaUtente: devReq.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: devReq.data || null, failed: false },
+          modello: "dev_request", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("dev_request intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
 
     // Analisi diretta testo lungo / incollato (bypass routing NEXUS)
     try {

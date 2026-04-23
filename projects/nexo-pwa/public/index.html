@@ -258,16 +258,57 @@
   .digest-summary .num { font-weight: 700; }
   .digest-summary .num.urgent { color: var(--err); }
   .digest-summary .num.attn { color: var(--warn); }
+  /* Swipe wrapper: contiene il bg rosso e la riga scorrevole */
+  .digest-row-wrap {
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+  }
+  .digest-row-wrap:first-child { border-top: none; }
+  .digest-row-wrap.swiping .digest-top-row { transition: none; }
+  .digest-row-wrap.removing {
+    max-height: 60px;
+    transition: max-height 0.3s ease, opacity 0.3s ease, border-top-width 0.3s;
+    opacity: 1;
+  }
+  .digest-row-wrap.removing.gone {
+    max-height: 0;
+    opacity: 0;
+    border-top-width: 0;
+  }
+  /* Sfondo azione (visibile quando swipe) */
+  .digest-row-action-bg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding-left: 20px;
+    background: linear-gradient(90deg, #16a34a 0%, #059669 100%);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.88rem;
+    gap: 8px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .digest-row-wrap.swipe-active .digest-row-action-bg { opacity: 1; }
+  .digest-row-action-bg .icon { font-size: 1.1rem; }
+
   .digest-top-row {
     display: grid;
     grid-template-columns: auto 1fr auto;
     gap: 10px;
     align-items: center;
     padding: 6px 0;
-    border-top: 1px solid var(--border);
     font-size: 0.85rem;
+    background: var(--surface);
+    transition: transform 0.25s ease;
+    position: relative;
+    z-index: 1;
+    touch-action: pan-y; /* consenti scroll verticale, intercetta horizontal */
   }
-  .digest-top-row:first-child { border-top: none; }
   .digest-top-row.is-archived { opacity: 0.5; }
   .digest-top-rank { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; }
   .digest-top-text { overflow: hidden; }
@@ -1854,13 +1895,18 @@ async function loadDigestWidget() {
         const e = x.e;
         const archivedBadge = e.archived ? `<span class="digest-badge-archived" title="Archiviata in ${escapeHtml(e.cartella || "?")}">📁 ${escapeHtml(e.cartella || "archiviata")}</span>` : "";
         return `
-          <div class="digest-top-row ${e.archived ? "is-archived" : ""}" data-email-id="${escapeHtml(e.id)}">
-            <div class="digest-top-rank">#${i+1}</div>
-            <div class="digest-top-text">
-              <div class="digest-top-sender">${escapeHtml(e.sender)} ${archivedBadge}</div>
-              <div class="digest-top-summary">${escapeHtml(e.subject)}</div>
+          <div class="digest-row-wrap ${e.archived ? "" : "swipeable"}" data-email-id="${escapeHtml(e.id)}">
+            <div class="digest-row-action-bg" aria-hidden="true">
+              <span class="icon">📁</span><span>Archivia</span>
             </div>
-            ${!e.archived ? `<button class="digest-archive-btn" data-email-id="${escapeHtml(e.id)}" title="Archivia in cartella mittente">📁</button>` : ""}
+            <div class="digest-top-row ${e.archived ? "is-archived" : ""}" data-email-id="${escapeHtml(e.id)}">
+              <div class="digest-top-rank">#${i+1}</div>
+              <div class="digest-top-text">
+                <div class="digest-top-sender">${escapeHtml(e.sender)} ${archivedBadge}</div>
+                <div class="digest-top-summary">${escapeHtml(e.subject)}</div>
+              </div>
+              ${!e.archived ? `<button class="digest-archive-btn" data-email-id="${escapeHtml(e.id)}" title="Archivia in cartella mittente">📁</button>` : ""}
+            </div>
           </div>
         `;
       }).join("")}
@@ -1880,6 +1926,8 @@ async function loadDigestWidget() {
         await archiveEmailFromDigest(id, btn);
       });
     });
+    // Wire swipe-to-archive
+    $$(".digest-row-wrap.swipeable", body).forEach(wrap => attachSwipeToArchive(wrap));
     // Wire toggle archiviate
     const toggle = $("#digestToggleArchived", body);
     if (toggle) toggle.addEventListener("change", () => {
@@ -1893,6 +1941,121 @@ async function loadDigestWidget() {
 }
 
 const IRIS_ARCHIVE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail";
+
+// ── Swipe-to-archive (touch + mouse) ──────────────────────────
+const SWIPE_THRESHOLD = 100; // px per triggerare l'azione
+const SWIPE_MAX = 280;       // max translateX
+
+function attachSwipeToArchive(wrap) {
+  if (wrap._swipeWired) return;
+  wrap._swipeWired = true;
+  const row = wrap.querySelector(".digest-top-row");
+  if (!row) return;
+
+  let startX = 0, startY = 0, currentX = 0, tracking = false, decided = false, isSwipe = false;
+
+  const onStart = (clientX, clientY) => {
+    startX = clientX; startY = clientY; currentX = 0;
+    tracking = true; decided = false; isSwipe = false;
+    wrap.classList.add("swiping");
+  };
+  const onMove = (clientX, clientY, ev) => {
+    if (!tracking) return;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    if (!decided) {
+      // Decidi direzione dopo 8px di movimento
+      if (Math.abs(dx) + Math.abs(dy) < 8) return;
+      decided = true;
+      isSwipe = Math.abs(dx) > Math.abs(dy);
+      if (!isSwipe) { tracking = false; wrap.classList.remove("swiping"); return; }
+    }
+    if (!isSwipe) return;
+    // Solo swipe a destra (dx positivo)
+    currentX = Math.max(0, Math.min(SWIPE_MAX, dx));
+    row.style.transform = `translateX(${currentX}px)`;
+    if (currentX > SWIPE_THRESHOLD) wrap.classList.add("swipe-active");
+    else wrap.classList.remove("swipe-active");
+    // Blocca scroll verticale durante swipe horizontal confermato
+    if (ev.cancelable && isSwipe) ev.preventDefault();
+  };
+  const onEnd = async () => {
+    if (!tracking) return;
+    tracking = false;
+    wrap.classList.remove("swiping");
+    const triggered = currentX > SWIPE_THRESHOLD;
+    if (triggered) {
+      // Slide fino in fondo + archivia
+      row.style.transform = `translateX(${SWIPE_MAX}px)`;
+      wrap.classList.add("removing");
+      // Trigger collapse
+      requestAnimationFrame(() => wrap.classList.add("gone"));
+      const emailId = wrap.dataset.emailId;
+      try {
+        await archiveEmailFromSwipe(emailId);
+      } catch (e) {
+        console.warn("[swipe] archive failed:", e);
+        // Ripristina visivamente
+        wrap.classList.remove("removing", "gone", "swipe-active");
+        row.style.transform = "";
+      }
+    } else {
+      // Snap back
+      row.style.transform = "";
+      wrap.classList.remove("swipe-active");
+    }
+    currentX = 0;
+  };
+
+  // Touch events
+  row.addEventListener("touchstart", (ev) => {
+    const t = ev.touches[0]; if (!t) return;
+    onStart(t.clientX, t.clientY);
+  }, { passive: true });
+  row.addEventListener("touchmove", (ev) => {
+    const t = ev.touches[0]; if (!t) return;
+    onMove(t.clientX, t.clientY, ev);
+  }, { passive: false });
+  row.addEventListener("touchend", onEnd, { passive: true });
+  row.addEventListener("touchcancel", onEnd, { passive: true });
+
+  // Mouse events (desktop)
+  row.addEventListener("mousedown", (ev) => {
+    if (ev.button !== 0) return;
+    onStart(ev.clientX, ev.clientY);
+    const mm = (e) => onMove(e.clientX, e.clientY, e);
+    const mu = () => {
+      document.removeEventListener("mousemove", mm);
+      document.removeEventListener("mouseup", mu);
+      onEnd();
+    };
+    document.addEventListener("mousemove", mm);
+    document.addEventListener("mouseup", mu);
+  });
+}
+
+async function archiveEmailFromSwipe(emailId) {
+  if (!emailId) return;
+  const token = await getAuthIdToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(IRIS_ARCHIVE_URL, {
+    method: "POST", headers,
+    body: JSON.stringify({ emailId }),
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "");
+    throw new Error(`${resp.status}: ${errText.slice(0, 150)}`);
+  }
+  const data = await resp.json();
+  const toast = document.createElement("div");
+  toast.className = "nexo-toast";
+  toast.textContent = `Archiviata in "${data.folder}" ✓`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+  // Refresh digest dopo l'animazione
+  setTimeout(() => loadDigestWidget(), 400);
+}
 
 async function archiveEmailFromDigest(emailId, btn) {
   if (!emailId) return;

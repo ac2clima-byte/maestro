@@ -82,6 +82,13 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
     Trigger: "prepara preventivo per X", "fai un'offerta a Y per Z".
 - nessuno    → saluti, chiarimenti
 
+IMPORTANTE — Richieste di sviluppo: se l'utente chiede modifiche UI, nuove feature,
+bug fix, o idee per migliorare la PWA/NEXUS ("aggiungi un bottone", "modifica il
+colore", "vorrei una pagina", "non funziona X", "fai uno swipe", "cambia il
+layout", ecc.), NON RIFIUTARE. Queste sono gestite da un intercept dedicato PRIMA
+del routing NEXUS che le salva in nexo_dev_requests. Se arrivano a questo punto,
+rispondi con collega="nessuno" e riconferma che sono state prese in carico.
+
 REGOLE:
 - Rispondi SOLO con un oggetto JSON valido. Niente code fence, niente testo extra.
 - Non inventare clienti, importi, condomini, date: chiedi chiarimento SOLO se ambiguo.
@@ -729,6 +736,82 @@ export async function loadConversationContext(sessionId, max = 5) {
     logger.warn("loadConversationContext failed", { error: String(e) });
     return [];
   }
+}
+
+// ─── Richieste di sviluppo (dev request) ──────────────────────
+// Quando l'utente chiede modifiche UI / nuove feature / bug fix / idee,
+// NON rifiutare. Salva in nexo_dev_requests e rispondi "registrata".
+// Il flow evita che NEXUS dica "non rientra nelle mie competenze".
+
+const DEV_REQUEST_PATTERNS = [
+  // Verbi di sviluppo
+  /\b(aggiung\w+|modific\w+|cambi\w+|rimuov\w+|implement\w+|fix\w+|risolv\w+|sistem\w+|aggiorn\w+)\b/i,
+  // Sostantivi di sviluppo
+  /\b(feature|bug|errore|bottone|pulsante|pagina|schermata|card|widget|lista|menu|swipe|layout|design|colore|icon\w+|stil\w+|animazion\w+)\b/i,
+  // Richieste esplicite
+  /\b(vorrei|puoi\s+fare|puoi\s+aggiungere|serve\s+(che|un|una)|mi\s+serve|fammi|crea\w*)\b/i,
+  // Metafora "non funziona"
+  /\bnon\s+(funzion\w+|va\b|parte\b|carica\w+)\b/i,
+];
+
+const DEV_REQUEST_EXCLUSION = [
+  // Non trigger se l'utente sta solo chiedendo info o confermando
+  /^\s*(s[iì]|no|ok|va\s+bene|prossim|basta|analizz|mostr|dimmi|quante?|cosa|come)\b/i,
+  // Non trigger se è già un comando chiaro a un collega
+  /^\s*(apri|manda|invia|scriv|registr|cerca|trova)\s+(un\s+)?(intervent|email|whatsapp|wa|fattura|incass|preventivo|sollecit|cliente|bozza|messaggio)/i,
+];
+
+function isDevRequest(userMessage) {
+  const t = String(userMessage || "").trim();
+  if (!t || t.length < 10) return false;
+  for (const re of DEV_REQUEST_EXCLUSION) {
+    if (re.test(t)) return false;
+  }
+  // Richiede match di almeno 2 pattern (verbo + sostantivo, o verbo + richiesta) per ridurre falsi positivi
+  let matches = 0;
+  for (const re of DEV_REQUEST_PATTERNS) {
+    if (re.test(t)) matches++;
+    if (matches >= 2) return true;
+  }
+  // Se c'è una richiesta molto esplicita ("vorrei", "puoi fare") basta 1 match
+  if (/\b(vorrei|puoi\s+fare|puoi\s+aggiungere|serve\s+che|mi\s+serve|fammi|crea\w*)\b/i.test(t)) return true;
+  return false;
+}
+
+/**
+ * Salva una dev request in nexo_dev_requests e ritorna una risposta conversazionale.
+ */
+export async function tryInterceptDevRequest({ userMessage, userId, sessionId }) {
+  if (!isDevRequest(userMessage)) return null;
+
+  const description = String(userMessage || "").trim().slice(0, 3000);
+  let docId = null;
+  try {
+    const ref = db.collection("nexo_dev_requests").doc();
+    await ref.set({
+      id: ref.id,
+      description,
+      status: "pending",
+      source: "nexus_chat",
+      userId: userId || null,
+      sessionId: sessionId || null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    docId = ref.id;
+  } catch (e) {
+    logger.warn("dev_request save failed", { error: String(e).slice(0, 200) });
+  }
+
+  const preview = description.length > 120 ? description.slice(0, 117) + "…" : description;
+  const idSuffix = docId ? docId.slice(-6) : "—";
+  return {
+    content: `✍️ Ho registrato la richiesta di sviluppo: "${preview}"\n\n` +
+             `ID: \`${idSuffix}\` · Stato: pending · Coda sviluppo: \`nexo_dev_requests\`\n\n` +
+             `Alberto la vedrà nella coda e la processerà. Vuoi aggiungere altri dettagli o priorità?`,
+    data: { devRequestId: docId, description: preview },
+    _devRequestHandled: true,
+  };
 }
 
 // ─── Analisi testo lungo / incollato ──────────────────────────
