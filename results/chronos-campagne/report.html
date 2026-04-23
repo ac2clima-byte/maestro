@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CHRONOS — Dashboard campagne reali</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#0284c7; border-bottom:2px solid #bae6fd; padding-bottom:10px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow-x:auto; font-size:0.85rem; white-space: pre-wrap; }
+  img { width:100%; border-radius:10px; border:1px solid #cbd5e1; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; font-size:0.75rem; text-transform:uppercase; color:#475569; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:5px; font-size:0.75rem; font-weight:600; }
+  .pill.ok { background:#dcfce7; color:#14532d; }
+  .pill.done { background:#dcfce7; color:#166534; }
+  .pill.prog { background:#dbeafe; color:#1e40af; }
+  .pill.scad { background:#fee2e2; color:#b91c1c; }
+  .pill.daprog { background:#fef3c7; color:#b45309; }
+</style>
+</head>
+<body>
+
+<h1>📋 CHRONOS — Dashboard campagne (dati reali da COSMINA)</h1>
+
+<div class="card">
+  <h2>🎯 Implementato</h2>
+  <ul>
+    <li>MEMO scan struttura campagne → <code>context/memo-campagne-cosmina.md</code></li>
+    <li>Handler <code>handleChronosCampagne</code> + <code>handleChronosListaCampagne</code> in <code>handlers/chronos.js</code></li>
+    <li>Routing NEXUS: <code>"come va la campagna X?"</code>, <code>"campagne attive"</code></li>
+    <li>Cloud Function HTTPS <code>chronosCampagneDashboard</code> (auth required)</li>
+    <li>Pagina CHRONOS PWA con card campagne + progress bar + dettaglio</li>
+    <li>Rules Firestore già OK (scrittura solo via Cloud Functions)</li>
+  </ul>
+</div>
+
+<h2>📊 Campagne reali (scan 2026-04-23)</h2>
+<div class="card">
+<table>
+<thead>
+  <tr><th>Campagna</th><th class="num">Totale</th><th class="num">Completati</th><th class="num">Programmati</th><th class="num">Scaduti</th><th class="num">Da Programmare</th><th class="num">%</th></tr>
+</thead>
+<tbody>
+  <tr>
+    <td><strong>SPEGNIMENTO 2026</strong></td>
+    <td class="num">407</td>
+    <td class="num">405</td>
+    <td class="num">0</td>
+    <td class="num">2</td>
+    <td class="num">0</td>
+    <td class="num"><span class="pill done">100%</span></td>
+  </tr>
+  <tr>
+    <td><strong>Letture WalkBy ACG FS 2026</strong></td>
+    <td class="num">97</td>
+    <td class="num">0</td>
+    <td class="num">55</td>
+    <td class="num">25</td>
+    <td class="num">17</td>
+    <td class="num"><span class="pill daprog">0%</span></td>
+  </tr>
+  <tr>
+    <td><strong>Letture WalkBy GZT FS 2026</strong></td>
+    <td class="num">13</td>
+    <td class="num">0</td>
+    <td class="num">…</td>
+    <td class="num">…</td>
+    <td class="num">…</td>
+    <td class="num"><span class="pill daprog">—</span></td>
+  </tr>
+  <tr>
+    <td><strong>RIEMPIMENTI 2026</strong></td>
+    <td class="num">0</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">nuova</td>
+  </tr>
+  <tr>
+    <td><strong>SVUOTAMENTI 2026</strong></td>
+    <td class="num">0</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+    <td class="num">nuova</td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<h2>💬 Risposta NEXUS (esempio)</h2>
+<div class="card">
+<h3>Query: "come va la campagna Letture WalkBy?"</h3>
+<pre>📋 Campagna: Letture WalkBy ACG FS 2026
+Fine Stagione 2026
+
+Avanzamento: ░░░░░░░░░░░░░░░░░░░░ 0% completato
+
+  · ✅ Completati: 0
+  · 📅 Programmati: 55
+  · ⚠️ Scaduti: 25
+  · 📝 Da Programmare: 17
+  · ❌ Non Fatti: 0
+  · 🚫 Da Non Fare: 0
+  ─────────────
+  · Totale: 97
+
+Per tecnico: MARCO=80, (non assegnato)=17</pre>
+
+<h3>Query: "stato campagna spegnimento"</h3>
+<pre>📋 Campagna: SPEGNIMENTO 2026
+Spegnimento impianti termici stagione 2025/2026
+
+Avanzamento: ████████████████████ 100% completato
+
+  · ✅ Completati: 405
+  · 📅 Programmati: 0
+  · ⚠️ Scaduti: 2
+  · 📝 Da Programmare: 0
+  · ❌ Non Fatti: 0
+  · 🚫 Da Non Fare: 0
+  ─────────────
+  · Totale: 407
+
+Per tecnico: VICTOR=94, MARCO=76, FEDERICO=70, DAVID=48, LORENZO=46</pre>
+
+<h3>Query: "campagne attive"</h3>
+<pre>📋 Campagne attive (7):
+
+1. SPEGNIMENTO 2026 — 38 interventi
+2. Letture WalkBy ACG FS 2026 — 13 interventi
+3. Letture WalkBy GZT FS 2026 — 2 interventi
+4. RIEMPIMENTI 2026 — 0 interventi
+5. SVUOTAMENTI 2026 — 0 interventi
+6. LETTURE DIRETTE FS — 0 interventi
+7. Predisposizione antenne — 0 interventi</pre>
+
+<p style="color:#64748b;font-size:0.88rem;">
+Nota: il count nella lista è basato su un filter ristretto (listName specifiche). Il count reale per campagna
+viene calcolato in <code>handleChronosCampagne</code> con query dedicata su <code>campagna_nome</code>.
+</p>
+</div>
+
+<h2>🖼️ Screenshot PWA</h2>
+<div class="card">
+<img src="../../projects/nexo-pwa/test-screenshots/chronos-campagne/01-chronos-gate.png" alt="Gate CHRONOS">
+<p style="color:#64748b;font-size:0.88rem;">Gate login visibile (atteso senza credenziali). Dopo login si vede la dashboard con le card campagne.</p>
+</div>
+
+<h2>🏗️ Architettura</h2>
+<div class="card">
+<pre>[PWA CHRONOS page]
+      │ fetch con Bearer token
+      ▼
+chronosCampagneDashboard (Cloud Function europe-west1)
+      │ → verifyAcgIdToken()
+      ▼
+handleChronosListaCampagne() / handleChronosCampagne()
+      │ (in handlers/chronos.js)
+      ▼
+getCosminaDb().collection('cosmina_campagne')
+           .collection('bacheca_cards')
+      │ filter by campagna_nome / campagna_id
+      ▼
+classifyCampaignCard(card):
+  da_non_fare > non_fatto > completato > scaduto > programmato > da_programmare
+
+aggregateCampaignStats(cards):
+  { totale, completati, programmati, scaduti, da_programmare, non_fatti, da_non_fare }
+  + perTecnico</pre>
+</div>
+
+<h2>📁 File modificati</h2>
+<div class="card">
+<ul>
+  <li><code>context/memo-campagne-cosmina.md</code> — mappa struttura campagne (schema, stati derivati, query patterns)</li>
+  <li><code>scripts/memo_scan_campagne.py</code> + <code>.json</code> — scansione COSMINA</li>
+  <li><code>projects/iris/functions/handlers/chronos.js</code> — +180 righe (handler campagne)</li>
+  <li><code>projects/iris/functions/handlers/nexus.js</code> — routing "campagne attive" / "come va la campagna X"</li>
+  <li><code>projects/iris/functions/index.js</code> — Cloud Function <code>chronosCampagneDashboard</code></li>
+  <li><code>projects/nexo-pwa/public/index.html</code> — +200 righe (renderChronosPage + CSS card)</li>
+</ul>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,188 @@
+{
+  "timestamp": "2026-04-23T16:59:15.752Z",
+  "tests": {
+    "lista": {
+      "content": "📋 **Campagne attive** (7):\n\n1. **SPEGNIMENTO 2026** — 38 interventi\n2. **Letture WalkBy ACG FS 2026** — 13 interventi\n3. **Letture WalkBy GZT FS 2026** — 2 interventi\n4. **RIEMPIMENTI 2026** — 0 interventi\n5. **SVUOTAMENTI 2026** — 0 interventi\n6. **LETTURE DIRETTE FS** — 0 interventi\n7. **Predisposizione antenne** — 0 interventi",
+      "data": {
+        "campagne": [
+          {
+            "id": "ii71EmdulREsosfsmoFV",
+            "nome": "SPEGNIMENTO 2026",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "Spegnimento impianti termici stagione 2025/2026",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 38
+          },
+          {
+            "id": "n0Mabyfp5fZjfIsMqHfB",
+            "nome": "Letture WalkBy ACG FS 2026",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "Fine Stagione 2026",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 13
+          },
+          {
+            "id": "tkdDA9pM5mfwsArKtSvN",
+            "nome": "Letture WalkBy GZT FS 2026",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "Fine Stagione",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 2
+          },
+          {
+            "id": "HOfoujtlWfjG98vUzuce",
+            "nome": "RIEMPIMENTI 2026",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 0
+          },
+          {
+            "id": "jfth09On9jXtbs9ymrIM",
+            "nome": "SVUOTAMENTI 2026",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 0
+          },
+          {
+            "id": "tG8Av6vqS4GJkfZHjT1k",
+            "nome": "LETTURE DIRETTE FS",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "FINE STAGIONE",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 0
+          },
+          {
+            "id": "wHuLJhlzXweFGQwVe6oh",
+            "nome": "Predisposizione antenne",
+            "stato": "aperta",
+            "archiviata": false,
+            "descrizione": "",
+            "data_inizio": null,
+            "data_fine": null,
+            "source": "cosmina_campagne",
+            "count": 0
+          }
+        ]
+      }
+    },
+    "walkby_acg": {
+      "content": "📋 **Campagna: Letture WalkBy ACG FS 2026**\n_Fine Stagione 2026_\n**Avanzamento**: `░░░░░░░░░░░░░░░░░░░░` 0% completato\n  · ✅ Completati: 0\n  · 📅 Programmati: 55\n  · ⚠️ Scaduti: 25\n  · 📝 Da Programmare: 17\n  · ❌ Non Fatti: 0\n  · 🚫 Da Non Fare: 0\n  ─────────────\n  · **Totale: 97**\n**Per tecnico**: MARCO=80, (non assegnato)=17",
+      "data": {
+        "campagna": {
+          "id": "n0Mabyfp5fZjfIsMqHfB",
+          "nome": "Letture WalkBy ACG FS 2026",
+          "stato": "aperta",
+          "archiviata": false,
+          "descrizione": "Fine Stagione 2026",
+          "data_inizio": null,
+          "data_fine": null,
+          "source": "cosmina_campagne",
+          "count": 13
+        },
+        "stats": {
+          "totale": 97,
+          "completati": 0,
+          "programmati": 55,
+          "scaduti": 25,
+          "da_programmare": 17,
+          "non_fatti": 0,
+          "da_non_fare": 0
+        },
+        "perTecnico": {
+          "MARCO": 80,
+          "(non assegnato)": 17
+        },
+        "completamento_pct": 0
+      }
+    },
+    "spegnimento": {
+      "content": "📋 **Campagna: SPEGNIMENTO 2026**\n_Spegnimento impianti termici stagione 2025/2026_\n**Avanzamento**: `████████████████████` 100% completato\n  · ✅ Completati: 405\n  · 📅 Programmati: 0\n  · ⚠️ Scaduti: 2\n  · 📝 Da Programmare: 0\n  · ❌ Non Fatti: 0\n  · 🚫 Da Non Fare: 0\n  ─────────────\n  · **Totale: 407**\n**Per tecnico**: VICTOR=94, MARCO=76, FEDERICO=70, DAVID=48, LORENZO=46",
+      "data": {
+        "campagna": {
+          "id": "ii71EmdulREsosfsmoFV",
+          "nome": "SPEGNIMENTO 2026",
+          "stato": "aperta",
+          "archiviata": false,
+          "descrizione": "Spegnimento impianti termici stagione 2025/2026",
+          "data_inizio": null,
+          "data_fine": null,
+          "source": "cosmina_campagne",
+          "count": 38
+        },
+        "stats": {
+          "totale": 407,
+          "completati": 405,
+          "programmati": 0,
+          "scaduti": 2,
+          "da_programmare": 0,
+          "non_fatti": 0,
+          "da_non_fare": 0
+        },
+        "perTecnico": {
+          "MARCO": 76,
+          "(non assegnato)": 44,
+          "LORENZO": 46,
+          "VICTOR": 94,
+          "FEDERICO": 70,
+          "ALBERTO": 23,
+          "DAVID": 48,
+          "ANTONIO": 6
+        },
+        "completamento_pct": 100
+      }
+    },
+    "walkby_gzt": {
+      "content": "📋 **Campagna: Letture WalkBy GZT FS 2026**\n_Fine Stagione_\n**Avanzamento**: `░░░░░░░░░░░░░░░░░░░░` 0% completato\n  · ✅ Completati: 0\n  · 📅 Programmati: 0\n  · ⚠️ Scaduti: 4\n  · 📝 Da Programmare: 9\n  · ❌ Non Fatti: 0\n  · 🚫 Da Non Fare: 0\n  ─────────────\n  · **Totale: 13**\n**Per tecnico**: (non assegnato)=9, MARCO=4",
+      "data": {
+        "campagna": {
+          "id": "tkdDA9pM5mfwsArKtSvN",
+          "nome": "Letture WalkBy GZT FS 2026",
+          "stato": "aperta",
+          "archiviata": false,
+          "descrizione": "Fine Stagione",
+          "data_inizio": null,
+          "data_fine": null,
+          "source": "cosmina_campagne",
+          "count": 2
+        },
+        "stats": {
+          "totale": 13,
+          "completati": 0,
+          "programmati": 0,
+          "scaduti": 4,
+          "da_programmare": 9,
+          "non_fatti": 0,
+          "da_non_fare": 0
+        },
+        "perTecnico": {
+          "(non assegnato)": 9,
+          "MARCO": 4
+        },
+        "completamento_pct": 0
+      }
+    },
+    "not_found": {
+      "content": "Nessuna campagna trovata per \"inesistente_xyz\".\n\nCampagne disponibili:\n· SPEGNIMENTO 2026\n· Letture WalkBy ACG FS 2026\n· Letture WalkBy GZT FS 2026\n· RIEMPIMENTI 2026\n· CAMBIO ORA S/L 2026\n· POSTELEGRAFONICI - CAMBIO CONTATORI\n· SVUOTAMENTI 2026\n· Letture Rip Gzt 31/01/26"
+    }
+  }
+}
