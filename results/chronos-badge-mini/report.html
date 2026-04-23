@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CHRONOS v0.6 — Badge minimali</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#0284c7; border-bottom:2px solid #bae6fd; padding-bottom:10px; }
+  h2 { color:#0369a1; margin-top:28px; }
+  h3 { color:#475569; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:18px; border-bottom:1px solid #e2e8f0; padding-bottom:4px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+
+  /* replica del design badge minimale */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 6px; } }
+
+  .bdg {
+    height: 80px; background:#fff; border:1px solid #e2e8f0;
+    border-left:3px solid #cbd5e1; border-radius:8px; padding:8px 10px;
+    display:flex; flex-direction:column; justify-content:space-between; overflow:hidden;
+    cursor:pointer; transition: box-shadow 0.12s, border-color 0.12s;
+  }
+  .bdg:hover { box-shadow:0 1px 3px rgba(0,0,0,0.08); border-color:#94a3b8; }
+  .bdg.ok   { border-left-color:#16a34a; } .bdg.mid { border-left-color:#f59e0b; }
+  .bdg.low  { border-left-color:#dc2626; } .bdg.zero { border-left-color:#94a3b8; }
+  .bdg.info { border-left-color:#3b82f6; }
+
+  .bdg-head { font-size:0.78rem; font-weight:600; color:#0f172a; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bdg-line { display:flex; justify-content:space-between; align-items:baseline; font-size:0.78rem; color:#64748b; gap:6px; }
+  .bdg-perc { font-size:0.95rem; font-weight:700; letter-spacing:-0.02em; }
+  .bdg-perc.ok{color:#16a34a;} .bdg-perc.mid{color:#f59e0b;} .bdg-perc.low{color:#dc2626;}
+  .bdg-perc.zero{color:#94a3b8;} .bdg-perc.info{color:#3b82f6;}
+  .bdg-frac { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .bdg-bar { display:flex; height:4px; background:#f1f5f9; border-radius:2px; overflow:hidden; }
+  .bdg-bar .seg { height:100%; }
+  .seg.done{background:#16a34a;} .seg.prog{background:#3b82f6;}
+  .seg.daprog{background:#facc15;} .seg.scad{background:#dc2626;}
+</style>
+</head>
+<body>
+
+<h1>🟩 CHRONOS v0.6 — Badge minimali</h1>
+
+<div class="card">
+  <h2>🎯 Cosa cambia</h2>
+  <ul>
+    <li><strong>Altezza fissa 80px</strong> (invece di 240px quadrati)</li>
+    <li><strong>3 righe</strong>: nome + percentuale/frazione + barra 4px</li>
+    <li><strong>Auto-fill</strong> minmax(150px, 1fr) → 4-6+ colonne desktop, 2 mobile</li>
+    <li><strong>Nessun dettaglio extra</strong> nel badge — dettagli via click o NEXUS</li>
+  </ul>
+  <p>Il design scala per decine di attività monitorate. Su schermo desktop standard entrano ~18-24 badge visibili senza scroll.</p>
+</div>
+
+<h3>📋 Campagne attive (esempio con 10 campagne)</h3>
+<div class="grid">
+  <div class="bdg mid"><div class="bdg-head">Letture WalkBy ACG 2026</div><div class="bdg-line"><span class="bdg-perc mid">26%</span><span class="bdg-frac">25/97</span></div><div class="bdg-bar"><div class="seg done" style="width:26%"></div><div class="seg prog" style="width:57%"></div><div class="seg daprog" style="width:17%"></div></div></div>
+  <div class="bdg ok"><div class="bdg-head">SPEGNIMENTO 2026</div><div class="bdg-line"><span class="bdg-perc ok">100%</span><span class="bdg-frac">405/407</span></div><div class="bdg-bar"><div class="seg done" style="width:99.5%"></div><div class="seg scad" style="width:0.5%"></div></div></div>
+  <div class="bdg zero"><div class="bdg-head">Letture WalkBy GZT 2026</div><div class="bdg-line"><span class="bdg-perc zero">0%</span><span class="bdg-frac">0/13</span></div><div class="bdg-bar"><div class="seg scad" style="width:31%"></div><div class="seg daprog" style="width:69%"></div></div></div>
+  <div class="bdg zero"><div class="bdg-head">RIEMPIMENTI 2026</div><div class="bdg-line"><span class="bdg-perc zero">0%</span><span class="bdg-frac">0/0</span></div><div class="bdg-bar"></div></div>
+  <div class="bdg mid"><div class="bdg-head">SVUOTAMENTI 2026</div><div class="bdg-line"><span class="bdg-perc mid">89%</span><span class="bdg-frac">8/9</span></div><div class="bdg-bar"><div class="seg done" style="width:89%"></div><div class="seg prog" style="width:11%"></div></div></div>
+  <div class="bdg mid"><div class="bdg-head">LETTURE DIRETTE FS</div><div class="bdg-line"><span class="bdg-perc mid">80%</span><span class="bdg-frac">20/25</span></div><div class="bdg-bar"><div class="seg done" style="width:80%"></div><div class="seg prog" style="width:20%"></div></div></div>
+  <div class="bdg ok"><div class="bdg-head">Predisposizione antenne</div><div class="bdg-line"><span class="bdg-perc ok">100%</span><span class="bdg-frac">13/13</span></div><div class="bdg-bar"><div class="seg done" style="width:100%"></div></div></div>
+  <div class="bdg mid"><div class="bdg-head">CAMBIO ORA S/L 2026</div><div class="bdg-line"><span class="bdg-perc mid">67%</span><span class="bdg-frac">85/127</span></div><div class="bdg-bar"><div class="seg done" style="width:67%"></div><div class="seg prog" style="width:33%"></div></div></div>
+  <div class="bdg ok"><div class="bdg-head">POSTELEGRAFONICI</div><div class="bdg-line"><span class="bdg-perc ok">100%</span><span class="bdg-frac">3/3</span></div><div class="bdg-bar"><div class="seg done" style="width:100%"></div></div></div>
+  <div class="bdg zero"><div class="bdg-head">Letture Rip GZT 31/01</div><div class="bdg-line"><span class="bdg-perc zero">0%</span><span class="bdg-frac">0/20</span></div><div class="bdg-bar"><div class="seg daprog" style="width:100%"></div></div></div>
+</div>
+
+<h3>⚙️ Operativo (6 KPI)</h3>
+<div class="grid">
+  <div class="bdg info"><div class="bdg-head">Agenda oggi</div><div class="bdg-line"><span class="bdg-perc info">1</span><span class="bdg-frac">interventi</span></div><div class="bdg-bar"><div class="seg prog" style="width:1%"></div></div></div>
+  <div class="bdg info"><div class="bdg-head">Settimana (7gg)</div><div class="bdg-line"><span class="bdg-perc info">9</span><span class="bdg-frac">prossimi 7gg</span></div><div class="bdg-bar"><div class="seg prog" style="width:8%"></div></div></div>
+  <div class="bdg low"><div class="bdg-head">Interventi scaduti</div><div class="bdg-line"><span class="bdg-perc low">95</span><span class="bdg-frac">data superata</span></div><div class="bdg-bar"><div class="seg scad" style="width:87%"></div></div></div>
+  <div class="bdg low"><div class="bdg-head">Scadenze impianti</div><div class="bdg-line"><span class="bdg-perc low">8</span><span class="bdg-frac">entro 60gg</span></div><div class="bdg-bar"><div class="seg scad" style="width:100%"></div></div></div>
+  <div class="bdg low"><div class="bdg-head">Copertura dati</div><div class="bdg-line"><span class="bdg-perc low">2%</span><span class="bdg-frac">8/326</span></div><div class="bdg-bar"><div class="seg done" style="width:2%"></div></div></div>
+  <div class="bdg ok"><div class="bdg-head">Slot liberi</div><div class="bdg-line"><span class="bdg-perc ok">311</span><span class="bdg-frac">97% libero</span></div><div class="bdg-bar"><div class="seg done" style="width:97%"></div></div></div>
+</div>
+
+<h2>🚀 Deploy</h2>
+<div class="card">
+<p>Commit: <code>82f2df8 — feat(chronos): badge minimali compatti</code></p>
+<p>Link: <a href="https://nexo-hub-15f2d.web.app/#collega:chronos">https://nexo-hub-15f2d.web.app/#collega:chronos</a></p>
+<p style="color:#64748b;font-size:0.88rem;">Hard refresh dopo login:<br>
+<code>caches.keys().then(k=>k.forEach(c=>caches.delete(c))); location.reload(true);</code></p>
+</div>
+
+</body>
+</html>
