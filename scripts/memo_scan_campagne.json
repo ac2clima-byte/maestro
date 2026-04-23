@@ -1,0 +1,66 @@
+{
+  "collezioni_campagne": [
+    "campaigns",
+    "cosmina_campagne",
+    "cosmina_campagne_reports"
+  ],
+  "campagne_nomi": {
+    "SPEGNIMENTO 2026": 39,
+    "Letture WalkBy ACG FS 2026": 13,
+    "Letture WalkBy GZT FS 2026": 2
+  },
+  "walkby_2026": {
+    "totale": 15,
+    "per_stato": {
+      "aperto": 15
+    },
+    "per_listName": {
+      "LETTURE RIP": 15
+    },
+    "has_due": 10,
+    "due_futuro": 10,
+    "due_scaduto": 0,
+    "no_due": 5,
+    "labels_top": {
+      "MARCO": 10,
+      "PROGRAMMATO": 10
+    },
+    "customFields_top": {}
+  },
+  "sample_walkby_doc": {
+    "_id": "0p5qxTCc2RsKDcxX7oov",
+    "campagna_nome": "Letture WalkBy ACG FS 2026",
+    "created_at": "2026-04-22 12:40:37.054000+00:00",
+    "due": "2026-05-06T09:00:00+02:00",
+    "desc": "",
+    "inBacheca": true,
+    "techNames": [
+      "MARCO"
+    ],
+    "crm_id": "T059",
+    "updated_at": "2026-04-22 15:05:13.971000+00:00",
+    "name": "LETTURE RIPARTITORI GIACOMINI",
+    "techName": "MARCO",
+    "stato": "aperto",
+    "idMembers": [],
+    "source": "import_letture_walkby_2026",
+    "dateLastActivity": "2026-04-22 12:40:37.054000+00:00",
+    "campagna_id": "n0Mabyfp5fZjfIsMqHfB",
+    "techSyncedAt": "2026-04-22 15:05:18.270000+00:00",
+    "labels": [
+      {
+        "color": "sky",
+        "name": "MARCO"
+      },
+      {
+        "color": "blue",
+        "name": "PROGRAMMATO"
+      }
+    ],
+    "idList": "",
+    "boardName": "T059 - BRONI - CENTRO CREMASCHI - VIA PRIVATA TOGNI, 1 - BRONI (PV)",
+    "archiviato": false,
+    "listName": "LETTURE RIP",
+    "originalBoardId": "6848d7194211ffcd252ff73d"
+  }
+}

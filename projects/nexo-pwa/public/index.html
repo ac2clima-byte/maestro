@@ -487,6 +487,56 @@
   }
   .sidebar-user button.logout-btn:hover { background: var(--sidebar-bg-hover); color: var(--sidebar-text); }
 
+  /* ── CHRONOS dashboard campagne ──────────────────────────── */
+  .chronos-camp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    box-shadow: var(--shadow-sm);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .chronos-camp-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
+  .chronos-camp-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .chronos-camp-title { font-weight: 600; color: var(--text); font-size: 1rem; }
+  .chronos-camp-perc {
+    font-size: 1.4rem;
+    font-weight: 700;
+    padding: 2px 12px;
+    border-radius: 8px;
+    min-width: 60px;
+    text-align: center;
+  }
+  .chronos-camp-perc.done { background: #dcfce7; color: #166534; }
+  .chronos-camp-perc.high { background: #dbeafe; color: #1e40af; }
+  .chronos-camp-perc.mid { background: #fef3c7; color: #b45309; }
+  .chronos-camp-perc.low { background: #f1f5f9; color: #475569; }
+  .chronos-camp-bar {
+    display: flex;
+    height: 12px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .chronos-camp-bar .seg { height: 100%; transition: width 0.2s; }
+  .chronos-camp-bar .seg.done { background: #16a34a; }
+  .chronos-camp-bar .seg.prog { background: #3b82f6; }
+  .chronos-camp-bar .seg.daprog { background: #facc15; }
+  .chronos-camp-bar .seg.scad { background: #dc2626; }
+  .chronos-camp-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.85rem;
+  }
+  .chronos-camp-stats span { color: var(--text-muted); }
+  .chronos-camp-stats span.ok { color: #166534; font-weight: 600; }
+  .chronos-camp-stats span.info { color: #1e40af; font-weight: 600; }
+  .chronos-camp-stats span.warn { color: #b91c1c; font-weight: 600; }
+  .chronos-camp-stats span.muted { color: var(--text-muted); }
+
   /* ── PHARO dashboard ───────────────────────────────────── */
   .pharo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
   @media (max-width: 760px) { .pharo-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -1256,6 +1306,10 @@ function navigate(route, opts = { push: true }) {
       renderAresPage(c);
       return;
     }
+    if (id === "chronos") {
+      renderChronosPage(c);
+      return;
+    }
     renderCollegaWip(c);
     return;
   }
@@ -1565,6 +1619,182 @@ const PHARO_RULES_DEFAULT = [
   { id: "A2_C", nome: "CRTI 'definito' senza CRTIDF (fatturabili)", condizione: "rti.tipo='contabilizzazione' AND stato='definito' AND !rtidf AND fatturabile!=false", severita: "warning", canale: "lavagna", tipo: "contabilizzazione", attiva: true },
   { id: "A4", nome: "Ticket aperto >30g senza RTI", condizione: "ticket.stato IN (aperto,pianificato,in_attesa,da_chiudere) AND data_apertura<NOW-30d AND !rti_inviato", severita: "critical", canale: "echo_whatsapp", tipo: "tutti", attiva: true },
 ];
+
+// ── CHRONOS dashboard (campagne + scadenze) ────────────────────
+const CHRONOS_CAMPAGNE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosCampagneDashboard";
+
+function renderChronosPage(c) {
+  $("#page").innerHTML = `
+    <div class="collega-page">
+      <div class="collega-header">
+        <div class="icon">${c.icon}</div>
+        <div class="titles">
+          <h2>${escapeHtml(c.name)} — Campagne operative</h2>
+          <div class="domain">Pianificatore · dashboard campagne da COSMINA bacheca_cards</div>
+          <span class="badge live">✅ Attivo v0.3</span>
+        </div>
+      </div>
+
+      <div class="pharo-section">
+        <h3>
+          📋 Campagne attive
+          <button class="btn-small" id="chronosRefresh">↻ Aggiorna</button>
+        </h3>
+        <div id="chronosBanner" style="margin-bottom:10px;"></div>
+        <div id="chronosCampagne"><div class="widget-empty">Caricamento…</div></div>
+      </div>
+
+      <div class="pharo-section" id="chronosDetailSection" style="display:none;">
+        <h3>
+          <span id="chronosDetailTitle">Dettaglio campagna</span>
+          <button class="btn-small" id="chronosCloseDetail">✕ Chiudi</button>
+        </h3>
+        <div id="chronosDetail"></div>
+      </div>
+
+      <button class="nexus-big-btn" id="chronosOpenNexus">
+        💬 Chiedi a NEXUS: "come va la campagna [nome]?"
+      </button>
+    </div>
+  `;
+
+  $("#chronosRefresh").addEventListener("click", loadChronosCampagne);
+  $("#chronosCloseDetail").addEventListener("click", () => {
+    $("#chronosDetailSection").style.display = "none";
+  });
+  $("#chronosOpenNexus").addEventListener("click", () => {
+    nexusOpen();
+    const input = $("#nexusInput");
+    if (input) { input.value = "come va la campagna Letture WalkBy?"; input.focus(); }
+  });
+
+  loadChronosCampagne();
+}
+
+async function loadChronosCampagne() {
+  const container = $("#chronosCampagne");
+  const banner = $("#chronosBanner");
+  container.innerHTML = `<div class="widget-empty">Caricamento campagne da COSMINA…</div>`;
+  banner.innerHTML = "";
+
+  try {
+    const idToken = await getAuthIdToken();
+    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
+    const resp = await fetch(CHRONOS_CAMPAGNE_URL, { headers });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`HTTP ${resp.status}: ${t.slice(0, 150)}`);
+    }
+    const data = await resp.json();
+    const campagne = data.campagne || [];
+    if (!campagne.length) {
+      container.innerHTML = `<div class="widget-empty">Nessuna campagna attiva al momento.</div>`;
+      return;
+    }
+    if (data.totale && data.totale > campagne.length) {
+      banner.innerHTML = `<div style="color:var(--text-muted);font-size:0.88rem;">Mostro top ${campagne.length} su ${data.totale} campagne.</div>`;
+    }
+    container.innerHTML = campagne.map(renderCampagnaCard).join("");
+    // Attacca click su ciascuna card
+    container.querySelectorAll("[data-camp-nome]").forEach(el => {
+      el.addEventListener("click", () => showChronosDetail(el.dataset.campNome));
+    });
+  } catch (err) {
+    container.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+function renderCampagnaCard(c) {
+  const stats = c.stats || {};
+  const tot = stats.totale || 0;
+  const comp = stats.completati || 0;
+  const prog = stats.programmati || 0;
+  const scad = stats.scaduti || 0;
+  const daProg = stats.da_programmare || 0;
+  const perc = tot > 0 ? Math.round((comp / tot) * 100) : 0;
+
+  // Progress bar colori: verde completati, blu programmati, giallo da programmare, rosso scaduti
+  const segComp = tot > 0 ? (comp / tot) * 100 : 0;
+  const segProg = tot > 0 ? (prog / tot) * 100 : 0;
+  const segDaProg = tot > 0 ? (daProg / tot) * 100 : 0;
+  const segScad = tot > 0 ? (scad / tot) * 100 : 0;
+
+  const nome = escapeHtml(c.nome || c.campagna?.nome || "?");
+  const desc = c.campagna?.descrizione ? `<div style="color:var(--text-muted);font-size:0.82rem;margin-top:2px;">${escapeHtml(String(c.campagna.descrizione).slice(0, 120))}</div>` : "";
+
+  return `
+    <div class="chronos-camp-card" data-camp-nome="${nome}" style="cursor:pointer;">
+      <div class="chronos-camp-head">
+        <div>
+          <div class="chronos-camp-title">${nome}</div>
+          ${desc}
+        </div>
+        <div class="chronos-camp-perc ${perc === 100 ? "done" : perc > 50 ? "high" : perc > 0 ? "mid" : "low"}">${perc}%</div>
+      </div>
+      <div class="chronos-camp-bar">
+        <div class="seg done"  style="width:${segComp}%"  title="Completati: ${comp}"></div>
+        <div class="seg prog"  style="width:${segProg}%"  title="Programmati: ${prog}"></div>
+        <div class="seg daprog" style="width:${segDaProg}%" title="Da programmare: ${daProg}"></div>
+        <div class="seg scad"  style="width:${segScad}%"  title="Scaduti: ${scad}"></div>
+      </div>
+      <div class="chronos-camp-stats">
+        <span title="Totale"><strong>${tot}</strong> totali</span>
+        <span class="ok">✅ ${comp}</span>
+        <span class="info">📅 ${prog}</span>
+        <span class="warn">⚠️ ${scad}</span>
+        <span class="muted">📝 ${daProg}</span>
+        <span class="muted">❌ ${stats.non_fatti || 0}</span>
+        <span class="muted">🚫 ${stats.da_non_fare || 0}</span>
+      </div>
+    </div>
+  `;
+}
+
+async function showChronosDetail(nome) {
+  const section = $("#chronosDetailSection");
+  const title = $("#chronosDetailTitle");
+  const content = $("#chronosDetail");
+  section.style.display = "";
+  title.textContent = `Dettaglio: ${nome}`;
+  content.innerHTML = `<div class="widget-empty">Caricamento…</div>`;
+
+  try {
+    const idToken = await getAuthIdToken();
+    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
+    const resp = await fetch(`${CHRONOS_CAMPAGNE_URL}?nome=${encodeURIComponent(nome)}`, { headers });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const stats = data.stats || {};
+    const perTecnico = data.perTecnico || {};
+
+    const rowsTecnici = Object.entries(perTecnico)
+      .sort((a, b) => b[1] - a[1])
+      .map(([t, n]) => `<tr><td>${escapeHtml(t)}</td><td style="text-align:right;">${n}</td></tr>`)
+      .join("");
+
+    content.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">
+        <div class="pharo-kpi"><div class="label">Totale</div><div class="value">${stats.totale || 0}</div></div>
+        <div class="pharo-kpi ok"><div class="label">Completati</div><div class="value">${stats.completati || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">Programmati</div><div class="value">${stats.programmati || 0}</div></div>
+        <div class="pharo-kpi ${stats.scaduti > 0 ? "err" : ""}"><div class="label">Scaduti</div><div class="value">${stats.scaduti || 0}</div></div>
+        <div class="pharo-kpi ${stats.da_programmare > 0 ? "warn" : ""}"><div class="label">Da Programmare</div><div class="value">${stats.da_programmare || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">Non Fatti</div><div class="value">${stats.non_fatti || 0}</div></div>
+        <div class="pharo-kpi"><div class="label">Da Non Fare</div><div class="value">${stats.da_non_fare || 0}</div></div>
+      </div>
+      <h4 style="margin-top:20px;">Distribuzione per tecnico</h4>
+      <table class="pharo-table">
+        <thead><tr><th>Tecnico</th><th style="text-align:right;">Interventi</th></tr></thead>
+        <tbody>${rowsTecnici || '<tr><td colspan="2" style="text-align:center;color:var(--text-muted);">Nessun tecnico assegnato</td></tr>'}</tbody>
+      </table>
+      <div style="color:var(--text-muted);font-size:0.82rem;margin-top:10px;">
+        Avanzamento: <strong>${data.completamento_pct || 0}%</strong>
+      </div>
+    `;
+  } catch (err) {
+    content.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
 
 // ── ARES dashboard ─────────────────────────────────────────────
 function renderAresPage(c) {

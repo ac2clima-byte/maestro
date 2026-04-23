@@ -1,5 +1,244 @@
-// handlers/chronos.js — pianificazione (agende, slot, scadenze).
-import { getCosminaDb } from "./shared.js";
+// handlers/chronos.js — pianificazione (agende, slot, scadenze, campagne).
+import { getCosminaDb, logger } from "./shared.js";
+
+// ─── Campagne ─────────────────────────────────────────────────────
+// Schema: vedi context/memo-campagne-cosmina.md
+//   - cosmina_campagne: anagrafica
+//   - bacheca_cards: interventi operativi con campagna_id/campagna_nome
+//
+// Stato intervento derivato da labels (campo stato è uniforme "aperto"):
+//   da_non_fare > non_fatto > completato > scaduto > programmato > da_programmare
+
+function extractLabelNames(card) {
+  const labels = card.labels || [];
+  return labels.map(l => {
+    if (!l) return "";
+    if (typeof l === "string") return l.toUpperCase().trim();
+    return String(l.name || "").toUpperCase().trim();
+  }).filter(Boolean);
+}
+
+function classifyCampaignCard(card, now = new Date()) {
+  const labels = extractLabelNames(card);
+
+  // Due date
+  let due = null;
+  if (card.due) {
+    try {
+      due = card.due.toDate ? card.due.toDate() : new Date(card.due);
+      if (Number.isNaN(due.getTime())) due = null;
+    } catch { due = null; }
+  }
+
+  if (labels.includes("DA NON FARE") || labels.includes("NON DA FARE")) return "da_non_fare";
+  if (labels.includes("NON FATTO")) return "non_fatto";
+  if (card.archiviato === true || labels.includes("COMPLETATO") || labels.includes("FATTO") || card.inBacheca === false) {
+    return "completato";
+  }
+  if (due && due < now) return "scaduto";
+  if (due) return "programmato";
+  if (labels.includes("PROGRAMMATO") && !due) return "programmato"; // label senza date
+  return "da_programmare";
+}
+
+async function fetchCampagnaCards(campagnaNome, campagnaId) {
+  const db = getCosminaDb();
+  const cards = [];
+
+  // Preferisco filter per campagna_nome (più affidabile), fallback a campagna_id
+  const filters = [];
+  if (campagnaNome) filters.push({ field: "campagna_nome", value: campagnaNome });
+  if (campagnaId) filters.push({ field: "campagna_id", value: campagnaId });
+
+  for (const f of filters) {
+    try {
+      const snap = await db.collection("bacheca_cards")
+        .where(f.field, "==", f.value)
+        .limit(1000).get();
+      snap.forEach(d => cards.push({ _id: d.id, ...(d.data() || {}) }));
+      if (cards.length) break; // preferisci primo match
+    } catch (e) {
+      logger.warn("fetchCampagnaCards filter failed", { field: f.field, error: String(e).slice(0, 120) });
+    }
+  }
+  return cards;
+}
+
+function aggregateCampaignStats(cards) {
+  const now = new Date();
+  const stats = {
+    totale: cards.length,
+    completati: 0,
+    programmati: 0,
+    scaduti: 0,
+    da_programmare: 0,
+    non_fatti: 0,
+    da_non_fare: 0,
+  };
+  const perTecnico = {};
+  for (const c of cards) {
+    const k = classifyCampaignCard(c, now);
+    const mapped = {
+      completato: "completati",
+      programmato: "programmati",
+      scaduto: "scaduti",
+      da_programmare: "da_programmare",
+      non_fatto: "non_fatti",
+      da_non_fare: "da_non_fare",
+    }[k];
+    if (mapped) stats[mapped]++;
+    const tec = c.techName || (Array.isArray(c.techNames) && c.techNames[0]) || "(non assegnato)";
+    perTecnico[tec] = (perTecnico[tec] || 0) + 1;
+  }
+  return { stats, perTecnico };
+}
+
+export async function handleChronosListaCampagne(parametri = {}) {
+  const db = getCosminaDb();
+  // Unione: cosmina_campagne + nomi distinti in bacheca_cards
+  const campagne = new Map();
+
+  try {
+    const snap = await db.collection("cosmina_campagne").limit(50).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const nome = String(v.nome || d.id);
+      campagne.set(nome, {
+        id: d.id,
+        nome,
+        stato: v.stato || null,
+        archiviata: v.archiviata === true || v.stato === "archiviata",
+        descrizione: v.descrizione || v.descrizione_dettagliata || "",
+        data_inizio: v.data_inizio || null,
+        data_fine: v.data_fine || null,
+        source: "cosmina_campagne",
+        count: 0,
+      });
+    });
+  } catch (e) {
+    logger.warn("lista campagne: cosmina_campagne failed", { error: String(e).slice(0, 120) });
+  }
+
+  // Aggiungi campagne inferite da bacheca_cards (es. WalkBy non in cosmina_campagne)
+  try {
+    const snap = await db.collection("bacheca_cards")
+      .where("listName", "in", ["LETTURE RIP", "INTERVENTI", "INTERVENTI DA ESEGUIRE", "ACCENSIONE/SPEGNIMENTO", "CAMBIO ORA"])
+      .limit(3000).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const nome = v.campagna_nome;
+      if (!nome) return;
+      if (!campagne.has(nome)) {
+        campagne.set(nome, {
+          id: v.campagna_id || null,
+          nome,
+          stato: null,
+          archiviata: false,
+          descrizione: "",
+          source: "bacheca_inferred",
+          count: 0,
+        });
+      }
+      campagne.get(nome).count++;
+    });
+  } catch (e) {
+    logger.warn("lista campagne: bacheca scan failed", { error: String(e).slice(0, 120) });
+  }
+
+  // Filtra archiviate se non richieste
+  const includeArchived = !!parametri.archived;
+  const rows = Array.from(campagne.values())
+    .filter(c => includeArchived || !c.archiviata)
+    .sort((a, b) => (b.count || 0) - (a.count || 0));
+
+  if (!rows.length) {
+    return { content: "Nessuna campagna attiva trovata.", data: { campagne: [] } };
+  }
+
+  const lines = rows.slice(0, 10).map((c, i) => {
+    const tag = c.source === "bacheca_inferred" ? " _(bacheca)_" : "";
+    const archLabel = c.archiviata ? " [archiviata]" : "";
+    return `${i + 1}. **${c.nome}**${archLabel}${tag} — ${c.count} interventi`;
+  });
+  return {
+    content: `📋 **Campagne attive** (${rows.length}):\n\n${lines.join("\n")}`,
+    data: { campagne: rows },
+  };
+}
+
+export async function handleChronosCampagne(parametri, ctx) {
+  // Query può essere { nome, campagnaId } oppure estratta da userMessage
+  let nome = String(parametri.nome || parametri.campagna || parametri.query || "").trim();
+  if (!nome && ctx?.userMessage) {
+    const m = /(?:campagn\w*\s+(?:di|per)?\s*)([A-Za-zÀ-ÿ0-9][\wÀ-ÿ\s\-]{2,60})/i.exec(ctx.userMessage);
+    if (m) nome = m[1].trim();
+  }
+
+  // Se non c'è un nome specifico: restituisci la lista
+  if (!nome || /^(attiv|aperte|tutte|lista)$/i.test(nome)) {
+    return handleChronosListaCampagne(parametri);
+  }
+
+  // Cerca nome esatto o fuzzy
+  const lista = await handleChronosListaCampagne({ archived: true });
+  const candidates = (lista.data?.campagne || []).filter(c =>
+    c.nome.toLowerCase().includes(nome.toLowerCase())
+  );
+  if (!candidates.length) {
+    const attive = (lista.data?.campagne || []).slice(0, 8).map(c => `· ${c.nome}`).join("\n");
+    return {
+      content: `Nessuna campagna trovata per "${nome}".\n\nCampagne disponibili:\n${attive}`,
+    };
+  }
+  if (candidates.length > 1) {
+    const opzioni = candidates.slice(0, 5).map(c => `· ${c.nome} (${c.count} interv.)`).join("\n");
+    return {
+      content: `Ho trovato ${candidates.length} campagne con "${nome}":\n\n${opzioni}\n\nSpecifica meglio.`,
+    };
+  }
+
+  // Match univoco: calcola metriche
+  const camp = candidates[0];
+  const cards = await fetchCampagnaCards(camp.nome, camp.id);
+  const { stats, perTecnico } = aggregateCampaignStats(cards);
+
+  const perc = stats.totale > 0 ? Math.round((stats.completati / stats.totale) * 100) : 0;
+  const percBar = Math.min(20, Math.round((stats.completati / Math.max(1, stats.totale)) * 20));
+  const bar = "█".repeat(percBar) + "░".repeat(20 - percBar);
+
+  const topTech = Object.entries(perTecnico)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([t, n]) => `${t}=${n}`).join(", ");
+
+  const lines = [
+    `📋 **Campagna: ${camp.nome}**`,
+    camp.descrizione ? `_${camp.descrizione.slice(0, 150)}_` : "",
+    ``,
+    `**Avanzamento**: \`${bar}\` ${perc}% completato`,
+    ``,
+    `  · ✅ Completati: ${stats.completati}`,
+    `  · 📅 Programmati: ${stats.programmati}`,
+    `  · ⚠️ Scaduti: ${stats.scaduti}`,
+    `  · 📝 Da Programmare: ${stats.da_programmare}`,
+    `  · ❌ Non Fatti: ${stats.non_fatti}`,
+    `  · 🚫 Da Non Fare: ${stats.da_non_fare}`,
+    `  ─────────────`,
+    `  · **Totale: ${stats.totale}**`,
+    ``,
+    `**Per tecnico**: ${topTech || "-"}`,
+  ].filter(Boolean);
+
+  return {
+    content: lines.join("\n"),
+    data: {
+      campagna: camp,
+      stats,
+      perTecnico,
+      completamento_pct: perc,
+    },
+  };
+}
+
 
 export async function handleChronosSlotTecnico(parametri) {
   const tecnicoFilter = String(

@@ -29,6 +29,7 @@ import { handleDikeaScadenzeCurit, handleDikeaImpiantiSenzaTarga } from "./dikea
 import { handleEmporionSottoScorta, handleEmporionDisponibilita } from "./emporion.js";
 import {
   handleChronosSlotTecnico, handleChronosAgendaGiornaliera, handleChronosScadenze,
+  handleChronosCampagne, handleChronosListaCampagne,
 } from "./chronos.js";
 
 // ─── NEXUS intent schema ───────────────────────────────────────
@@ -233,6 +234,17 @@ export const DIRECT_HANDLERS = [
       || /agenda.*(di|del|per)\s+\w+.*(oggi|domani|dopodomani|\d{1,2}\/\d{1,2})/.test(m)
       || /agenda.*di.*\w+$/.test(m);
   }, fn: handleChronosAgendaGiornaliera },
+  // CHRONOS — Campagne (lista + dettaglio)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "chronos" && /(lista.*campagn|tutte.*campagn|campagne.*attiv|campagn_list|campaigns_list)/.test(az))
+      || /campagne.*attiv|lista.*campagn|tutte.*campagn|quali.*campagn/.test(m);
+  }, fn: handleChronosListaCampagne },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "chronos" && /(campagn|walkby|spegnimento|svuotament|riempiment)/.test(az))
+      || /come\s+va\s+.*campagn|stato.*campagn|campagn.*walkby|campagn.*spegnimento/.test(m);
+  }, fn: handleChronosCampagne },
   { match: (col, az) => col === "chronos" && /(scadenz|manutenz|curit|imminente|prossim.*manut)/.test(az), fn: handleChronosScadenze },
   { match: (col, az) => col === "chronos" && /(slot|libero|quando|agenda|disponib|prossim|impegni|fa.*domani|fa.*oggi)/.test(az), fn: handleChronosSlotTecnico },
 ];

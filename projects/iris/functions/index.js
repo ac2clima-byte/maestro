@@ -27,6 +27,7 @@ import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
 import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
+import { handleChronosCampagne, handleChronosListaCampagne } from "./handlers/chronos.js";
 
 // ─── suggestReply (legacy IRIS draft helper) ───────────────────
 
@@ -665,6 +666,43 @@ export const pharoRtiDashboard = onRequest(
     if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
     try { const r = await handlePharoRtiMonitoring({}); res.status(200).json(r.data || {}); }
     catch (e) { logger.error("pharoRtiDashboard failed", { error: String(e) }); res.status(500).json({ error: String(e).slice(0, 300) }); }
+  }
+);
+
+// CHRONOS — dashboard campagne (lista + dettaglio)
+export const chronosCampagneDashboard = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 60, memory: "256MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "GET") { res.status(405).json({ error: "method_not_allowed" }); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+    try {
+      const campagnaNome = String(req.query?.nome || "").trim();
+      if (campagnaNome) {
+        const r = await handleChronosCampagne({ nome: campagnaNome }, { userMessage: "" });
+        res.status(200).json(r.data || { content: r.content });
+      } else {
+        // Lista: ritorna array campagne con metriche per ciascuna
+        const listaR = await handleChronosListaCampagne({});
+        const campagne = listaR.data?.campagne || [];
+        const dettagli = [];
+        // Per ogni campagna, calcola metriche (in parallelo, max 10)
+        const top = campagne.slice(0, 10);
+        const promises = top.map(async c => {
+          try {
+            const r = await handleChronosCampagne({ nome: c.nome }, { userMessage: "" });
+            return { nome: c.nome, ...(r.data || {}) };
+          } catch (e) { return { nome: c.nome, error: String(e).slice(0, 100) }; }
+        });
+        const risultati = await Promise.all(promises);
+        res.status(200).json({ campagne: risultati, totale: campagne.length });
+      }
+    } catch (e) {
+      logger.error("chronosCampagneDashboard failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
   }
 );
 
