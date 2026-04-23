@@ -102,7 +102,7 @@ export function applyCors(req, res) {
 export function applyCorsOpen(req, res) {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-File-Name, X-Session-Id");
   res.set("Access-Control-Max-Age", "3600");
 }
 

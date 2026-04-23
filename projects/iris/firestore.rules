@@ -283,6 +283,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // nexus_audio_transcripts: trascrizioni chiamate + analisi Haiku
+    // (upload audio da NEXUS chat). Solo Admin SDK scrive.
+    match /nexus_audio_transcripts/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny per ogni altra collection.
     // Quando aggiungi un Collega con nuova collection, aggiungi la rule qui sopra.
     match /{document=**} {

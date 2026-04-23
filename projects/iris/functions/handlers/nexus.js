@@ -587,6 +587,154 @@ export async function loadConversationContext(sessionId, max = 5) {
   }
 }
 
+// ─── Analisi testo lungo / incollato ──────────────────────────
+// Se l'utente incolla un testo lungo (>200 char) o scrive
+// "analizza questo: ...", invece del routing standard NEXUS facciamo
+// un'analisi dedicata con Haiku che estrae chi parla, cosa vuole, intent,
+// azioni suggerite. Ritorna una bolla formattata.
+
+const ANALYZE_TEXT_SYSTEM = `Sei l'assistente di Alberto Contardi (ACG Clima Service, manutenzione HVAC, Piemonte).
+Hai ricevuto un MESSAGGIO (email, WhatsApp, trascrizione chiamata, o testo libero) che Alberto vuole analizzare.
+Rispondi SOLO con JSON:
+
+{
+  "mittente": "<chi ha scritto/parlato, se deducibile>",
+  "argomento": "<1 frase>",
+  "richiesta": "<cosa vuole l'interlocutore in 1-2 frasi>",
+  "intent": "preparare_preventivo|registrare_fattura|aprire_intervento_urgente|aprire_intervento_ordinario|rispondere_a_richiesta|registrare_incasso|gestire_pec|sollecitare_pagamento|archiviare|nessuna_azione",
+  "urgenza": "bassa|media|alta|critica",
+  "sentiment": "positivo|neutro|frustrato|arrabbiato|disperato",
+  "entita": {
+    "persone": ["nome 1"],
+    "aziende": ["nome 1"],
+    "condomini": ["nome 1"],
+    "indirizzi": ["via/città 1"],
+    "importi": ["€ 1.250,00 (causale)"],
+    "date": ["2026-05-15 (tipo)"]
+  },
+  "azioni_suggerite": ["azione 1", "azione 2"],
+  "riepilogo": "<2-3 frasi>",
+  "prossimo_passo": "<1-2 frasi operative, come se stessi dando istruzioni a un collega>"
+}
+
+REGOLE:
+- Leggi TUTTO il thread (anche email quotate "On X wrote", ">", "Il X ha scritto").
+- Ometti campi di entita che non puoi estrarre con certezza.
+- SOLO JSON valido, niente code fence, niente testo extra.
+- Italiano operativo, concreto.`;
+
+function shouldAnalyzeTextDirectly(userMessage) {
+  const t = String(userMessage || "").trim();
+  if (!t) return false;
+  // Prefisso esplicito
+  if (/^(analizz[aa]|leggi|riassumi)\s+(questo|quest[ao]\s+(?:messaggio|email|testo|chat|thread|messaggio)|il\s+seguente)[:\s]/i.test(t)) {
+    return true;
+  }
+  // Heuristica: testo lungo (>200 char) senza domanda esplicita
+  if (t.length > 200) {
+    const lower = t.toLowerCase();
+    // Non è una domanda NEXUS standard ("quante email", "apri intervento", ecc.)
+    const isQuestion = /\?|^(quante?|quanti|cosa|come|dove|quando|chi|perché|apri|manda|scrivi|dimmi|cerca|trova|registra|fammi)\s/i.test(t);
+    if (!isQuestion) return true;
+    // Oppure è una domanda MA contiene indizi di messaggio incollato
+    if (/^(.{0,50}(ha\s+scritto|wrote|:.*\n|>\s))/im.test(t)) return true;
+  }
+  return false;
+}
+
+async function callHaikuForTextAnalysis(apiKey, userText) {
+  const payload = {
+    model: MODEL,
+    max_tokens: 1500,
+    system: ANALYZE_TEXT_SYSTEM,
+    messages: [{ role: "user", content: `Testo da analizzare:\n\n${userText.slice(0, 8000)}` }],
+  };
+  const resp = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 300)}`);
+  }
+  const json = await resp.json();
+  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const s = text.indexOf("{"), e = text.lastIndexOf("}");
+  if (s < 0 || e <= s) return { _raw: text, usage: json.usage || {} };
+  try {
+    const parsed = JSON.parse(text.slice(s, e + 1));
+    parsed._usage = json.usage || {};
+    return parsed;
+  } catch {
+    return { _raw: text, usage: json.usage || {} };
+  }
+}
+
+function formatTextAnalysis(analysis) {
+  if (!analysis || analysis._raw) {
+    return `📝 **Analisi testo**\n\n${(analysis && analysis._raw) || "(parsing fallito)"}`;
+  }
+  const lines = [];
+  lines.push(`📝 **Ho letto il messaggio${analysis.mittente ? " di " + analysis.mittente : ""}.**`);
+  lines.push("");
+  if (analysis.riepilogo) { lines.push(analysis.riepilogo); lines.push(""); }
+  if (analysis.richiesta) lines.push(`**Richiesta**: ${analysis.richiesta}`);
+  if (analysis.argomento) lines.push(`**Argomento**: ${analysis.argomento}`);
+  if (analysis.intent) lines.push(`**Intent**: \`${analysis.intent}\``);
+  if (analysis.urgenza) lines.push(`**Urgenza**: ${analysis.urgenza}`);
+  if (analysis.sentiment) lines.push(`**Sentiment**: ${analysis.sentiment}`);
+  lines.push("");
+  const ent = analysis.entita || {};
+  const entRows = [];
+  if (Array.isArray(ent.persone) && ent.persone.length) entRows.push(`  • Persone: ${ent.persone.join(", ")}`);
+  if (Array.isArray(ent.aziende) && ent.aziende.length) entRows.push(`  • Aziende: ${ent.aziende.join(", ")}`);
+  if (Array.isArray(ent.condomini) && ent.condomini.length) entRows.push(`  • Condomini: ${ent.condomini.join(", ")}`);
+  if (Array.isArray(ent.indirizzi) && ent.indirizzi.length) entRows.push(`  • Indirizzi: ${ent.indirizzi.join(", ")}`);
+  if (Array.isArray(ent.importi) && ent.importi.length) entRows.push(`  • Importi: ${ent.importi.join(", ")}`);
+  if (Array.isArray(ent.date) && ent.date.length) entRows.push(`  • Date: ${ent.date.join(", ")}`);
+  if (entRows.length) {
+    lines.push(`**Dati estratti**:`);
+    lines.push(entRows.join("\n"));
+    lines.push("");
+  }
+  if (Array.isArray(analysis.azioni_suggerite) && analysis.azioni_suggerite.length) {
+    lines.push(`**Azioni suggerite**:`);
+    for (const a of analysis.azioni_suggerite) lines.push(`• ${a}`);
+    lines.push("");
+  }
+  if (analysis.prossimo_passo) {
+    lines.push(`**Prossimo passo**: ${analysis.prossimo_passo}`);
+    lines.push("");
+  }
+  lines.push(`❓ Procedo?`);
+  return lines.join("\n");
+}
+
+/**
+ * Se applicabile, analizza direttamente il testo (bypassa routing NEXUS).
+ * Ritorna { content, data } compatibile con il flow direct handler, o null.
+ */
+export async function tryAnalyzeLongText(userMessage, apiKey) {
+  if (!shouldAnalyzeTextDirectly(userMessage)) return null;
+  if (!apiKey) return null;
+  try {
+    const analysis = await callHaikuForTextAnalysis(apiKey, userMessage);
+    return {
+      content: formatTextAnalysis(analysis),
+      data: { analysis, kind: "text_analysis" },
+      _textAnalysis: true,
+    };
+  } catch (e) {
+    logger.warn("tryAnalyzeLongText failed", { error: String(e).slice(0, 200) });
+    return null;
+  }
+}
+
 // ─── Haiku intent call ─────────────────────────────────────────
 export async function callHaikuForIntent(apiKey, messages) {
   const payload = {

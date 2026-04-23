@@ -21,7 +21,7 @@ import {
 import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
   parseAndValidateIntent, callHaikuForIntent, loadConversationContext,
-  tryInterceptPatternConfirmation,
+  tryInterceptPatternConfirmation, tryAnalyzeLongText,
 } from "./handlers/nexus.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
@@ -213,6 +213,29 @@ export const nexusRouter = onRequest(
 
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
+
+    // Analisi diretta testo lungo / incollato (bypass routing NEXUS)
+    try {
+      const textAnalysis = await tryAnalyzeLongText(userMessage, apiKey);
+      if (textAnalysis && textAnalysis._textAnalysis) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: textAnalysis.content,
+          direct: { data: textAnalysis.data, failed: false },
+          stato: "completata",
+          modello: MODEL,
+        });
+        res.status(200).json({
+          intent: { collega: "nexus", azione: "analizza_testo", parametri: {}, rispostaUtente: textAnalysis.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: textAnalysis.data, failed: false },
+          modello: MODEL, usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("tryAnalyzeLongText intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
 
     // Carica gli ultimi 5 scambi della sessione (contesto multi-turno)
     // per far capire a Haiku riferimenti come "lui", "loro", "quel cliente".
@@ -934,6 +957,115 @@ export const echoInboundWebhook = onRequest(
     }
   }
 );
+
+// ─── NEXUS audio transcription ─────────────────────────────────
+import { handleNexusTranscribeAudio } from "./handlers/nexus-audio.js";
+
+export const nexusTranscribeAudio = onRequest(
+  {
+    region: REGION,
+    cors: false,
+    timeoutSeconds: 300,
+    memory: "512MiB",
+    maxInstances: 5,
+    // NOTA: per abilitare Whisper, aggiungi OPENAI_API_KEY via:
+    //   firebase functions:secrets:set OPENAI_API_KEY
+    // e aggiungi qui `secrets: [ANTHROPIC_API_KEY, defineSecret("OPENAI_API_KEY")]`.
+    // Finché non è configurato, l'endpoint risponde 503 con messaggio chiaro.
+    secrets: [ANTHROPIC_API_KEY],
+  },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
+
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+
+    // Raw body: Cloud Functions v2 passa req.rawBody. Per multipart dobbiamo
+    // parsarlo. Usiamo un parsing minimale perché Cloud Functions non include
+    // busboy di default.
+    //
+    // Formato accettato:
+    //  - Content-Type: multipart/form-data con campo "audio"
+    //  - Content-Type: audio/* diretto (body è il file)
+
+    const ct = String(req.headers["content-type"] || "");
+    let audioBuffer = null, fileName = null, mimeType = null;
+
+    if (/^audio\//.test(ct)) {
+      // Upload diretto (client fa fetch con body: blob, content-type: audio/mpeg)
+      audioBuffer = Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(req.rawBody || "");
+      fileName = String(req.headers["x-file-name"] || "audio.mp3");
+      mimeType = ct;
+    } else if (/^multipart\/form-data/.test(ct)) {
+      // Parse multipart minimale (solo 1 file "audio")
+      try {
+        const boundaryMatch = /boundary=(?:"([^"]+)"|([^;]+))/.exec(ct);
+        const boundary = boundaryMatch ? (boundaryMatch[1] || boundaryMatch[2]) : null;
+        if (!boundary) throw new Error("missing_boundary");
+        const raw = Buffer.isBuffer(req.rawBody) ? req.rawBody : Buffer.from(req.rawBody || "");
+        const parts = splitMultipart(raw, boundary);
+        for (const part of parts) {
+          const nameMatch = /name="([^"]+)"/i.exec(part.headers);
+          if (!nameMatch || nameMatch[1] !== "audio") continue;
+          const fnMatch = /filename="([^"]+)"/i.exec(part.headers);
+          const ctMatch = /content-type:\s*([^\r\n]+)/i.exec(part.headers);
+          fileName = fnMatch ? fnMatch[1] : "audio.mp3";
+          mimeType = ctMatch ? ctMatch[1].trim() : "audio/mpeg";
+          audioBuffer = part.body;
+          break;
+        }
+      } catch (e) {
+        res.status(400).json({ error: "multipart_parse_failed", detail: String(e).slice(0, 200) });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: "unsupported_content_type", got: ct });
+      return;
+    }
+
+    if (!audioBuffer || !audioBuffer.length) {
+      res.status(400).json({ error: "missing_audio" });
+      return;
+    }
+
+    const sessionId = String(req.headers["x-session-id"] || "").slice(0, 80) || null;
+    try {
+      const result = await handleNexusTranscribeAudio({
+        audioBuffer, fileName, mimeType,
+        userId: authUser.email || authUser.uid,
+        sessionId,
+      });
+      res.status(result.ok ? 200 : 503).json(result);
+    } catch (e) {
+      logger.error("nexusTranscribeAudio failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// Minimal multipart parser (ricerca buffer split su boundary)
+function splitMultipart(buf, boundary) {
+  const dashBoundary = Buffer.from(`--${boundary}`);
+  const parts = [];
+  let idx = 0;
+  while (idx < buf.length) {
+    const start = buf.indexOf(dashBoundary, idx);
+    if (start < 0) break;
+    const headEnd = buf.indexOf(Buffer.from("\r\n\r\n"), start);
+    if (headEnd < 0) break;
+    const headers = buf.slice(start + dashBoundary.length, headEnd).toString("utf8");
+    const bodyStart = headEnd + 4;
+    const nextBoundary = buf.indexOf(dashBoundary, bodyStart);
+    if (nextBoundary < 0) break;
+    // Body = [bodyStart, nextBoundary - 2] (rimuovi \r\n finale)
+    const body = buf.slice(bodyStart, nextBoundary - 2);
+    parts.push({ headers, body });
+    idx = nextBoundary;
+  }
+  return parts;
+}
 
 // ─── IRIS archivio email ───────────────────────────────────────
 

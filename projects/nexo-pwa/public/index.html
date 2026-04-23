@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>NEXO — Hub dei Colleghi</title>
 <style>
   :root {
@@ -3116,6 +3119,81 @@ function nexusAutoResize() {
   el.style.height = Math.min(120, el.scrollHeight) + "px";
 }
 
+// ── Upload audio chiamata → trascrizione via Cloud Function ─────
+const NEXUS_AUDIO_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTranscribeAudio";
+const NEXUS_AUDIO_MAX_MB = 25;
+
+async function nexusUploadAudio(file) {
+  if (!file) return;
+  if (file.size > NEXUS_AUDIO_MAX_MB * 1024 * 1024) {
+    alert(`Audio troppo grande (max ${NEXUS_AUDIO_MAX_MB}MB). Dimensione: ${Math.round(file.size/1024/1024)}MB.`);
+    return;
+  }
+  const token = await getAuthIdToken();
+  if (!token) { alert("Sessione scaduta, rifai login."); return; }
+
+  // Mostra messaggio "sto trascrivendo..."
+  const localMsgId = "audio_" + Date.now();
+  NEXUS_MESSAGES.push({
+    id: localMsgId,
+    role: "user",
+    content: `📞 Upload audio: ${file.name} (${(file.size/1024/1024).toFixed(1)}MB). Attendo trascrizione…`,
+    timestamp: new Date(),
+    _local: true,
+  });
+  NEXUS_PENDING = true;
+  nexusRenderMessages();
+
+  try {
+    const resp = await fetch(NEXUS_AUDIO_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": file.type || "audio/mpeg",
+        "X-File-Name": file.name || "audio.mp3",
+        "X-Session-Id": NEXUS_SESSION_ID,
+      },
+      body: file,
+    });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok || !data.ok) {
+      const errText = data.message || data.error || `HTTP ${resp.status}`;
+      NEXUS_MESSAGES.push({
+        id: "err_" + Date.now(),
+        role: "assistant",
+        content: `❌ Trascrizione fallita: ${errText}`,
+        stato: "errore",
+        timestamp: new Date(),
+        _local: true,
+      });
+    } else {
+      NEXUS_MESSAGES.push({
+        id: "audio_result_" + Date.now(),
+        role: "assistant",
+        content: data.formatted || data.text || "Trascrizione ricevuta.",
+        collegaCoinvolto: "nexus",
+        stato: "completata",
+        timestamp: new Date(),
+        _local: true,
+      });
+    }
+  } catch (err) {
+    console.error("[audio] upload failed:", err);
+    NEXUS_MESSAGES.push({
+      id: "err_" + Date.now(),
+      role: "assistant",
+      content: `❌ Errore upload audio: ${err.message || err}`,
+      stato: "errore",
+      timestamp: new Date(),
+      _local: true,
+    });
+  } finally {
+    NEXUS_PENDING = false;
+    nexusRenderMessages();
+  }
+}
+
 // Voice input (Web Speech API)
 const NEXUS_SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 const nexusVoice = { recognition: null, active: false, timer: null, baseText: "", interim: "" };
@@ -3214,6 +3292,13 @@ function nexusWire() {
   // TTS toggle
   nexusTtsInit();
   $("#nexusTtsToggle")?.addEventListener("click", nexusTtsToggle);
+  // Upload audio chiamate
+  $("#nexusAudioBtn")?.addEventListener("click", () => $("#nexusAudioFile")?.click());
+  $("#nexusAudioFile")?.addEventListener("change", (ev) => {
+    const f = ev.target.files && ev.target.files[0];
+    if (f) nexusUploadAudio(f).catch(e => console.warn("[audio] upload failed:", e));
+    ev.target.value = ""; // reset per consentire re-upload stesso file
+  });
   const input = $("#nexusInput");
   input.addEventListener("input", nexusAutoResize);
   input.addEventListener("keydown", (ev) => {
@@ -3246,8 +3331,11 @@ function init() {
   nexusRenderMessages();
   nexusEnsureSubscribed();
 
-  // Share dall'estensione Chrome / Web Share API
-  // Supporta ?share=<testo>&openNexus=1&source=<whatsapp|selection|shortcut>
+  // Service Worker per Web Share Target (Android)
+  registerShareTargetSw();
+
+  // Share dall'estensione Chrome / Web Share API / Share Target Android
+  // Supporta ?share=<testo> (Chrome ext) e ?sharedAt=<ts> (SW Share Target)
   handleShareIntent();
 
   // FCM push notifications — DISABILITATO finché la VAPID key non è configurata
@@ -3269,51 +3357,148 @@ function init() {
   });
 }
 
-// ── Share intent (da Chrome Extension o Web Share Target) ───
-// Supporta ?share=<testo>&openNexus=1&source=<whatsapp|selection|shortcut>
-// Al load, se il parametro share è presente:
-//   1. apre la NEXUS chat
-//   2. pre-popola il campo input con il testo decodificato
-//   3. pulisce l'URL via history.replaceState (non propaga a refresh)
+// ── Share intent (Chrome ext + Web Share Target Android) ───
+// Supporta:
+//  - ?share=<testo>&openNexus=1&source=<whatsapp|selection|shortcut>  (Chrome ext)
+//  - ?sharedAt=<timestamp>   (Web Share Target — il SW salva payload in IDB/CacheStorage)
 function handleShareIntent() {
   try {
     const params = new URLSearchParams(location.search);
     const shareText = params.get("share");
     const openNexus = params.get("openNexus");
     const source = params.get("source") || "";
+    const sharedAt = params.get("sharedAt");
 
-    if (!shareText && openNexus !== "1") return;
+    // ── Caso A: share da Chrome extension (testo inline) ──
+    if (shareText || openNexus === "1") {
+      params.delete("share");
+      params.delete("openNexus");
+      params.delete("source");
+      const qs = params.toString();
+      history.replaceState({}, "", location.pathname + (qs ? `?${qs}` : "") + location.hash);
 
-    // Pulisci URL subito (no token/text nei log/referrer)
-    params.delete("share");
-    params.delete("openNexus");
-    params.delete("source");
-    const qs = params.toString();
-    const clean = location.pathname + (qs ? `?${qs}` : "") + location.hash;
-    history.replaceState({}, "", clean);
+      nexusOpen();
+      if (shareText && shareText.trim()) {
+        requestAnimationFrame(() => {
+          const input = $("#nexusInput");
+          if (!input) return;
+          const prefix = source === "whatsapp"
+            ? "Analizza questo messaggio WhatsApp:\n\n"
+            : source === "selection" || source === "shortcut"
+              ? "Analizza questo testo:\n\n"
+              : "";
+          input.value = prefix + String(shareText).slice(0, 3000);
+          input.focus();
+          nexusAutoResize();
+        });
+      }
+      return;
+    }
 
-    // Apri chat NEXUS
-    nexusOpen();
-
-    if (shareText && shareText.trim()) {
-      const decoded = String(shareText).slice(0, 3000);
-      // Attendi che la textarea esista in DOM
-      requestAnimationFrame(() => {
-        const input = $("#nexusInput");
-        if (!input) return;
-        const prefix = source === "whatsapp"
-          ? "Analizza questo messaggio WhatsApp:\n\n"
-          : source === "selection" || source === "shortcut"
-            ? "Analizza questo testo:\n\n"
-            : "";
-        input.value = prefix + decoded;
-        input.focus();
-        nexusAutoResize();
-      });
+    // ── Caso B: share da Web Share Target (Android) ──
+    if (sharedAt) {
+      params.delete("sharedAt");
+      const qs = params.toString();
+      history.replaceState({}, "", location.pathname + (qs ? `?${qs}` : "") + location.hash);
+      nexusOpen();
+      consumeSharedPayload(sharedAt).catch(e => console.warn("[share] consume failed:", e));
+      return;
     }
   } catch (e) {
     console.warn("[share] handleShareIntent failed", e);
   }
+}
+
+// Legge il payload dal SW (IDB meta + Cache Storage file) e lo invia a NEXUS
+async function consumeSharedPayload(sharedAt) {
+  const meta = await idbGet("shares", String(sharedAt));
+  if (!meta) {
+    console.warn("[share] nessun payload per sharedAt", sharedAt);
+    return;
+  }
+
+  // Caso 1: testo puro (title + text + url)
+  if (!meta.hasFile) {
+    const combined = [meta.title, meta.text, meta.url].filter(Boolean).join("\n\n").slice(0, 5000);
+    requestAnimationFrame(() => {
+      const input = $("#nexusInput");
+      if (input && combined) {
+        input.value = `Messaggio ricevuto via condivisione:\n\n${combined}`;
+        input.focus();
+        nexusAutoResize();
+      }
+    });
+    return;
+  }
+
+  // Caso 2: file (audio/image/pdf/text)
+  const fakeUrl = `/nexo-shared-file/${sharedAt}`;
+  const cache = await caches.open("nexo-share-v1").catch(() => null);
+  const resp = cache ? await cache.match(fakeUrl) : null;
+  if (!resp) {
+    alert("File condiviso non trovato (cache miss).");
+    return;
+  }
+  const blob = await resp.blob();
+  const file = new File([blob], meta.fileName || "condiviso", { type: meta.fileType || blob.type });
+
+  if (/^audio\//.test(file.type)) {
+    // Audio → upload a transcribe
+    requestAnimationFrame(() => {
+      const input = $("#nexusInput");
+      if (input) input.value = `Audio ricevuto: ${file.name} (${Math.round(file.size/1024)}KB). Trascrivo...`;
+      nexusAutoResize();
+    });
+    nexusUploadAudio(file).catch(e => console.warn("[share] audio upload:", e));
+  } else if (/^image\//.test(file.type)) {
+    requestAnimationFrame(() => {
+      const input = $("#nexusInput");
+      if (input) input.value = `Immagine ricevuta: ${file.name} (${Math.round(file.size/1024)}KB).\n\nCosa vuoi che faccia con quest'immagine?`;
+      nexusAutoResize();
+    });
+  } else if (file.type === "application/pdf") {
+    requestAnimationFrame(() => {
+      const input = $("#nexusInput");
+      if (input) input.value = `PDF ricevuto: ${file.name} (${Math.round(file.size/1024)}KB).\n\nCosa vuoi che faccia con questo PDF?`;
+      nexusAutoResize();
+    });
+  } else {
+    // Testo/altro: leggi come testo
+    const text = await blob.text().catch(() => "");
+    const clipped = text.slice(0, 3000);
+    requestAnimationFrame(() => {
+      const input = $("#nexusInput");
+      if (input) input.value = `File ricevuto: ${file.name}\n\n${clipped}`;
+      nexusAutoResize();
+    });
+  }
+}
+
+// Mini IDB helper (legge)
+function idbGet(store, key) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("nexo-shares", 1);
+    req.onupgradeneeded = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains(store)) d.createObjectStore(store);
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction(store, "readonly");
+      const r = tx.objectStore(store).get(key);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Registra il Service Worker principale (sw.js) per Web Share Target
+async function registerShareTargetSw() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+  } catch (e) { console.warn("[SW] share-target register failed:", e); }
 }
 
 // ── FCM Push notifications ─────────────────────────────────────
@@ -3509,6 +3694,8 @@ bootstrapAuth().catch(e => {
     <textarea id="nexusInput" rows="1" placeholder="Cosa ti serve? (invio per mandare, shift+invio per nuova riga)"></textarea>
     <button id="nexusTtsToggle" class="nexus-btn-icon" aria-label="Attiva lettura vocale" title="Attiva/disattiva lettura ad alta voce" hidden>🔇</button>
     <button id="nexusMicBtn" class="nexus-btn-icon" aria-label="Detta la richiesta" title="Dettatura vocale" hidden>🎤</button>
+    <button id="nexusAudioBtn" class="nexus-btn-icon" aria-label="Carica audio chiamata" title="Carica registrazione chiamata">📞</button>
+    <input type="file" id="nexusAudioFile" accept="audio/*" hidden>
     <button id="nexusSendBtn" class="nexus-btn-icon nexus-btn-send" aria-label="Invia">➤</button>
   </div>
 </div>
