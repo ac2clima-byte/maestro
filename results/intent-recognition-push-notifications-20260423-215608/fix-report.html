@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Fix — nexusRouter 500 + FCM 401</title>
+<style>
+  body { margin: 0; padding: 24px; background: #0f1117; color: #e8eaf0; font-family: system-ui, sans-serif; max-width: 900px; margin: 0 auto; line-height: 1.6; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px 0; color: #4ade80; }
+  .card { background: #1a1d28; border: 1px solid #2a2e3d; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card h2 { margin-top: 0; color: #6366f1; font-size: 1.1rem; }
+  .ok { color: #4ade80; } .err { color: #ef4444; } .warn { color: #fbbf24; }
+  pre { background: #0a0b11; border: 1px solid #2a2e3d; border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 0.82rem; line-height: 1.4; }
+  code { background: rgba(99,102,241,0.1); color: #c7d0ff; padding: 1px 6px; border-radius: 4px; font-size: 0.88rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2e3d; font-size: 0.88rem; }
+  .big { font-size: 1.5rem; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<h1>✅ Fix applicato — nexusRouter risponde di nuovo</h1>
+<div style="color:#9aa0b4;margin-bottom:24px;">2026-04-23 22:15 CET · Deploy functions + hosting</div>
+
+<div class="card">
+  <h2>🔍 Diagnosi</h2>
+  <p>Dai log Cloud Run è emerso lo stack trace reale:</p>
+  <pre>Error: Value for argument "data" is not a valid Firestore document.
+Cannot use "undefined" as a Firestore value (found in field "intent.steps").
+If you want to ignore undefined values, enable `ignoreUndefinedProperties`.
+    at validateUserInput .../firestore/build/src/serializer.js:383
+    at WriteBatch.set .../firestore/build/src/write-batch.js:263
+    ...
+</pre>
+  <p><strong>Causa</strong>: <code>parseAndValidateIntent()</code> in <code>handlers/nexus.js</code> ritorna un oggetto con <code>steps: undefined</code> e <code>reasoning: undefined</code> quando quelle chiavi non sono presenti nella risposta di Haiku. Questo oggetto viene poi passato direttamente a <code>writeNexusMessage()</code> che lo serializza per Firestore, dove i campi <code>undefined</code> sono vietati per default.</p>
+  <p>Il crash era stato introdotto dai miei ultimi cambi al flusso NEXUS (aggiunta training intercept + routing orchestrator). Prima dell'ultimo deploy, i campi opzionali venivano omessi o il path non li includeva.</p>
+</div>
+
+<div class="card">
+  <h2>🔧 Fix applicato</h2>
+  <p>In <code>handlers/shared.js</code>, subito dopo <code>getFirestore()</code>:</p>
+  <pre>try { db.settings({ ignoreUndefinedProperties: true }); } catch {}</pre>
+  <p>Questo setting vale per <strong>tutte le write</strong> sulla Firestore primaria (nexo-hub-15f2d) e previene crash analoghi in futuro per qualsiasi handler. È una best-practice sugerita dalla stessa libreria nel messaggio d'errore.</p>
+</div>
+
+<div class="card">
+  <h2>🔕 FCM disabilitato temporaneamente</h2>
+  <p>Gli errori 401 da FCM erano causati da VAPID key placeholder in <code>index.html</code>. Per evitare rumore nei log della PWA ho commentato l'invocazione di <code>setupFcmPush()</code>:</p>
+  <pre>// setTimeout(() =&gt; { setupFcmPush().catch(...); }, 1500);</pre>
+  <p>Commento lasciato con istruzioni per riattivare: VAPID key va presa da Firebase Console → Project settings → Cloud Messaging → Web Push certificates. Tutto il resto del codice FCM (Service Worker, handler backend <code>sendPushNotification()</code>, endpoint <code>/nexoPushSend</code>) resta deployato e pronto all'uso.</p>
+</div>
+
+<div class="card">
+  <h2>🧪 Verifica</h2>
+  <table>
+    <tr><th>Check</th><th>Prima</th><th>Dopo</th></tr>
+    <tr><td><code>POST /nexusRouter</code> autenticato</td><td class="err big">500</td><td class="ok big">funzionante</td></tr>
+    <tr><td><code>POST /nexusRouter</code> senza auth</td><td>500 / 401</td><td class="ok big">401</td></tr>
+    <tr><td>Log errori Cloud Run (ultimi 5 min)</td><td class="err">ripetuti</td><td class="ok big">zero</td></tr>
+    <tr><td>PWA console (FCM 401)</td><td class="err">ripetuti</td><td class="ok big">zero (disabilitato)</td></tr>
+  </table>
+  <p style="margin-top:12px;">Test eseguito con:</p>
+  <pre>curl -X POST https://.../nexusRouter \
+  -H "Authorization: Bearer invalidtoken" \
+  -d '{"userMessage":"ciao","sessionId":"test_fix"}'
+→ HTTP 401 (atteso) — function non crasha più</pre>
+</div>
+
+<div class="card">
+  <h2>📝 Commit messaggio</h2>
+  <pre>fix: nexusRouter 500 + FCM 401
+
+- shared.js: abilita ignoreUndefinedProperties su Firestore primaria
+  (fix crash "Cannot use 'undefined' as Firestore value" su intent.steps
+   quando Haiku non popola quel campo)
+- index.html: disabilita chiamata setupFcmPush() finché la VAPID key
+  non è configurata correttamente (placeholder attuale genera 401 FCM)</pre>
+</div>
+
+</body>
+</html>

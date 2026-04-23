@@ -3246,8 +3246,12 @@ function init() {
   nexusRenderMessages();
   nexusEnsureSubscribed();
 
-  // FCM push notifications (chiede permesso, salva token)
-  setTimeout(() => { setupFcmPush().catch(e => console.warn("[FCM] setup failed:", e)); }, 1500);
+  // FCM push notifications — DISABILITATO finché la VAPID key non è configurata
+  // (attualmente in FCM_VAPID_KEY c'è un placeholder che genera 401 da FCM).
+  // Per riattivare: prendere VAPID key reale da Firebase Console →
+  // Project settings → Cloud Messaging → Web Push certificates
+  // e sostituirla in FCM_VAPID_KEY, poi togliere il commento sotto.
+  // setTimeout(() => { setupFcmPush().catch(e => console.warn("[FCM] setup failed:", e)); }, 1500);
 
   // Logout button
   $("#logoutBtn")?.addEventListener("click", async () => {

@@ -22,6 +22,10 @@ export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 // ─── Primary Firebase app (nexo-hub-15f2d) ─────────────────────
 if (!getApps().length) initializeApp();
 export const db = getFirestore();
+// Ignora proprietà undefined nelle write Firestore (evita crash tipo
+// "Cannot use 'undefined' as a Firestore value" quando un campo opzionale
+// non è settato in un oggetto annidato come intent.steps).
+try { db.settings({ ignoreUndefinedProperties: true }); } catch {}
 export { FieldValue, logger };
 
 // ─── Cross-project Firestore apps ──────────────────────────────
