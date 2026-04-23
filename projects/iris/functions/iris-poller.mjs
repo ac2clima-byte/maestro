@@ -33,35 +33,52 @@ const {
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const CLASSIFY_MODEL = "claude-haiku-4-5";
 
-const CLASSIFY_SYSTEM = `Sei l'assistente di classificazione email per ACG Clima Service (manutenzione HVAC).
-Classifica l'email in UNA categoria tra:
-- GUASTO_URGENTE (rottura impianto, emergenza)
-- PEC_UFFICIALE (PEC da ente, comune, amministrazione)
-- RICHIESTA_INTERVENTO (manutenzione ordinaria, preventivo su impianto)
-- RICHIESTA_CONTRATTO (preventivo contratto manutenzione, offerta)
-- RICHIESTA_PAGAMENTO (solleciti, estratti conto, fattura da pagare)
-- FATTURA_FORNITORE (fattura ricevuta)
-- COMUNICAZIONE_INTERNA (collega ACG)
-- NEWSLETTER_SPAM (newsletter, promozioni, spam)
-- ALTRO
+// Prompt v2 "intent recognition avanzato" — estrae anche intent, dati_estratti,
+// contesto_thread, prossimo_passo. Legge l'intero thread (email quotate in cascata).
+const CLASSIFY_SYSTEM = `Sei IRIS, il classificatore email di ACG Clima Service (manutenzione HVAC, Piemonte).
+Leggi l'INTERO thread (anche email quotate sotto) e rispondi con JSON stretto:
 
-Rispondi SOLO con JSON stretto:
 {
-  "category": "<SLUG>",
-  "summary": "<1 frase>",
-  "sentiment": "positivo|neutro|negativo|urgente",
-  "suggestedAction": "<verbo_azione>",
-  "entities": { "cliente": "...", "condominio": "...", "indirizzo": "...", "targa": "..." }
+  "category": "RICHIESTA_INTERVENTO|GUASTO_URGENTE|PREVENTIVO|CONFERMA_APPUNTAMENTO|FATTURA_FORNITORE|COMUNICAZIONE_INTERNA|PEC_UFFICIALE|AMMINISTRATORE_CONDOMINIO|RISPOSTA_CLIENTE|NEWSLETTER_SPAM|ALTRO",
+  "summary": "<1-3 righe>",
+  "entities": { "cliente": "...", "condominio": "...", "impianto": "...", "urgenza": "bassa|media|alta|critica", "importo": "...", "tecnico": "...", "indirizzo": "..." },
+  "suggestedAction": "RISPONDI|APRI_INTERVENTO|INOLTRA|ARCHIVIA|PREPARA_PREVENTIVO|VERIFICA_PAGAMENTO|URGENTE_CHIAMA",
+  "confidence": "high|medium|low",
+  "reasoning": "<1-2 frasi>",
+  "sentiment": "positivo|neutro|frustrato|arrabbiato|disperato",
+  "sentimentReason": "<1 frase>",
+
+  "intent": "preparare_preventivo|registrare_fattura|aprire_intervento_urgente|aprire_intervento_ordinario|rispondere_a_richiesta|registrare_incasso|gestire_pec|sollecitare_pagamento|archiviare|nessuna_azione",
+  "dati_estratti": {
+    "persone": [{"nome":"","ruolo":"","azienda":""}],
+    "aziende": [{"nome":"","piva":"","indirizzo":""}],
+    "condomini": [""],
+    "importi": [{"valore":"","causale":""}],
+    "date": [{"valore":"YYYY-MM-DD","tipo":"scadenza|appuntamento|fattura|generica"}],
+    "riferimenti_documenti": [""]
+  },
+  "contesto_thread": "<1-3 frasi: chi ha iniziato, cosa si è detto, cosa dice l'ultima email>",
+  "prossimo_passo": "<1-2 frasi: azione operativa concreta da fare adesso>",
+
+  "intents": [{"category":"...","summary":"...","suggestedAction":"...","intent":"...","entities":{}}]
 }
-Niente code fence, niente testo extra.`;
+
+REGOLE:
+1. Leggi TUTTO il thread, anche la parte quotata ("On X wrote", "Il X ha scritto", ">", "From:").
+2. Ometti campi che non puoi estrarre con certezza — non inventare.
+3. SOLO JSON, niente code fence, niente testo extra.
+4. "intent" è UNO solo (quello primario). Gli altri stanno in "intents[]".
+5. "contesto_thread" spiega la conversazione completa; "prossimo_passo" dà istruzioni operative.
+6. "intents" sempre presente con almeno 1 elemento (replica top-level se l'email ha un solo argomento).`;
 
 export async function classifyEmail(anthropicKey, email) {
   const body = [
     `Da: ${email.sender_name ? `${email.sender_name} <${email.sender}>` : email.sender}`,
     `Oggetto: ${email.subject || "(nessun oggetto)"}`,
+    `Ricevuta: ${email.received_time || ""}`,
     ``,
-    `Corpo:`,
-    (email.body_text || "").slice(0, 3000),
+    `Corpo (include email quotate sotto — leggi tutto il thread):`,
+    (email.body_text || "").slice(0, 8000),
   ].join("\n");
 
   const resp = await fetch(ANTHROPIC_URL, {
@@ -73,7 +90,7 @@ export async function classifyEmail(anthropicKey, email) {
     },
     body: JSON.stringify({
       model: CLASSIFY_MODEL,
-      max_tokens: 400,
+      max_tokens: 1500, // prompt v2 estrae più dati: persone/aziende/date/thread/next-step
       system: CLASSIFY_SYSTEM,
       messages: [{ role: "user", content: body }],
     }),
@@ -95,8 +112,18 @@ export async function classifyEmail(anthropicKey, email) {
       category: parsed.category || "ALTRO",
       summary: parsed.summary || "",
       sentiment: parsed.sentiment || "neutro",
+      sentimentReason: parsed.sentimentReason || "",
       suggestedAction: parsed.suggestedAction || "",
+      confidence: parsed.confidence || "low",
+      reasoning: parsed.reasoning || "",
       entities: parsed.entities || {},
+
+      // Intent recognition avanzato (v2)
+      intent: parsed.intent || "nessuna_azione",
+      dati_estratti: parsed.dati_estratti || {},
+      contesto_thread: parsed.contesto_thread || "",
+      prossimo_passo: parsed.prossimo_passo || "",
+      intents: Array.isArray(parsed.intents) ? parsed.intents : [],
     },
     usage: {
       input_tokens: json.usage?.input_tokens || 0,

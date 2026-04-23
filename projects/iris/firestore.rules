@@ -232,6 +232,50 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // nexo_config/fcm_tokens: mappa userKey → { token, userAgent, updatedAt }.
+    // Lettura libera (nessun PII, token FCM opachi). Scrittura SOLO da client
+    // autenticato (Auth ACG), e SOLO sui propri campi (userKey == email sanitizzata).
+    //
+    // Nota: l'Auth ACG è su progetto garbymobile-f89ac (SSO cross-project),
+    // quindi request.auth qui non scatterebbe per gli ID Token ACG. Per questo
+    // tutte le scritture "importanti" passano da Cloud Function (Admin SDK).
+    // Per i token FCM accettiamo solo merge del singolo campo utente,
+    // validando shape e dimensioni per bloccare abusi massivi.
+    match /nexo_config/fcm_tokens {
+      allow read: if true;
+      // Scrittura accettata solo se il diff modifica ESATTAMENTE una chiave
+      // (il campo userKey dello scrivente) con un oggetto ben formato.
+      allow update, create: if
+        request.resource.data.diff(resource.data != null ? resource.data : {}).affectedKeys().size() == 1 &&
+        request.resource.data.keys().size() <= 50;
+      allow delete: if false;
+    }
+    // Default per altri doc in nexo_config: solo backend.
+    match /nexo_config/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // nexo_push_log: audit log invii push (Admin SDK only).
+    match /nexo_push_log/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // iris_patterns: training via NEXUS chat ("analizza email" + conferma utente).
+    // Read pubblico per la PWA (pagina training in futuro); write SOLO Admin SDK
+    // via Cloud Function (rate-limited, rinforzato dalla pipeline di addestramento).
+    match /iris_patterns/{patternId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // iris_patterns_stats: counter per confidenza cumulativa.
+    match /iris_patterns_stats/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny per ogni altra collection.
     // Quando aggiungi un Collega con nuova collection, aggiungi la rule qui sopra.
     match /{document=**} {

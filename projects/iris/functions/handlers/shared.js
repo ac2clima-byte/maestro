@@ -6,6 +6,7 @@ import { logger } from "firebase-functions/v2";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
+import { getMessaging } from "firebase-admin/messaging";
 
 // ─── Secrets ───────────────────────────────────────────────────
 export const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
@@ -285,11 +286,16 @@ export async function fetchIrisEmails(limit = 200) {
         sender: raw.sender || "",
         senderName: raw.sender_name || "",
         received_time: raw.received_time || "",
+        body_text: raw.body_text || "",
         category: cls.category || "ALTRO",
         sentiment: cls.sentiment || "neutro",
         suggestedAction: cls.suggestedAction || "",
         summary: cls.summary || "",
         entities: cls.entities || {},
+        intent: cls.intent || null,
+        dati_estratti: cls.dati_estratti || null,
+        contesto_thread: cls.contesto_thread || null,
+        prossimo_passo: cls.prossimo_passo || null,
         score: typeof d.score === "number" ? d.score : 0,
         followup: fu,
       });
@@ -307,6 +313,92 @@ export function emailLine(e, i) {
   const who = e.senderName || e.sender || "?";
   const subj = (e.subject || "").slice(0, 100);
   return `${idx}[${when}] ${who} — ${subj}`;
+}
+
+// ─── FCM Push Notifications ────────────────────────────────────
+// sendPushNotification — legge i token FCM da nexo_config/fcm_tokens
+// e manda via FCM Admin SDK. Link apre la PWA.
+//
+// Args:
+//   title: string (titolo notifica)
+//   body:  string (corpo)
+//   link:  string opzionale (es. "/#home" o "/#chronos/campagne/walkby")
+//   userId: string opzionale (se presente, manda solo a quell'utente;
+//           altrimenti a tutti i token registrati)
+//
+// Return: { ok, sent, failed, errors }
+export async function sendPushNotification(title, body, link, userId) {
+  const result = { ok: false, sent: 0, failed: 0, errors: [] };
+  try {
+    const snap = await db.collection("nexo_config").doc("fcm_tokens").get();
+    if (!snap.exists) {
+      result.errors.push("no_fcm_tokens_doc");
+      return result;
+    }
+    const tokens = [];
+    const data = snap.data() || {};
+    const targetUserKey = userId ? String(userId).replace(/[^a-zA-Z0-9._-]/g, "_") : null;
+    for (const [k, v] of Object.entries(data)) {
+      if (!v || typeof v !== "object" || !v.token) continue;
+      if (targetUserKey && k !== targetUserKey) continue;
+      tokens.push(v.token);
+    }
+    if (tokens.length === 0) {
+      result.errors.push("no_tokens_matched");
+      return result;
+    }
+
+    const message = {
+      notification: { title: String(title).slice(0, 120), body: String(body).slice(0, 400) },
+      data: {
+        link: String(link || "/#home").slice(0, 300),
+        timestamp: new Date().toISOString(),
+      },
+      webpush: {
+        fcmOptions: { link: String(link || "/#home") },
+        notification: {
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+        },
+      },
+    };
+
+    const messaging = getMessaging();
+    const sendPromises = tokens.map(async (token) => {
+      try {
+        await messaging.send({ ...message, token });
+        return { ok: true, token };
+      } catch (e) {
+        return { ok: false, token, error: String(e).slice(0, 200) };
+      }
+    });
+    const results = await Promise.all(sendPromises);
+    for (const r of results) {
+      if (r.ok) result.sent++;
+      else { result.failed++; result.errors.push(r.error); }
+    }
+
+    // Log in Firestore (per audit)
+    try {
+      await db.collection("nexo_push_log").add({
+        title: message.notification.title,
+        body: message.notification.body,
+        link: message.data.link,
+        targetUser: userId || null,
+        tokensTried: tokens.length,
+        sent: result.sent,
+        failed: result.failed,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) { logger.warn("push log write failed", { error: String(e) }); }
+
+    result.ok = result.sent > 0;
+    return result;
+  } catch (e) {
+    logger.error("sendPushNotification failed", { error: String(e) });
+    result.errors.push(String(e).slice(0, 200));
+    return result;
+  }
 }
 
 // ─── Lavagna helper (condiviso tra regole/ARES/ECHO) ───────────

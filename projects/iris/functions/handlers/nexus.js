@@ -8,7 +8,7 @@ import {
 import {
   handleContaEmailUrgenti, handleEmailOggi, handleEmailTotali,
   handleRicercaEmailMittente, handleEmailSenzaRisposta, handleEmailPerCategoria,
-  handleStatoLavagna,
+  handleStatoLavagna, handleIrisAnalizzaEmail,
 } from "./iris.js";
 import { handleMemoDossier } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
@@ -52,7 +52,8 @@ L'utente ti parla in linguaggio naturale. Il tuo compito:
 COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
 - iris       → email in arrivo
     azioni: cerca_email_urgenti, email_oggi, email_totali, email_senza_risposta,
-            cerca_email_mittente, email_per_categoria
+            cerca_email_mittente, email_per_categoria,
+            analizza_email (parametri: {mittente?} — "analizza l'ultima mail di X")
 - echo       → uscita: sendWhatsApp, sendTelegram, sendEmail, sendPush
 - ares       → interventi: interventi_aperti, apri_intervento, assegna_tecnico
 - chronos    → pianificazione:
@@ -152,6 +153,12 @@ export function parseAndValidateIntent(raw, userMessage) {
 
 // ─── DIRECT_HANDLERS: mappa (collega, azione) → handler ─────────
 export const DIRECT_HANDLERS = [
+  // IRIS — analizza email (intent recognition + training)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "iris" && /analizz/.test(az))
+      || /^\s*analizz\w+\s+(?:l['a]?\s+)?(?:ultim[ao]\s+)?(?:mail|email|messaggio|questa)/.test(m);
+  }, fn: handleIrisAnalizzaEmail },
   { match: (col, az) => col === "iris" && /urgen/.test(az), fn: handleContaEmailUrgenti },
   { match: (col, az) => col === "iris" && /(oggi|today|di_oggi|ricevute_oggi)/.test(az), fn: handleEmailOggi },
   { match: (col, az) => col === "iris" && /(total|conta_email|count|quant(e|it))/.test(az) && !/urgen/.test(az), fn: handleEmailTotali },
@@ -324,6 +331,212 @@ export async function postLavagnaFromNexus({ collega, azione, parametri, rispost
     updatedAt: now,
   });
   return ref.id;
+}
+
+// ─── Training pattern (addestramento via chat) ─────────────────
+//
+// Flow: utente scrive "analizza l'ultima mail di X" → assistente mostra analisi
+// e salva pendingPattern nel messaggio. Turno successivo, utente risponde:
+//   - "sì" / "ok" / "corretto"  → salva pattern in iris_patterns (conf=0.9)
+//   - "sì ma [modifica]"        → salva con override del prossimo_passo
+//   - "no, l'intent è X"        → salva correzione in iris_corrections + pattern rivisto
+//   - altro                     → non è conferma, prosegui con Haiku normale
+
+const CONFERMA_RE = /^\s*(s[iì]|ok|va\s+bene|perfett\w+|corrett\w+|giust\w+|esatt\w+|conferm\w+|approv\w+)\b/i;
+const NEGAZIONE_RE = /^\s*no\b|\bsbagliat\w+|\berrat\w+|\bl['a]?\s*intent\s+[eè]\s+/i;
+const MODIFICA_RE = /\b(ma|per[oò]|tranne|eccetto)\b/i;
+
+function parseConfermaUser(testo) {
+  const t = String(testo || "").trim();
+  if (!t) return { kind: "altro" };
+  if (NEGAZIONE_RE.test(t)) {
+    // Estrai il nuovo intent se specificato
+    const m = /l['a]?\s*intent\s+[eè]\s+([a-z_]+)/i.exec(t);
+    const nuovoIntent = m ? m[1].toLowerCase() : null;
+    return { kind: "no", nuovoIntent, testo: t };
+  }
+  if (CONFERMA_RE.test(t)) {
+    const hasMod = MODIFICA_RE.test(t);
+    return { kind: hasMod ? "si_ma" : "si", testo: t };
+  }
+  return { kind: "altro" };
+}
+
+async function getLastAssistantPendingPattern(sessionId) {
+  if (!sessionId) return null;
+  try {
+    const snap = await db.collection("nexus_chat")
+      .where("sessionId", "==", sessionId)
+      .orderBy("createdAt", "desc")
+      .limit(4)
+      .get();
+    let found = null;
+    snap.forEach(d => {
+      if (found) return;
+      const v = d.data() || {};
+      if (v.role !== "assistant") return;
+      const pp = v.direct?.data?.pendingPattern || v.pendingPattern;
+      if (pp && pp.kind === "conferma_analisi") found = { msgId: d.id, pendingPattern: pp };
+    });
+    return found;
+  } catch (e) {
+    logger.warn("getLastAssistantPendingPattern failed", { error: String(e).slice(0, 200) });
+    return null;
+  }
+}
+
+function patternKey(intent, triggerHash) {
+  return `${intent}_${triggerHash}`.slice(0, 100);
+}
+
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(36);
+}
+
+/**
+ * Salva o aggiorna un pattern in iris_patterns (via Admin SDK).
+ * Se esiste già un pattern con stesso (intent + hash trigger), incrementa counters.
+ * Dopo 3+ conferme, confidenza diventa 1.0.
+ */
+export async function saveOrReinforcePattern({ intent, triggerDescription, emailId, userId, workflow, corrected = false }) {
+  const triggerHash = hashStr(String(triggerDescription || "").toLowerCase().trim());
+  const id = patternKey(intent, triggerHash);
+  const ref = db.collection("iris_patterns").doc(id);
+  const snap = await ref.get();
+  const now = FieldValue.serverTimestamp();
+  if (!snap.exists) {
+    const data = {
+      id,
+      intent,
+      trigger_description: String(triggerDescription || "").slice(0, 400),
+      trigger_hash: triggerHash,
+      workflow: workflow || null,
+      confidenza: corrected ? 0.7 : 0.9,
+      volte_confermato: corrected ? 0 : 1,
+      volte_rifiutato: corrected ? 1 : 0,
+      ultimo_uso: now,
+      creato_da: userId || "alberto",
+      esempio_email_ids: emailId ? [emailId] : [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    await ref.set(data);
+    return { id, created: true, confidenza: data.confidenza };
+  }
+  const v = snap.data() || {};
+  const volte_confermato = (v.volte_confermato || 0) + (corrected ? 0 : 1);
+  const volte_rifiutato = (v.volte_rifiutato || 0) + (corrected ? 1 : 0);
+  const confidenza = volte_confermato >= 3 ? 1.0 : Math.min(0.95, 0.7 + 0.1 * volte_confermato);
+  const esempi = new Set(v.esempio_email_ids || []);
+  if (emailId) esempi.add(emailId);
+  await ref.set({
+    volte_confermato,
+    volte_rifiutato,
+    confidenza,
+    ultimo_uso: now,
+    esempio_email_ids: Array.from(esempi).slice(-20),
+    updatedAt: now,
+  }, { merge: true });
+  return { id, created: false, confidenza, volte_confermato };
+}
+
+async function saveCorrection({ emailId, intentOriginale, intentCorretto, userId, userMessage }) {
+  const ref = db.collection("iris_corrections").doc();
+  await ref.set({
+    id: ref.id,
+    emailId,
+    intentOriginale,
+    intentCorretto,
+    correggi_da: userId || "alberto",
+    userMessage: String(userMessage || "").slice(0, 500),
+    createdAt: FieldValue.serverTimestamp(),
+  });
+  return ref.id;
+}
+
+/**
+ * Intercetta il messaggio utente se è una conferma/negazione dell'ultima
+ * analisi. Se sì, gestisce il training. Altrimenti ritorna null (flow normale).
+ */
+export async function tryInterceptPatternConfirmation({ userMessage, sessionId, userId }) {
+  const conferma = parseConfermaUser(userMessage);
+  if (conferma.kind === "altro") return null;
+
+  const pending = await getLastAssistantPendingPattern(sessionId);
+  if (!pending) return null;
+
+  const pp = pending.pendingPattern;
+  if (!pp || !pp.intent) return null;
+
+  // Gestisci conferma
+  if (conferma.kind === "si" || conferma.kind === "si_ma") {
+    const r = await saveOrReinforcePattern({
+      intent: pp.intent,
+      triggerDescription: pp.contesto_thread || "",
+      emailId: pp.emailId,
+      userId,
+      workflow: intentToWorkflow(pp.intent),
+    });
+    let extra = "";
+    if (conferma.kind === "si_ma") extra = ` (modifica annotata: "${conferma.testo.slice(0, 150)}")`;
+    const confPct = Math.round((r.confidenza || 0) * 100);
+    const auto = r.confidenza >= 1.0 ? " → diventa regola automatica ✅" : "";
+    return {
+      content: `✅ Pattern salvato${extra}\n\n` +
+               `• Intent: \`${pp.intent}\`\n` +
+               `• Conferme: ${r.volte_confermato ?? 1} — confidenza ${confPct}%${auto}\n` +
+               `• ID: \`${r.id}\`\n\n` +
+               `La prossima volta che IRIS vede un'email simile applicherà automaticamente questo intent.`,
+      data: { patternId: r.id, confidenza: r.confidenza, emailId: pp.emailId },
+      _trainingHandled: true,
+    };
+  }
+
+  // Negazione: salva correzione + crea pattern corretto (se fornito nuovo intent)
+  const nuovoIntent = conferma.nuovoIntent || null;
+  await saveCorrection({
+    emailId: pp.emailId,
+    intentOriginale: pp.intent,
+    intentCorretto: nuovoIntent,
+    userId,
+    userMessage,
+  });
+  if (nuovoIntent) {
+    const r = await saveOrReinforcePattern({
+      intent: nuovoIntent,
+      triggerDescription: pp.contesto_thread || "",
+      emailId: pp.emailId,
+      userId,
+      workflow: intentToWorkflow(nuovoIntent),
+      corrected: true,
+    });
+    return {
+      content: `↪️ Correzione registrata.\n\n` +
+               `• Intent precedente (scartato): \`${pp.intent}\`\n` +
+               `• Intent corretto: \`${nuovoIntent}\`\n` +
+               `• Pattern aggiornato: \`${r.id}\` (confidenza ${Math.round(r.confidenza * 100)}%)`,
+      data: { patternId: r.id, intentCorretto: nuovoIntent, emailId: pp.emailId },
+      _trainingHandled: true,
+    };
+  }
+  return {
+    content: `❌ Analisi rifiutata. Dimmi qual è l'intent corretto: "no, l'intent è [slug]".\n\n` +
+             `Intent possibili: preparare_preventivo, registrare_fattura, aprire_intervento_urgente, aprire_intervento_ordinario, rispondere_a_richiesta, registrare_incasso, gestire_pec, sollecitare_pagamento, archiviare, nessuna_azione.`,
+    data: { emailId: pp.emailId, intentOriginale: pp.intent },
+    _trainingHandled: true,
+  };
+}
+
+function intentToWorkflow(intent) {
+  switch (intent) {
+    case "preparare_preventivo": return "preventivo";
+    case "aprire_intervento_urgente": return "guasto_urgente";
+    case "aprire_intervento_ordinario": return "intervento_ordinario";
+    case "sollecitare_pagamento": return "sollecito";
+    default: return null;
+  }
 }
 
 // ─── Contesto conversazionale: ultimi 5 messaggi della sessione ─

@@ -2,6 +2,8 @@
 import {
   fetchIrisEmails, emailLine, isToday, fmtDataOra,
   CATEGORIE_URGENTI_SET,
+  ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
+  db, FieldValue, logger,
 } from "./shared.js";
 
 export async function handleContaEmailUrgenti() {
@@ -102,8 +104,6 @@ export async function handleEmailPerCategoria(parametri) {
 }
 
 // Stato Lavagna (domain "nexo" ma letto dall'IRIS dashboard)
-import { db, logger } from "./shared.js";
-
 export async function handleStatoLavagna() {
   const snap = await db.collection("nexo_lavagna")
     .orderBy("createdAt", "desc").limit(10).get();
@@ -127,5 +127,231 @@ export async function handleStatoLavagna() {
   return {
     content: `Ultimi **${rows.length} messaggi** sulla Lavagna:\n\n${lines}`,
     data: { count: rows.length },
+  };
+}
+
+// ─── "analizza l'ultima mail di X" — intent recognition interattivo ─
+//
+// Se l'email ha già intent+dati_estratti → mostra formattato.
+// Altrimenti → chiama Haiku con prompt v2 e salva il risultato.
+// Il messaggio di risposta include un prompt di conferma: "È corretto?".
+// La conferma viene gestita in nexus.js (handleConfermaPatternTraining).
+
+const CLASSIFY_SYSTEM_V2 = `Sei IRIS, classificatore email di ACG Clima Service.
+Leggi l'INTERO thread (email quotate sotto) e rispondi SOLO con JSON valido:
+{
+  "category": "...",
+  "summary": "<1-3 righe>",
+  "entities": {...},
+  "suggestedAction": "...",
+  "confidence": "high|medium|low",
+  "sentiment": "...",
+  "intent": "preparare_preventivo|registrare_fattura|aprire_intervento_urgente|aprire_intervento_ordinario|rispondere_a_richiesta|registrare_incasso|gestire_pec|sollecitare_pagamento|archiviare|nessuna_azione",
+  "dati_estratti": {
+    "persone": [{"nome":"","ruolo":"","azienda":""}],
+    "aziende": [{"nome":"","piva":"","indirizzo":""}],
+    "condomini": [""],
+    "importi": [{"valore":"","causale":""}],
+    "date": [{"valore":"","tipo":""}],
+    "riferimenti_documenti": [""]
+  },
+  "contesto_thread": "<1-3 frasi: chi ha iniziato, cosa si è detto, cosa dice l'ultima email>",
+  "prossimo_passo": "<1-2 frasi: azione operativa concreta>"
+}
+Ometti campi che non puoi estrarre — non inventare. SOLO JSON.`;
+
+async function classifyEmailV2(apiKey, email) {
+  const payload = {
+    model: MODEL,
+    max_tokens: 1500,
+    system: CLASSIFY_SYSTEM_V2,
+    messages: [{
+      role: "user",
+      content: [
+        `Da: ${email.senderName || email.sender_name || ""} <${email.sender || ""}>`,
+        `Oggetto: ${email.subject || ""}`,
+        `Ricevuta: ${email.received_time || ""}`,
+        ``,
+        `Corpo (thread completo — email quotate in fondo):`,
+        String(email.body_text || "").slice(0, 8000),
+      ].join("\n"),
+    }],
+  };
+  const resp = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 300)}`);
+  }
+  const json = await resp.json();
+  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const s = text.indexOf("{"), e = text.lastIndexOf("}");
+  if (s < 0 || e <= s) return null;
+  try { return JSON.parse(text.slice(s, e + 1)); } catch { return null; }
+}
+
+function formatAnalyzedEmail(email, cls) {
+  const lines = [];
+  lines.push(`📧 **Email analizzata** — ${email.senderName || email.sender || "?"}`);
+  lines.push(`_Oggetto: ${email.subject || "(vuoto)"} · Ricevuta: ${fmtDataOra(email.received_time)}_`);
+  lines.push("");
+  lines.push(`**Categoria**: ${cls.category || "?"}`);
+  lines.push(`**Intent**: \`${cls.intent || "?"}\``);
+  if (cls.confidence) lines.push(`**Confidenza**: ${cls.confidence}`);
+  lines.push("");
+  lines.push(`**Contesto thread**: ${cls.contesto_thread || "—"}`);
+  lines.push("");
+  lines.push(`**Prossimo passo proposto**: ${cls.prossimo_passo || "—"}`);
+
+  const de = cls.dati_estratti || {};
+  if (Array.isArray(de.persone) && de.persone.length) {
+    lines.push("");
+    lines.push(`**Persone**: ${de.persone.map(p => p.nome + (p.azienda ? ` (${p.azienda})` : "")).filter(Boolean).join(", ")}`);
+  }
+  if (Array.isArray(de.aziende) && de.aziende.length) {
+    lines.push(`**Aziende**: ${de.aziende.map(a => a.nome + (a.piva ? ` [P.IVA ${a.piva}]` : "")).filter(Boolean).join(", ")}`);
+  }
+  if (Array.isArray(de.condomini) && de.condomini.length) {
+    lines.push(`**Condomini**: ${de.condomini.filter(Boolean).join(", ")}`);
+  }
+  if (Array.isArray(de.importi) && de.importi.length) {
+    lines.push(`**Importi**: ${de.importi.map(i => `€${i.valore}${i.causale ? ` (${i.causale})` : ""}`).join(", ")}`);
+  }
+  if (Array.isArray(de.riferimenti_documenti) && de.riferimenti_documenti.length) {
+    lines.push(`**Riferimenti**: ${de.riferimenti_documenti.filter(Boolean).join(", ")}`);
+  }
+  lines.push("");
+  lines.push(`❓ **È corretto?** Rispondi "sì", "sì ma [modifica]", oppure "no, l'intent è [altro]".`);
+  return lines.join("\n");
+}
+
+/**
+ * Analizza un'email su richiesta dell'utente in NEXUS Chat.
+ * Uso: "analizza l'ultima mail di Torriglia" / "analizza questa email".
+ *
+ * Se parametri.emailId è presente → usa quella.
+ * Altrimenti cerca per mittente (parametri.mittente) tra le ultime 400.
+ *
+ * Flow:
+ *  1. Se l'email ha già cls.intent e cls.dati_estratti → mostra + chiede conferma.
+ *  2. Altrimenti chiama Haiku con prompt v2, salva in iris_emails.classification,
+ *     poi mostra + chiede conferma.
+ *  3. Ritorna data.pendingPattern con proposta di pattern (usata da nexus per
+ *     gestire "sì"/"no" nel turno successivo).
+ */
+export async function handleIrisAnalizzaEmail(parametri, ctx) {
+  const emailIdParam = String(parametri.emailId || parametri.id || "").trim();
+  const mittente = String(parametri.mittente || parametri.sender || parametri.nome || "").trim().toLowerCase();
+  const userMessage = String(ctx?.userMessage || "").toLowerCase();
+
+  // Risolvi email
+  const emails = await fetchIrisEmails(400);
+  if (!emails.length) return { content: "Non ho email indicizzate al momento." };
+
+  let email = null;
+  if (emailIdParam) {
+    email = emails.find(e => e.id === emailIdParam) || null;
+  }
+  if (!email && mittente) {
+    email = emails.find(e => `${e.sender} ${e.senderName}`.toLowerCase().includes(mittente)) || null;
+  }
+  // "analizza l'ultima mail di X" — estrai X dal messaggio
+  if (!email && /analizz/.test(userMessage)) {
+    const m = /analizz\w*\s+(?:l['a]?\s+)?(?:ultim[ao]\s+)?(?:mail|email|messaggio)(?:\s+di|\s+da)?\s+([a-zà-ÿ][\wà-ÿ.\s'-]{2,60})/i.exec(userMessage);
+    if (m) {
+      const q = m[1].trim().toLowerCase();
+      email = emails.find(e => `${e.sender} ${e.senderName}`.toLowerCase().includes(q)) || null;
+    }
+  }
+  // Fallback: "analizza questa email" senza nome → la più recente
+  if (!email && /questa|ultima/.test(userMessage)) {
+    email = emails[0];
+  }
+  if (!email) {
+    return { content: "Dimmi di chi è l'email da analizzare. Es: 'analizza l'ultima mail di Torriglia'." };
+  }
+
+  // Se ha già l'intent recognition avanzato → usa
+  if (email.intent && email.dati_estratti && email.prossimo_passo) {
+    const cls = {
+      category: email.category,
+      intent: email.intent,
+      confidence: email.confidence || "medium",
+      dati_estratti: email.dati_estratti,
+      contesto_thread: email.contesto_thread,
+      prossimo_passo: email.prossimo_passo,
+    };
+    return {
+      content: formatAnalyzedEmail(email, cls),
+      data: {
+        emailId: email.id,
+        pendingPattern: {
+          kind: "conferma_analisi",
+          emailId: email.id,
+          intent: cls.intent,
+          contesto_thread: cls.contesto_thread,
+          prossimo_passo: cls.prossimo_passo,
+          dati_estratti: cls.dati_estratti,
+        },
+        cached: true,
+      },
+    };
+  }
+
+  // Altrimenti chiama Haiku con prompt v2
+  const apiKey = ANTHROPIC_API_KEY.value();
+  if (!apiKey) return { content: "Non posso analizzare: ANTHROPIC_API_KEY mancante." };
+
+  let cls;
+  try {
+    cls = await classifyEmailV2(apiKey, email);
+  } catch (e) {
+    logger.warn("handleIrisAnalizzaEmail: Haiku failed", { error: String(e).slice(0, 200) });
+    return { content: `Errore chiamata Haiku: ${String(e).slice(0, 150)}` };
+  }
+  if (!cls) return { content: "Non sono riuscito a parsare la risposta del modello. Riprova." };
+
+  // Salva arricchimento nel doc iris_emails
+  try {
+    await db.collection("iris_emails").doc(email.id).set({
+      classification: {
+        ...(email.classification || {}),
+        category: cls.category || email.category,
+        summary: cls.summary || email.summary,
+        sentiment: cls.sentiment || email.sentiment,
+        suggestedAction: cls.suggestedAction || email.suggestedAction,
+        confidence: cls.confidence || "medium",
+        intent: cls.intent,
+        dati_estratti: cls.dati_estratti || {},
+        contesto_thread: cls.contesto_thread || "",
+        prossimo_passo: cls.prossimo_passo || "",
+      },
+      intentEnrichedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    logger.warn("handleIrisAnalizzaEmail: firestore write failed", { error: String(e).slice(0, 200) });
+  }
+
+  return {
+    content: formatAnalyzedEmail(email, cls),
+    data: {
+      emailId: email.id,
+      pendingPattern: {
+        kind: "conferma_analisi",
+        emailId: email.id,
+        intent: cls.intent,
+        contesto_thread: cls.contesto_thread,
+        prossimo_passo: cls.prossimo_passo,
+        dati_estratti: cls.dati_estratti,
+      },
+      cached: false,
+    },
   };
 }

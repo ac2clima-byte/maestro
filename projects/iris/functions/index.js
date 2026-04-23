@@ -15,11 +15,13 @@ import {
   verifyAcgIdToken,
   callHaiku,
   fetchIrisEmails,
+  sendPushNotification,
 } from "./handlers/shared.js";
 
 import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
   parseAndValidateIntent, callHaikuForIntent, loadConversationContext,
+  tryInterceptPatternConfirmation,
 } from "./handlers/nexus.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
@@ -185,6 +187,29 @@ export const nexusRouter = onRequest(
 
     await ensureNexusSession(sessionId, userId, userMessage);
     const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage });
+
+    // Training pattern: intercetta "sì"/"no"/"sì ma..." dopo "analizza email"
+    try {
+      const trained = await tryInterceptPatternConfirmation({ userMessage, sessionId, userId });
+      if (trained && trained._trainingHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: trained.content,
+          direct: { data: trained.data || null, failed: false },
+          stato: "completata",
+          modello: "training_intercept",
+        });
+        res.status(200).json({
+          intent: { collega: "iris", azione: "training_pattern", parametri: {}, rispostaUtente: trained.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: trained.data || null, failed: false },
+          modello: "training_intercept", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("training intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
 
     const apiKey = ANTHROPIC_API_KEY.value();
     if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
@@ -905,6 +930,35 @@ export const echoInboundWebhook = onRequest(
       res.status(result.status || 200).json(result.body || { ok: true });
     } catch (e) {
       logger.error("echoInboundWebhook failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
+// ─── Push notifications (FCM) ──────────────────────────────────
+
+// Endpoint autenticato per mandare notifiche push manuali (test + trigger esterni)
+export const nexoPushSend = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 30, memory: "256MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+
+    const body = req.body || {};
+    const title = String(body.title || "").trim();
+    const text  = String(body.body  || "").trim();
+    const link  = String(body.link  || "/#home").trim();
+    const userId = body.userId ? String(body.userId) : null;
+    if (!title || !text) { res.status(400).json({ error: "missing_title_or_body" }); return; }
+
+    try {
+      const r = await sendPushNotification(title, text, link, userId);
+      res.status(200).json(r);
+    } catch (e) {
+      logger.error("nexoPushSend failed", { error: String(e) });
       res.status(500).json({ error: String(e).slice(0, 300) });
     }
   }

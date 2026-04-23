@@ -2859,6 +2859,9 @@ function init() {
   nexusRenderMessages();
   nexusEnsureSubscribed();
 
+  // FCM push notifications (chiede permesso, salva token)
+  setTimeout(() => { setupFcmPush().catch(e => console.warn("[FCM] setup failed:", e)); }, 1500);
+
   // Logout button
   $("#logoutBtn")?.addEventListener("click", async () => {
     try {
@@ -2869,6 +2872,101 @@ function init() {
       console.error("Logout failed:", e);
     }
   });
+}
+
+// ── FCM Push notifications ─────────────────────────────────────
+// VAPID public key del progetto nexo-hub-15f2d (Firebase Console → Cloud Messaging → Web Push certificates)
+const FCM_VAPID_KEY = "BLRC0L_2KdpB_xJJAm1YvxZU-y4WMcPFLbNXt-LLR_HoYPUxpzYN_-yCE_LUGElUuiBNWbJxPTLm7iH_SimDpd4";
+
+let _messagingCache = null;
+async function getMessaging() {
+  if (_messagingCache) return _messagingCache;
+  try {
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js");
+    const msgMod = await import("https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging.js");
+    let app;
+    try { app = appMod.getApp(); } catch { app = appMod.initializeApp(FIREBASE_CONFIG); }
+    const messaging = msgMod.getMessaging(app);
+    _messagingCache = { messaging, msgMod };
+    return _messagingCache;
+  } catch (e) {
+    console.warn("[FCM] messaging load failed:", e);
+    return null;
+  }
+}
+
+async function setupFcmPush() {
+  if (!("serviceWorker" in navigator) || !("Notification" in window) || !("PushManager" in window)) {
+    console.info("[FCM] browser non supporta push");
+    return;
+  }
+  if (!CURRENT_USER) return;
+
+  // 1. Registra Service Worker FCM (scope root)
+  let swReg;
+  try {
+    swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    await navigator.serviceWorker.ready;
+  } catch (e) {
+    console.warn("[FCM] SW register failed:", e);
+    return;
+  }
+
+  // 2. Chiedi permesso notifiche (se non già concesso/negato)
+  let permission = Notification.permission;
+  if (permission === "default") {
+    try { permission = await Notification.requestPermission(); } catch (e) { console.warn("[FCM] permission request failed:", e); }
+  }
+  if (permission !== "granted") {
+    console.info("[FCM] permesso notifiche:", permission);
+    return;
+  }
+
+  // 3. Ottieni FCM token
+  const mod = await getMessaging();
+  if (!mod) return;
+  const { messaging, msgMod } = mod;
+  let token;
+  try {
+    token = await msgMod.getToken(messaging, { vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: swReg });
+  } catch (e) {
+    console.warn("[FCM] getToken failed:", e);
+    return;
+  }
+  if (!token) { console.info("[FCM] nessun token ottenuto"); return; }
+  console.info("[FCM] token ottenuto:", token.slice(0, 20) + "…");
+
+  // 4. Salva token in Firestore (nexo_config/fcm_tokens con map userId→token)
+  try {
+    const { db, fsMod } = await getFirestore();
+    const userId = CURRENT_USER.email || CURRENT_USER.uid || "alberto";
+    const userKey = userId.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const tokenDocRef = fsMod.doc(db, "nexo_config", "fcm_tokens");
+    await fsMod.setDoc(tokenDocRef, {
+      [userKey]: {
+        token,
+        userAgent: navigator.userAgent.slice(0, 200),
+        updatedAt: fsMod.serverTimestamp(),
+      },
+    }, { merge: true });
+    console.info("[FCM] token salvato per", userKey);
+  } catch (e) {
+    console.warn("[FCM] Firestore write failed (rules?):", e);
+  }
+
+  // 5. Listener foreground: mostra notifica in-app se PWA aperta
+  try {
+    msgMod.onMessage(messaging, (payload) => {
+      console.info("[FCM] foreground message:", payload);
+      const n = payload.notification || {};
+      // Mostra badge nexus se è una notifica workflow
+      if (n.title) {
+        try {
+          new Notification(n.title, { body: n.body || "", icon: "/icon-192.png", data: payload.data || {} });
+        } catch {}
+      }
+    });
+  } catch (e) { console.warn("[FCM] onMessage setup failed:", e); }
 }
 
 // ── Auth gate flow ─────────────────────────────────────────────
