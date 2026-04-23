@@ -6,32 +6,62 @@ import {
   db, FieldValue, logger,
 } from "./shared.js";
 
+// ─── Conversational email presentation ───────────────────────
+// Invece di liste tecniche, genera una frase naturale "Hai 3 email, la prima è..."
+// con un pendingEmails nel context per i follow-up "sì/prossima/basta".
+function conversationalPresent(emails, contestoLabel = "email") {
+  if (!emails.length) return null;
+  const first = emails[0];
+  const who = first.senderName || (first.sender || "?").split("@")[0];
+  const what = first.summary || first.subject || "";
+  const intro = emails.length === 1
+    ? `Hai 1 ${contestoLabel} nuova.`
+    : `Hai ${emails.length} ${contestoLabel}.`;
+  const firstLine = `La prima è da ${who}${what ? `, riguarda ${what.toLowerCase().replace(/\.$/, "")}` : ""}.`;
+  return {
+    content: `${intro} ${firstLine} Vuoi che te la legga?`,
+    data: {
+      pendingEmails: {
+        kind: "email_queue",
+        contestoLabel,
+        emails: emails.map(e => ({
+          id: e.id,
+          from: e.senderName || e.sender,
+          subject: e.subject,
+          summary: e.summary,
+          body: (e.body_text || "").slice(0, 1500),
+          received: e.received_time,
+          category: e.category,
+          intent: e.intent,
+          contesto_thread: e.contesto_thread,
+          prossimo_passo: e.prossimo_passo,
+        })).slice(0, 10),
+        cursor: 0,
+      },
+    },
+  };
+}
+
 export async function handleContaEmailUrgenti() {
   const emails = await fetchIrisEmails(500);
   const urgenti = emails.filter(e => CATEGORIE_URGENTI_SET.has(e.category));
-  if (!urgenti.length) return { content: "Nessuna email urgente al momento. 👍" };
-  const sample = urgenti.slice(0, 5).map(emailLine).join("\n");
-  const more = urgenti.length > 5 ? `\n…e altre ${urgenti.length - 5}.` : "";
-  return {
-    content: `Hai **${urgenti.length} email urgenti** (GUASTO_URGENTE + PEC_UFFICIALE):\n\n${sample}${more}`,
-    data: { count: urgenti.length },
-  };
+  if (!urgenti.length) return { content: "Non c'è niente di urgente in questo momento, tutto sotto controllo." };
+  const conv = conversationalPresent(urgenti, "email urgente");
+  return conv;
 }
 
 export async function handleEmailOggi() {
   const emails = await fetchIrisEmails(300);
   const oggi = emails.filter(e => isToday(e.received_time));
-  if (!oggi.length) return { content: "Oggi non sono arrivate email indicizzate. 🙂" };
-  const byCat = {};
-  for (const e of oggi) byCat[e.category] = (byCat[e.category] || 0) + 1;
-  const breakdown = Object.entries(byCat)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `  · ${k}: ${v}`).join("\n");
-  const sample = oggi.slice(0, 5).map(emailLine).join("\n");
-  return {
-    content: `Oggi sono arrivate **${oggi.length} email**:\n\n${breakdown}\n\nUltime:\n${sample}`,
-    data: { count: oggi.length, byCat },
-  };
+  if (!oggi.length) return { content: "Oggi ancora niente di nuovo, la casella è tranquilla." };
+  // Presentazione conversazionale: parte dalla più rilevante (urgenti prima)
+  const sorted = [...oggi].sort((a, b) => {
+    const wa = CATEGORIE_URGENTI_SET.has(a.category) ? 2 : (a.intent && a.intent !== "nessuna_azione" ? 1 : 0);
+    const wb = CATEGORIE_URGENTI_SET.has(b.category) ? 2 : (b.intent && b.intent !== "nessuna_azione" ? 1 : 0);
+    if (wa !== wb) return wb - wa;
+    return (b.received_time || "").localeCompare(a.received_time || "");
+  });
+  return conversationalPresent(sorted, "email di oggi");
 }
 
 export async function handleEmailTotali() {

@@ -390,6 +390,135 @@ function parseConfermaUser(testo) {
   return { kind: "altro" };
 }
 
+// ─── Conversational email queue ──────────────────────────────
+// Quando una risposta NEXUS porta data.pendingEmails (coda email da presentare
+// una alla volta), il turno successivo intercetta "sì/prossima/basta/leggila".
+
+const CONTINUA_RE = /^\s*(s[iì]|ok|va\s+bene|prossim\w*|continua|successiv\w|avanti|dai|vai|leggila\s+tutta|leggimi|dammi\s+dettagli)\b/i;
+const STOP_RE = /^\s*(no|stop|basta|fermati|zitto|grazie\s+basta|lascia\s+perdere)\b/i;
+const READ_FULL_RE = /\b(leggila|leggi\s+tutt|dammi\s+dettagli|corpo\s+completo|tutto|intera)\b/i;
+const REPLY_RE = /\b(rispondi|scriv\w+\s+risposta|bozza)\b/i;
+
+async function getLastAssistantPendingEmails(sessionId) {
+  if (!sessionId) return null;
+  try {
+    const snap = await db.collection("nexus_chat")
+      .where("sessionId", "==", sessionId)
+      .orderBy("createdAt", "desc")
+      .limit(4)
+      .get();
+    let found = null;
+    snap.forEach(d => {
+      if (found) return;
+      const v = d.data() || {};
+      if (v.role !== "assistant") return;
+      const pe = v.direct?.data?.pendingEmails;
+      if (pe && pe.kind === "email_queue") found = { msgId: d.id, pendingEmails: pe };
+    });
+    return found;
+  } catch { return null; }
+}
+
+async function callHaikuShortPresent(apiKey, email, mode) {
+  const who = email.from || "?";
+  const subject = email.subject || "";
+  const body = (email.body || "").slice(0, 3000);
+  const system = `Sei l'assistente personale di Alberto Contardi (ACG Clima Service, manutenzione HVAC).
+Ti viene mostrata un'email. Presentala in modo NATURALE E CONVERSAZIONALE, come se parlassi a voce al tuo capo.
+
+REGOLE:
+- ${mode === "resumen" ? "Massimo 2 frasi: chi scrive, cosa serve fare." : "Massimo 3 frasi: riassumi il contenuto in linguaggio naturale, senza elenchi."}
+- Niente elenchi puntati, niente date "DD/MM", niente tag tecnici.
+- Parla come un collega umano che ha letto la mail e te la riferisce.
+- Se il mittente è sconosciuto, di' "un certo [nome]" o "tal [nome]".
+- Concludi con una frase che chiede se vuole approfondire, passare alla prossima, o agire.`;
+  const user = `Email da: ${who}\nOggetto: ${subject}\nCorpo:\n${body}`;
+  const resp = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model: MODEL, max_tokens: 400, system, messages: [{ role: "user", content: user }] }),
+  });
+  if (!resp.ok) throw new Error(`Haiku ${resp.status}`);
+  const json = await resp.json();
+  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+  return text;
+}
+
+export async function tryInterceptEmailQueue({ userMessage, sessionId }) {
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+
+  const pending = await getLastAssistantPendingEmails(sessionId);
+  if (!pending) return null;
+
+  const pe = pending.pendingEmails;
+  const cursor = pe.cursor || 0;
+
+  if (STOP_RE.test(t)) {
+    return {
+      content: "Ok, mi fermo. Dimmi quando vuoi riprendere.",
+      data: { emailQueueClosed: true },
+      _emailQueueHandled: true,
+    };
+  }
+
+  const wantsFull = READ_FULL_RE.test(t);
+  const wantsReply = REPLY_RE.test(t);
+  const isContinue = CONTINUA_RE.test(t) || wantsFull || wantsReply;
+  if (!isContinue) return null; // lascia il flow standard
+
+  // Se vuole rispondere → routing a CALLIOPE via lavagna + NEXUS risposta breve
+  if (wantsReply) {
+    const curEmail = pe.emails[cursor];
+    if (!curEmail) return { content: "Non ho più email in coda.", _emailQueueHandled: true };
+    return {
+      content: `Perfetto, passo a CALLIOPE per scrivere la bozza di risposta a ${curEmail.from}. Ti aggiorno quando è pronta.`,
+      data: {
+        triggerCalliope: { emailId: curEmail.id, from: curEmail.from },
+        pendingEmails: pe, // mantieni la coda
+      },
+      _emailQueueHandled: true,
+    };
+  }
+
+  // Altrimenti: presenta l'email corrente (read full) o avanza alla prossima
+  const apiKey = ANTHROPIC_API_KEY.value();
+  let curEmail, mode;
+  if (wantsFull) {
+    curEmail = pe.emails[cursor];
+    mode = "full";
+  } else {
+    // Presenta la prossima
+    curEmail = pe.emails[cursor];
+    mode = "resumen";
+  }
+  if (!curEmail) return { content: "Ho finito la coda, non ci sono altre email.", _emailQueueHandled: true };
+
+  let presented = "";
+  try {
+    if (apiKey) presented = await callHaikuShortPresent(apiKey, curEmail, mode);
+  } catch (e) { logger.warn("email present Haiku failed", { error: String(e).slice(0, 150) }); }
+  if (!presented) {
+    presented = `${curEmail.from} ti scrive: "${(curEmail.summary || curEmail.subject || "").slice(0, 200)}". Vuoi approfondire?`;
+  }
+
+  // Avanza cursor per il prossimo turno (solo se non era "leggila tutta" — in quel caso resta)
+  const newCursor = wantsFull ? cursor : cursor + 1;
+  const remaining = pe.emails.length - newCursor;
+  const tail = remaining > 0
+    ? `\n\nCi sono ancora ${remaining} email in coda. Vuoi la prossima?`
+    : `\n\nEra l'ultima in coda.`;
+
+  return {
+    content: presented + tail,
+    data: {
+      pendingEmails: remaining > 0 ? { ...pe, cursor: newCursor } : null,
+      emailQueueDone: remaining <= 0,
+    },
+    _emailQueueHandled: true,
+  };
+}
+
 async function getLastAssistantPendingPattern(sessionId) {
   if (!sessionId) return null;
   try {

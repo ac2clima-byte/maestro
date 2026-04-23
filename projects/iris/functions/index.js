@@ -21,7 +21,7 @@ import {
 import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
   parseAndValidateIntent, callHaikuForIntent, loadConversationContext,
-  tryInterceptPatternConfirmation, tryAnalyzeLongText,
+  tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
 } from "./handlers/nexus.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
@@ -187,6 +187,29 @@ export const nexusRouter = onRequest(
 
     await ensureNexusSession(sessionId, userId, userMessage);
     const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage });
+
+    // Email queue: intercetta "sì/prossima/basta/leggila" dopo "email urgenti/oggi"
+    try {
+      const emailHandled = await tryInterceptEmailQueue({ userMessage, sessionId });
+      if (emailHandled && emailHandled._emailQueueHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: emailHandled.content,
+          direct: { data: emailHandled.data || null, failed: false },
+          stato: "completata",
+          modello: "email_queue",
+        });
+        res.status(200).json({
+          intent: { collega: "iris", azione: "email_queue", parametri: {}, rispostaUtente: emailHandled.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: emailHandled.data || null, failed: false },
+          modello: "email_queue", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("email queue intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
 
     // Training pattern: intercetta "sì"/"no"/"sì ma..." dopo "analizza email"
     try {
