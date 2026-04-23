@@ -537,94 +537,109 @@
   .chronos-camp-stats span.warn { color: #b91c1c; font-weight: 600; }
   .chronos-camp-stats span.muted { color: var(--text-muted); }
 
-  /* ── CHRONOS tabs + expandable cards ─────────────────────── */
-  .chronos-tabs {
-    display: flex;
-    gap: 6px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 2px;
-    margin-bottom: 16px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .chronos-tab {
-    background: transparent;
-    border: none;
-    border-bottom: 3px solid transparent;
-    padding: 10px 16px;
-    font-size: 0.95rem;
-    cursor: pointer;
+  /* ── CHRONOS — griglia badge quadrati ────────────────────── */
+  .chronos-section-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     color: var(--text-muted);
-    font-weight: 500;
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
   }
-  .chronos-tab:hover { color: var(--text); }
-  .chronos-tab.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-    font-weight: 600;
+  .chronos-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 18px;
   }
+  @media (max-width: 900px) { .chronos-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .chronos-grid { grid-template-columns: 1fr; } }
 
-  .chronos-expandable {
-    background: var(--surface);
+  .chronos-badge {
+    aspect-ratio: 1 / 1;
+    background: #fff;
     border: 1px solid var(--border);
-    border-radius: 12px;
-    margin-bottom: 10px;
+    border-left: 4px solid #cbd5e1;
+    border-radius: 14px;
+    padding: 16px;
     box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.15s, box-shadow 0.15s;
+    cursor: pointer;
+    min-height: 240px;
     overflow: hidden;
-    transition: box-shadow 0.15s;
   }
-  .chronos-expandable:hover { box-shadow: var(--shadow-md); }
-  .chronos-expand-head {
+  .chronos-badge:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .chronos-badge.ok     { border-left-color: #16a34a; }
+  .chronos-badge.mid    { border-left-color: #f59e0b; }
+  .chronos-badge.low    { border-left-color: #dc2626; }
+  .chronos-badge.zero   { border-left-color: #94a3b8; }
+  .chronos-badge.info   { border-left-color: #3b82f6; }
+
+  .chronos-badge-head {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.25;
+    min-height: 2.4em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .chronos-badge-center {
+    text-align: center;
+    margin: 6px 0;
+  }
+  .chronos-badge-perc {
+    font-size: 2.1rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .chronos-badge-perc.ok   { color: #16a34a; }
+  .chronos-badge-perc.mid  { color: #f59e0b; }
+  .chronos-badge-perc.low  { color: #dc2626; }
+  .chronos-badge-perc.zero { color: #94a3b8; }
+  .chronos-badge-perc.info { color: #3b82f6; }
+
+  .chronos-badge-bar {
+    display: flex;
+    height: 8px;
+    background: #f1f5f9;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .chronos-badge-bar .seg { height: 100%; transition: width 0.2s; }
+  .chronos-badge-bar .seg.done { background: #16a34a; }
+  .chronos-badge-bar .seg.prog { background: #3b82f6; }
+  .chronos-badge-bar .seg.daprog { background: #facc15; }
+  .chronos-badge-bar .seg.scad { background: #dc2626; }
+
+  .chronos-badge-stats {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin-top: 4px;
+  }
+  .chronos-badge-stats .row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    padding: 14px 16px;
-    cursor: pointer;
-    user-select: none;
-    gap: 12px;
+    align-items: baseline;
   }
-  .chronos-expand-head:hover { background: rgba(0, 0, 0, 0.02); }
-  .chronos-expand-title { font-weight: 600; color: var(--text); font-size: 1rem; }
-  .chronos-expand-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
-  .chronos-expand-chev {
-    color: var(--text-muted);
-    transition: transform 0.2s;
-    display: inline-block;
-    font-size: 1.1rem;
-  }
-  .chronos-expandable.expanded .chronos-expand-chev { transform: rotate(180deg); }
-  .chronos-expand-bar {
-    display: flex;
-    height: 6px;
-    background: #f1f5f9;
-    margin: 0 16px 0;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .chronos-expand-bar .seg { height: 100%; transition: width 0.2s; }
-  .chronos-expand-bar .seg.done { background: #16a34a; }
-  .chronos-expand-bar .seg.prog { background: #3b82f6; }
-  .chronos-expand-bar .seg.scad { background: #dc2626; }
-  .chronos-expand-body {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.25s ease;
-    padding: 0 16px;
-  }
-  .chronos-expandable.expanded .chronos-expand-body {
-    max-height: 1200px;
-    padding: 10px 16px 16px;
-    border-top: 1px solid var(--border);
-    overflow: auto;
-  }
-  .badge-state {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 0.72rem;
-    background: #f1f5f9;
-    color: #475569;
-    font-weight: 500;
+  .chronos-badge-stats .row strong { color: var(--text); font-weight: 600; }
+  .chronos-badge-stats .row.ok strong   { color: #166534; }
+  .chronos-badge-stats .row.info strong { color: #1e40af; }
+  .chronos-badge-stats .row.warn strong { color: #b91c1c; }
+
+  .chronos-badge-kpi-icon {
+    font-size: 2rem;
+    line-height: 1;
   }
 
   /* ── PHARO dashboard ───────────────────────────────────── */
@@ -1710,13 +1725,10 @@ const PHARO_RULES_DEFAULT = [
   { id: "A4", nome: "Ticket aperto >30g senza RTI", condizione: "ticket.stato IN (aperto,pianificato,in_attesa,da_chiudere) AND data_apertura<NOW-30d AND !rti_inviato", severita: "critical", canale: "echo_whatsapp", tipo: "tutti", attiva: true },
 ];
 
-// ── CHRONOS dashboard (campagne + scadenze) ────────────────────
+// ── CHRONOS dashboard — design badge quadrati ──────────────────
 const CHRONOS_CAMPAGNE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosCampagneDashboard";
 const CHRONOS_AGENDA_URL   = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosAgendaDashboard";
 const CHRONOS_SCADENZE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosScadenzeDashboard";
-
-let _chronosActiveTab = "campagne";
-const _chronosLoaded = { campagne: false, agenda: false, scadenze: false };
 
 function renderChronosPage(c) {
   $("#page").innerHTML = `
@@ -1726,30 +1738,20 @@ function renderChronosPage(c) {
         <div class="titles">
           <h2>${escapeHtml(c.name)} — Pianificatore</h2>
           <div class="domain">Campagne · agenda tecnici · scadenze manutenzione</div>
-          <span class="badge live">✅ Attivo v0.4</span>
+          <span class="badge live">✅ Attivo v0.5</span>
         </div>
-      </div>
-
-      <div class="chronos-tabs">
-        <button class="chronos-tab active" data-tab="campagne">📋 Campagne</button>
-        <button class="chronos-tab" data-tab="agenda">👷 Agenda</button>
-        <button class="chronos-tab" data-tab="scadenze">📆 Scadenze</button>
         <button class="btn-small" id="chronosRefresh" style="margin-left:auto;">↻ Aggiorna</button>
       </div>
 
-      <div class="pharo-section chronos-pane" id="chronosPaneCampagne">
-        <div id="chronosBanner" style="margin-bottom:10px;"></div>
-        <div id="chronosCampagne"><div class="widget-empty">Caricamento…</div></div>
+      <div class="chronos-section-title">📋 Campagne attive</div>
+      <div id="chronosBanner" style="margin-bottom:10px;"></div>
+      <div id="chronosCampagne" class="chronos-grid">
+        <div class="widget-empty" style="grid-column:1/-1;">Caricamento campagne…</div>
       </div>
 
-      <div class="pharo-section chronos-pane" id="chronosPaneAgenda" style="display:none;">
-        <div id="chronosAgendaSummary" style="margin-bottom:12px;"></div>
-        <div id="chronosAgenda"><div class="widget-empty">Apri il tab per caricare…</div></div>
-      </div>
-
-      <div class="pharo-section chronos-pane" id="chronosPaneScadenze" style="display:none;">
-        <div id="chronosScadenzeSummary" style="margin-bottom:12px;"></div>
-        <div id="chronosScadenze"><div class="widget-empty">Apri il tab per caricare…</div></div>
+      <div class="chronos-section-title">⚙️ Operativo</div>
+      <div id="chronosOperativo" class="chronos-grid">
+        <div class="widget-empty" style="grid-column:1/-1;">Caricamento operativo…</div>
       </div>
 
       <div class="pharo-section" id="chronosDetailSection" style="display:none;">
@@ -1766,10 +1768,7 @@ function renderChronosPage(c) {
     </div>
   `;
 
-  document.querySelectorAll(".chronos-tab").forEach(el => {
-    el.addEventListener("click", () => switchChronosTab(el.dataset.tab));
-  });
-  $("#chronosRefresh").addEventListener("click", () => loadChronosTab(_chronosActiveTab, true));
+  $("#chronosRefresh").addEventListener("click", loadChronos);
   $("#chronosCloseDetail").addEventListener("click", () => {
     $("#chronosDetailSection").style.display = "none";
   });
@@ -1779,38 +1778,28 @@ function renderChronosPage(c) {
     if (input) { input.value = "come va la campagna Letture WalkBy?"; input.focus(); }
   });
 
-  _chronosActiveTab = "campagne";
-  _chronosLoaded.campagne = false;
-  _chronosLoaded.agenda = false;
-  _chronosLoaded.scadenze = false;
-  loadChronosTab("campagne");
+  loadChronos();
 }
 
-function switchChronosTab(tab) {
-  _chronosActiveTab = tab;
-  document.querySelectorAll(".chronos-tab").forEach(el => {
-    el.classList.toggle("active", el.dataset.tab === tab);
-  });
-  document.querySelectorAll(".chronos-pane").forEach(el => { el.style.display = "none"; });
-  const paneId = tab === "campagne" ? "chronosPaneCampagne" : tab === "agenda" ? "chronosPaneAgenda" : "chronosPaneScadenze";
-  const pane = document.getElementById(paneId);
-  if (pane) pane.style.display = "";
-  if (!_chronosLoaded[tab]) loadChronosTab(tab);
+function loadChronos() {
+  loadChronosCampagne();
+  loadChronosOperativo();
 }
 
-function loadChronosTab(tab, force = false) {
-  if (force) _chronosLoaded[tab] = false;
-  if (tab === "campagne") loadChronosCampagne();
-  else if (tab === "agenda") loadChronosAgenda();
-  else if (tab === "scadenze") loadChronosScadenze();
+// Classi di soglia per bordo + colore %: ok >80, mid 50-80, low <50, zero 0
+function chronosPercClass(perc, totale) {
+  if (!totale) return "zero";
+  if (perc === 0) return "zero";
+  if (perc > 80) return "ok";
+  if (perc >= 50) return "mid";
+  return "low";
 }
 
 async function loadChronosCampagne() {
   const container = $("#chronosCampagne");
   const banner = $("#chronosBanner");
-  container.innerHTML = `<div class="widget-empty">Caricamento campagne da COSMINA…</div>`;
+  container.innerHTML = `<div class="widget-empty" style="grid-column:1/-1;">Caricamento campagne da COSMINA…</div>`;
   banner.innerHTML = "";
-
   try {
     const idToken = await getAuthIdToken();
     const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
@@ -1822,64 +1811,241 @@ async function loadChronosCampagne() {
     const data = await resp.json();
     const campagne = data.campagne || [];
     if (!campagne.length) {
-      container.innerHTML = `<div class="widget-empty">Nessuna campagna attiva al momento.</div>`;
+      container.innerHTML = `<div class="widget-empty" style="grid-column:1/-1;">Nessuna campagna attiva.</div>`;
       return;
     }
-    if (data.totale && data.totale > campagne.length) {
-      banner.innerHTML = `<div style="color:var(--text-muted);font-size:0.88rem;">Mostro top ${campagne.length} su ${data.totale} campagne.</div>`;
-    }
-    container.innerHTML = campagne.map(renderCampagnaCard).join("");
-    // Attacca click su ciascuna card
+    container.innerHTML = campagne.map(renderCampagnaBadge).join("");
     container.querySelectorAll("[data-camp-nome]").forEach(el => {
       el.addEventListener("click", () => showChronosDetail(el.dataset.campNome));
     });
   } catch (err) {
-    container.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+    container.innerHTML = `<div class="widget-error" style="grid-column:1/-1;">Errore: ${escapeHtml(err.message || err)}</div>`;
   }
 }
 
-function renderCampagnaCard(c) {
+function renderCampagnaBadge(c) {
   const stats = c.stats || {};
   const tot = stats.totale || 0;
   const comp = stats.completati || 0;
   const prog = stats.programmati || 0;
   const scad = stats.scaduti || 0;
   const daProg = stats.da_programmare || 0;
-  const perc = tot > 0 ? Math.round((comp / tot) * 100) : 0;
+  const perc = c.completamento_pct ?? (tot > 0 ? Math.round((comp / tot) * 100) : 0);
+  const cls = chronosPercClass(perc, tot);
 
-  // Progress bar colori: verde completati, blu programmati, giallo da programmare, rosso scaduti
   const segComp = tot > 0 ? (comp / tot) * 100 : 0;
   const segProg = tot > 0 ? (prog / tot) * 100 : 0;
   const segDaProg = tot > 0 ? (daProg / tot) * 100 : 0;
   const segScad = tot > 0 ? (scad / tot) * 100 : 0;
 
   const nome = escapeHtml(c.nome || c.campagna?.nome || "?");
-  const desc = c.campagna?.descrizione ? `<div style="color:var(--text-muted);font-size:0.82rem;margin-top:2px;">${escapeHtml(String(c.campagna.descrizione).slice(0, 120))}</div>` : "";
 
   return `
-    <div class="chronos-camp-card" data-camp-nome="${nome}" style="cursor:pointer;">
-      <div class="chronos-camp-head">
-        <div>
-          <div class="chronos-camp-title">${nome}</div>
-          ${desc}
+    <div class="chronos-badge ${cls}" data-camp-nome="${nome}">
+      <div class="chronos-badge-head">${nome}</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${perc}%</div>
+        <div class="chronos-badge-bar">
+          <div class="seg done"   style="width:${segComp}%"></div>
+          <div class="seg prog"   style="width:${segProg}%"></div>
+          <div class="seg daprog" style="width:${segDaProg}%"></div>
+          <div class="seg scad"   style="width:${segScad}%"></div>
         </div>
-        <div class="chronos-camp-perc ${perc === 100 ? "done" : perc > 50 ? "high" : perc > 0 ? "mid" : "low"}">${perc}%</div>
       </div>
-      <div class="chronos-camp-bar">
-        <div class="seg done"  style="width:${segComp}%"  title="Completati: ${comp}"></div>
-        <div class="seg prog"  style="width:${segProg}%"  title="Programmati: ${prog}"></div>
-        <div class="seg daprog" style="width:${segDaProg}%" title="Da programmare: ${daProg}"></div>
-        <div class="seg scad"  style="width:${segScad}%"  title="Scaduti: ${scad}"></div>
+      <div class="chronos-badge-stats">
+        <div class="row"><span>Totali</span><strong>${tot}</strong></div>
+        <div class="row ok"><span>Completati</span><strong>${comp}</strong></div>
+        <div class="row info"><span>Programmati</span><strong>${prog}</strong></div>
+        ${scad > 0 ? `<div class="row warn"><span>Scaduti</span><strong>${scad}</strong></div>` : ""}
+        ${daProg > 0 ? `<div class="row"><span>Da programmare</span><strong>${daProg}</strong></div>` : ""}
       </div>
-      <div class="chronos-camp-stats">
-        <span title="Totale"><strong>${tot}</strong> totali</span>
-        <span class="ok" title="Completati">✅ ${comp}</span>
-        <span class="info" title="Programmati">📅 ${prog}</span>
-        <span class="warn" title="Scaduti">⚠️ ${scad}</span>
-        <span class="muted" title="Da programmare">📝 ${daProg}</span>
-        <span class="muted" title="Orario ridotto">🕒 ${stats.orario_ridotto || 0}</span>
-        <span class="muted" title="Non fatti">❌ ${stats.non_fatti || 0}</span>
-        <span class="muted" title="Da non fare">🚫 ${stats.da_non_fare || 0}</span>
+    </div>
+  `;
+}
+
+async function loadChronosOperativo() {
+  const container = $("#chronosOperativo");
+  container.innerHTML = `<div class="widget-empty" style="grid-column:1/-1;">Caricamento operativo…</div>`;
+
+  try {
+    const idToken = await getAuthIdToken();
+    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
+    const [agendaResp, scadenzeResp] = await Promise.all([
+      fetch(CHRONOS_AGENDA_URL, { headers }),
+      fetch(CHRONOS_SCADENZE_URL, { headers }),
+    ]);
+    const agenda = agendaResp.ok ? await agendaResp.json() : { error: `HTTP ${agendaResp.status}` };
+    const scad   = scadenzeResp.ok ? await scadenzeResp.json() : { error: `HTTP ${scadenzeResp.status}` };
+
+    const html = [
+      renderAgendaOggiBadge(agenda),
+      renderAgendaSettimanaBadge(agenda),
+      renderAgendaScadutiBadge(agenda),
+      renderScadenzeBadge(scad),
+      renderCoperturaScadenzeBadge(scad),
+      renderSlotLiberiBadge(agenda),
+    ].join("");
+    container.innerHTML = html;
+  } catch (err) {
+    container.innerHTML = `<div class="widget-error" style="grid-column:1/-1;">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+function renderAgendaOggiBadge(agenda) {
+  if (agenda?.error) return errorBadge("Agenda oggi", agenda.error);
+  const t = agenda.totale || {};
+  const oggi = t.oggi || 0;
+  const tecnici = agenda.tecnici || [];
+  const perTecOggi = tecnici
+    .filter(x => (x.oggi || 0) > 0)
+    .sort((a, b) => (b.oggi || 0) - (a.oggi || 0))
+    .slice(0, 4);
+  const rows = perTecOggi.length
+    ? perTecOggi.map(x => `<div class="row"><span>${escapeHtml(x.tecnico)}</span><strong>${x.oggi}</strong></div>`).join("")
+    : `<div class="row" style="color:var(--text-muted);font-style:italic;">Nessun intervento oggi</div>`;
+  const cls = oggi > 0 ? "info" : "zero";
+  return `
+    <div class="chronos-badge ${cls}">
+      <div class="chronos-badge-head">📅 Agenda oggi</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${oggi}</div>
+        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">interventi in programma</div>
+      </div>
+      <div class="chronos-badge-stats">${rows}</div>
+    </div>
+  `;
+}
+
+function renderAgendaSettimanaBadge(agenda) {
+  if (agenda?.error) return errorBadge("Agenda settimana", agenda.error);
+  const t = agenda.totale || {};
+  const sett = t.settimana || 0;
+  const tecnici = (agenda.tecnici || [])
+    .filter(x => (x.settimana || 0) > 0)
+    .sort((a, b) => (b.settimana || 0) - (a.settimana || 0))
+    .slice(0, 4);
+  const rows = tecnici.length
+    ? tecnici.map(x => `<div class="row"><span>${escapeHtml(x.tecnico)}</span><strong>${x.settimana}</strong></div>`).join("")
+    : `<div class="row" style="color:var(--text-muted);font-style:italic;">Nessun programmato</div>`;
+  const cls = sett > 0 ? "info" : "zero";
+  return `
+    <div class="chronos-badge ${cls}">
+      <div class="chronos-badge-head">🗓️ Settimana</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${sett}</div>
+        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">prossimi 7 giorni</div>
+      </div>
+      <div class="chronos-badge-stats">${rows}</div>
+    </div>
+  `;
+}
+
+function renderAgendaScadutiBadge(agenda) {
+  if (agenda?.error) return errorBadge("Scaduti agenda", agenda.error);
+  const t = agenda.totale || {};
+  const n = t.scaduti || 0;
+  const tecnici = (agenda.tecnici || [])
+    .filter(x => (x.scaduti || 0) > 0)
+    .sort((a, b) => (b.scaduti || 0) - (a.scaduti || 0))
+    .slice(0, 4);
+  const rows = tecnici.length
+    ? tecnici.map(x => `<div class="row warn"><span>${escapeHtml(x.tecnico)}</span><strong>${x.scaduti}</strong></div>`).join("")
+    : `<div class="row" style="color:#166534;font-style:italic;">Nessun arretrato</div>`;
+  const cls = n === 0 ? "ok" : n > 20 ? "low" : "mid";
+  const icon = n === 0 ? "✅" : "⚠️";
+  return `
+    <div class="chronos-badge ${cls}">
+      <div class="chronos-badge-head">${icon} Interventi scaduti</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${n}</div>
+        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">con data superata</div>
+      </div>
+      <div class="chronos-badge-stats">${rows}</div>
+    </div>
+  `;
+}
+
+function renderScadenzeBadge(scad) {
+  if (scad?.error) return errorBadge("Scadenze impianti", scad.error);
+  const t = scad.totale || {};
+  const prossime = (t.g30 || 0) + (t.g60 || 0);
+  const scaduti = t.scaduti || 0;
+  const cls = scaduti > 0 ? "low" : prossime > 0 ? "mid" : "ok";
+  const icon = scaduti > 0 ? "⚠️" : prossime > 0 ? "🔔" : "✅";
+  return `
+    <div class="chronos-badge ${cls}">
+      <div class="chronos-badge-head">${icon} Scadenze impianti</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${scaduti + prossime}</div>
+        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">entro 60 giorni</div>
+      </div>
+      <div class="chronos-badge-stats">
+        <div class="row warn"><span>Già scaduti</span><strong>${scaduti}</strong></div>
+        <div class="row"><span>Entro 30 giorni</span><strong>${t.g30 || 0}</strong></div>
+        <div class="row"><span>31-60 giorni</span><strong>${t.g60 || 0}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCoperturaScadenzeBadge(scad) {
+  if (scad?.error) return errorBadge("Copertura dati", scad.error);
+  const t = scad.totale || {};
+  const perc = t.copertura_pct || 0;
+  const cls = perc > 80 ? "ok" : perc >= 50 ? "mid" : "low";
+  return `
+    <div class="chronos-badge ${cls}">
+      <div class="chronos-badge-head">📊 Copertura scadenze</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${perc}%</div>
+        <div class="chronos-badge-bar">
+          <div class="seg done" style="width:${perc}%"></div>
+        </div>
+      </div>
+      <div class="chronos-badge-stats">
+        <div class="row"><span>Impianti totali</span><strong>${t.impianti_totali || 0}</strong></div>
+        <div class="row ok"><span>Con data</span><strong>${t.con_scadenza || 0}</strong></div>
+        <div class="row warn"><span>Senza data</span><strong>${t.senza_data || 0}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSlotLiberiBadge(agenda) {
+  if (agenda?.error) return errorBadge("Slot liberi", agenda.error);
+  const tecnici = agenda.tecnici || [];
+  // Capienza settimanale tipica: 40 slot/tecnico (5gg × 8 interventi).
+  const CAPIENZA = 40;
+  const assegnati = tecnici.reduce((s, t) => s + (t.oggi || 0) + (t.settimana || 0), 0);
+  const totaleSlot = tecnici.filter(t => t.tecnico !== "(NON ASSEGNATO)").length * CAPIENZA;
+  const liberi = Math.max(totaleSlot - assegnati, 0);
+  const perc = totaleSlot > 0 ? Math.round((liberi / totaleSlot) * 100) : 0;
+  const cls = perc > 50 ? "ok" : perc >= 20 ? "mid" : "low";
+  return `
+    <div class="chronos-badge ${cls}">
+      <div class="chronos-badge-head">✅ Slot liberi</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc ${cls}">${liberi}</div>
+        <div style="color:var(--text-muted);font-size:0.85rem;margin-top:2px;">questa settimana</div>
+      </div>
+      <div class="chronos-badge-stats">
+        <div class="row"><span>Capienza stimata</span><strong>${totaleSlot}</strong></div>
+        <div class="row info"><span>Già programmati</span><strong>${assegnati}</strong></div>
+        <div class="row"><span>Saturazione</span><strong>${100 - perc}%</strong></div>
+      </div>
+    </div>
+  `;
+}
+
+function errorBadge(titolo, msg) {
+  return `
+    <div class="chronos-badge low">
+      <div class="chronos-badge-head">${escapeHtml(titolo)}</div>
+      <div class="chronos-badge-center">
+        <div class="chronos-badge-perc low">⚠️</div>
+      </div>
+      <div class="chronos-badge-stats">
+        <div class="row warn"><span>Errore</span><strong style="font-size:0.75rem;">${escapeHtml(String(msg).slice(0, 60))}</strong></div>
       </div>
     </div>
   `;
@@ -1890,6 +2056,7 @@ async function showChronosDetail(nome) {
   const title = $("#chronosDetailTitle");
   const content = $("#chronosDetail");
   section.style.display = "";
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
   title.textContent = `Dettaglio: ${nome}`;
   content.innerHTML = `<div class="widget-empty">Caricamento…</div>`;
 
@@ -1930,172 +2097,6 @@ async function showChronosDetail(nome) {
   } catch (err) {
     content.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
   }
-}
-
-// ── CHRONOS Agenda ─────────────────────────────────────────────
-async function loadChronosAgenda() {
-  const container = $("#chronosAgenda");
-  const summary = $("#chronosAgendaSummary");
-  container.innerHTML = `<div class="widget-empty">Caricamento agenda tecnici…</div>`;
-  summary.innerHTML = "";
-  try {
-    const idToken = await getAuthIdToken();
-    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
-    const resp = await fetch(CHRONOS_AGENDA_URL, { headers });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    _chronosLoaded.agenda = true;
-
-    const t = data.totale || {};
-    summary.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
-        <div class="pharo-kpi"><div class="label">Tecnici</div><div class="value">${t.tecnici || 0}</div></div>
-        <div class="pharo-kpi"><div class="label">Totale</div><div class="value">${t.totale || 0}</div></div>
-        <div class="pharo-kpi ${t.oggi > 0 ? "info" : ""}"><div class="label">Oggi</div><div class="value">${t.oggi || 0}</div></div>
-        <div class="pharo-kpi"><div class="label">Settimana</div><div class="value">${t.settimana || 0}</div></div>
-        <div class="pharo-kpi ${t.scaduti > 0 ? "err" : ""}"><div class="label">Scaduti</div><div class="value">${t.scaduti || 0}</div></div>
-        <div class="pharo-kpi ok"><div class="label">% Completati</div><div class="value">${t.completamento_pct || 0}%</div></div>
-      </div>`;
-
-    const tecnici = data.tecnici || [];
-    if (!tecnici.length) {
-      container.innerHTML = `<div class="widget-empty">Nessun tecnico con interventi attivi.</div>`;
-      return;
-    }
-    container.innerHTML = tecnici.map(renderAgendaTecnicoCard).join("");
-    container.querySelectorAll(".chronos-expandable").forEach(el => {
-      el.querySelector(".chronos-expand-head").addEventListener("click", () => {
-        el.classList.toggle("expanded");
-      });
-    });
-  } catch (err) {
-    container.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
-  }
-}
-
-function renderAgendaTecnicoCard(t) {
-  const perc = t.completamento_pct || 0;
-  const percClass = perc === 100 ? "done" : perc >= 70 ? "high" : perc >= 30 ? "mid" : "low";
-  const aperti = t.aperti || 0;
-  const items = t.items || [];
-  const rows = items.slice(0, 30).map(it => {
-    const ora = it.due ? new Date(it.due).toLocaleString("it-IT", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "—";
-    const condShort = escapeHtml(String(it.cond || it.name || "?").slice(0, 70));
-    const statoLabel = escapeHtml(it.stato || "aperto");
-    return `<tr><td>${ora}</td><td>${condShort}</td><td><span class="badge-state">${statoLabel}</span></td></tr>`;
-  }).join("");
-  const more = items.length > 30 ? `<tr><td colspan="3" style="color:var(--text-muted);text-align:center;">…e altri ${items.length - 30}</td></tr>` : "";
-
-  return `
-    <div class="chronos-expandable">
-      <div class="chronos-expand-head">
-        <div>
-          <div class="chronos-expand-title">👷 ${escapeHtml(t.tecnico)}</div>
-          <div class="chronos-expand-sub">${t.totale} interventi · ${t.oggi} oggi · ${t.settimana} settimana · ${t.scaduti} scaduti</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div class="chronos-camp-perc ${percClass}">${perc}%</div>
-          <span class="chronos-expand-chev">▾</span>
-        </div>
-      </div>
-      <div class="chronos-expand-bar">
-        <div class="seg done" style="width:${t.totale > 0 ? (t.completati / t.totale) * 100 : 0}%"></div>
-        <div class="seg prog" style="width:${t.totale > 0 ? (t.oggi + t.settimana) / t.totale * 100 : 0}%"></div>
-        <div class="seg scad" style="width:${t.totale > 0 ? (t.scaduti / t.totale) * 100 : 0}%"></div>
-      </div>
-      <div class="chronos-expand-body">
-        <div style="margin-bottom:8px;color:var(--text-muted);font-size:0.85rem;">
-          ${t.completati} completati · ${aperti} aperti · ${t.senza_data} senza data
-        </div>
-        ${items.length === 0 ? '<div class="widget-empty">Nessun intervento aperto.</div>' : `
-        <table class="pharo-table">
-          <thead><tr><th>Data/ora</th><th>Condominio</th><th>Stato</th></tr></thead>
-          <tbody>${rows}${more}</tbody>
-        </table>`}
-      </div>
-    </div>
-  `;
-}
-
-// ── CHRONOS Scadenze ───────────────────────────────────────────
-async function loadChronosScadenze() {
-  const container = $("#chronosScadenze");
-  const summary = $("#chronosScadenzeSummary");
-  container.innerHTML = `<div class="widget-empty">Caricamento scadenze…</div>`;
-  summary.innerHTML = "";
-  try {
-    const idToken = await getAuthIdToken();
-    const headers = idToken ? { "Authorization": "Bearer " + idToken } : {};
-    const resp = await fetch(CHRONOS_SCADENZE_URL, { headers });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    _chronosLoaded.scadenze = true;
-
-    const t = data.totale || {};
-    summary.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
-        <div class="pharo-kpi"><div class="label">Impianti</div><div class="value">${t.impianti_totali || 0}</div></div>
-        <div class="pharo-kpi ${t.copertura_pct < 50 ? "warn" : "ok"}"><div class="label">Copertura dati</div><div class="value">${t.copertura_pct || 0}%</div></div>
-        <div class="pharo-kpi ${t.scaduti > 0 ? "err" : ""}"><div class="label">Scaduti</div><div class="value">${t.scaduti || 0}</div></div>
-        <div class="pharo-kpi ${t.g30 > 0 ? "warn" : ""}"><div class="label">≤30g</div><div class="value">${t.g30 || 0}</div></div>
-        <div class="pharo-kpi"><div class="label">31-60g</div><div class="value">${t.g60 || 0}</div></div>
-        <div class="pharo-kpi"><div class="label">61-90g</div><div class="value">${t.g90 || 0}</div></div>
-      </div>
-      ${t.copertura_pct < 50 ? `<div style="color:var(--text-muted);font-size:0.85rem;margin-top:8px;">⚠️ Solo ${t.con_scadenza}/${t.impianti_totali} impianti hanno una data di scadenza registrata.</div>` : ""}
-    `;
-
-    const buckets = data.buckets || {};
-    const order = ["scaduti", "g30", "g60", "g90", "futuri"];
-    const html = order
-      .filter(k => buckets[k] && buckets[k].count > 0)
-      .map(k => renderScadenzaBucket(k, buckets[k], t.impianti_totali || 1))
-      .join("");
-    container.innerHTML = html || `<div class="widget-empty">Nessuna scadenza registrata nei prossimi 90 giorni.</div>`;
-    container.querySelectorAll(".chronos-expandable").forEach(el => {
-      el.querySelector(".chronos-expand-head").addEventListener("click", () => {
-        el.classList.toggle("expanded");
-      });
-    });
-  } catch (err) {
-    container.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
-  }
-}
-
-function renderScadenzaBucket(key, b, totaleImpianti) {
-  const perc = totaleImpianti > 0 ? Math.round((b.count / totaleImpianti) * 100) : 0;
-  const percClass = key === "scaduti" ? "low" : key === "g30" ? "mid" : key === "g60" ? "mid" : "high";
-  const icon = key === "scaduti" ? "⚠️" : key === "g30" ? "🔔" : "📆";
-
-  const rows = (b.items || []).slice(0, 30).map(it => {
-    const d = new Date(it.scadenza).toLocaleDateString("it-IT");
-    const giorniLabel = it.giorni < 0 ? `${Math.abs(it.giorni)}g fa` : `tra ${it.giorni}g`;
-    const cond = escapeHtml(String(it.cond).slice(0, 60));
-    const comune = it.comune ? `<span style="color:var(--text-muted);"> · ${escapeHtml(it.comune)}</span>` : "";
-    return `<tr><td>${d}</td><td>${giorniLabel}</td><td>${cond}${comune}</td></tr>`;
-  }).join("");
-  const more = (b.items || []).length > 30 ? `<tr><td colspan="3" style="color:var(--text-muted);text-align:center;">…e altri ${b.items.length - 30}</td></tr>` : "";
-
-  return `
-    <div class="chronos-expandable" style="border-left:4px solid ${b.color};">
-      <div class="chronos-expand-head">
-        <div>
-          <div class="chronos-expand-title">${icon} ${escapeHtml(b.label)}</div>
-          <div class="chronos-expand-sub">${b.count} impianti · ${perc}% del parco</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div class="chronos-camp-perc ${percClass}">${b.count}</div>
-          <span class="chronos-expand-chev">▾</span>
-        </div>
-      </div>
-      <div class="chronos-expand-body">
-        ${(b.items || []).length === 0 ? '<div class="widget-empty">Nessun dato.</div>' : `
-        <table class="pharo-table">
-          <thead><tr><th>Data</th><th>Scadenza</th><th>Impianto</th></tr></thead>
-          <tbody>${rows}${more}</tbody>
-        </table>`}
-      </div>
-    </div>
-  `;
 }
 
 // ── ARES dashboard ─────────────────────────────────────────────
