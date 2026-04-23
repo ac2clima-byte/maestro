@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-04-23T10:36:45.456Z",
+  "landing": {
+    "nexoCardFound": false,
+    "noSSOFlag": false
+  },
+  "pwa": {
+    "gateVisible": true,
+    "appHidden": true,
+    "hasEmailInput": true,
+    "hasPasswordInput": true,
+    "hasAccediButton": true,
+    "configProjectId": null
+  },
+  "nexusFabVisibleWithoutLogin": true,
+  "endpoint": {
+    "status": 401,
+    "text": "{\"error\":\"unauthorized\",\"message\":\"Firebase ID Token ACG mancante o non valido\"}"
+  }
+}
