@@ -130,6 +130,102 @@ export async function handleStatoLavagna() {
   };
 }
 
+// ─── Archivia email in cartella per mittente ───────────────────
+//
+// Pattern "coda EWS": la Cloud Function non parla direttamente con Exchange
+// (server on-premise non raggiungibile da GCP). Salva una richiesta in
+// iris_archive_queue, lo script su Hetzner la preleva ed esegue lo spostamento
+// via exchangelib.
+//
+// Aggiorna subito iris_emails.status = "archived" ottimisticamente; in caso
+// di failure EWS, il poller Hetzner imposterà status = "failed" + error.
+//
+// Generazione nome cartella: "Cognome Nome" (stile italiano).
+
+export function derivaFolderName(senderName, senderEmail) {
+  const name = String(senderName || "").trim();
+  const email = String(senderEmail || "").trim().toLowerCase();
+
+  // Se abbiamo un nome che sembra "Nome Cognome" o "Nome Cognome - Company"
+  if (name) {
+    // Rimuovi parte dopo " - " (azienda)
+    const cleaned = name.split(/\s+[-–]\s+/)[0].trim();
+    // Rimuovi caratteri strani e spezza in parole
+    const parts = cleaned.replace(/[^\p{L}\s'.-]/gu, "").split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      // Assume Nome Cognome → restituisci "Cognome Nome"
+      const cognome = parts[parts.length - 1];
+      const nome = parts[0];
+      if (cognome.length >= 2 && nome.length >= 2) {
+        return `${capitalize(cognome)} ${capitalize(nome)}`;
+      }
+    } else if (parts.length === 1 && parts[0].length >= 3) {
+      return capitalize(parts[0]);
+    }
+  }
+
+  // Fallback: dominio email (es. "gruppo3i.it")
+  if (email.includes("@")) {
+    const domain = email.split("@")[1] || "";
+    if (domain) return domain.toLowerCase();
+  }
+  return "Sconosciuto";
+}
+
+function capitalize(s) {
+  return String(s || "")
+    .split(/['-]/)
+    .map(p => p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : p)
+    .join(s.includes("'") ? "'" : "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Endpoint: archivia un'email.
+ * Input: { emailId } (obbligatorio). Legge sender/messageId da iris_emails.
+ * Output: { ok, queueId, folder, emailId }
+ */
+export async function handleIrisArchiveEmail(parametri) {
+  const emailId = String(parametri.emailId || "").trim();
+  if (!emailId) return { ok: false, error: "missing_emailId" };
+
+  const docRef = db.collection("iris_emails").doc(emailId);
+  const snap = await docRef.get();
+  if (!snap.exists) return { ok: false, error: "email_not_found" };
+
+  const d = snap.data() || {};
+  const raw = d.raw || {};
+  const messageId = raw.message_id || raw.ews_item_id || null;
+  const folder = derivaFolderName(raw.sender_name, raw.sender);
+
+  // Scrivi in coda
+  const queueRef = db.collection("iris_archive_queue").doc();
+  await queueRef.set({
+    id: queueRef.id,
+    emailId,
+    messageId,
+    ewsItemId: raw.ews_item_id || null,
+    sender: raw.sender || "",
+    senderName: raw.sender_name || "",
+    subject: raw.subject || "",
+    folder,
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  // Update ottimistico su iris_emails
+  await docRef.set({
+    status: "archived",
+    archiviata_il: FieldValue.serverTimestamp(),
+    cartella: folder,
+    archiveQueueId: queueRef.id,
+  }, { merge: true });
+
+  return { ok: true, queueId: queueRef.id, folder, emailId };
+}
+
 // ─── "analizza l'ultima mail di X" — intent recognition interattivo ─
 //
 // Se l'email ha già intent+dati_estratti → mostra formattato.

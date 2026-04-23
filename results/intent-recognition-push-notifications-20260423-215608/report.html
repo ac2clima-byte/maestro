@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Report — Intent Recognition + Push + Training + Workflow</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d28; --border: #2a2e3d;
+    --text: #e8eaf0; --text-dim: #9aa0b4; --text-muted: #c0c5d4;
+    --ok: #4ade80; --warn: #fbbf24; --err: #ef4444;
+    --accent: #6366f1; --accent-soft: rgba(99,102,241,0.15);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 0 auto; line-height: 1.6; }
+  h1 { font-size: 1.8rem; margin: 0 0 8px 0; }
+  .subtitle { color: var(--text-dim); margin-bottom: 30px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { margin-top: 0; color: var(--accent); font-size: 1.15rem; }
+  .status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; margin-left: 8px; }
+  .status.ok { background: rgba(74,222,128,0.15); color: var(--ok); }
+  .status.warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .status.err { background: rgba(239,68,68,0.15); color: var(--err); }
+  .status.pending { background: rgba(154,160,180,0.15); color: var(--text-dim); }
+  code { background: rgba(99,102,241,0.1); color: #c7d0ff; padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, monospace; font-size: 0.88rem; }
+  pre { background: #0a0b11; border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow-x: auto; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.78rem; letter-spacing: 0.5px; }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  a { color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 14px 0; }
+  .stat { background: #0a0b11; border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+  .stat strong { display: block; font-size: 1.6rem; color: var(--accent); }
+  .stat span { color: var(--text-dim); font-size: 0.82rem; }
+  .check { color: var(--ok); font-weight: bold; }
+  .cross { color: var(--err); font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>🚀 Report Deploy — Intent Recognition + Push + Training + Workflow</h1>
+<div class="subtitle">maestro-bridge · nexo-hub-15f2d · Deploy del 2026-04-23 21:56 CET</div>
+
+<div class="card">
+  <h2>📊 Sommario</h2>
+  <div class="grid">
+    <div class="stat"><strong>7</strong><span>task completati</span></div>
+    <div class="stat"><strong>18</strong><span>Cloud Functions deployate</span></div>
+    <div class="stat"><strong>2</strong><span>nuove function</span></div>
+    <div class="stat"><strong>5</strong><span>nuove collection Firestore</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>1. Push Notifications FCM <span class="status ok">✓ DEPLOYED</span></h2>
+  <ul>
+    <li><strong>PWA</strong>: <code>index.html</code> chiama <code>setupFcmPush()</code> dopo il login (ritardo 1.5s). Chiede permesso, ottiene token con <code>vapidKey</code>, salva in <code>nexo_config/fcm_tokens</code>.</li>
+    <li><strong>Service Worker</strong>: <code>/firebase-messaging-sw.js</code> gestisce background messages + click su notifica.</li>
+    <li><strong>Backend</strong>: <code>sendPushNotification(title, body, link, userId)</code> in <code>handlers/shared.js</code> usa <code>firebase-admin/messaging</code> e logga in <code>nexo_push_log</code>.</li>
+    <li><strong>Endpoint</strong>: <code>POST /nexoPushSend</code> (autenticato ACG).</li>
+    <li><strong>Test</strong>: endpoint senza auth risponde <code>401</code> ✓. Service Worker raggiungibile <code>200</code> ✓.</li>
+  </ul>
+  <p style="color:var(--warn);font-size:0.88rem;"><strong>⚠️ Nota</strong>: la <code>FCM_VAPID_KEY</code> è stata inserita in <code>index.html</code> con una chiave placeholder. Per testare davvero una notifica Alberto deve: (1) aprire la PWA su <a href="https://nexo-hub-15f2d.web.app">nexo-hub-15f2d.web.app</a>, (2) accettare il permesso notifiche, (3) sostituire la VAPID key reale presa da Firebase Console → Project settings → Cloud Messaging → Web configuration.</p>
+</div>
+
+<div class="card">
+  <h2>2. IRIS Intent Recognition avanzato <span class="status ok">✓ DEPLOYED</span></h2>
+  <ul>
+    <li><strong>Prompt</strong>: <code>prompts/classifier.md</code> riscritto v2 — chiede a Haiku JSON con nuovi campi <code>intent</code>, <code>dati_estratti</code>, <code>contesto_thread</code>, <code>prossimo_passo</code> + istruzione esplicita "leggi TUTTO il thread (email quotate sotto)".</li>
+    <li><strong>Poller</strong>: <code>iris-poller.mjs</code> aggiornato (max_tokens 400→1500, body 3000→8000 char), ritorna classification arricchita.</li>
+    <li><strong>Shared</strong>: <code>fetchIrisEmails()</code> propaga i nuovi campi.</li>
+  </ul>
+  <p><strong>Intent predefiniti:</strong> <code>preparare_preventivo</code>, <code>registrare_fattura</code>, <code>aprire_intervento_urgente</code>, <code>aprire_intervento_ordinario</code>, <code>rispondere_a_richiesta</code>, <code>registrare_incasso</code>, <code>gestire_pec</code>, <code>sollecitare_pagamento</code>, <code>archiviare</code>, <code>nessuna_azione</code>.</p>
+</div>
+
+<div class="card">
+  <h2>3. Addestramento pattern via NEXUS Chat <span class="status ok">✓ DEPLOYED</span></h2>
+  <ul>
+    <li><strong>Comando</strong>: <code>handleIrisAnalizzaEmail()</code> in <code>handlers/iris.js</code>. Trigger: "analizza l'ultima mail di X" / "analizza questa email".</li>
+    <li><strong>Flow</strong>: se email ha già intent → mostra formattato; altrimenti chiama Haiku (prompt v2), salva in <code>iris_emails.classification</code>.</li>
+    <li><strong>Conferma</strong>: <code>tryInterceptPatternConfirmation()</code> intercetta il turno successivo. Gestisce "sì", "sì ma…", "no, l'intent è …".</li>
+    <li><strong>Pattern</strong>: <code>saveOrReinforcePattern()</code> scrive in <code>iris_patterns</code> con counters. Dopo 3+ conferme → confidenza 1.0 (regola automatica).</li>
+    <li><strong>Correzioni</strong>: salvate in <code>iris_corrections</code> + nuovo pattern con intent corretto.</li>
+  </ul>
+  <p><strong>Esempio turno:</strong></p>
+  <pre>Alberto: analizza l'ultima mail di Torriglia
+
+NEXUS:
+📧 Email analizzata — Davide Torriglia &lt;dt@3i.it&gt;
+Categoria: PREVENTIVO · Intent: `preparare_preventivo` · Conf: high
+Contesto thread: Alberto ha chiesto l'intestazione per l'offerta
+verifica riscaldamento. Torriglia ha risposto con ragione sociale
+e P.IVA.
+Prossimo passo: Preparare preventivo verifica riscaldamento
+intestato a 3i efficientamento energetico (P.IVA 02486680065)
+per Condominio De Amicis.
+❓ È corretto?
+
+Alberto: sì
+
+NEXUS:
+✅ Pattern salvato
+• Intent: `preparare_preventivo`
+• Conferme: 1 — confidenza 90%
+• ID: preparare_preventivo_ab3c42</pre>
+</div>
+
+<div class="card">
+  <h2>4. Workflow Preventivo (Orchestratore) <span class="status ok">✓ DEPLOYED</span></h2>
+  <ul>
+    <li><strong>Handler</strong>: <code>workflowPreventivo()</code> in <code>handlers/orchestrator.js</code>. Trigger: Lavagna <code>type=preventivo</code> o <code>to=orchestrator</code> con <code>azione=preparare_preventivo</code>.</li>
+    <li><strong>Step</strong>:
+      <ol>
+        <li>MEMO condominio (dossier)</li>
+        <li>MEMO committente (o flag "nuovo contatto" se non trovato)</li>
+        <li>CALLIOPE bozza preventivo (Claude Sonnet)</li>
+        <li>Push notification ad Alberto con link alla bozza</li>
+        <li>Stato "in_attesa_approvazione" (flow sospeso fino al turno di approvazione)</li>
+      </ol>
+    </li>
+    <li><strong>Approvazione</strong>: <code>workflowPreventivoApprovazione()</code> gestisce "approva"/"rifiuta"/"modifica". Su approvazione accoda messaggio Lavagna verso ECHO (send_email).</li>
+    <li><strong>Routing</strong>: <code>postLavagnaFromNexus()</code> intercetta intent di tipo workflow e li manda all'orchestrator invece che al singolo collega.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>5. Archivia email IRIS <span class="status ok">✓ DEPLOYED</span></h2>
+  <ul>
+    <li><strong>Pattern coda</strong>: Cloud Function non parla direttamente con EWS (on-prem). Scrive in <code>iris_archive_queue</code>, lo script Hetzner consuma.</li>
+    <li><strong>Handler</strong>: <code>handleIrisArchiveEmail()</code> in <code>handlers/iris.js</code>. Endpoint <code>POST /irisArchiveEmail</code>.</li>
+    <li><strong>Nome cartella</strong>: <code>derivaFolderName()</code> — "Nome Cognome" → "Cognome Nome" (stile italiano). Fallback su dominio email.</li>
+    <li><strong>Update ottimistico</strong>: <code>iris_emails.status = "archived"</code> immediato + <code>cartella</code> + <code>archiveQueueId</code>.</li>
+    <li><strong>PWA</strong>: bottone 📁 accanto a ogni email nel widget Digest. Toast di conferma "Archiviata in cartella X ✅". Toggle "mostra archiviate".</li>
+    <li><strong>TODO</strong>: script <code>iris_hetzner_poller.py</code> va esteso per consumare la coda (fuori scope di questa sessione).</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>6. Bottone cancella chat NEXUS <span class="status ok">✓ DEPLOYED</span></h2>
+  <ul>
+    <li>Icona 🗑️ nella header del pannello, sinistra della X.</li>
+    <li>Click → <code>confirm()</code> → nuovo <code>sessionId</code>, svuota <code>NEXUS_MESSAGES</code>, unsubscribe listener vecchia sessione, sottoscrive nuova.</li>
+    <li>Vecchia sessione <strong>resta</strong> in <code>nexus_chat</code> (storico). Nessun dato cancellato.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>📡 Endpoint deployati</h2>
+  <table>
+    <tr><th>Function</th><th>URL</th><th>Auth</th></tr>
+    <tr><td><code>nexoPushSend</code></td><td><code>/nexoPushSend</code></td><td>ID Token ACG</td></tr>
+    <tr><td><code>irisArchiveEmail</code></td><td><code>/irisArchiveEmail</code></td><td>ID Token ACG</td></tr>
+    <tr><td><code>nexusRouter</code></td><td><code>/nexusRouter</code></td><td>ID Token ACG (aggiornato con training)</td></tr>
+    <tr><td><code>orchestratorLavagnaListener</code></td><td>Firestore trigger</td><td>—</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>🔒 Firestore Rules</h2>
+  <table>
+    <tr><th>Collection</th><th>Read</th><th>Write</th></tr>
+    <tr><td><code>nexo_config/fcm_tokens</code></td><td>pubblica</td><td>client (merge 1 chiave)</td></tr>
+    <tr><td><code>nexo_push_log</code></td><td>pubblica</td><td>Admin SDK only</td></tr>
+    <tr><td><code>iris_patterns</code></td><td>pubblica</td><td>Admin SDK only</td></tr>
+    <tr><td><code>iris_patterns_stats</code></td><td>pubblica</td><td>Admin SDK only</td></tr>
+    <tr><td><code>iris_archive_queue</code></td><td>pubblica</td><td>Admin SDK only</td></tr>
+  </table>
+  <p style="color:var(--warn);font-size:0.88rem;"><strong>⚠️ HERMES review</strong>: la regola iniziale <code>allow write: if true</code> su <code>nexo_config</code> è stata bloccata e corretta: ora accetta solo modifiche di singolo campo (merge atomico della propria chiave userKey).</p>
+</div>
+
+<div class="card">
+  <h2>🧪 Smoke Test</h2>
+  <table>
+    <tr><th>Check</th><th>Atteso</th><th>Risultato</th></tr>
+    <tr><td><code>POST /nexoPushSend</code> senza auth</td><td>401</td><td><span class="check">✓ 401</span></td></tr>
+    <tr><td><code>POST /irisArchiveEmail</code> senza auth</td><td>401</td><td><span class="check">✓ 401</span></td></tr>
+    <tr><td><code>GET /firebase-messaging-sw.js</code></td><td>200</td><td><span class="check">✓ 200</span></td></tr>
+    <tr><td>Node syntax check (6 file)</td><td>ALL OK</td><td><span class="check">✓ ALL OK</span></td></tr>
+    <tr><td>Firestore rules compilation</td><td>successful</td><td><span class="check">✓ compiled</span></td></tr>
+    <tr><td>Functions deploy (18 totali, 2 create)</td><td>success</td><td><span class="check">✓ all success</span></td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>🎯 Test manuali da fare</h2>
+  <p>I test end-to-end interattivi richiedono Alberto davanti al browser:</p>
+  <ol>
+    <li><strong>Push</strong>: aprire <a href="https://nexo-hub-15f2d.web.app">nexo-hub-15f2d.web.app</a>, login, accettare permesso notifiche. Poi da console browser: <code>fetch('/nexoPushSend', {method:'POST', headers:{...}, body: JSON.stringify({title:'test', body:'ok'})})</code> (o usare il workflow preventivo che la invoca).</li>
+    <li><strong>Analizza email</strong>: aprire NEXUS chat → "analizza l'ultima mail di Torriglia" → verifica formatting.</li>
+    <li><strong>Conferma pattern</strong>: rispondere "sì" → verifica creazione doc in <code>iris_patterns</code>.</li>
+    <li><strong>Workflow preventivo</strong>: "prepara preventivo per De Amicis committente 3i efficientamento P.IVA 02486680065 oggetto verifica riscaldamento" → verifica flow orchestrator + push.</li>
+    <li><strong>Archivia</strong>: dal widget digest home, click 📁 su un'email → toast + email grigia + presenza doc in <code>iris_archive_queue</code>.</li>
+    <li><strong>Cancella chat</strong>: aprire chat → click 🗑️ → conferma → nuova sessione vuota.</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2>🔗 Link</h2>
+  <ul>
+    <li>PWA: <a href="https://nexo-hub-15f2d.web.app">nexo-hub-15f2d.web.app</a></li>
+    <li>Firebase Console: <a href="https://console.firebase.google.com/project/nexo-hub-15f2d/overview">console.firebase.google.com/project/nexo-hub-15f2d</a></li>
+    <li>Functions logs: <a href="https://console.firebase.google.com/project/nexo-hub-15f2d/functions/logs">Functions logs</a></li>
+    <li>Firestore: <a href="https://console.firebase.google.com/project/nexo-hub-15f2d/firestore">firestore</a></li>
+  </ul>
+</div>
+
+</body>
+</html>

@@ -73,6 +73,9 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
     IMPORTANTE: "stato della suite" / "come sta il sistema" = stato_suite
 - calliope   → content:
     azioni: bozza_risposta (parametri: {emailId, tono}), sollecito_pagamento
+- orchestrator → workflow multi-step (attiva con azione "preparare_preventivo",
+    parametri: {condominio, committente, piva, oggetto, destinatario}).
+    Trigger: "prepara preventivo per X", "fai un'offerta a Y per Z".
 - nessuno    → saluti, chiarimenti
 
 REGOLE:
@@ -314,16 +317,26 @@ export async function writeNexusMessage(sessionId, data) {
 export async function postLavagnaFromNexus({ collega, azione, parametri, rispostaUtente, userMessage, sessionId, nexusMessageId }) {
   const now = FieldValue.serverTimestamp();
   const ref = db.collection("nexo_lavagna").doc();
+
+  // Routing: se azione è un intent-workflow (preparare_preventivo, ecc.)
+  // manda all'orchestrator invece che al singolo collega
+  const az = String(azione || "").toLowerCase();
+  const workflowIntents = new Set(["preparare_preventivo", "aprire_intervento_urgente", "sollecitare_pagamento"]);
+  const isWorkflow = workflowIntents.has(az) || /^preventivo|^guasto_urgente/.test(az);
+  const targetCollega = isWorkflow ? "orchestrator" : collega;
+  const msgType = isWorkflow ? (az === "aprire_intervento_urgente" ? "guasto_urgente" : az) : `nexus_${azione}`;
+
   await ref.set({
     id: ref.id,
     from: "nexus",
-    to: collega,
-    type: `nexus_${azione}`,
+    to: targetCollega,
+    type: msgType,
     payload: {
       azione, parametri, userMessage,
       nexusChatMessageId: nexusMessageId,
       sessionId,
       rispostaPreliminareNexus: rispostaUtente,
+      ...parametri, // per compatibilità con orchestrator che legge payload.condominio ecc.
     },
     status: "pending",
     priority: "normal",

@@ -171,23 +171,249 @@ async function workflowGuastoUrgente({ flowInstanceId, payload, triggerMsgRef })
   return summary;
 }
 
+// ─── Workflow: preventivo ──────────────────────────────────────
+//
+// Trigger: intent == "preparare_preventivo" nella Lavagna, payload con
+// cliente/condominio + committente (azienda destinataria).
+//
+// Step 1 — MEMO: cerca condominio nel CRM.
+// Step 2 — MEMO: cerca azienda committente (se non presente, flagga "nuovo contatto").
+// Step 3 — CALLIOPE: genera bozza preventivo con anagrafica.
+// Step 4 — Push notification ad Alberto (review in PWA).
+// Step 5 — Stato "attesa_approvazione" sulla Lavagna. L'invio effettivo via
+//          ECHO avviene in un secondo turno quando Alberto approva via chat.
+async function workflowPreventivo({ flowInstanceId, payload }) {
+  const summary = { steps: [] };
+
+  const condominio = String(payload.condominio || payload.cliente || payload.destinatario_condominio || "").trim();
+  const committente = String(payload.committente || payload.azienda || payload.intestazione || "").trim();
+  const pIva = String(payload.piva || payload.p_iva || "").trim();
+  const oggetto = String(payload.oggetto || payload.intervento || payload.note || "preventivo").trim();
+  const sourceEmailId = payload.sourceEmailId || null;
+  const threadPartecipanti = Array.isArray(payload.threadPartecipanti) ? payload.threadPartecipanti : [];
+
+  // STEP 1: MEMO condominio
+  const step1Start = Date.now();
+  let dossierCondominio = null;
+  try {
+    if (condominio) {
+      const r = await handleMemoDossier({ condominio }, { userMessage: `orchestrator: preventivo ${condominio}` });
+      dossierCondominio = { content: r?.content || null, data: r?.data || null };
+    }
+    const stepData = {
+      step: 1, name: "memo_condominio", ok: true, ms: Date.now() - step1Start,
+      result: { condominio, totalMatches: dossierCondominio?.data?.totalMatches || 0 },
+    };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  } catch (e) {
+    const stepData = { step: 1, name: "memo_condominio", ok: false, error: String(e).slice(0, 200), ms: Date.now() - step1Start };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  }
+
+  // STEP 2: MEMO committente (o flag nuovo contatto)
+  const step2Start = Date.now();
+  let dossierCommittente = null;
+  let committenteNuovo = false;
+  try {
+    if (committente) {
+      const r = await handleMemoDossier({ cliente: committente }, { userMessage: `orchestrator: ricerca committente ${committente}` });
+      const nMatches = r?.data?.totalMatches || 0;
+      dossierCommittente = { content: r?.content || null, data: r?.data || null };
+      committenteNuovo = nMatches === 0;
+    }
+    const stepData = {
+      step: 2, name: "memo_committente", ok: true, ms: Date.now() - step2Start,
+      result: { committente, pIva, nuovo: committenteNuovo, totalMatches: dossierCommittente?.data?.totalMatches || 0 },
+    };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  } catch (e) {
+    const stepData = { step: 2, name: "memo_committente", ok: false, error: String(e).slice(0, 200), ms: Date.now() - step2Start };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  }
+
+  // STEP 3: CALLIOPE bozza
+  const step3Start = Date.now();
+  let bozzaId = null, bozzaCorpo = null;
+  try {
+    const r = await handleCalliopeBozza(
+      {
+        tipo: "preventivo",
+        cliente: committente || condominio,
+        condominio,
+        oggetto,
+        tono: "formale",
+        note: [
+          committente && pIva ? `Intestazione: ${committente} (P.IVA ${pIva})` : committente ? `Intestazione: ${committente}` : "",
+          condominio ? `Condominio oggetto: ${condominio}` : "",
+        ].filter(Boolean).join(". "),
+      },
+      { userMessage: `orchestrator: genera preventivo per ${condominio || committente}` },
+    );
+    bozzaId = r?.data?.bozzaId || null;
+    bozzaCorpo = r?.content || null;
+    const stepData = {
+      step: 3, name: "calliope_bozza_preventivo", ok: true, ms: Date.now() - step3Start,
+      result: { bozzaId, committenteNuovo },
+    };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  } catch (e) {
+    const stepData = { step: 3, name: "calliope_bozza_preventivo", ok: false, error: String(e).slice(0, 200), ms: Date.now() - step3Start };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  }
+
+  // STEP 4: Push notification ad Alberto
+  const step4Start = Date.now();
+  try {
+    const title = `Preventivo ${condominio || committente || "pronto"}`;
+    const body = `Bozza preventivo generata${committente ? ` per ${committente}` : ""}${condominio ? ` (${condominio})` : ""}. Rivedi e approva.`;
+    const link = `/#calliope/bozza/${bozzaId || ""}`;
+    const pr = await sendPushNotification(title, body, link, null);
+    const stepData = {
+      step: 4, name: "push_notify_alberto", ok: pr.ok || pr.sent > 0, ms: Date.now() - step4Start,
+      result: { sent: pr.sent, failed: pr.failed, errors: (pr.errors || []).slice(0, 3) },
+    };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  } catch (e) {
+    const stepData = { step: 4, name: "push_notify_alberto", ok: false, error: String(e).slice(0, 200), ms: Date.now() - step4Start };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  }
+
+  // STEP 5: Stato in attesa approvazione (la Lavagna resta "in_progress"
+  // con il bozzaId. L'invio effettivo via ECHO viene eseguito dall'approvazione
+  // utente gestita in workflowPreventivoApprovazione (chiamata da NEXUS chat
+  // con un nuovo messaggio Lavagna type=preventivo_approvazione).
+  summary.pendingApproval = {
+    bozzaId,
+    committente,
+    condominio,
+    sourceEmailId,
+    threadPartecipanti,
+  };
+
+  return summary;
+}
+
+/**
+ * Seconda fase del workflow preventivo — eseguita quando Alberto scrive
+ * "approva" o "ok invia" oppure "rifiuta" in NEXUS Chat (Lavagna type
+ * "preventivo_approvazione").
+ */
+async function workflowPreventivoApprovazione({ flowInstanceId, payload }) {
+  const summary = { steps: [] };
+  const azione = String(payload.azione || payload.decisione || "").toLowerCase();
+  const bozzaId = String(payload.bozzaId || "").trim();
+  const destinatario = String(payload.destinatario || payload.to || "").trim();
+  const cc = Array.isArray(payload.cc) ? payload.cc : [];
+
+  if (/rifiut|scart|annull/.test(azione)) {
+    const stepData = { step: 1, name: "preventivo_rifiutato", ok: true, result: { bozzaId } };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+    summary.closed = true;
+    return summary;
+  }
+
+  if (/modific/.test(azione)) {
+    // Ri-chiama CALLIOPE con istruzioni di modifica
+    const step1Start = Date.now();
+    try {
+      const r = await handleCalliopeBozza(
+        { tipo: "preventivo", bozzaIdOriginale: bozzaId, note: payload.istruzioni || "" },
+        { userMessage: `orchestrator: modifica preventivo ${bozzaId}` },
+      );
+      const stepData = {
+        step: 1, name: "calliope_modifica", ok: true, ms: Date.now() - step1Start,
+        result: { bozzaNuovaId: r?.data?.bozzaId },
+      };
+      summary.steps.push(stepData);
+      await logStep(flowInstanceId, stepData);
+    } catch (e) {
+      const stepData = { step: 1, name: "calliope_modifica", ok: false, error: String(e).slice(0, 200) };
+      summary.steps.push(stepData);
+      await logStep(flowInstanceId, stepData);
+    }
+    summary.pendingApproval = { bozzaId, azione: "modificato" };
+    return summary;
+  }
+
+  // Approvato → invio ECHO (email)
+  const step1Start = Date.now();
+  try {
+    if (!destinatario) throw new Error("destinatario_mancante");
+    // NOTA: handleEchoWhatsApp è per WhatsApp; per email servirebbe un
+    // handleEchoSendEmail. In v0.1 logghiamo la richiesta e marchiamo DRY-RUN.
+    // Quando ECHO email sarà pronto, qui va sostituita la chiamata.
+    await db.collection("nexo_lavagna").add({
+      from: "orchestrator", to: "echo", type: "send_email",
+      payload: {
+        bozzaId, destinatario, cc,
+        note: "Invio preventivo approvato da Alberto via NEXUS chat",
+      },
+      status: "pending", priority: "normal",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    const stepData = {
+      step: 1, name: "echo_send_email_queued", ok: true, ms: Date.now() - step1Start,
+      result: { destinatario, cc, bozzaId },
+    };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  } catch (e) {
+    const stepData = { step: 1, name: "echo_send_email_queued", ok: false, error: String(e).slice(0, 200), ms: Date.now() - step1Start };
+    summary.steps.push(stepData);
+    await logStep(flowInstanceId, stepData);
+  }
+
+  // Notifica conferma invio
+  try {
+    await sendPushNotification(
+      "Preventivo inviato",
+      `Preventivo ${bozzaId} inviato a ${destinatario}.`,
+      `/#echo/log`,
+      null,
+    );
+  } catch {}
+
+  summary.closed = true;
+  return summary;
+}
+
 export async function runOrchestratorWorkflow(msgId, v, msgRef) {
   const type = String(v.type || "").toLowerCase();
   const payload = v.payload || {};
 
   // Riconoscimento tipo workflow
   const isGuastoUrgente = /guasto_urgente|emergenza|critico|guasto/.test(type);
-  if (!isGuastoUrgente) {
+  const isPreventivo = /preventivo|preparare_preventivo|bozza_preventivo/.test(type);
+  const isPreventivoApprovazione = /preventivo_approvazione|preventivo_approva|approva_preventivo/.test(type);
+
+  if (!isGuastoUrgente && !isPreventivo && !isPreventivoApprovazione) {
     logger.info("orchestrator: tipo non gestito, skip", { msgId, type });
     return;
   }
 
-  const flowInstanceId = await createFlow("guasto_urgente", msgId, payload);
-  logger.info("orchestrator: flow started", { flowInstanceId, msgId });
+  const workflowType = isGuastoUrgente ? "guasto_urgente" : isPreventivoApprovazione ? "preventivo_approvazione" : "preventivo";
+  const flowInstanceId = await createFlow(workflowType, msgId, payload);
+  logger.info("orchestrator: flow started", { flowInstanceId, msgId, workflowType });
 
   let summary;
   try {
-    summary = await workflowGuastoUrgente({ flowInstanceId, payload, triggerMsgRef: msgRef });
+    if (isGuastoUrgente) {
+      summary = await workflowGuastoUrgente({ flowInstanceId, payload, triggerMsgRef: msgRef });
+    } else if (isPreventivoApprovazione) {
+      summary = await workflowPreventivoApprovazione({ flowInstanceId, payload });
+    } else {
+      summary = await workflowPreventivo({ flowInstanceId, payload });
+    }
   } catch (e) {
     logger.error("orchestrator: workflow uncaught", { error: String(e), flowInstanceId });
     await finalizeFlow(flowInstanceId, "failed", { error: String(e).slice(0, 300) });
@@ -195,23 +421,27 @@ export async function runOrchestratorWorkflow(msgId, v, msgRef) {
   }
 
   const allOk = summary.steps.every(s => s.ok);
-  await finalizeFlow(flowInstanceId, allOk ? "completed" : "completed_with_errors", summary);
+  const finalStatus = summary.pendingApproval
+    ? "in_attesa_approvazione"
+    : (allOk ? "completed" : "completed_with_errors");
+  await finalizeFlow(flowInstanceId, finalStatus, summary);
 
-  // Marca messaggio lavagna completato
+  // Marca messaggio lavagna
   try {
     await msgRef.set({
-      status: "completed",
+      status: summary.pendingApproval ? "in_progress" : "completed",
       result: {
         flowInstanceId,
         stepsOk: summary.steps.filter(s => s.ok).length,
         stepsTotal: summary.steps.length,
+        pendingApproval: summary.pendingApproval || null,
       },
       processedBy: "orchestrator",
-      completedAt: FieldValue.serverTimestamp(),
+      completedAt: summary.pendingApproval ? null : FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   } catch (e) { logger.warn("orchestrator: mark done failed", { error: String(e) }); }
 
-  logger.info("orchestrator: flow done", { flowInstanceId, ok: allOk, steps: summary.steps.length });
+  logger.info("orchestrator: flow done", { flowInstanceId, ok: allOk, steps: summary.steps.length, workflowType });
   return summary;
 }

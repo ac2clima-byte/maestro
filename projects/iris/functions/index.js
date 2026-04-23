@@ -935,6 +935,36 @@ export const echoInboundWebhook = onRequest(
   }
 );
 
+// ─── IRIS archivio email ───────────────────────────────────────
+
+// Endpoint autenticato per archiviare un'email in cartella per mittente.
+// Pattern coda: scrive in iris_archive_queue, lo script Hetzner consuma.
+import { handleIrisArchiveEmail } from "./handlers/iris.js";
+
+export const irisArchiveEmail = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 30, memory: "256MiB", maxInstances: 10 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+
+    const body = req.body || {};
+    const emailId = String(body.emailId || "").trim();
+    if (!emailId) { res.status(400).json({ error: "missing_emailId" }); return; }
+
+    try {
+      const r = await handleIrisArchiveEmail({ emailId });
+      if (!r.ok) { res.status(400).json({ error: r.error }); return; }
+      res.status(200).json(r);
+    } catch (e) {
+      logger.error("irisArchiveEmail failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
 // ─── Push notifications (FCM) ──────────────────────────────────
 
 // Endpoint autenticato per mandare notifiche push manuali (test + trigger esterni)

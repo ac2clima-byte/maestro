@@ -252,18 +252,37 @@
   .digest-summary .num.attn { color: var(--warn); }
   .digest-top-row {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
     gap: 10px;
-    align-items: baseline;
+    align-items: center;
     padding: 6px 0;
     border-top: 1px solid var(--border);
     font-size: 0.85rem;
   }
   .digest-top-row:first-child { border-top: none; }
+  .digest-top-row.is-archived { opacity: 0.5; }
   .digest-top-rank { color: var(--text-dim); font-weight: 600; font-size: 0.78rem; }
   .digest-top-text { overflow: hidden; }
   .digest-top-sender { color: var(--text-muted); font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .digest-top-summary { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .digest-archive-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-dim);
+    border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.9rem;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .digest-archive-btn:hover:not(:disabled) { background: var(--accent-soft, rgba(80,120,220,0.12)); color: var(--text); border-color: var(--accent, #5078dc); }
+  .digest-archive-btn:disabled { cursor: default; opacity: 0.6; }
+  .digest-badge-archived { font-size: 0.7rem; color: var(--text-dim); background: var(--border); padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+  .digest-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--text-dim); cursor: pointer; margin-left: 8px; }
+  .digest-toggle input { margin: 0; }
+  .nexo-toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: var(--card, #1e2230); color: var(--text); padding: 10px 18px;
+    border-radius: 8px; border: 1px solid var(--border); z-index: 9999;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3); font-size: 0.9rem;
+    animation: nexo-toast-in 0.2s ease-out;
+  }
+  @keyframes nexo-toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
   /* Stat row */
   .stat-row {
@@ -968,6 +987,7 @@
     padding: 2px 8px; border-radius: 6px;
   }
   .nexus-header .close:hover { background: rgba(255,255,255,0.1); }
+  .nexus-header-actions { display: flex; gap: 4px; align-items: center; }
 
   .nexus-messages {
     flex: 1;
@@ -1469,6 +1489,8 @@ function renderHome() {
   loadAlertsWidget();
 }
 
+let _digestShowArchived = false;
+
 async function loadDigestWidget() {
   const body = $("#digestBody");
   const head = $("#wDigest .widget-icon");
@@ -1488,50 +1510,113 @@ async function loadDigestWidget() {
         id: doc.id,
         subject: raw.subject || "(senza oggetto)",
         sender: raw.sender_name || raw.sender || "—",
+        senderEmail: raw.sender || "",
         category: cls.category || "ALTRO",
         sentiment: cls.sentiment || "neutro",
         score: typeof d.score === "number" ? d.score : 0,
         received: raw.received_time || "",
         needsAttention: !!fu.needsAttention,
+        archived: d.status === "archived",
+        cartella: d.cartella || null,
       });
     });
     head.textContent = "📧";
     if (!emails.length) { body.innerHTML = `<div class="widget-empty">Nessuna email indicizzata.</div>`; return; }
 
-    const today = emails.filter(e => isToday(e.received)).length;
-    const urgent = emails.filter(e => e.category === "GUASTO_URGENTE" || e.category === "PEC_UFFICIALE").length;
-    const attn = emails.filter(e => e.needsAttention).length;
+    const visibleEmails = emails.filter(e => _digestShowArchived || !e.archived);
+    const today = visibleEmails.filter(e => isToday(e.received)).length;
+    const urgent = visibleEmails.filter(e => e.category === "GUASTO_URGENTE" || e.category === "PEC_UFFICIALE").length;
+    const attn = visibleEmails.filter(e => e.needsAttention).length;
+    const archivedCount = emails.filter(e => e.archived).length;
 
-    const top = [...emails]
+    const top = [...visibleEmails]
       .map(e => ({ e, s: scoreOf(e) }))
       .sort((a, b) => b.s - a.s)
-      .slice(0, 3)
-      .map(x => x.e);
+      .slice(0, 5);
 
     body.innerHTML = `
       <div class="digest-summary">
         Oggi <span class="num">${today}</span> ricevute ·
         <span class="num urgent">${urgent}</span> urgenti ·
         <span class="num attn">${attn}</span> senza risposta &gt;48h
+        ${archivedCount ? `· <label class="digest-toggle"><input type="checkbox" id="digestToggleArchived" ${_digestShowArchived ? "checked" : ""}> mostra ${archivedCount} archiviate</label>` : ""}
       </div>
-      ${top.map((e, i) => `
-        <div class="digest-top-row">
-          <div class="digest-top-rank">#${i+1}</div>
-          <div class="digest-top-text">
-            <div class="digest-top-sender">${escapeHtml(e.sender)}</div>
-            <div class="digest-top-summary">${escapeHtml(e.subject)}</div>
+      ${top.map((x, i) => {
+        const e = x.e;
+        const archivedBadge = e.archived ? `<span class="digest-badge-archived" title="Archiviata in ${escapeHtml(e.cartella || "?")}">📁 ${escapeHtml(e.cartella || "archiviata")}</span>` : "";
+        return `
+          <div class="digest-top-row ${e.archived ? "is-archived" : ""}" data-email-id="${escapeHtml(e.id)}">
+            <div class="digest-top-rank">#${i+1}</div>
+            <div class="digest-top-text">
+              <div class="digest-top-sender">${escapeHtml(e.sender)} ${archivedBadge}</div>
+              <div class="digest-top-summary">${escapeHtml(e.subject)}</div>
+            </div>
+            ${!e.archived ? `<button class="digest-archive-btn" data-email-id="${escapeHtml(e.id)}" title="Archivia in cartella mittente">📁</button>` : ""}
           </div>
-        </div>
-      `).join("")}
+        `;
+      }).join("")}
       <div class="stat-row">
-        <div class="stat"><strong>${emails.length}</strong><span>indicizzate</span></div>
+        <div class="stat"><strong>${visibleEmails.length}</strong><span>visibili</span></div>
         <div class="stat urgent"><strong>${urgent}</strong><span>urgenti</span></div>
         <div class="stat attn"><strong>${attn}</strong><span>in attesa</span></div>
       </div>
     `;
+
+    // Wire archive buttons
+    $$(".digest-archive-btn", body).forEach(btn => {
+      btn.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        const id = btn.dataset.emailId;
+        if (!id) return;
+        await archiveEmailFromDigest(id, btn);
+      });
+    });
+    // Wire toggle archiviate
+    const toggle = $("#digestToggleArchived", body);
+    if (toggle) toggle.addEventListener("change", () => {
+      _digestShowArchived = toggle.checked;
+      loadDigestWidget();
+    });
   } catch (err) {
     head.textContent = "⚠️";
     body.innerHTML = `<div class="widget-error">Errore: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+const IRIS_ARCHIVE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail";
+
+async function archiveEmailFromDigest(emailId, btn) {
+  if (!emailId) return;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const token = await getAuthIdToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const resp = await fetch(IRIS_ARCHIVE_URL, {
+      method: "POST", headers,
+      body: JSON.stringify({ emailId }),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => "");
+      throw new Error(`${resp.status}: ${errText.slice(0, 150)}`);
+    }
+    const data = await resp.json();
+    btn.textContent = "✓";
+    // Toast minimale
+    const toast = document.createElement("div");
+    toast.className = "nexo-toast";
+    toast.textContent = `Archiviata in cartella "${data.folder}" ✅`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+    // Refresh widget
+    setTimeout(() => loadDigestWidget(), 400);
+  } catch (e) {
+    console.error("[archive] failed:", e);
+    btn.textContent = original;
+    btn.disabled = false;
+    alert(`Archiviazione fallita: ${e.message || e}`);
   }
 }
 
@@ -2502,7 +2587,7 @@ function nexusGetOrCreateSessionId() {
     return "nx_ephemeral_" + Date.now();
   }
 }
-const NEXUS_SESSION_ID = nexusGetOrCreateSessionId();
+let NEXUS_SESSION_ID = nexusGetOrCreateSessionId();
 let NEXUS_MESSAGES = [];
 let NEXUS_PENDING = false;
 let NEXUS_UNSUBSCRIBE = null;
@@ -2518,6 +2603,37 @@ function nexusOpen() {
 function nexusClose() {
   $("#nexusPanel").classList.remove("open");
   $("#nexusFab").classList.remove("hidden-when-open");
+}
+
+// Cancella la chat corrente: crea nuova sessione, svuota messaggi visibili.
+// La vecchia sessione resta in Firestore (storico), non viene più caricata.
+function nexusClear() {
+  if (!confirm("Cancellare la conversazione?\n\nI messaggi resteranno nello storico, ma non saranno più visibili. Verrà iniziata una nuova conversazione.")) return;
+  try {
+    // Unsubscribe listener vecchia sessione
+    if (NEXUS_UNSUBSCRIBE) {
+      try { NEXUS_UNSUBSCRIBE(); } catch {}
+      NEXUS_UNSUBSCRIBE = null;
+    }
+    // Unsubscribe watch lavagna
+    for (const [, unsub] of NEXUS_LAVAGNA_WATCH) {
+      try { unsub(); } catch {}
+    }
+    NEXUS_LAVAGNA_WATCH.clear();
+
+    // Nuovo sessionId
+    NEXUS_SESSION_ID = "nx_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    try { localStorage.setItem(NEXUS_SESSION_KEY, NEXUS_SESSION_ID); } catch {}
+
+    // Svuota messaggi in memoria e ri-renderizza (mostrerà il welcome)
+    NEXUS_MESSAGES = [];
+    nexusRenderMessages();
+
+    // Sottoscrivi alla nuova sessione
+    nexusEnsureSubscribed();
+  } catch (e) {
+    console.error("[nexus] clear failed:", e);
+  }
 }
 
 async function nexusEnsureSubscribed() {
@@ -2821,6 +2937,7 @@ function nexusToggleVoice() {
 function nexusWire() {
   $("#nexusFab").addEventListener("click", nexusOpen);
   $("#nexusClose").addEventListener("click", nexusClose);
+  $("#nexusClearBtn")?.addEventListener("click", nexusClear);
   $("#nexusSendBtn").addEventListener("click", nexusSend);
   const mic = $("#nexusMicBtn");
   if (mic) {
@@ -3056,7 +3173,10 @@ bootstrapAuth().catch(e => {
         <div class="hint">Interfaccia verso i Colleghi NEXO</div>
       </div>
     </div>
-    <button class="close" id="nexusClose" aria-label="Chiudi">×</button>
+    <div class="nexus-header-actions">
+      <button class="close" id="nexusClearBtn" aria-label="Cancella conversazione" title="Cancella la chat">🗑️</button>
+      <button class="close" id="nexusClose" aria-label="Chiudi">×</button>
+    </div>
   </div>
   <div id="nexusMessages" class="nexus-messages" aria-live="polite"></div>
   <div id="nexusVoiceStatus" class="nexus-voice-status"></div>
