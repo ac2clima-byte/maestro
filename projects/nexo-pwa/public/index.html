@@ -1184,6 +1184,40 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* ── NEXUS TTS indicators ────────────────────────────── */
+  .nexus-btn-icon.active { color: var(--nexus-accent); }
+  #nexusTtsToggle {
+    font-family: system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
+  .nexus-bubble-speak {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 999px;
+    padding: 1px 7px; font-size: 0.72rem;
+    cursor: pointer; margin-left: 4px;
+    font-family: system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  }
+  .nexus-bubble-speak:hover { background: var(--surface-soft); color: var(--text); }
+  .nexus-bubble.is-speaking {
+    box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.3);
+  }
+  .nexus-bubble-wave {
+    display: inline-flex; gap: 2px; align-items: center;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .nexus-bubble-wave span {
+    display: inline-block; width: 3px; height: 10px;
+    background: var(--nexus-accent, #00d4ff); border-radius: 2px;
+    animation: nexus-wave 1s ease-in-out infinite;
+  }
+  .nexus-bubble-wave span:nth-child(2) { animation-delay: 0.1s; }
+  .nexus-bubble-wave span:nth-child(3) { animation-delay: 0.2s; }
+  .nexus-bubble-wave span:nth-child(4) { animation-delay: 0.3s; }
+  @keyframes nexus-wave {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1.2); }
+  }
+
   /* ── Responsive mobile (override generali) ────────────── */
   @media (max-width: 768px) {
     /* Page padding ridotto */
@@ -2702,6 +2736,11 @@ function nexusOpen() {
 function nexusClose() {
   $("#nexusPanel").classList.remove("open");
   $("#nexusFab").classList.remove("hidden-when-open");
+  // Stop TTS quando chiudi il pannello
+  if (nexusTts.supported) {
+    try { window.speechSynthesis.cancel(); } catch {}
+    nexusTts.speakingBubbleId = null;
+  }
 }
 
 // Cancella la chat corrente: crea nuova sessione, svuota messaggi visibili.
@@ -2709,6 +2748,12 @@ function nexusClose() {
 function nexusClear() {
   if (!confirm("Cancellare la conversazione?\n\nI messaggi resteranno nello storico, ma non saranno più visibili. Verrà iniziata una nuova conversazione.")) return;
   try {
+    // Stop TTS corrente
+    if (nexusTts.supported) {
+      try { window.speechSynthesis.cancel(); } catch {}
+      nexusTts.speakingBubbleId = null;
+      _lastAutoSpokenId = null;
+    }
     // Unsubscribe listener vecchia sessione
     if (NEXUS_UNSUBSCRIBE) {
       try { NEXUS_UNSUBSCRIBE(); } catch {}
@@ -2839,6 +2884,109 @@ function nexusShowTimeout(nexusMessageId) {
   nexusRenderMessages();
 }
 
+// ── NEXUS TTS (Text-to-Speech) ──────────────────────────────
+const NEXUS_TTS_KEY = "nexo.nexus.tts.enabled";
+const nexusTts = {
+  supported: typeof window !== "undefined" && "speechSynthesis" in window,
+  enabled: false,
+  voice: null,
+  speakingBubbleId: null,
+};
+
+function nexusTtsInit() {
+  if (!nexusTts.supported) return;
+  try { nexusTts.enabled = localStorage.getItem(NEXUS_TTS_KEY) === "1"; } catch {}
+  // Carica voci (speechSynthesis le carica async su alcuni browser)
+  const pickVoice = () => {
+    const voices = window.speechSynthesis.getVoices() || [];
+    // Preferisci voce italiana (Google/Microsoft se c'è)
+    nexusTts.voice =
+      voices.find(v => v.lang === "it-IT" && /google|microsoft/i.test(v.name)) ||
+      voices.find(v => v.lang === "it-IT") ||
+      voices.find(v => v.lang && v.lang.startsWith("it")) ||
+      voices[0] || null;
+  };
+  pickVoice();
+  window.speechSynthesis.onvoiceschanged = pickVoice;
+  // Aggiorna UI pulsante toggle
+  nexusTtsUpdateToggle();
+}
+
+function nexusTtsUpdateToggle() {
+  const btn = $("#nexusTtsToggle");
+  if (!btn) return;
+  if (!nexusTts.supported) { btn.hidden = true; return; }
+  btn.hidden = false;
+  btn.textContent = nexusTts.enabled ? "🔊" : "🔇";
+  btn.setAttribute("aria-label", nexusTts.enabled ? "Disattiva lettura vocale" : "Attiva lettura vocale");
+  btn.classList.toggle("active", nexusTts.enabled);
+}
+
+function nexusTtsToggle() {
+  if (!nexusTts.supported) return;
+  nexusTts.enabled = !nexusTts.enabled;
+  try { localStorage.setItem(NEXUS_TTS_KEY, nexusTts.enabled ? "1" : "0"); } catch {}
+  nexusTtsUpdateToggle();
+  if (!nexusTts.enabled) {
+    try { window.speechSynthesis.cancel(); } catch {}
+    nexusTts.speakingBubbleId = null;
+    nexusRenderMessages();
+  }
+}
+
+// Pulisce il testo per la lettura: rimuove markdown, emoji superflue
+function nexusTtsCleanText(s) {
+  return String(s || "")
+    .replace(/```[\s\S]*?```/g, "")             // blocchi code
+    .replace(/`([^`]+)`/g, "$1")                 // inline code
+    .replace(/\*\*([^*]+)\*\*/g, "$1")           // bold
+    .replace(/\*([^*]+)\*/g, "$1")               // italic
+    .replace(/_([^_]+)_/g, "$1")                 // italic _
+    .replace(/#{1,6}\s+/g, "")                   // heading
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")     // link [text](url)
+    .replace(/[•·]/g, ".")                        // bullets
+    .replace(/[\p{Extended_Pictographic}]/gu, "") // emoji
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function nexusTtsSpeak(text, bubbleId) {
+  if (!nexusTts.supported) return;
+  const clean = nexusTtsCleanText(text);
+  if (!clean) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(clean.slice(0, 2000));
+    if (nexusTts.voice) utt.voice = nexusTts.voice;
+    utt.lang = (nexusTts.voice && nexusTts.voice.lang) || "it-IT";
+    utt.rate = 1.1;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    nexusTts.speakingBubbleId = bubbleId || null;
+    nexusRenderMessages();
+    utt.onend = utt.onerror = () => {
+      if (nexusTts.speakingBubbleId === bubbleId) {
+        nexusTts.speakingBubbleId = null;
+        nexusRenderMessages();
+      }
+    };
+    window.speechSynthesis.speak(utt);
+  } catch (e) {
+    console.warn("[TTS] speak failed:", e);
+  }
+}
+
+let _lastAutoSpokenId = null;
+function nexusTtsMaybeAutoSpeak() {
+  if (!nexusTts.enabled || !nexusTts.supported) return;
+  if (!NEXUS_MESSAGES.length) return;
+  const last = NEXUS_MESSAGES[NEXUS_MESSAGES.length - 1];
+  if (!last || last.role !== "assistant" || !last.id || last._local) return;
+  if (last.id === _lastAutoSpokenId) return;
+  _lastAutoSpokenId = last.id;
+  nexusTtsSpeak(last.content, last.id);
+}
+
 function nexusRenderMessages() {
   const root = $("#nexusMessages");
   if (!root) return;
@@ -2862,8 +3010,20 @@ function nexusRenderMessages() {
   }
   root.innerHTML = NEXUS_MESSAGES.map(nexusRenderBubble).join("")
     + (NEXUS_PENDING ? `<div class="nexus-typing"><span></span><span></span><span></span></div>` : "");
+  // Wire replay-TTS per ogni bolla assistant
+  $$(".nexus-bubble-speak", root).forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const bubbleEl = btn.closest(".nexus-bubble");
+      const id = bubbleEl?.dataset?.bubbleId;
+      const msg = NEXUS_MESSAGES.find(m => m.id === id);
+      if (msg) nexusTtsSpeak(msg.content, msg.id);
+    });
+  });
   // auto-scroll
   requestAnimationFrame(() => { root.scrollTop = root.scrollHeight; });
+  // Auto-speak ultimo messaggio se TTS attivo
+  nexusTtsMaybeAutoSpeak();
 }
 
 function nexusRenderBubble(m) {
@@ -2881,10 +3041,18 @@ function nexusRenderBubble(m) {
     })[m.stato] || m.stato;
     meta.push(`<span class="nexus-badge-stato ${escapeHtml(m.stato)}">${escapeHtml(label)}</span>`);
   }
+  const isSpeaking = m.role === "assistant" && nexusTts.speakingBubbleId && m.id === nexusTts.speakingBubbleId;
+  const speakBtn = (m.role === "assistant" && nexusTts.supported && m.id && !m._local)
+    ? `<button class="nexus-bubble-speak" aria-label="Rileggi ad alta voce" title="Rileggi">🔊</button>`
+    : "";
+  const waveIndicator = isSpeaking
+    ? `<span class="nexus-bubble-wave" aria-hidden="true"><span></span><span></span><span></span><span></span></span>`
+    : "";
   return `
-    <div class="nexus-bubble ${escapeHtml(m.role)}">
+    <div class="nexus-bubble ${escapeHtml(m.role)} ${isSpeaking ? "is-speaking" : ""}" data-bubble-id="${escapeHtml(m.id || "")}">
       ${escapeHtml(m.content)}
-      ${meta.length ? `<div class="nexus-bubble-meta">${meta.join("")}</div>` : ""}
+      ${waveIndicator}
+      ${(meta.length || speakBtn) ? `<div class="nexus-bubble-meta">${meta.join("")}${speakBtn}</div>` : ""}
     </div>
   `;
 }
@@ -3043,6 +3211,9 @@ function nexusWire() {
     mic.hidden = !nexusVoiceSupported();
     mic.addEventListener("click", nexusToggleVoice);
   }
+  // TTS toggle
+  nexusTtsInit();
+  $("#nexusTtsToggle")?.addEventListener("click", nexusTtsToggle);
   const input = $("#nexusInput");
   input.addEventListener("input", nexusAutoResize);
   input.addEventListener("keydown", (ev) => {
@@ -3281,6 +3452,7 @@ bootstrapAuth().catch(e => {
   <div id="nexusVoiceStatus" class="nexus-voice-status"></div>
   <div class="nexus-input">
     <textarea id="nexusInput" rows="1" placeholder="Cosa ti serve? (invio per mandare, shift+invio per nuova riga)"></textarea>
+    <button id="nexusTtsToggle" class="nexus-btn-icon" aria-label="Attiva lettura vocale" title="Attiva/disattiva lettura ad alta voce" hidden>🔇</button>
     <button id="nexusMicBtn" class="nexus-btn-icon" aria-label="Detta la richiesta" title="Dettatura vocale" hidden>🎤</button>
     <button id="nexusSendBtn" class="nexus-btn-icon nexus-btn-send" aria-label="Invia">➤</button>
   </div>

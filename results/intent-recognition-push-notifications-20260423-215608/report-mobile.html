@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Report — Responsive Mobile PWA NEXO</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d28; --border: #2a2e3d;
+    --text: #e8eaf0; --text-dim: #9aa0b4;
+    --ok: #4ade80; --warn: #fbbf24; --err: #ef4444;
+    --accent: #6366f1;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; line-height: 1.6; }
+  h1 { font-size: 1.8rem; margin: 0 0 8px 0; }
+  .subtitle { color: var(--text-dim); margin-bottom: 30px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { margin-top: 0; color: var(--accent); font-size: 1.15rem; }
+  .status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+  .status.ok { background: rgba(74,222,128,0.15); color: var(--ok); }
+  code { background: rgba(99,102,241,0.1); color: #c7d0ff; padding: 2px 6px; border-radius: 4px; font-size: 0.88rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+  .phone-shot {
+    background: #000; border: 1px solid var(--border); border-radius: 16px;
+    padding: 8px; text-align: center;
+  }
+  .phone-shot img { max-width: 100%; height: auto; border-radius: 8px; }
+  .phone-shot .cap { color: var(--text-dim); font-size: 0.85rem; margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.78rem; }
+  .check { color: var(--ok); }
+  ul { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<h1>📱 Responsive Mobile PWA NEXO — Before / After</h1>
+<div class="subtitle">Test con Playwright (iPhone 14 · 390×664) · Deploy 2026-04-23 22:00 CET · <span class="status ok">✓ DEPLOYED</span></div>
+
+<div class="card">
+  <h2>🎯 Fix applicati</h2>
+  <ul>
+    <li><strong>Dashboard grid</strong>: <code>repeat(auto-fit, minmax(320px, 1fr))</code> → <code>1fr</code> su mobile.</li>
+    <li><strong>NEXUS chat fullscreen</strong>: <code>100vw × 100dvh</code> (dynamic viewport, evita che la tastiera iOS copra l'input).</li>
+    <li><strong>Input NEXUS</strong>: <code>position: sticky; bottom: 0</code> + <code>padding-bottom: env(safe-area-inset-bottom)</code> (no-notch iPhone).</li>
+    <li><strong>Textarea font-size 16px</strong>: evita zoom automatico Safari mobile.</li>
+    <li><strong>Sidebar overlay</strong>: shadow + backdrop con <code>::after</code> per dimming.</li>
+    <li><strong>Touch target 44×44</strong>: sidebar-link, menu-btn, nexus-fab, bottoni archive/clear (media query <code>hover: none</code>).</li>
+    <li><strong>FAB safe-area</strong>: <code>bottom: calc(16px + env(safe-area-inset-bottom, 0))</code>.</li>
+    <li><strong>CHRONOS/PHARO grid</strong>: 2-colonne su tablet (≤768px), 1-colonna su smartphone (≤480px).</li>
+    <li><strong>Stat row</strong>: <code>flex-wrap: wrap</code> per evitare overflow.</li>
+    <li><strong>Tabelle</strong>: <code>overflow-x: auto</code> + min-width 420px per scroll orizzontale.</li>
+    <li><strong>Disabilita hover translate</strong> su touch device (no flicker).</li>
+    <li><strong>Emoji font</strong>: fix font-family del bottone close/clear per mostrare 🗑️ correttamente.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>✅ Verifica CSS post-deploy (DOM inspection)</h2>
+  <table>
+    <tr><th>Selettore</th><th>Dimensione</th><th>Stato</th></tr>
+    <tr><td><code>#nexusPanel</code> (aperto)</td><td>390 × 664 (fullscreen)</td><td class="check">✓ position: fixed, top/left 0</td></tr>
+    <tr><td><code>#nexusFab</code></td><td>54 × 54</td><td class="check">✓ touch target OK</td></tr>
+    <tr><td><code>#menuBtn</code></td><td>44 × 45</td><td class="check">✓ touch target 44+</td></tr>
+    <tr><td><code>#sidebar.collapsed</code></td><td>display: none</td><td class="check">✓ overlay mobile</td></tr>
+    <tr><td><code>.topbar</code> (mobile)</td><td>390 × 46</td><td class="check">✓ visibile con hamburger</td></tr>
+    <tr><td><code>meta viewport</code></td><td>presente</td><td class="check">✓ width=device-width</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>📸 Screenshots BEFORE (pre-fix)</h2>
+  <div class="grid">
+    <div class="phone-shot"><img src="mobile-before/01-home-login.png"><div class="cap">Login (auth gate) — già OK prima</div></div>
+    <div class="phone-shot"><img src="mobile-before/04-nexus-chat.png"><div class="cap">NEXUS chat tentativo apertura — bloccato da auth</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>📸 Screenshots AFTER (post-fix)</h2>
+  <div class="grid">
+    <div class="phone-shot"><img src="mobile-after/01-home-login.png"><div class="cap">Home login iPhone 14</div></div>
+    <div class="phone-shot"><img src="mobile-after/06-nexus-forced-open.png"><div class="cap">NEXUS chat fullscreen (DOM inspection con auth gate removed)</div></div>
+    <div class="phone-shot"><img src="mobile-after/03-landscape.png"><div class="cap">Landscape 812×375</div></div>
+    <div class="phone-shot"><img src="mobile-after/04-tablet.png"><div class="cap">Tablet 768×1024</div></div>
+    <div class="phone-shot"><img src="mobile-after/05-small-phone.png"><div class="cap">Smartphone stretto 360×640</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🧪 Limite noti</h2>
+  <p>Non è stato possibile testare le pagine interne dei Colleghi (IRIS, CHRONOS, PHARO) perché richiedono login e le credenziali di test non sono valide. I fix responsive applicati sono però stati verificati:</p>
+  <ul>
+    <li>Visivamente su login + NEXUS chat (screenshots).</li>
+    <li>Tramite DOM inspection delle dimensioni computate post-CSS (tabella sopra).</li>
+    <li>Via grep sul codice sorgente per confermare selector coverage (<code>.chronos-grid</code>, <code>.pharo-grid</code>, <code>.dash-grid</code>, <code>.widget</code>, <code>.nexus-panel</code>).</li>
+  </ul>
+  <p>Per test completi post-login Alberto può aprire <a href="https://nexo-hub-15f2d.web.app" style="color:var(--accent)">nexo-hub-15f2d.web.app</a> dallo smartphone dopo login.</p>
+</div>
+
+<div class="card">
+  <h2>🔗 Link utili</h2>
+  <ul>
+    <li>PWA: <a href="https://nexo-hub-15f2d.web.app" style="color:var(--accent)">nexo-hub-15f2d.web.app</a></li>
+    <li>Report completo deploy precedente: <a href="report.html" style="color:var(--accent)">report.html</a></li>
+  </ul>
+</div>
+
+</body>
+</html>
