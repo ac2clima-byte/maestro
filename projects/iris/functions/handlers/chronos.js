@@ -63,18 +63,19 @@ async function fetchCampagnaCards(campagnaNome, campagnaId) {
   const db = getCosminaDb();
   const cards = [];
 
-  // Preferisco filter per campagna_nome (più affidabile), fallback a campagna_id
+  // COSMINA usa campagna_id come primary key (es. cosmina campagne.js). Preferisco
+  // campagna_id; fallback a campagna_nome per campagne inferred senza doc anagrafica.
   const filters = [];
-  if (campagnaNome) filters.push({ field: "campagna_nome", value: campagnaNome });
   if (campagnaId) filters.push({ field: "campagna_id", value: campagnaId });
+  if (campagnaNome) filters.push({ field: "campagna_nome", value: campagnaNome });
 
   for (const f of filters) {
     try {
       const snap = await db.collection("bacheca_cards")
         .where(f.field, "==", f.value)
-        .limit(1000).get();
+        .limit(2000).get();
       snap.forEach(d => cards.push({ _id: d.id, ...(d.data() || {}) }));
-      if (cards.length) break; // preferisci primo match
+      if (cards.length) break; // primo match vince
     } catch (e) {
       logger.warn("fetchCampagnaCards filter failed", { field: f.field, error: String(e).slice(0, 120) });
     }
@@ -189,13 +190,15 @@ export async function buildCampagneDashboard(parametri = {}) {
     }
   }
 
-  // Query mirata per ogni campagna (sequenziale, max 20 campagne)
+  // Query mirata per ogni campagna (sequenziale, max 20 campagne).
+  // Preferisce campagna_id come COSMINA (ground truth), fallback a campagna_nome.
   const campagneList = Array.from(campagneMap.values()).slice(0, 20);
   for (const c of campagneList) {
     try {
-      const cSnap = await db.collection("bacheca_cards")
-        .where("campagna_nome", "==", c.nome)
-        .limit(1500).get();
+      const q = c.id
+        ? db.collection("bacheca_cards").where("campagna_id", "==", c.id)
+        : db.collection("bacheca_cards").where("campagna_nome", "==", c.nome);
+      const cSnap = await q.limit(2000).get();
       cSnap.forEach(d => {
         scanned++;
         const v = d.data() || {};
@@ -249,7 +252,7 @@ export async function buildCampagneDashboard(parametri = {}) {
 
 export async function handleChronosListaCampagne(parametri = {}) {
   const db = getCosminaDb();
-  // Unione: cosmina_campagne + nomi distinti in bacheca_cards
+  // Unione: cosmina_campagne + nomi distinti in bacheca_cards (discover)
   const campagne = new Map();
 
   try {
@@ -273,33 +276,53 @@ export async function handleChronosListaCampagne(parametri = {}) {
     logger.warn("lista campagne: cosmina_campagne failed", { error: String(e).slice(0, 120) });
   }
 
-  // Aggiungi campagne inferite da bacheca_cards (es. WalkBy non in cosmina_campagne)
+  // Discover: nomi distinti in bacheca_cards via listName (per campagne non in
+  // cosmina_campagne, es. WalkBy). Query ristretta, serve solo per scoprire i nomi.
   try {
-    const snap = await db.collection("bacheca_cards")
-      .where("listName", "in", ["LETTURE RIP", "INTERVENTI", "INTERVENTI DA ESEGUIRE", "ACCENSIONE/SPEGNIMENTO", "CAMBIO ORA"])
-      .limit(3000).get();
-    snap.forEach(d => {
-      const v = d.data() || {};
-      const nome = v.campagna_nome;
-      if (!nome) return;
-      if (!campagne.has(nome)) {
-        campagne.set(nome, {
-          id: v.campagna_id || null,
-          nome,
-          stato: null,
-          archiviata: false,
-          descrizione: "",
-          source: "bacheca_inferred",
-          count: 0,
-        });
-      }
-      campagne.get(nome).count++;
-    });
+    const discoverLists = ["LETTURE RIP", "LETTURE WALKBY", "LETTURE DIRETTE", "ACCENSIONE/SPEGNIMENTO", "RIEMPIMENTI", "SVUOTAMENTI"];
+    for (const ln of discoverLists) {
+      const snap = await db.collection("bacheca_cards")
+        .where("listName", "==", ln).limit(500).get();
+      snap.forEach(d => {
+        const v = d.data() || {};
+        const nome = v.campagna_nome;
+        if (!nome) return;
+        if (!campagne.has(nome)) {
+          campagne.set(nome, {
+            id: v.campagna_id || null,
+            nome,
+            stato: null,
+            archiviata: false,
+            descrizione: "",
+            source: "bacheca_inferred",
+            count: 0,
+          });
+        }
+      });
+    }
   } catch (e) {
-    logger.warn("lista campagne: bacheca scan failed", { error: String(e).slice(0, 120) });
+    logger.warn("lista campagne: discover failed", { error: String(e).slice(0, 120) });
   }
 
-  // Filtra archiviate se non richieste
+  // Count reale: per ogni campagna, query mirata con preferenza su campagna_id
+  // (COSMINA usa questo campo come ground truth). Fallback a campagna_nome per
+  // campagne inferred senza id.
+  for (const c of campagne.values()) {
+    try {
+      let snap;
+      if (c.id) {
+        snap = await db.collection("bacheca_cards")
+          .where("campagna_id", "==", c.id).count().get();
+      } else {
+        snap = await db.collection("bacheca_cards")
+          .where("campagna_nome", "==", c.nome).count().get();
+      }
+      c.count = snap.data()?.count || 0;
+    } catch (e) {
+      logger.warn(`lista campagne: count ${c.nome} failed`, { error: String(e).slice(0, 120) });
+    }
+  }
+
   const includeArchived = !!parametri.archived;
   const rows = Array.from(campagne.values())
     .filter(c => includeArchived || !c.archiviata)
