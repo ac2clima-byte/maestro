@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CHRONOS v0.5 — Badge quadrati</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#0284c7; border-bottom:2px solid #bae6fd; padding-bottom:10px; }
+  h2 { color:#0369a1; margin-top:28px; }
+  h3 { color:#475569; font-size:0.9rem; text-transform:uppercase; letter-spacing:0.05em; margin-top:24px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+
+  /* replica del design badge, per preview */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .bdg { aspect-ratio:1/1; background:#fff; border:1px solid #e2e8f0; border-left:4px solid #cbd5e1;
+         border-radius:14px; padding:16px; display:flex; flex-direction:column; justify-content:space-between; min-height:240px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .bdg.ok   { border-left-color:#16a34a; } .bdg.mid { border-left-color:#f59e0b; }
+  .bdg.low  { border-left-color:#dc2626; } .bdg.zero { border-left-color:#94a3b8; }
+  .bdg.info { border-left-color:#3b82f6; }
+  .bdg-head { font-size:0.92rem; font-weight:600; min-height:2.4em; }
+  .bdg-perc { font-size:2.1rem; font-weight:800; text-align:center; line-height:1; }
+  .bdg-perc.ok{color:#16a34a;} .bdg-perc.mid{color:#f59e0b;} .bdg-perc.low{color:#dc2626;}
+  .bdg-perc.zero{color:#94a3b8;} .bdg-perc.info{color:#3b82f6;}
+  .bdg-bar { height:8px; background:#f1f5f9; border-radius:4px; overflow:hidden; display:flex; margin-top:6px; }
+  .bdg-bar .seg{ height:100%; } .seg.done{background:#16a34a;} .seg.prog{background:#3b82f6;}
+  .seg.daprog{background:#facc15;} .seg.scad{background:#dc2626;}
+  .bdg-sub { text-align:center; color:#64748b; font-size:0.85rem; margin-top:2px; }
+  .bdg-stats { font-size:0.78rem; color:#64748b; line-height:1.55; margin-top:4px; }
+  .bdg-stats .row { display:flex; justify-content:space-between; }
+  .bdg-stats .row strong { color:#0f172a; }
+  .bdg-stats .row.ok strong{color:#166534;}
+  .bdg-stats .row.info strong{color:#1e40af;}
+  .bdg-stats .row.warn strong{color:#b91c1c;}
+</style>
+</head>
+<body>
+
+<h1>🟦 CHRONOS v0.5 — Badge quadrati</h1>
+
+<div class="card">
+  <h2>🎯 Cosa cambia</h2>
+  <p>Via i tab. Tutto sulla stessa pagina come <strong>griglia di badge quadrati</strong> (aspect-ratio 1:1),
+  ispirati ai KPI card. Ogni campagna è un badge, ogni KPI operativo (Agenda oggi, Settimana, Scaduti,
+  Scadenze impianti, Copertura dati, Slot liberi) è un badge dedicato.</p>
+  <ul>
+    <li>Bordo sinistro colorato per soglia: verde >80%, giallo 50-80%, rosso &lt;50%, grigio se 0</li>
+    <li>Percentuale/numero grande al centro + progress bar 4-segmenti</li>
+    <li>Breakdown numerico in basso</li>
+    <li>Grid responsive: 3 col desktop / 2 col tablet / 1 col mobile</li>
+    <li>Click su badge campagna → sezione dettaglio con tabella per-tecnico</li>
+  </ul>
+</div>
+
+<h2>Preview UI</h2>
+
+<h3>📋 Campagne attive</h3>
+<div class="grid">
+  <div class="bdg mid">
+    <div class="bdg-head">Letture WalkBy ACG FS 2026</div>
+    <div><div class="bdg-perc mid">26%</div>
+    <div class="bdg-bar"><div class="seg done" style="width:26%"></div><div class="seg prog" style="width:57%"></div><div class="seg daprog" style="width:17%"></div></div></div>
+    <div class="bdg-stats">
+      <div class="row"><span>Totali</span><strong>97</strong></div>
+      <div class="row ok"><span>Completati</span><strong>25</strong></div>
+      <div class="row info"><span>Programmati</span><strong>55</strong></div>
+      <div class="row"><span>Da programmare</span><strong>17</strong></div>
+    </div>
+  </div>
+  <div class="bdg ok">
+    <div class="bdg-head">SPEGNIMENTO 2026</div>
+    <div><div class="bdg-perc ok">100%</div>
+    <div class="bdg-bar"><div class="seg done" style="width:99.5%"></div><div class="seg scad" style="width:0.5%"></div></div></div>
+    <div class="bdg-stats">
+      <div class="row"><span>Totali</span><strong>407</strong></div>
+      <div class="row ok"><span>Completati</span><strong>405</strong></div>
+      <div class="row warn"><span>Scaduti</span><strong>2</strong></div>
+    </div>
+  </div>
+  <div class="bdg zero">
+    <div class="bdg-head">Letture WalkBy GZT FS 2026</div>
+    <div><div class="bdg-perc zero">0%</div>
+    <div class="bdg-bar"><div class="seg scad" style="width:31%"></div><div class="seg daprog" style="width:69%"></div></div></div>
+    <div class="bdg-stats">
+      <div class="row"><span>Totali</span><strong>13</strong></div>
+      <div class="row warn"><span>Scaduti</span><strong>4</strong></div>
+      <div class="row"><span>Da programmare</span><strong>9</strong></div>
+    </div>
+  </div>
+</div>
+
+<h3>⚙️ Operativo</h3>
+<div class="grid">
+  <div class="bdg info">
+    <div class="bdg-head">📅 Agenda oggi</div>
+    <div><div class="bdg-perc info">1</div><div class="bdg-sub">interventi in programma</div></div>
+    <div class="bdg-stats"><div class="row"><span>LORENZO</span><strong>1</strong></div></div>
+  </div>
+  <div class="bdg info">
+    <div class="bdg-head">🗓️ Settimana</div>
+    <div><div class="bdg-perc info">9</div><div class="bdg-sub">prossimi 7 giorni</div></div>
+    <div class="bdg-stats">
+      <div class="row"><span>MARCO</span><strong>4</strong></div>
+      <div class="row"><span>VICTOR</span><strong>2</strong></div>
+      <div class="row"><span>LORENZO</span><strong>2</strong></div>
+      <div class="row"><span>FEDERICO</span><strong>1</strong></div>
+    </div>
+  </div>
+  <div class="bdg low">
+    <div class="bdg-head">⚠️ Interventi scaduti</div>
+    <div><div class="bdg-perc low">95</div><div class="bdg-sub">con data superata</div></div>
+    <div class="bdg-stats">
+      <div class="row warn"><span>(NON ASSEGNATO)</span><strong>32</strong></div>
+      <div class="row warn"><span>VICTOR</span><strong>18</strong></div>
+      <div class="row warn"><span>DAVID</span><strong>10</strong></div>
+      <div class="row warn"><span>FEDERICO</span><strong>9</strong></div>
+    </div>
+  </div>
+  <div class="bdg low">
+    <div class="bdg-head">⚠️ Scadenze impianti</div>
+    <div><div class="bdg-perc low">8</div><div class="bdg-sub">entro 60 giorni</div></div>
+    <div class="bdg-stats">
+      <div class="row warn"><span>Già scaduti</span><strong>8</strong></div>
+      <div class="row"><span>Entro 30 giorni</span><strong>0</strong></div>
+      <div class="row"><span>31-60 giorni</span><strong>0</strong></div>
+    </div>
+  </div>
+  <div class="bdg low">
+    <div class="bdg-head">📊 Copertura scadenze</div>
+    <div><div class="bdg-perc low">2%</div>
+    <div class="bdg-bar"><div class="seg done" style="width:2%"></div></div></div>
+    <div class="bdg-stats">
+      <div class="row"><span>Impianti totali</span><strong>326</strong></div>
+      <div class="row ok"><span>Con data</span><strong>8</strong></div>
+      <div class="row warn"><span>Senza data</span><strong>318</strong></div>
+    </div>
+  </div>
+  <div class="bdg ok">
+    <div class="bdg-head">✅ Slot liberi</div>
+    <div><div class="bdg-perc ok">311</div><div class="bdg-sub">questa settimana</div></div>
+    <div class="bdg-stats">
+      <div class="row"><span>Capienza stimata</span><strong>320</strong></div>
+      <div class="row info"><span>Già programmati</span><strong>9</strong></div>
+      <div class="row"><span>Saturazione</span><strong>3%</strong></div>
+    </div>
+  </div>
+</div>
+
+<h2>🚀 Deploy</h2>
+<div class="card">
+<p>URL: <a href="https://nexo-hub-15f2d.web.app/#collega:chronos">https://nexo-hub-15f2d.web.app/#collega:chronos</a></p>
+<p>Commit: <code>6c6e33c — feat(chronos): design badge quadrati per campagne e operativo</code></p>
+<p>Functions riusate: <code>chronosCampagneDashboard</code>, <code>chronosAgendaDashboard</code>, <code>chronosScadenzeDashboard</code> (nessuna modifica backend).</p>
+<p style="color:#64748b;font-size:0.88rem;">Hard refresh dopo login:<br>
+<code>caches.keys().then(k=>k.forEach(c=>caches.delete(c))); location.reload(true);</code></p>
+</div>
+
+</body>
+</html>
