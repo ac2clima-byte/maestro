@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>CHRONOS v0.4 — 3 tab espandibili</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 24px auto; padding: 0 18px; background:#f8fafc; color:#0f172a; }
+  h1 { color:#0284c7; border-bottom:2px solid #bae6fd; padding-bottom:10px; }
+  h2 { color:#0369a1; margin-top:28px; }
+  .card { background:white; border:1px solid #e2e8f0; border-radius:12px; padding:18px 22px; margin-bottom:14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  pre { background:#0f172a; color:#e2e8f0; padding:12px; border-radius:8px; overflow-x:auto; font-size:0.85rem; white-space: pre-wrap; }
+  table { width:100%; border-collapse:collapse; font-size:0.9rem; margin-top:10px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #e2e8f0; }
+  th { background:#f1f5f9; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:5px; font-size:0.75rem; font-weight:600; background:#dbeafe; color:#1e40af; }
+  .tag.ok { background:#dcfce7; color:#166534; }
+  .tag.warn { background:#fef3c7; color:#b45309; }
+  img { width: 100%; max-width: 700px; border-radius: 10px; border:1px solid #cbd5e1; }
+</style>
+</head>
+<body>
+
+<h1>📐 CHRONOS v0.4 — Pianificatore completo</h1>
+
+<div class="card">
+  <h2>🎯 Cosa cambia</h2>
+  <p>CHRONOS passa da dashboard solo-campagne a pianificatore completo con 3 tab:</p>
+  <ul>
+    <li><strong>📋 Campagne</strong> (già presente) — campagne operative con % completamento</li>
+    <li><strong>👷 Agenda</strong> (nuovo) — interventi per-tecnico con bucket oggi/settimana/scaduti</li>
+    <li><strong>📆 Scadenze</strong> (nuovo) — impianti con bucket temporali scaduto/30g/60g/90g</li>
+  </ul>
+  <p>Ogni card è <strong>espandibile</strong> (chevron ▾) con tabella dettaglio. Lazy-loading: ogni tab fa il fetch solo al primo click.</p>
+</div>
+
+<h2>📊 Dati reali (test locale 2026-04-23)</h2>
+
+<div class="card">
+<h3>Tab Agenda — <span class="tag ok">394 interventi · 11 tecnici</span></h3>
+<table>
+<thead><tr><th>Tecnico</th><th>Tot</th><th>Oggi</th><th>Settimana</th><th>Scaduti</th><th>Completati</th><th>%</th></tr></thead>
+<tbody>
+<tr><td>(non assegnato)</td><td>135</td><td>0</td><td>0</td><td>32</td><td>102</td><td>76%</td></tr>
+<tr><td>VICTOR</td><td>72</td><td>0</td><td>2</td><td>18</td><td>52</td><td>72%</td></tr>
+<tr><td>DAVID</td><td>55</td><td>0</td><td>0</td><td>10</td><td>45</td><td>82%</td></tr>
+<tr><td>FEDERICO</td><td>42</td><td>0</td><td>1</td><td>9</td><td>32</td><td>76%</td></tr>
+<tr><td>MARCO</td><td>37</td><td>0</td><td>4</td><td>7</td><td>26</td><td>70%</td></tr>
+<tr><td>LORENZO</td><td>25</td><td>1</td><td>2</td><td>7</td><td>15</td><td>60%</td></tr>
+<tr><td>ANTONIO</td><td>18</td><td>0</td><td>0</td><td>7</td><td>11</td><td>61%</td></tr>
+<tr><td>ALBERTO</td><td>4</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0%</td></tr>
+<tr><td>ERGEST</td><td>4</td><td>0</td><td>0</td><td>4</td><td>0</td><td>0%</td></tr>
+<tr><td>CLAUDE</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>100%</td></tr>
+<tr><td>GIANLUCA</td><td>1</td><td>0</td><td>0</td><td>0</td><td>1</td><td>100%</td></tr>
+</tbody>
+</table>
+<p style="color:#64748b;font-size:0.88rem;">Globale: tot=394, oggi=1, settimana=9, scaduti=95, completati=285, <strong>72% completamento</strong>.</p>
+<p style="color:#64748b;font-size:0.85rem;">⚠️ "VICTOR/Victor" ora normalizzati maiuscoli (erano duplicati).</p>
+</div>
+
+<div class="card">
+<h3>Tab Scadenze — <span class="tag warn">copertura dati 2% (8/326)</span></h3>
+<table>
+<thead><tr><th>Bucket</th><th>Impianti</th></tr></thead>
+<tbody>
+<tr><td>Scaduti</td><td>8</td></tr>
+<tr><td>Entro 30 giorni</td><td>0</td></tr>
+<tr><td>31-60 giorni</td><td>0</td></tr>
+<tr><td>61-90 giorni</td><td>0</td></tr>
+<tr><td>Oltre 90 giorni</td><td>0</td></tr>
+<tr><td style="color:#64748b;">Senza data</td><td style="color:#64748b;">318</td></tr>
+</tbody>
+</table>
+<p style="color:#b45309;font-size:0.85rem;">
+⚠️ Solo 8 impianti su 326 hanno una data di scadenza registrata in <code>cosmina_impianti</code>.
+La UI mostra un warning evidente. Può essere utile per MEMO scan successivo: capire dove sono le date reali.
+</p>
+</div>
+
+<h2>🏗️ Architettura</h2>
+<div class="card">
+<pre>[PWA CHRONOS page]
+      │
+      ├── tab Campagne → chronosCampagneDashboard (esistente)
+      ├── tab Agenda   → chronosAgendaDashboard   (nuovo)
+      └── tab Scadenze → chronosScadenzeDashboard (nuovo)
+                │
+                ▼
+       verifyAcgIdToken() → auth required
+                │
+                ▼
+       buildXxxDashboard() in handlers/chronos.js
+
+Memory: 512MiB · timeout 60s · region europe-west1
+CORS: applyCorsOpen (coerente con altri endpoint)</pre>
+</div>
+
+<h2>📁 File modificati</h2>
+<div class="card">
+<ul>
+  <li><code>projects/iris/functions/handlers/chronos.js</code>
+    (+ <code>buildAgendaDashboard</code>, <code>buildScadenzeDashboard</code>)</li>
+  <li><code>projects/iris/functions/index.js</code>
+    (+ <code>chronosAgendaDashboard</code>, <code>chronosScadenzeDashboard</code>)</li>
+  <li><code>projects/nexo-pwa/public/index.html</code>
+    (tab nav, <code>.chronos-expandable</code>, render agenda/scadenze)</li>
+</ul>
+<p>Commit: <code>e31a4ba — feat(chronos): tab Agenda + Scadenze con card espandibili</code></p>
+</div>
+
+<h2>🚀 Deploy</h2>
+<div class="card">
+<p>URL: <a href="https://nexo-hub-15f2d.web.app/#collega:chronos">https://nexo-hub-15f2d.web.app/#collega:chronos</a></p>
+<p>Hard refresh dopo login:<br>
+<code>caches.keys().then(k=>k.forEach(c=>caches.delete(c))); location.reload(true);</code></p>
+</div>
+
+<h2>🖼️ Screenshot (gate login atteso)</h2>
+<div class="card">
+<img src="../../projects/nexo-pwa/test-screenshots/chronos-tabs/01-gate.png" alt="CHRONOS gate login">
+<p style="color:#64748b;font-size:0.85rem;">Gate login visibile. Dopo login reale si vedono i 3 tab Campagne/Agenda/Scadenze.</p>
+</div>
+
+</body>
+</html>
