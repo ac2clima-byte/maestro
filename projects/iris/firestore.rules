@@ -182,11 +182,58 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    match /calliope_template/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-    // Default deny per ogni altra collection (Colleghi futuri:
-    // ares_*, chronos_*, memo_*, charta_*, emporion_*, dikea_*,
-    // delphi_*, calliope_* → aggiungili qui quando servono read
-    // pubbliche alla PWA).
+    // ARES interventi — mirror audit su nexo-hub (scritto da handleAresApriIntervento).
+    // Read pubblica per dashboard ARES della PWA, write solo Admin SDK.
+    match /ares_interventi/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /ares_assegnazioni/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // CHARTA — registrazione incassi (mirror su nexo-hub).
+    match /charta_pagamenti/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ECHO — log digest mattutino.
+    match /echo_digest_log/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Orchestrator — log workflow multi-step (guasto_urgente, ecc.).
+    match /nexo_orchestrator_log/{flowId} {
+      allow read: if true;
+      allow write: if false;
+      match /steps/{stepId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // IRIS poller state (watermark + stats run).
+    match /iris_poller_state/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // PHARO health snapshots (storico scheduler pharoHealthCheck).
+    match /pharo_health_snapshots/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Default deny per ogni altra collection.
+    // Quando aggiungi un Collega con nuova collection, aggiungi la rule qui sopra.
     match /{document=**} {
       allow read, write: if false;
     }
