@@ -624,19 +624,18 @@ async function runIrisPoller() {
   return { processed, skippedExisting, classifyErrors, latestReceivedIso };
 }
 
-// ⚠️ DISABILITATO 2026-04-23: il server Exchange on-prem (remote.gruppobadano.it)
-// non è raggiungibile da Cloud Function su europe-west1. Il poller EWS gira ora
-// su Hetzner (178.104.88.86) via cron ogni 5 min. Vedi:
-//   scripts/iris_hetzner_poller.py
-//   scripts/hetzner-setup.sh
+// ⚠️ DISABILITATO: il server Exchange on-prem (remote.gruppobadano.it) non è
+// raggiungibile da Cloud Function GCP su europe-west1. Il poller EWS gira ora
+// SUL PC DI ALBERTO (WSL) via cron/daemon ogni 5 min. Vedi:
+//   scripts/iris_local_poller.sh         — ciclo singolo
+//   scripts/start-iris-poller.sh         — daemon (nohup loop)
+//   projects/iris/scripts/pipeline.py    — pipeline Python (EWS → Haiku → Firestore)
+//
+// Alternativa passata (Hetzner) deprecata: vedi scripts/iris_hetzner_poller.py.
+// Se un giorno Exchange diventa pubblico, scommenta gli scheduler qui sotto.
 //
 // Lasciato `irisPollerRun` come HTTP trigger manuale per debug (richiede
-// admin_key). In futuro potrà essere rimosso del tutto quando il poller
-// Hetzner sarà stabile.
-//
-// Per riabilitare gli scheduler GCP (se un giorno Exchange diventa pubblico):
-//   - rimuovi `/*` e `*/` qui sotto
-//   - rideploya: `firebase deploy --only functions:irisPoller,functions:irisPollScheduled`
+// admin_key).
 /*
 export const irisPoller = onSchedule(
   { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "512MiB", timeoutSeconds: 120, secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL] },

@@ -87,20 +87,32 @@ export async function runWaInboxPoller({ limit = 20 } = {}) {
   // Ultimi messaggi WA in entrata NON ancora analizzati da NEXO
   let snap;
   try {
+    // Evitiamo compound index: filtro solo su fonte, ordino e filtro in memoria.
+    // Volume atteso basso (max 500 msg WA / giorno).
+    // Senza orderBy per evitare compound index. Filtro e ordinamento in memoria.
     snap = await cosm.collection("cosmina_inbox")
       .where("fonte", "==", "whatsapp")
-      .where("direzione", "==", "entrata")
-      .orderBy("created_at", "desc")
-      .limit(limit)
+      .limit(500)
       .get();
   } catch (e) {
     logger.warn("waInboxPoller: query failed", { error: String(e).slice(0, 200) });
     return { error: "query_failed", detail: String(e).slice(0, 200) };
   }
 
-  let analyzed = 0, skipped = 0, pushed = 0, errors = 0;
-  for (const doc of snap.docs) {
+  // Ordina per created_at desc in memoria
+  const allDocs = snap.docs.slice().sort((a, b) => {
+    const ta = (a.data().created_at?.toMillis?.() || 0);
+    const tb = (b.data().created_at?.toMillis?.() || 0);
+    return tb - ta;
+  });
+
+  let analyzed = 0, skipped = 0, pushed = 0, errors = 0, considered = 0;
+  for (const doc of allDocs) {
     const d = doc.data() || {};
+    // Filtro in memoria: solo inbound
+    if (d.direzione !== "entrata") { skipped++; continue; }
+    considered++;
+    if (considered > limit) break;
     // Skip se già analizzato da NEXO
     if (d.nexo_analysis && d.nexo_analysis.at) { skipped++; continue; }
     // Skip se archiviato o stato chiuso
@@ -164,19 +176,28 @@ export async function handleWaInboxList(parametri) {
   const cosm = getCosminaDb();
   let snap;
   try {
+    // Evitiamo compound index: filtro solo su fonte, ordino e filtro in memoria.
+    // Volume atteso basso (max 500 msg WA / giorno).
+    // Senza orderBy per evitare compound index. Filtro e ordinamento in memoria.
     snap = await cosm.collection("cosmina_inbox")
       .where("fonte", "==", "whatsapp")
-      .where("direzione", "==", "entrata")
-      .orderBy("created_at", "desc")
-      .limit(limit)
+      .limit(500)
       .get();
   } catch (e) {
     return { content: `Errore query cosmina_inbox: ${String(e).slice(0, 200)}` };
   }
 
+  // Ordina per created_at desc in memoria
+  const sorted = snap.docs.slice().sort((a, b) => {
+    const ta = a.data().created_at?.toMillis?.() || 0;
+    const tb = b.data().created_at?.toMillis?.() || 0;
+    return tb - ta;
+  });
+
   const rows = [];
-  snap.forEach(d => {
+  sorted.forEach(d => {
     const v = d.data() || {};
+    if (v.direzione !== "entrata") return;
     if (v.archived === true) return;
     rows.push({
       id: d.id,
@@ -225,20 +246,32 @@ export async function handleWaInboxAnalyzeLast(parametri) {
 
   let snap;
   try {
+    // Single-field filter per evitare compound index; ordina/filtra in memoria.
     snap = await cosm.collection("cosmina_inbox")
       .where("fonte", "==", "whatsapp")
-      .where("direzione", "==", "entrata")
-      .orderBy("created_at", "desc")
-      .limit(1)
+      .limit(500)
       .get();
   } catch (e) {
     return { content: `Errore query: ${String(e).slice(0, 200)}` };
   }
   if (snap.empty) return { content: "Nessun messaggio WA in arrivo." };
 
-  const doc = snap.docs[0];
-  const d = doc.data() || {};
-  if (!d.body) return { content: "L'ultimo messaggio WA non ha testo (solo media?)." };
+  // Ordina per created_at desc
+  const sortedCandidates = snap.docs.slice().sort((a, b) => {
+    const ta = a.data().created_at?.toMillis?.() || 0;
+    const tb = b.data().created_at?.toMillis?.() || 0;
+    return tb - ta;
+  });
+
+  // Trova il primo doc entrata con body
+  let doc = null, d = null;
+  for (const candidate of sortedCandidates) {
+    const v = candidate.data() || {};
+    if (v.direzione !== "entrata") continue;
+    if (!v.body || !v.body.trim()) continue;
+    doc = candidate; d = v; break;
+  }
+  if (!doc) return { content: "Nessun messaggio WA in arrivo con testo." };
 
   let analysis;
   try {
