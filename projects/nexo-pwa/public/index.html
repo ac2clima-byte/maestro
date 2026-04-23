@@ -2913,10 +2913,7 @@ function nexusClose() {
   $("#nexusPanel").classList.remove("open");
   $("#nexusFab").classList.remove("hidden-when-open");
   // Stop TTS quando chiudi il pannello
-  if (nexusTts.supported) {
-    try { window.speechSynthesis.cancel(); } catch {}
-    nexusTts.speakingBubbleId = null;
-  }
+  if (nexusTts.supported) nexusTtsStop();
 }
 
 // Cancella la chat corrente: crea nuova sessione, svuota messaggi visibili.
@@ -2926,8 +2923,7 @@ function nexusClear() {
   try {
     // Stop TTS corrente
     if (nexusTts.supported) {
-      try { window.speechSynthesis.cancel(); } catch {}
-      nexusTts.speakingBubbleId = null;
+      nexusTtsStop();
       _lastAutoSpokenId = null;
     }
     // Unsubscribe listener vecchia sessione
@@ -3060,31 +3056,27 @@ function nexusShowTimeout(nexusMessageId) {
   nexusRenderMessages();
 }
 
-// ── NEXUS TTS (Text-to-Speech) ──────────────────────────────
+// ── NEXUS TTS — edge-tts voce Diego (come HERMES) ────────────
+// Usa la Cloud Function /nexusTts che genera audio MP3 via Microsoft Edge
+// Read Aloud (pacchetto msedge-tts server-side). Molto più naturale del
+// Web Speech API nativo del browser.
 const NEXUS_TTS_KEY = "nexo.nexus.tts.enabled";
+const NEXUS_TTS_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTts";
+const NEXUS_TTS_VOICE = "it-IT-DiegoNeural";
+const NEXUS_TTS_RATE = "+10%";
+
 const nexusTts = {
-  supported: typeof window !== "undefined" && "speechSynthesis" in window,
+  supported: typeof Audio !== "undefined", // usiamo HTMLAudioElement
   enabled: false,
-  voice: null,
   speakingBubbleId: null,
+  currentAudio: null,
+  abortCtrl: null,
+  cache: new Map(), // in-memory: key=md5ish → objectURL (evita re-fetch rapidi)
 };
 
 function nexusTtsInit() {
   if (!nexusTts.supported) return;
   try { nexusTts.enabled = localStorage.getItem(NEXUS_TTS_KEY) === "1"; } catch {}
-  // Carica voci (speechSynthesis le carica async su alcuni browser)
-  const pickVoice = () => {
-    const voices = window.speechSynthesis.getVoices() || [];
-    // Preferisci voce italiana (Google/Microsoft se c'è)
-    nexusTts.voice =
-      voices.find(v => v.lang === "it-IT" && /google|microsoft/i.test(v.name)) ||
-      voices.find(v => v.lang === "it-IT") ||
-      voices.find(v => v.lang && v.lang.startsWith("it")) ||
-      voices[0] || null;
-  };
-  pickVoice();
-  window.speechSynthesis.onvoiceschanged = pickVoice;
-  // Aggiorna UI pulsante toggle
   nexusTtsUpdateToggle();
 }
 
@@ -3104,10 +3096,23 @@ function nexusTtsToggle() {
   try { localStorage.setItem(NEXUS_TTS_KEY, nexusTts.enabled ? "1" : "0"); } catch {}
   nexusTtsUpdateToggle();
   if (!nexusTts.enabled) {
-    try { window.speechSynthesis.cancel(); } catch {}
-    nexusTts.speakingBubbleId = null;
-    nexusRenderMessages();
+    nexusTtsStop();
   }
+}
+
+function nexusTtsStop() {
+  // Ferma audio in riproduzione + abort fetch pendenti
+  if (nexusTts.currentAudio) {
+    try { nexusTts.currentAudio.pause(); } catch {}
+    try { nexusTts.currentAudio.src = ""; } catch {}
+    nexusTts.currentAudio = null;
+  }
+  if (nexusTts.abortCtrl) {
+    try { nexusTts.abortCtrl.abort(); } catch {}
+    nexusTts.abortCtrl = null;
+  }
+  nexusTts.speakingBubbleId = null;
+  nexusRenderMessages();
 }
 
 // Pulisce il testo per la lettura: rimuove markdown, emoji superflue
@@ -3126,29 +3131,80 @@ function nexusTtsCleanText(s) {
     .trim();
 }
 
-function nexusTtsSpeak(text, bubbleId) {
+async function nexusTtsSpeak(text, bubbleId) {
   if (!nexusTts.supported) return;
   const clean = nexusTtsCleanText(text);
   if (!clean) return;
+
+  // Ferma audio corrente
+  nexusTtsStop();
+
+  nexusTts.speakingBubbleId = bubbleId || null;
+  nexusRenderMessages();
+
   try {
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(clean.slice(0, 2000));
-    if (nexusTts.voice) utt.voice = nexusTts.voice;
-    utt.lang = (nexusTts.voice && nexusTts.voice.lang) || "it-IT";
-    utt.rate = 1.1;
-    utt.pitch = 1.0;
-    utt.volume = 1.0;
-    nexusTts.speakingBubbleId = bubbleId || null;
-    nexusRenderMessages();
-    utt.onend = utt.onerror = () => {
-      if (nexusTts.speakingBubbleId === bubbleId) {
+    // Check cache in-memory
+    const cacheKey = clean.slice(0, 200);
+    let audioUrl = nexusTts.cache.get(cacheKey);
+
+    if (!audioUrl) {
+      const token = await getAuthIdToken();
+      if (!token) { console.warn("[TTS] no auth token"); return; }
+
+      nexusTts.abortCtrl = new AbortController();
+      const resp = await fetch(NEXUS_TTS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: clean.slice(0, 2000), voice: NEXUS_TTS_VOICE, rate: NEXUS_TTS_RATE }),
+        signal: nexusTts.abortCtrl.signal,
+      });
+      nexusTts.abortCtrl = null;
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        console.warn(`[TTS] HTTP ${resp.status}:`, errText.slice(0, 150));
+        nexusTts.speakingBubbleId = null;
+        nexusRenderMessages();
+        return;
+      }
+      const blob = await resp.blob();
+      audioUrl = URL.createObjectURL(blob);
+      // Cache soft (max 20 entries)
+      if (nexusTts.cache.size >= 20) {
+        const firstKey = nexusTts.cache.keys().next().value;
+        const firstUrl = nexusTts.cache.get(firstKey);
+        try { URL.revokeObjectURL(firstUrl); } catch {}
+        nexusTts.cache.delete(firstKey);
+      }
+      nexusTts.cache.set(cacheKey, audioUrl);
+    }
+
+    // Se l'utente ha cambiato bubble/fermato mentre scaricavamo: esci
+    if (nexusTts.speakingBubbleId !== bubbleId) return;
+
+    const audio = new Audio(audioUrl);
+    audio.volume = 1.0;
+    nexusTts.currentAudio = audio;
+    audio.addEventListener("ended", () => {
+      if (nexusTts.currentAudio === audio) {
+        nexusTts.currentAudio = null;
         nexusTts.speakingBubbleId = null;
         nexusRenderMessages();
       }
-    };
-    window.speechSynthesis.speak(utt);
+    });
+    audio.addEventListener("error", (e) => {
+      console.warn("[TTS] audio error:", e);
+      nexusTts.currentAudio = null;
+      nexusTts.speakingBubbleId = null;
+      nexusRenderMessages();
+    });
+    await audio.play();
   } catch (e) {
-    console.warn("[TTS] speak failed:", e);
+    if (e.name !== "AbortError") console.warn("[TTS] speak failed:", e);
+    nexusTts.speakingBubbleId = null;
+    nexusRenderMessages();
   }
 }
 
@@ -3644,13 +3700,13 @@ function nexusToggleVoice() {
 // Hook: quando TTS finisce di parlare, riattiva mic se modalità continua attiva.
 // Aggancio: sovrascrivo il callback di fine TTS in nexusTts (patch runtime).
 if (typeof window !== "undefined") {
-  // Polling semplice: ogni 400ms controlla se speechSynthesis finito e riattiva
+  // Polling semplice: ogni 400ms controlla se TTS audio finito e riattiva mic
   setInterval(() => {
     if (!nexusVoice.active) return;
     if (nexusVoice.paused) {
-      // Se TTS non sta più parlando e non abbiamo invio pending → riattiva
-      const synthSpeaking = nexusTts.supported && window.speechSynthesis && window.speechSynthesis.speaking;
-      if (!synthSpeaking && !NEXUS_PENDING && !nexusVoice.listening) {
+      // Se TTS non sta più riproducendo audio e no invio pending → riattiva
+      const audioPlaying = nexusTts.currentAudio && !nexusTts.currentAudio.paused && !nexusTts.currentAudio.ended;
+      if (!audioPlaying && !NEXUS_PENDING && !nexusVoice.listening) {
         nexusVoice.paused = false;
         nexusSetMicState("idle");
         nexusVoiceResume();

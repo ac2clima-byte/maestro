@@ -1024,6 +1024,46 @@ export const echoWaInboxRun = onRequest(
   }
 );
 
+// ─── NEXUS TTS (edge-tts voce Diego) ───────────────────────────
+import { generateTts } from "./handlers/tts.js";
+
+export const nexusTts = onRequest(
+  {
+    region: REGION,
+    cors: false,
+    timeoutSeconds: 30,
+    memory: "512MiB",
+    maxInstances: 5,
+  },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
+
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+
+    const body = req.body || {};
+    const text = String(body.text || "").trim();
+    const voice = String(body.voice || "it-IT-DiegoNeural");
+    const rate = String(body.rate || "+10%");
+    if (!text) { res.status(400).json({ error: "missing_text" }); return; }
+    if (text.length > 3000) { res.status(400).json({ error: "text_too_long", max: 3000 }); return; }
+
+    try {
+      const result = await generateTts(text, voice, rate);
+      res.set("Content-Type", "audio/mpeg");
+      res.set("Cache-Control", "public, max-age=3600");
+      res.set("X-Nexo-Cached", result.cached ? "1" : "0");
+      res.set("X-Nexo-Cache-Key", result.cacheKey);
+      res.status(200).send(result.audio);
+    } catch (e) {
+      logger.error("nexusTts failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
 // ─── NEXUS audio transcription ─────────────────────────────────
 import { handleNexusTranscribeAudio } from "./handlers/nexus-audio.js";
 
