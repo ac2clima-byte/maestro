@@ -3246,6 +3246,10 @@ function init() {
   nexusRenderMessages();
   nexusEnsureSubscribed();
 
+  // Share dall'estensione Chrome / Web Share API
+  // Supporta ?share=<testo>&openNexus=1&source=<whatsapp|selection|shortcut>
+  handleShareIntent();
+
   // FCM push notifications — DISABILITATO finché la VAPID key non è configurata
   // (attualmente in FCM_VAPID_KEY c'è un placeholder che genera 401 da FCM).
   // Per riattivare: prendere VAPID key reale da Firebase Console →
@@ -3263,6 +3267,53 @@ function init() {
       console.error("Logout failed:", e);
     }
   });
+}
+
+// ── Share intent (da Chrome Extension o Web Share Target) ───
+// Supporta ?share=<testo>&openNexus=1&source=<whatsapp|selection|shortcut>
+// Al load, se il parametro share è presente:
+//   1. apre la NEXUS chat
+//   2. pre-popola il campo input con il testo decodificato
+//   3. pulisce l'URL via history.replaceState (non propaga a refresh)
+function handleShareIntent() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const shareText = params.get("share");
+    const openNexus = params.get("openNexus");
+    const source = params.get("source") || "";
+
+    if (!shareText && openNexus !== "1") return;
+
+    // Pulisci URL subito (no token/text nei log/referrer)
+    params.delete("share");
+    params.delete("openNexus");
+    params.delete("source");
+    const qs = params.toString();
+    const clean = location.pathname + (qs ? `?${qs}` : "") + location.hash;
+    history.replaceState({}, "", clean);
+
+    // Apri chat NEXUS
+    nexusOpen();
+
+    if (shareText && shareText.trim()) {
+      const decoded = String(shareText).slice(0, 3000);
+      // Attendi che la textarea esista in DOM
+      requestAnimationFrame(() => {
+        const input = $("#nexusInput");
+        if (!input) return;
+        const prefix = source === "whatsapp"
+          ? "Analizza questo messaggio WhatsApp:\n\n"
+          : source === "selection" || source === "shortcut"
+            ? "Analizza questo testo:\n\n"
+            : "";
+        input.value = prefix + decoded;
+        input.focus();
+        nexusAutoResize();
+      });
+    }
+  } catch (e) {
+    console.warn("[share] handleShareIntent failed", e);
+  }
 }
 
 // ── FCM Push notifications ─────────────────────────────────────

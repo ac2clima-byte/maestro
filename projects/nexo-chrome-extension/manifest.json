@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "NEXO — Manda a NEXUS",
+  "version": "0.1.0",
+  "description": "Invia messaggi WhatsApp Web e testo selezionato a NEXUS per l'analisi.",
+  "permissions": ["activeTab", "contextMenus", "tabs"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://nexo-hub-15f2d.web.app/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "send-selection-to-nexo": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+N",
+        "mac": "Command+Shift+N"
+      },
+      "description": "Manda il testo selezionato a NEXUS"
+    }
+  },
+  "action": {
+    "default_title": "NEXO — Manda a NEXUS",
+    "default_icon": {
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}
