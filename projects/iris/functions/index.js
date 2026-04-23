@@ -27,7 +27,7 @@ import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
 import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
-import { handleChronosCampagne, handleChronosListaCampagne } from "./handlers/chronos.js";
+import { handleChronosCampagne, handleChronosListaCampagne, buildCampagneDashboard } from "./handlers/chronos.js";
 
 // ─── suggestReply (legacy IRIS draft helper) ───────────────────
 
@@ -670,8 +670,11 @@ export const pharoRtiDashboard = onRequest(
 );
 
 // CHRONOS — dashboard campagne (lista + dettaglio)
+// Memory 512MiB: la scan di bacheca_cards (5000 docs) con Firestore SDK
+// richiede più di 256MiB. Usa buildCampagneDashboard che fa UNA sola scan
+// e aggrega in-memory (evita N query parallele OOM).
 export const chronosCampagneDashboard = onRequest(
-  { region: REGION, cors: false, timeoutSeconds: 60, memory: "256MiB", maxInstances: 5 },
+  { region: REGION, cors: false, timeoutSeconds: 120, memory: "512MiB", maxInstances: 5 },
   async (req, res) => {
     applyCorsOpen(req, res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
@@ -681,26 +684,16 @@ export const chronosCampagneDashboard = onRequest(
     try {
       const campagnaNome = String(req.query?.nome || "").trim();
       if (campagnaNome) {
+        // Dettaglio singola campagna — usa handler dedicato
         const r = await handleChronosCampagne({ nome: campagnaNome }, { userMessage: "" });
         res.status(200).json(r.data || { content: r.content });
       } else {
-        // Lista: ritorna array campagne con metriche per ciascuna
-        const listaR = await handleChronosListaCampagne({});
-        const campagne = listaR.data?.campagne || [];
-        const dettagli = [];
-        // Per ogni campagna, calcola metriche (in parallelo, max 10)
-        const top = campagne.slice(0, 10);
-        const promises = top.map(async c => {
-          try {
-            const r = await handleChronosCampagne({ nome: c.nome }, { userMessage: "" });
-            return { nome: c.nome, ...(r.data || {}) };
-          } catch (e) { return { nome: c.nome, error: String(e).slice(0, 100) }; }
-        });
-        const risultati = await Promise.all(promises);
-        res.status(200).json({ campagne: risultati, totale: campagne.length });
+        // Lista con metriche — UNA sola scan bacheca_cards
+        const data = await buildCampagneDashboard({});
+        res.status(200).json(data);
       }
     } catch (e) {
-      logger.error("chronosCampagneDashboard failed", { error: String(e) });
+      logger.error("chronosCampagneDashboard failed", { error: String(e), stack: String(e?.stack || "").slice(0, 500) });
       res.status(500).json({ error: String(e).slice(0, 300) });
     }
   }

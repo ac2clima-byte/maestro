@@ -93,6 +93,139 @@ function aggregateCampaignStats(cards) {
   return { stats, perTecnico };
 }
 
+// ─── Dashboard campagne (bulk, ottimizzata per Cloud Function) ──
+//
+// UNICA scan di bacheca_cards + aggregazione in-memory → evita N query
+// parallele (OOM con 10 campagne × 1000 docs).
+// Limiti: scan 5000 docs, prenderà solo le cards con campagna_nome.
+// Memoria: ~50 MiB worst case invece di ~260.
+export async function buildCampagneDashboard(parametri = {}) {
+  const db = getCosminaDb();
+  const now = new Date();
+
+  // 1. Anagrafica campagne (5-50 docs, leggero)
+  const campagneMap = new Map();
+  try {
+    const snap = await db.collection("cosmina_campagne").limit(50).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const nome = String(v.nome || d.id);
+      campagneMap.set(nome, {
+        id: d.id,
+        nome,
+        stato: v.stato || null,
+        archiviata: v.archiviata === true || v.stato === "archiviata",
+        descrizione: v.descrizione || v.descrizione_dettagliata || "",
+        data_inizio: v.data_inizio || null,
+        data_fine: v.data_fine || null,
+        source: "cosmina_campagne",
+        _cards: [], // popolato dopo
+      });
+    });
+  } catch (e) {
+    logger.warn("dashboard: cosmina_campagne failed", { error: String(e).slice(0, 120) });
+  }
+
+  // 2. Scan mirato bacheca_cards per campagne note.
+  //
+  // bacheca_cards ha ~25k docs totali, limit(5000) tagliava campagne grandi
+  // (SPEGNIMENTO 2026 aveva 38/407 conteggiati). Strategia: query per ogni
+  // campagna nota con where("campagna_nome","==",nome) — Firestore ottimizza
+  // con indice single-field automatico.
+  //
+  // Eseguo SEQUENZIALMENTE per non spawn-are N connessioni concurrent
+  // (memoria controllata). Ogni query è ~100-500 docs al massimo.
+  let scanned = 0;
+
+  // Prima raccolgo i nomi noti: dalle campagne anagrafica + scan iniziale
+  // mirato per scoprire le "inferred" (quelle senza doc in cosmina_campagne).
+  const campagneNote = new Set(campagneMap.keys());
+
+  // Discover fase: scan con listName=LETTURE RIP (campagne walkby) per
+  // trovare nomi non in cosmina_campagne. Query cheap perché filtrata.
+  try {
+    const discoverListNames = ["LETTURE RIP", "LETTURE WALKBY", "LETTURE DIRETTE"];
+    for (const ln of discoverListNames) {
+      const dSnap = await db.collection("bacheca_cards")
+        .where("listName", "==", ln).limit(200).get();
+      dSnap.forEach(d => {
+        const v = d.data() || {};
+        if (v.campagna_nome) campagneNote.add(v.campagna_nome);
+      });
+    }
+  } catch (e) {
+    logger.warn("dashboard: discover failed", { error: String(e).slice(0, 120) });
+  }
+
+  // Crea entry bacheca_inferred per i nomi scoperti
+  for (const nome of campagneNote) {
+    if (!campagneMap.has(nome)) {
+      campagneMap.set(nome, {
+        id: null, nome,
+        stato: null, archiviata: false,
+        descrizione: "", source: "bacheca_inferred",
+        _cards: [],
+      });
+    }
+  }
+
+  // Query mirata per ogni campagna (sequenziale, max 20 campagne)
+  const campagneList = Array.from(campagneMap.values()).slice(0, 20);
+  for (const c of campagneList) {
+    try {
+      const cSnap = await db.collection("bacheca_cards")
+        .where("campagna_nome", "==", c.nome)
+        .limit(1500).get();
+      cSnap.forEach(d => {
+        scanned++;
+        const v = d.data() || {};
+        c._cards.push({
+          archiviato: v.archiviato === true,
+          inBacheca: v.inBacheca !== false,
+          labels: v.labels || null,
+          due: v.due || null,
+          techName: v.techName || (Array.isArray(v.techNames) && v.techNames[0]) || null,
+        });
+      });
+    } catch (e) {
+      logger.warn(`dashboard: scan campagna ${c.nome} failed`, { error: String(e).slice(0, 120) });
+    }
+  }
+
+  // 3. Per ogni campagna, calcola stats
+  const out = [];
+  for (const c of campagneMap.values()) {
+    if (!parametri.archived && c.archiviata) continue;
+    const cards = c._cards || [];
+    const { stats, perTecnico } = aggregateCampaignStats(cards);
+    const perc = stats.totale > 0 ? Math.round((stats.completati / stats.totale) * 100) : 0;
+
+    out.push({
+      campagna: {
+        id: c.id, nome: c.nome,
+        stato: c.stato, archiviata: c.archiviata,
+        descrizione: c.descrizione,
+        data_inizio: c.data_inizio, data_fine: c.data_fine,
+        source: c.source,
+      },
+      stats,
+      perTecnico,
+      completamento_pct: perc,
+      nome: c.nome,
+    });
+  }
+
+  // Ordina per numero di interventi desc
+  out.sort((a, b) => (b.stats.totale || 0) - (a.stats.totale || 0));
+
+  logger.info("dashboard campagne done", {
+    scanned_bacheca: scanned,
+    campagne: out.length,
+  });
+
+  return { campagne: out, totale: out.length, scannedBachecaCards: scanned };
+}
+
 export async function handleChronosListaCampagne(parametri = {}) {
   const db = getCosminaDb();
   // Unione: cosmina_campagne + nomi distinti in bacheca_cards
