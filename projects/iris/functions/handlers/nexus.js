@@ -12,7 +12,7 @@ import {
 } from "./iris.js";
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleBozzePendenti, handleApriBozza } from "./preventivo.js";
-import { handleMemoDossier } from "./memo.js";
+import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
@@ -219,6 +219,26 @@ export const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(mittente|sender|cerca_email|ricerca|email_da|da_mittente)/.test(az), fn: handleRicercaEmailMittente },
   { match: (col, az) => col === "iris" && /(senza_risposta|no_reply|attesa|followup|follow_up)/.test(az), fn: handleEmailSenzaRisposta },
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
+  // MEMO — totali (quanti clienti abbiamo)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "memo" && /(totali|quanti_client|conta_client|numero_client)/.test(az))
+      || /^\s*quant[ie]\s+client|quanti\s+cond[oa]min|client[ei]?\s+tot|numero\s+client/.test(m);
+  }, fn: handleMemoTotaliClienti },
+  // MEMO — top clienti per impianti
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "memo" && /(top|pi[uù]_impiant|top_client)/.test(az))
+      || /client[ei]?\s+con\s+pi[uù]\s+impiant|top\s+client|client[ei]?\s+pi[uù]\s+grand/.test(m);
+  }, fn: handleMemoTopClienti },
+  // MEMO — ricerca per indirizzo
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "memo" && /(ricerca_indirizz|cerca_indirizz|per_via|per_indirizz)/.test(az))
+      || /\bcerca\s+cliente\s+(?:in\s+)?(?:via|viale|corso|piazza)/i.test(m)
+      || /chi\s+[èe]\s+in\s+(?:via|viale|corso|piazza)/i.test(m);
+  }, fn: handleMemoRicercaIndirizzo },
+  // MEMO — dossier generico (fallback)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "memo" && /(dossier|cliente|condominio|tutto_su|storico|impian|ricerca)/.test(az))

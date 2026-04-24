@@ -311,6 +311,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // memo_clienti_cache: cache completa clienti COSMINA (scan + refresh).
+    // Read pubblico (PWA dashboard MEMO), write Admin SDK only.
+    match /memo_clienti_cache/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny per ogni altra collection.
     // Quando aggiungi un Collega con nuova collection, aggiungi la rule qui sopra.
     match /{document=**} {

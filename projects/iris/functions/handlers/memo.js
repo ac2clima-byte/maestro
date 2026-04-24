@@ -1,5 +1,48 @@
 // handlers/memo.js — dossier cliente (MEMO).
-import { getCosminaDb, getGuazzottiDb, fetchIrisEmails, emailLine } from "./shared.js";
+import { getCosminaDb, getGuazzottiDb, fetchIrisEmails, emailLine, db, FieldValue, logger } from "./shared.js";
+
+// TTL cache clienti (24h)
+const MEMO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ─── Cache memo_clienti_cache (nexo-hub-15f2d) ─────────────────
+// Popolata da scripts/memo_carica_clienti.py (manuale) o Cloud Function
+// memoCacheRefresh (schedulata).
+async function memoCacheGetStats() {
+  try {
+    const snap = await db.collection("memo_clienti_cache").doc("_stats").get();
+    return snap.exists ? (snap.data() || {}) : null;
+  } catch (e) { return null; }
+}
+
+function memoCacheAgeMs(stats) {
+  if (!stats) return Infinity;
+  const ts = stats.ultima_scansione?.toMillis?.() || 0;
+  return ts ? Date.now() - ts : Infinity;
+}
+
+async function memoCacheSearch(query) {
+  // Scansiona fino a 800 doc (cap crm_clienti è 647) e filtra in memoria
+  const snap = await db.collection("memo_clienti_cache").limit(800).get();
+  const q = String(query).toLowerCase().trim();
+  const matches = [];
+  snap.forEach(d => {
+    if (d.id === "_stats") return;
+    const v = d.data() || {};
+    const bag = `${v.codice || ""} ${v.nome || ""} ${v.indirizzo || ""} ${v.citta || ""} ${v.amministratore || ""} ${v.referente || ""}`.toLowerCase();
+    if (bag.includes(q)) matches.push(v);
+  });
+  return matches;
+}
+
+async function memoCacheAllClients(max = 700) {
+  const snap = await db.collection("memo_clienti_cache").limit(max).get();
+  const out = [];
+  snap.forEach(d => {
+    if (d.id === "_stats") return;
+    out.push(d.data() || {});
+  });
+  return out;
+}
 
 function memoBag(data) {
   const parts = [];
@@ -30,8 +73,53 @@ export async function handleMemoDossier(parametri, ctx) {
     "";
   let q = String(candidate).trim().toLowerCase();
   q = q.replace(/^(il|la|lo|gli|le|i|condominio)\s+/, "").trim();
-  if (!q) return { content: "Su quale cliente o condominio cerco? Dammi un nome." };
+  if (!q) return { content: "Su quale cliente cerco? Dammi un nome." };
 
+  // ── Cache-first: prova prima memo_clienti_cache (nexo-hub) ──
+  try {
+    const stats = await memoCacheGetStats();
+    const fresh = stats && memoCacheAgeMs(stats) < MEMO_CACHE_TTL_MS;
+    if (fresh) {
+      const matches = await memoCacheSearch(q);
+      if (matches.length) {
+        const top = matches.slice(0, 3);
+        const parts = [];
+        if (matches.length === 1) {
+          const c = top[0];
+          const bits = [];
+          if (c.indirizzo || c.citta) bits.push(`${[c.indirizzo, c.citta].filter(Boolean).join(", ")}`);
+          if (c.telefono) bits.push(`tel ${c.telefono}`);
+          if (c.email) bits.push(c.email);
+          if (c.amministratore) bits.push(`amministratore: ${c.amministratore}`);
+          parts.push(`Ho trovato ${c.nome} (codice ${c.codice}).`);
+          if (bits.length) parts.push(bits.join(". ") + ".");
+          if (c.num_impianti > 0) parts.push(`Ha ${c.num_impianti} impianti registrati.`);
+          return {
+            content: parts.join(" "),
+            data: { source: "cache", cliente: c, totalMatches: 1, clienti: [c.nome] },
+          };
+        }
+        parts.push(`Ho ${matches.length} risultati per "${q}".`);
+        const elenco = top.map((c, i) => `${i + 1}. ${c.nome} (${c.codice}, ${c.citta || "?"})`).join("\n");
+        parts.push(elenco);
+        if (matches.length > 3) parts.push(`E altri ${matches.length - 3}.`);
+        parts.push(`Dimmi quale vuoi vedere.`);
+        return {
+          content: parts.join("\n\n"),
+          data: { source: "cache", totalMatches: matches.length, clienti: top.map(c => c.nome) },
+        };
+      }
+      // Cache fresca ma nessun match → ritorna subito
+      return {
+        content: `Non trovo nulla su ${q} nel CRM.`,
+        data: { source: "cache", totalMatches: 0 },
+      };
+    }
+  } catch (e) {
+    logger.warn("memo cache lookup failed, fallback live", { error: String(e).slice(0, 150) });
+  }
+
+  // ── Fallback live su COSMINA (cache miss o stale) ──
   const cosm = getCosminaDb();
   const gua = getGuazzottiDb();
 
@@ -239,3 +327,82 @@ export async function handleMemoDossier(parametri, ctx) {
     },
   };
 }
+
+// ─── Nuovi handler basati su cache ─────────────────────────────
+//
+// "quanti clienti abbiamo?" → handleMemoTotaliClienti
+// "top clienti" / "clienti con più impianti" → handleMemoTopClienti
+// "cerca cliente in via Roma 12" → handleMemoRicercaIndirizzo
+
+export async function handleMemoTotaliClienti() {
+  const stats = await memoCacheGetStats();
+  if (!stats) {
+    return { content: "La cache clienti non è ancora popolata. Esegui scripts/memo_carica_clienti.py per caricarla." };
+  }
+  const parts = [];
+  parts.push(`Abbiamo ${stats.totale_clienti} clienti nel CRM, ${stats.clienti_con_impianti} hanno almeno un impianto, per un totale di ${stats.totale_impianti} impianti.`);
+  const byType = stats.per_tipo || {};
+  if (byType.condominio || byType.privato || byType.azienda) {
+    const segn = [];
+    if (byType.condominio) segn.push(`${byType.condominio} condomini`);
+    if (byType.privato) segn.push(`${byType.privato} privati`);
+    if (byType.azienda) segn.push(`${byType.azienda} aziende`);
+    if (segn.length) parts.push(`Tra questi ci sono ${segn.join(", ")}.`);
+  }
+  return { content: parts.join(" "), data: stats };
+}
+
+export async function handleMemoTopClienti(parametri) {
+  const n = Math.min(Math.max(Number(parametri?.limit || 10), 3), 30);
+  const all = await memoCacheAllClients();
+  if (!all.length) {
+    return { content: "Non ho la cache clienti. Esegui memo_carica_clienti.py per popolarla." };
+  }
+  const top = all
+    .filter(c => (c.num_impianti || 0) > 0)
+    .sort((a, b) => (b.num_impianti || 0) - (a.num_impianti || 0))
+    .slice(0, n);
+  if (!top.length) return { content: "Nessun cliente ha impianti registrati. Strano, controlla i dati." };
+
+  const parts = [];
+  parts.push(`I ${top.length} clienti con più impianti:`);
+  const elenco = top.map((c, i) => `${i + 1}. ${c.nome} — ${c.num_impianti} impianti${c.citta ? ` (${c.citta})` : ""}`).join("\n");
+  parts.push(elenco);
+  return {
+    content: parts.join("\n\n"),
+    data: { top: top.map(c => ({ codice: c.codice, nome: c.nome, num_impianti: c.num_impianti })) },
+  };
+}
+
+export async function handleMemoRicercaIndirizzo(parametri, ctx) {
+  let q = String(parametri?.indirizzo || parametri?.query || "").trim().toLowerCase();
+  // Se vuoto, estrai dal messaggio utente "cerca cliente via Roma 12"
+  if (!q && ctx?.userMessage) {
+    const m = /(?:in\s+)?(?:via|viale|corso|piazza|p\.zza|vicolo|strada)\s+([a-zà-ÿ][\wà-ÿ\s]{2,60})/i.exec(ctx.userMessage);
+    if (m) q = `via ${m[1].trim()}`.toLowerCase();
+  }
+  if (!q) return { content: "Dammi un indirizzo da cercare. Esempio: cerca cliente in via Roma 12." };
+
+  const all = await memoCacheAllClients();
+  const matches = all.filter(c => {
+    const bag = `${c.indirizzo || ""} ${c.citta || ""}`.toLowerCase();
+    return bag.includes(q);
+  });
+  if (!matches.length) return { content: `Nessun cliente corrisponde a "${q}" nel CRM.` };
+
+  if (matches.length === 1) {
+    const c = matches[0];
+    const bits = [c.nome, `codice ${c.codice}`];
+    if (c.telefono) bits.push(`tel ${c.telefono}`);
+    return {
+      content: `Ho trovato ${bits.join(", ")}. Vuoi i dettagli completi?`,
+      data: { cliente: c },
+    };
+  }
+  const top = matches.slice(0, 5);
+  const parts = [`Ho ${matches.length} clienti con quell'indirizzo:`];
+  parts.push(top.map((c, i) => `${i + 1}. ${c.nome} (${c.codice}) — ${c.indirizzo || ""}, ${c.citta || ""}`).join("\n"));
+  if (matches.length > 5) parts.push(`E altri ${matches.length - 5}.`);
+  return { content: parts.join("\n\n"), data: { matches: matches.length } };
+}
+

@@ -1156,6 +1156,180 @@ export const echoInboundWebhook = onRequest(
   }
 );
 
+// ─── MEMO cache refresh (notturno 03:00) ───────────────────────
+//
+// Riscansiona crm_clienti + cosmina_impianti da COSMINA (garbymobile-f89ac)
+// e aggiorna memo_clienti_cache su nexo-hub-15f2d. Idempotente: usa batch
+// set con same doc id (codice cliente ACG).
+
+async function runMemoCacheRefresh() {
+  const cosm = getCosminaDb();
+
+  // 1) Leggi tutti i clienti
+  const clientiSnap = await cosm.collection("crm_clienti").get();
+  const clienti = new Map();
+  const clientByNome = new Map(); // nome normalizzato → array di codici
+  clientiSnap.forEach(d => {
+    const v = d.data() || {};
+    const nome = String(v.nome || v.ragione_sociale || v.denominazione || d.id).trim();
+    const nomeL = (v.nome || v.ragione_sociale || v.denominazione || "").toLowerCase();
+    const tipo = /condominio|cond\./.test(nomeL) || v.amministratore
+      ? "condominio"
+      : /s\.r\.l\.|srl|s\.p\.a\.|spa|snc/.test(nomeL) ? "azienda" : "privato";
+    clienti.set(d.id, {
+      codice: d.id,
+      nome,
+      indirizzo: String(v.indirizzo || v.via || ""),
+      cap: String(v.cap || ""),
+      citta: String(v.citta || v.comune || ""),
+      provincia: String(v.provincia || ""),
+      telefono: String(v.telefono || v.tel || v.cellulare || ""),
+      email: String(v.email || v.mail || ""),
+      pec: String(v.pec || ""),
+      piva: String(v.piva || v.p_iva || v.partita_iva || ""),
+      codice_fiscale: String(v.codice_fiscale || ""),
+      amministratore: String(v.amministratore || ""),
+      referente: String(v.referente || v.contatto || ""),
+      tipo,
+      contratto_attivo: !!(v.contratto_attivo || v.contratto_manutenzione),
+      campagne: Array.isArray(v.campagne) ? v.campagne : [],
+      note: String(v.note || "").slice(0, 500),
+    });
+    const key = nome.toLowerCase().replace(/cond\.|condominio/g, "").replace(/\s+/g, " ").trim();
+    if (key) {
+      if (!clientByNome.has(key)) clientByNome.set(key, []);
+      clientByNome.get(key).push(d.id);
+    }
+  });
+
+  // 2) Leggi impianti e mappa per nome condominio
+  const impiantiSnap = await cosm.collection("cosmina_impianti").get();
+  const perCliente = new Map();
+  let matched = 0, total = 0;
+  impiantiSnap.forEach(d => {
+    const v = d.data() || {};
+    total++;
+    const cands = [];
+    const full1 = [v.proprietario_cognome, v.proprietario_nome].filter(Boolean).join(" ").trim();
+    const full2 = [v.occupante_cognome, v.occupante_nome].filter(Boolean).join(" ").trim();
+    if (full1) cands.push(full1);
+    if (full2) cands.push(full2);
+    if (v.proprietario_cognome) cands.push(v.proprietario_cognome);
+    if (v.occupante_cognome) cands.push(v.occupante_cognome);
+
+    let cid = null;
+    for (const cand of cands) {
+      const norm = String(cand).toLowerCase().replace(/cond\.|condominio/g, "").replace(/\s+/g, " ").trim();
+      if (!norm || norm.length < 4) continue;
+      if (clientByNome.has(norm)) { cid = clientByNome.get(norm)[0]; break; }
+      for (const [k, ids] of clientByNome.entries()) {
+        if (k.length >= 4 && (norm.includes(k) || k.includes(norm))) { cid = ids[0]; break; }
+      }
+      if (cid) break;
+    }
+    if (cid) matched++;
+    const key = cid || `_nomatch_${(cands[0] || "?").slice(0, 40)}`;
+    if (!perCliente.has(key)) perCliente.set(key, []);
+    perCliente.get(key).push({
+      id: d.id,
+      tipo: String(v.tipologia || v.tipo || ""),
+      marca: String(v.marca || ""),
+      modello: String(v.modello || ""),
+      combustibile: String(v.combustibile || ""),
+      potenza: String(v.potenza || ""),
+      matricola: String(v.targa || v.matricola || v.codice_impianto || ""),
+      indirizzo: String(v.indirizzo || ""),
+      comune: String(v.comune || ""),
+      stato: String(v.stato || ""),
+      data_prossimo_contributo: String(v.data_prossimo_contributo || ""),
+      stato_contributo: String(v.stato_contributo || ""),
+    });
+  });
+
+  // 3) Scrivi su nexo-hub (batch da 400)
+  const now = FieldValue.serverTimestamp();
+  let batch = db.batch();
+  let written = 0;
+  const BATCH_SIZE = 400;
+
+  for (const [codice, c] of clienti.entries()) {
+    const imps = perCliente.get(codice) || [];
+    const doc = {
+      ...c,
+      impianti: imps.slice(0, 30),
+      num_impianti: imps.length,
+      ultima_scansione: now,
+      scansione_at_iso: new Date().toISOString(),
+    };
+    batch.set(db.collection("memo_clienti_cache").doc(codice), doc);
+    written++;
+    if (written % BATCH_SIZE === 0) {
+      await batch.commit();
+      batch = db.batch();
+    }
+  }
+
+  // Stats aggregati
+  const perTipo = { privato: 0, condominio: 0, azienda: 0 };
+  for (const c of clienti.values()) perTipo[c.tipo] = (perTipo[c.tipo] || 0) + 1;
+  const clientiConImpianti = [...clienti.keys()].filter(k => (perCliente.get(k) || []).length > 0).length;
+  batch.set(db.collection("memo_clienti_cache").doc("_stats"), {
+    totale_clienti: clienti.size,
+    totale_impianti: total,
+    clienti_con_impianti: clientiConImpianti,
+    impianti_matchati: matched,
+    per_tipo: perTipo,
+    ultima_scansione: now,
+    scansione_at_iso: new Date().toISOString(),
+  });
+  await batch.commit();
+
+  logger.info("memoCacheRefresh done", {
+    clienti: clienti.size,
+    impianti: total,
+    impiantiMatchati: matched,
+    clientiConImpianti,
+  });
+  return { clienti: clienti.size, impianti: total, matched, clientiConImpianti };
+}
+
+// Scheduler notturno 03:00
+export const memoCacheRefresh = onSchedule(
+  {
+    region: REGION,
+    schedule: "0 3 * * *",
+    timeZone: "Europe/Rome",
+    memory: "512MiB",
+    timeoutSeconds: 300,
+  },
+  async () => {
+    try {
+      const r = await runMemoCacheRefresh();
+      logger.info("memoCacheRefresh scheduled complete", r);
+    } catch (e) {
+      logger.error("memoCacheRefresh failed", { error: String(e) });
+    }
+  }
+);
+
+// HTTP trigger manuale per refresh on-demand
+export const memoCacheRefreshRun = onRequest(
+  { region: REGION, cors: false, timeoutSeconds: 300, memory: "512MiB" },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    const authUser = await verifyAcgIdToken(req);
+    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+    try {
+      const r = await runMemoCacheRefresh();
+      res.status(200).json({ ok: true, ...r });
+    } catch (e) {
+      logger.error("memoCacheRefreshRun failed", { error: String(e) });
+      res.status(500).json({ error: String(e).slice(0, 300) });
+    }
+  }
+);
+
 // ─── ECHO WA Inbox poller (cosmina_inbox cross-project) ────────
 import { runWaInboxPoller } from "./handlers/echo-wa-inbox.js";
 
