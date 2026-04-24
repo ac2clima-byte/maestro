@@ -118,8 +118,17 @@
     text-align: left;
     color: var(--sidebar-text);
     font-size: 0.92rem;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: auto;
+    font-family: inherit;
   }
+  /* I figli (icon/name/status-dot) non devono intercettare l'evento click:
+     così il click si risolve sempre sul button genitore. */
+  .sidebar-link > * { pointer-events: none; }
   .sidebar-link:hover { background: var(--sidebar-bg-hover); color: var(--sidebar-text-active); }
+  .sidebar-link:active { background: var(--sidebar-bg-active); }
+  .sidebar-link:focus-visible { outline: 2px solid var(--nexus-accent); outline-offset: -2px; }
   .sidebar-link.active { background: var(--sidebar-bg-active); color: var(--sidebar-text-active); font-weight: 500; }
   .sidebar-link .icon {
     width: 22px;
@@ -1555,7 +1564,7 @@
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Dashboard</div>
-      <button class="sidebar-link" data-route="home">
+      <button type="button" class="sidebar-link" data-route="home" aria-label="Home">
         <span class="icon">🏠</span><span class="name">Home</span>
       </button>
     </div>
@@ -1686,18 +1695,28 @@ function fmtRel(iso) {
 function renderSidebarNav() {
   const navEl = $("#collegiNav");
   navEl.innerHTML = COLLEGHI.map(c => `
-    <button class="sidebar-link" data-route="collega:${c.id}">
+    <button type="button" class="sidebar-link" data-route="collega:${c.id}" aria-label="${escapeHtml(c.name)}">
       <span class="icon">${c.icon}</span>
       <span class="name">${escapeHtml(c.name)}</span>
       <span class="status-dot ${c.status === "live" ? "live" : c.status === "soon" ? "soon" : ""}" title="${c.status === "live" ? "Attivo v0.1" : c.status === "soon" ? "Solo via NEXUS Chat" : "In costruzione"}"></span>
     </button>
   `).join("");
-  $$(".sidebar-link", navEl).forEach(b => {
-    b.addEventListener("click", () => navigate(b.dataset.route));
-  });
-  $$(".sidebar-link[data-route='home']").forEach(b => {
-    b.addEventListener("click", () => navigate("home"));
-  });
+
+  // Event delegation sulla sidebar: cattura click anche se l'evento nasce
+  // da uno <span> figlio (icon/name/status-dot). Robusto a future modifiche.
+  const sidebarEl = $("#sidebar");
+  if (sidebarEl && !sidebarEl._navWired) {
+    sidebarEl._navWired = true;
+    sidebarEl.addEventListener("click", (ev) => {
+      const link = ev.target.closest(".sidebar-link");
+      if (!link || !sidebarEl.contains(link)) return;
+      const route = link.dataset.route;
+      if (!route) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      navigate(route);
+    });
+  }
 }
 
 // ── Router ─────────────────────────────────────────────────────
