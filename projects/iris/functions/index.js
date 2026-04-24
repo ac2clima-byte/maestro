@@ -1411,7 +1411,14 @@ export const nexoPushSend = onRequest(
 // ─── Orchestrator workflow listener ────────────────────────────
 
 export const orchestratorLavagnaListener = onDocumentCreated(
-  { region: REGION, document: "nexo_lavagna/{msgId}", memory: "256MiB", maxInstances: 5 },
+  {
+    region: REGION,
+    document: "nexo_lavagna/{msgId}",
+    memory: "512MiB", // serve più memoria per Sonnet calls
+    timeoutSeconds: 300, // preventivo sincrono può durare 25-30s
+    maxInstances: 5,
+    secrets: [ANTHROPIC_API_KEY], // serve per arricchisciAzienda + CALLIOPE Sonnet
+  },
   async (event) => {
     const snap = event.data;
     if (!snap) return;

@@ -180,11 +180,16 @@ export const DIRECT_HANDLERS = [
     return (col === "echo" && /(wa.*analizz.*ultim|analizz.*ultim.*wa|ultimo.*whats)/.test(az))
       || /analizz(?:a|mi)?\s+(?:l[''])?ultim[oa]\s+(wa|whatsapp|messaggio.*wa)/.test(m);
   }, fn: handleWaInboxAnalyzeLast },
-  // Bozze preventivo pendenti
+  // Bozze preventivo pendenti (match robusto su messaggio utente)
   { match: (col, az, ctx) => {
-    const m = (ctx?.userMessage || "").toLowerCase();
-    return (col === "calliope" && /(bozz.*pendent|da.*approv|preventivi.*attesa)/.test(az))
-      || /bozz\w*\s+pendent|cosa.*(c'?.|da)\s+approv|preventivi.*(in\s+)?attesa|bozz\w*\s+da\s+approv/.test(m);
+    const m = (ctx?.userMessage || "").toLowerCase().trim();
+    // Match diretto sul messaggio user (più affidabile di az/col che dipendono da Haiku)
+    if (/^bozz\w*\s+pendent/i.test(m)) return true;
+    if (/^(cosa|che)\s+c'?.?\s+da\s+approv/i.test(m)) return true;
+    if (/preventivi\s+(in\s+)?(attesa|sospeso|pendent)/i.test(m)) return true;
+    if (/bozz\w*\s+da\s+approv/i.test(m)) return true;
+    if (col === "calliope" && /(bozz.*pendent|da.*approv|preventivi.*attesa)/.test(az)) return true;
+    return false;
   }, fn: handleBozzePendenti },
   // Apri bozza specifica ("apri preventivo XYZ" / "mostra il primo")
   { match: (col, az, ctx) => {
