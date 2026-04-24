@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Test flusso preventivo Torriglia — end-to-end</title>
+<style>
+  :root {
+    --bg: #0f1117; --card: #1a1d28; --border: #2a2e3d;
+    --text: #e8eaf0; --text-dim: #9aa0b4;
+    --ok: #4ade80; --warn: #fbbf24; --err: #ef4444;
+    --accent: #00d4ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; max-width: 1100px; margin: 0 auto; line-height: 1.55; }
+  h1 { font-size: 1.7rem; margin: 0 0 8px 0; }
+  h2 { color: var(--accent); font-size: 1.1rem; margin: 0 0 10px 0; }
+  .subtitle { color: var(--text-dim); margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .status { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; margin-left: 6px; }
+  .status.ok { background: rgba(74,222,128,0.15); color: var(--ok); }
+  .status.partial { background: rgba(251,191,36,0.15); color: var(--warn); }
+  code { background: rgba(0, 212, 255, 0.12); color: #c8e9ff; padding: 2px 6px; border-radius: 4px; font-size: 0.88rem; font-family: ui-monospace, monospace; }
+  pre { background: #0a0b11; border: 1px solid var(--border); border-radius: 8px; padding: 14px; overflow-x: auto; font-size: 0.85rem; line-height: 1.45; white-space: pre-wrap; word-wrap: break-word; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  th { color: var(--text-dim); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+  ul { margin: 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  .check { color: var(--ok); font-weight: bold; }
+  .cross { color: var(--err); font-weight: bold; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .phone-shot { background: #000; border: 1px solid var(--border); border-radius: 12px; padding: 6px; text-align: center; }
+  .phone-shot img { max-width: 100%; border-radius: 8px; }
+  .phone-shot .cap { color: var(--text-dim); font-size: 0.82rem; margin-top: 6px; }
+  .bubble { background: #0a0b11; border-radius: 8px; padding: 12px; margin: 6px 0; border-left: 3px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>🧪 Test flusso preventivo Torriglia — end-to-end</h1>
+<div class="subtitle">2026-04-24 · PWA nexo-hub-15f2d.web.app · credenziali ACG Suite</div>
+
+<div class="card">
+  <h2>✅ Sommario</h2>
+  <table>
+    <tr><td><strong>Email Torriglia in iris_emails</strong></td><td>Presente, classificata correttamente <span class="status ok">✓</span></td></tr>
+    <tr><td><strong>Test 1: "analizza l'ultima mail di Torriglia"</strong></td><td>NEXUS ha trovato email + estratto dati + proposto azione <span class="status ok">✓</span></td></tr>
+    <tr><td><strong>Test 2: "prepara il preventivo per De Amicis intestato a 3i efficientamento"</strong></td><td>NEXUS ha accettato e routato a orchestrator <span class="status ok">✓</span></td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>📧 Email in iris_emails</h2>
+  <table>
+    <tr><th>Campo</th><th>Valore</th></tr>
+    <tr><td>sender</td><td><code>davide.torriglia@gruppo3i.it</code></td></tr>
+    <tr><td>sender_name</td><td><code>Davide Torriglia</code></td></tr>
+    <tr><td>subject</td><td><code>R: Verifica riscaldamento condominio De Amicis</code></td></tr>
+    <tr><td>received_time</td><td><code>2026-04-23T14:58:47+00:00</code></td></tr>
+    <tr><td>body length</td><td>2000 char</td></tr>
+    <tr><td>classification.category</td><td><code>RISPOSTA_CLIENTE</code></td></tr>
+    <tr><td>classification.intent</td><td><code>preparare_preventivo</code> <span class="status ok">✓</span></td></tr>
+  </table>
+  <p style="color:var(--text-dim);font-size:0.9rem;">Document ID: <code>AM0PR10MB323685FD0122CA4A6207238ED82A2_AM0PR10MB3236.EURPRD10.PROD.OUTLOOK.COM</code></p>
+</div>
+
+<div class="card">
+  <h2>🧪 Test 1 — Analisi email <span class="status ok">✓</span></h2>
+  <p><strong>Input:</strong></p>
+  <pre>analizza l'ultima mail di Torriglia</pre>
+  <p><strong>Output NEXUS:</strong></p>
+  <div class="bubble">📧 <strong>Email analizzata</strong> — Davide Torriglia<br>
+<em>Oggetto: R: Verifica riscaldamento condominio De Amicis · Ricevuta: 23/04, 14:58</em><br><br>
+<strong>Categoria</strong>: RISPOSTA_CLIENTE<br>
+<strong>Intent</strong>: <code>preparare_preventivo</code><br>
+<strong>Confidenza</strong>: medium<br><br>
+<strong>Contesto thread</strong>: Alberto Contardi (ACG Clima Service) aveva richiesto a Davide Torriglia (3i efficientamento energetico) i dati di intestazione della sua azienda per preparare un preventivo di verifica riscaldamento per il Condominio De Amicis. Torriglia risponde fornendo la ragione sociale completa (3i efficientamento energetico S.r.l. Società Benefit) e il numero di P.IVA 02486680065.<br><br>
+<strong>Prossimo passo proposto</strong>: Preparare il preventivo per verifica riscaldamento intestato a 3i efficientamento energetico S.r.l. (P.IVA 02486680065) per il Condominio De Amicis, utilizzando i dati forniti da Torriglia, e inoltrare al richiedente.<br><br>
+<strong>Persone</strong>: Davide Torriglia (3i efficientamento energetico S.r.l.), Alberto Contardi (ACG Clima Service Srl)<br>
+<strong>Aziende</strong>: 3i efficientamento energetico S.r.l. Società Benefit [P.IVA 02486680065]<br>
+<strong>Condomini</strong>: De Amicis<br><br>
+❓ <strong>È corretto?</strong> Rispondi "sì", "sì ma [modifica]", oppure "no, l'intent è [altro]".</div>
+
+  <h3 style="font-size:1rem;color:var(--text-dim);margin-top:18px;">Valutazione step-by-step</h3>
+  <ul>
+    <li class="check">✓ Ha trovato l'email (match regex "torriglia" nel pattern <code>^\s*analizz\w+...</code>)</li>
+    <li class="check">✓ Ha capito l'intent: <code>preparare_preventivo</code> (match perfetto)</li>
+    <li class="check">✓ Ha estratto i dati chiave:
+      <ul>
+        <li>Azienda: <code>3i efficientamento energetico S.r.l. Società Benefit</code></li>
+        <li>P.IVA: <code>02486680065</code></li>
+        <li>Condominio: <code>De Amicis</code></li>
+        <li>Persone: Torriglia + Contardi (entrambi con ruolo/azienda)</li>
+      </ul>
+    </li>
+    <li class="check">✓ Ha capito il contesto thread completo (chi ha chiesto cosa, chi ha risposto)</li>
+    <li class="check">✓ Ha proposto azione operativa concreta: "Preparare preventivo verifica riscaldamento intestato a 3i efficientamento energetico per Condominio De Amicis"</li>
+    <li class="check">✓ Ha chiuso con richiesta conferma per addestramento pattern ("È corretto?")</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>🧪 Test 2 — Comando preventivo <span class="status ok">✓</span></h2>
+  <p><strong>Input:</strong></p>
+  <pre>prepara il preventivo per De Amicis intestato a 3i efficientamento</pre>
+  <p><strong>Output NEXUS:</strong></p>
+  <div class="bubble">Sto preparando il preventivo per verifica riscaldamento del Condominio De Amicis intestato a 3i efficientamento energetico. Sarà pronto a breve. <span class="status ok">stato: assegnata</span></div>
+  <p>Badge <code>assegnata</code> = messaggio scritto sulla Lavagna con <code>to: orchestrator</code>, <code>type: preventivo</code>. L'orchestrator eseguirà il workflow 5-step:</p>
+  <ol>
+    <li>MEMO dossier condominio De Amicis</li>
+    <li>MEMO dossier committente 3i efficientamento</li>
+    <li>CALLIOPE bozza preventivo (Claude Sonnet)</li>
+    <li>Push notification ad Alberto (FCM disabilitato, log-only)</li>
+    <li>Stato "in attesa approvazione" fino a "approva" in chat</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2>📸 Screenshots</h2>
+  <div class="grid">
+    <div class="phone-shot">
+      <img src="test-preventivo-torriglia/01-analizza.png">
+      <div class="cap">Test 1 — analizza email Torriglia</div>
+    </div>
+    <div class="phone-shot">
+      <img src="test-preventivo-torriglia/02-prepara.png">
+      <div class="cap">Test 2 — prepara preventivo</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>📡 Chiamate di rete</h2>
+  <table>
+    <tr><th>#</th><th>Method</th><th>URL</th><th>Status</th></tr>
+    <tr><td>1</td><td>POST</td><td><code>/nexusRouter</code> (analizza)</td><td class="check">200</td></tr>
+    <tr><td>2</td><td>POST</td><td><code>/nexusRouter</code> (prepara)</td><td class="check">200</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>🎯 Conclusione</h2>
+  <p>Il flusso end-to-end funziona correttamente:</p>
+  <ul>
+    <li>L'email di Torriglia è stata classificata con il nuovo prompt IRIS v2 (intent recognition avanzato)</li>
+    <li>Il comando "analizza" intercetta correttamente il mittente e presenta un'analisi strutturata</li>
+    <li>Il comando "prepara preventivo" viene routato all'orchestrator tramite il routing workflow (<code>postLavagnaFromNexus</code> rileva <code>preparare_preventivo</code> e sostituisce <code>to: calliope</code> con <code>to: orchestrator</code>)</li>
+    <li>Tutti i dati chiave (azienda, P.IVA, condominio, persone) sono stati estratti correttamente dal thread quotato</li>
+  </ul>
+  <p><strong>Pronto per il round-trip completo</strong>: quando l'orchestrator esegue il workflow, CALLIOPE genererà la bozza con l'intestazione corretta e Alberto potrà approvarla con "ok invia" in chat.</p>
+</div>
+
+</body>
+</html>

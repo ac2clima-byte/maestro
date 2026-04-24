@@ -1,0 +1,51 @@
+{
+  "emailInfo": {
+    "id": "AM0PR10MB323685FD0122CA4A6207238ED82A2_...",
+    "sender": "davide.torriglia@gruppo3i.it",
+    "subject": "R: Verifica riscaldamento condominio De Amicis",
+    "classifiedIntent": "preparare_preventivo",
+    "classifiedCategory": "RISPOSTA_CLIENTE"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "text": "\n      analizza l'ultima mail di Torriglia17:41\n      \n      \n    "
+    },
+    {
+      "role": "assistant",
+      "text": "\n      📧 **Email analizzata** — Davide Torriglia\n_Oggetto: R: Verifica riscaldamento condominio De Amicis · Ricevuta: 23/04, 14:58_\n\n**Categoria**: RISPOSTA_CLIENTE\n**Intent**: `preparare_preventivo`\n**Confidenza**: medium\n\n**Contesto thread**: Alberto Contardi (ACG Clima Service) aveva richiesto a Davide Torriglia (3i efficientamento energetico) i dati di intestazione della sua azienda per preparare un preventivo di verifica riscaldamento per il Condominio De Amicis. Torriglia risponde fornendo la ragione sociale completa (3i efficientamento energetico S.r.l. Società Benefit) e il numero di P.IVA 02486680065.\n\n**Prossimo passo proposto**: Preparare il preventivo per verifica riscaldamento intestato a 3i efficientamento energetico S.r.l. (P.IVA 02486680065) per il Condominio De Amicis, utilizzando i dati forniti da Torriglia, e inoltrare al richiedente.\n\n**Persone**: Davide Torriglia (3i efficientamento energetico S.r.l.), Alberto Contardi (ACG Clima Service Srl)\n**Aziende**: 3i efficientamento energetico S.r.l. Società Benefit [P.IVA 02486680065]\n**Condomini**: De Amicis\n\n❓ **È corretto?** Rispondi \"sì\", \"sì ma [modifica]\", oppure \"no, l'intent è [altro]\".17:41\n      \n      completata🔊\n    "
+    },
+    {
+      "role": "user",
+      "text": "\n      prepara il preventivo per De Amicis intestato a 3i efficientamento17:41\n      \n      \n    "
+    },
+    {
+      "role": "assistant",
+      "text": "\n      Sto preparando il preventivo per verifica riscaldamento del Condominio De Amicis intestato a 3i efficientamento energetico. Sarà pronto a breve.17:41\n      \n      assegnata🔊\n    "
+    }
+  ],
+  "respA1_full": "\n      📧 **Email analizzata** — Davide Torriglia\n_Oggetto: R: Verifica riscaldamento condominio De Amicis · Ricevuta: 23/04, 14:58_\n\n**Categoria**: RISPOSTA_CLIENTE\n**Intent**: `preparare_preventivo`\n**Confidenza**: medium\n\n**Contesto thread**: Alberto Contardi (ACG Clima Service) aveva richiesto a Davide Torriglia (3i efficientamento energetico) i dati di intestazione della sua azienda per preparare un preventivo di verifica riscaldamento per il Condominio De Amicis. Torriglia risponde fornendo la ragione sociale completa (3i efficientamento energetico S.r.l. Società Benefit) e il numero di P.IVA 02486680065.\n\n**Prossimo passo proposto**: Preparare il preventivo per verifica riscaldamento intestato a 3i efficientamento energetico S.r.l. (P.IVA 02486680065) per il Condominio De Amicis, utilizzando i dati forniti da Torriglia, e inoltrare al richiedente.\n\n**Persone**: Davide Torriglia (3i efficientamento energetico S.r.l.), Alberto Contardi (ACG Clima Service Srl)\n**Aziende**: 3i efficientamento energetico S.r.l. Società Benefit [P.IVA 02486680065]\n**Condomini**: De Amicis\n\n❓ **È corretto?** Rispondi \"sì\", \"sì ma [modifica]\", oppure \"no, l'intent è [altro]\".17:41\n      \n      completata🔊\n    ",
+  "respA2_full": "\n      Sto preparando il preventivo per verifica riscaldamento del Condominio De Amicis intestato a 3i efficientamento energetico. Sarà pronto a breve.17:41\n      \n      assegnata🔊\n    ",
+  "netCalls": [
+    {
+      "status": 200,
+      "method": "POST",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter"
+    },
+    {
+      "status": 200,
+      "method": "POST",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter"
+    }
+  ],
+  "logs": [
+    {
+      "type": "warning",
+      "text": "Service Worker registration blocked by Playwright"
+    },
+    {
+      "type": "warning",
+      "text": "Info: The current domain is not authorized for OAuth operations. This will prevent signInWithPopup, signInWithRedirect, linkWithPopup and linkWithRedirect from working. Add your domain (nexo-hub-15f2d.web.app) to the OAuth redirect domains list in the Firebase console -> Authentication -> Settings -"
+    }
+  ]
+}
