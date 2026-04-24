@@ -1,0 +1,22 @@
+{
+  "bozza": "\n      📄 **Preventivo PREV-2026-418561** — 2026-04-24\n\n**Intestatario**:\n  3i efficientamento energetico S.r.l. Società Benefit\n  P.IVA 02486680065\n  Via Ludovico Ariosto 33, 20091, Bresso, MI\n  PEC: 3iefficientamento@pec.it\n  SDI: W7YVJK5\n\n**Oggetto**: Verifica impianto di riscaldamento - Condominio De Amicis\n**Luogo**: Condominio De Amicis (Via De Amicis, 12, Tortona (AL))\n\n**Voci**:\n  1. Sopralluogo tecnico presso la centrale termica condominiale: ispezione visiva dello stato generale dell'impianto, verifica della conformità normativa e identificazione delle criticità — 1 cadauno × €150.00 = €150.00\n  2. Analisi della combustione con strumentazione certificata (analizzatore fumi): rilevazione CO, CO₂, O₂, temperatura fumi e rendimento di combustione — 1 cadauno × €120.00 = €120.00\n  3. Verifica e controllo dei dispositivi di sicurezza: valvola di sicurezza, vaso di espansione, pressostati, termostati di regolazione e di sicurezza — 1 cadauno × €90.00 = €90.00\n  4. Controllo del circuito idraulico: verifica pressione di esercizio, stato delle pompe di circolazione, valvole di bilanciamento e tenuta impianto — 1 cadauno × €80.00 = €80.00\n  5. Verifica del sistema di scarico fumi e canale fumario: ispezione visiva, controllo tenuta e assenza ostruzioni — 1 cadauno × €70.00 = €70.00\n  6. Redazione della relazione tecnica di verifica con esito dei controlli effettuati, eventuali anomalie riscontrate e raccomandazioni per la messa a norma o la manutenzione programmata — 1 cadauno × €180.00 = €180.00\n\n**Imponibile**: €690.00\n**IVA 22%**: €151.80\n**TOTALE**: €841.80\n\n_Pagamento: Bonifico bancario 30gg data fattura_\n_Validità: 30 giorni dalla data di emissione_\n\n---\n✅ Rispondi **\"approva\"** per inviare · ✏️ **\"modifica: [istruzioni]\"** per correzioni · ❌ **\"rifiuta\"** per scartare18:17\n      \n      completata🔊\n    ",
+  "approva": "\n      Preventivo approvato e inviato a 3i efficientamento. Troverai il documento nel dossier cliente.18:17\n      \n      assegnata🔊\n    ",
+  "all": [
+    {
+      "role": "user",
+      "text": "\n      prepara preventivo per De Amicis intestato a 3i efficientamento con P.IVA 02486680065 per verifica riscaldamento18:16\n      \n      \n    "
+    },
+    {
+      "role": "assistant",
+      "text": "\n      📄 **Preventivo PREV-2026-418561** — 2026-04-24\n\n**Intestatario**:\n  3i efficientamento energetico S.r.l. Società Benefit\n  P.IVA 02486680065\n  Via Ludovico Ariosto 33, 20091, Bresso, MI\n  PEC: 3iefficientamento@pec.it\n  SDI: W7YVJK5\n\n**Oggetto**: Verifica impianto di riscaldamento - Condominio De Amicis\n**Luogo**: Condominio De Amicis (Via De Amicis, 12, Tortona (AL))\n\n**Voci**:\n  1. Sopralluogo tecnico presso la centrale termica condominiale: ispezione visiva dello stato generale dell'impianto, verifica della conformità normativa e identificazione delle criticità — 1 cadauno × €150.00 = €150.00\n  2. Analisi della combustione con strumentazione certificata (analizzatore fumi): rilevazione CO, CO₂, O₂, temperatura fumi e rendimento di combustione — 1 cadauno × €120.00 = €120.00\n  3. Verifica e controllo dei dispositivi di sicurezza: valvola di sicurezza, vaso di espansione, pressostati, termostati di regolazione e di sicurezza — 1 cadauno × €90.00 = €90.00\n  4. Controllo del circuito idraulico: verifica pressione di esercizio, stato delle pompe di circolazione, valvole di bilanciamento e tenuta impianto — 1 cadauno × €80.00 = €80.00\n  5. Verifica del sistema di scarico fumi e canale fumario: ispezione visiva, controllo tenuta e assenza ostruzioni — 1 cadauno × €70.00 = €70.00\n  6. Redazione della relazione tecnica di verifica con esito dei controlli effettuati, eventuali anomalie riscontrate e raccomandazioni per la messa a norma o la manutenzione programmata — 1 cadauno × €180.00 = €180.00\n\n**Imponibile**: €690.00\n**IVA 22%**: €151.80\n**TOTALE**: €841.80\n\n_Pagamento: Bonifico bancario 30gg data fattura_\n_Validità: 30 giorni dalla data di emissione_\n\n---\n✅ Rispondi **\"approva\"** per inviare · ✏️ **\"modifica: [istruzioni]\"** per correzioni · ❌ **\"rifiuta\"** per scartare18:17\n      \n      completata🔊\n    "
+    },
+    {
+      "role": "user",
+      "text": "\n      approva18:17\n      \n      \n    "
+    },
+    {
+      "role": "assistant",
+      "text": "\n      Preventivo approvato e inviato a 3i efficientamento. Troverai il documento nel dossier cliente.18:17\n      \n      assegnata🔊\n    "
+    }
+  ]
+}

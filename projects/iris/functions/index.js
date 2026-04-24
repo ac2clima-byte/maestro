@@ -24,6 +24,7 @@ import {
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoApproval } from "./handlers/preventivo.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -188,6 +189,56 @@ export const nexusRouter = onRequest(
 
     await ensureNexusSession(sessionId, userId, userMessage);
     const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage });
+
+    // Preventivo approval: intercetta "approva"/"modifica"/"rifiuta" dopo una bozza pendente
+    try {
+      const prevApproval = await tryInterceptPreventivoApproval({ userMessage, sessionId, userId });
+      if (prevApproval && prevApproval._preventivoHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: prevApproval.content,
+          direct: { data: prevApproval.data || null, failed: false },
+          stato: "completata",
+          modello: "preventivo_approval",
+        });
+        res.status(200).json({
+          intent: { collega: "orchestrator", azione: "preventivo_approvazione", parametri: {}, rispostaUtente: prevApproval.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: prevApproval.data || null, failed: false },
+          modello: "preventivo_approval", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("preventivo approval intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // Preventivo generation: intercetta "prepara preventivo ..."
+    if (/^\s*(prepara|genera|fai|scriv\w+)\s+(il\s+|un\s+)?preventiv/i.test(userMessage) ||
+        /\bpreventiv\w+\s+per\s+.*\bintestat/i.test(userMessage)) {
+      try {
+        const ctx = {}; // TODO: passare dati_estratti se arriviamo da "analizza email → sì"
+        const prevResult = await runPreventivoWorkflow({ userMessage, context: ctx, userId, sessionId });
+        if (prevResult) {
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant",
+            content: prevResult.content,
+            direct: { data: prevResult.data || null, failed: false },
+            stato: "completata",
+            modello: "preventivo_workflow",
+          });
+          res.status(200).json({
+            intent: { collega: "orchestrator", azione: "preparare_preventivo", parametri: {}, rispostaUtente: prevResult.content, confidenza: 1 },
+            nexusMessageId, userMsgId, stato: "completata",
+            direct: { data: prevResult.data || null, failed: false },
+            modello: "preventivo_workflow", usage: {},
+          });
+          return;
+        }
+      } catch (e) {
+        logger.error("preventivo workflow failed, falling back", { error: String(e).slice(0, 300) });
+      }
+    }
 
     // Email queue: intercetta "sì/prossima/basta/leggila" dopo "email urgenti/oggi"
     try {
