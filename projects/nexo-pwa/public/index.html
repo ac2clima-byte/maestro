@@ -3,51 +3,97 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#00d4ff">
+<meta name="theme-color" content="#006eb7">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="NEXO">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<!-- ACG Suite Design System: DM Sans + JetBrains Mono + Material Icons Round -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <title>NEXO — Hub dei Colleghi</title>
 <style>
   :root {
-    --bg: #f8fafc;
+    /* ACG Suite Design System (allineato a DOC/GRAPH) */
+    --acg-blue: #006eb7;
+    --acg-blue-dark: #005a96;
+    --acg-blue-light: #e8f4fd;
+    --acg-teal: #00a99d;
+    --acg-green: #8bc53f;
+    --acg-green-dark: #6fa832;
+    --accent-orange: #FF6D00;
+
+    /* Surfaces */
     --surface: #ffffff;
-    --surface-soft: #f1f5f9;
+    --surface-alt: #f8fafb;
+    --background: #f4f5f7;
+
+    /* Alias per retrocompatibilità */
+    --bg: var(--background);
+    --surface-soft: var(--surface-alt);
+
+    /* Borders */
     --border: #e2e8f0;
     --border-strong: #cbd5e1;
-    --text: #0f172a;
-    --text-muted: #64748b;
+    --border-subtle: #e2e8f0;
+    --border-light: #f0f0f0;
+
+    /* Text */
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #64748b;  /* alias */
     --text-dim: #94a3b8;
-    --accent: #2563eb;
-    --ok: #059669;
-    --warn: #d97706;
-    --err: #dc2626;
 
-    --sidebar-bg: #0f172a;
-    --sidebar-bg-hover: #1e293b;
-    --sidebar-bg-active: #334155;
-    --sidebar-text: #cbd5e1;
-    --sidebar-text-muted: #64748b;
-    --sidebar-text-active: #ffffff;
-    --sidebar-border: #1e293b;
+    /* Primary / accent alias */
+    --primary: var(--acg-blue);
+    --primary-dark: var(--acg-blue-dark);
+    --accent: var(--acg-blue);
 
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-    --shadow-md: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
-    --shadow-lg: 0 10px 25px rgba(0,0,0,0.10);
+    /* Semantic */
+    --success: #059669;
+    --warning: #d97706;
+    --error: #dc2626;
+    --ok: var(--success);
+    --warn: var(--warning);
+    --err: var(--error);
 
-    --nexus-accent: #00d4ff;
-    --nexus-accent-dark: #0284c7;
+    /* Sidebar: chiara stile DOC (non più nera) */
+    --sidebar-bg: var(--surface-alt);
+    --sidebar-bg-hover: #eef2f6;
+    --sidebar-bg-active: var(--acg-blue-light);
+    --sidebar-text: #475569;
+    --sidebar-text-muted: #94a3b8;
+    --sidebar-text-active: var(--acg-blue);
+    --sidebar-border: var(--border-subtle);
+
+    /* Shadows DOC */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.12);
+    --shadow-primary: 0 4px 12px rgba(0, 110, 183, 0.2);
+
+    /* Radius DOC */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+
+    /* NEXUS accent → allineato a ACG blue */
+    --nexus-accent: var(--acg-blue);
+    --nexus-accent-dark: var(--acg-blue-dark);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    background: var(--bg);
+    background: var(--background);
     color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 16px;
+    font-family: 'DM Sans', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -68,7 +114,7 @@
     .sidebar.collapsed { display: none; }
   }
 
-  /* ── Sidebar ─────────────────────────────────────────── */
+  /* ── Sidebar stile DOC: chiara, border-left su active ─────── */
   .sidebar {
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
@@ -82,15 +128,16 @@
     border-bottom: 1px solid var(--sidebar-border);
   }
   .sidebar-brand {
-    color: var(--sidebar-text-active);
-    font-size: 1.4rem;
+    color: var(--acg-blue);
+    font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: 0.5px;
   }
   .sidebar-tag {
     color: var(--sidebar-text-muted);
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     margin-top: 2px;
+    font-weight: 400;
   }
   .sidebar-section {
     padding: 14px 8px 8px;
@@ -107,29 +154,37 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
-    border-radius: 8px;
+    padding: 9px 10px 9px 8px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    transition: background 0.12s, color 0.12s, border-left-color 0.12s;
     margin-bottom: 1px;
     border: none;
+    border-left: 3px solid transparent;
     background: transparent;
     width: 100%;
     text-align: left;
     color: var(--sidebar-text);
-    font-size: 0.92rem;
+    font-size: 0.925rem;
+    font-weight: 500;
     user-select: none;
     -webkit-user-select: none;
     pointer-events: auto;
     font-family: inherit;
   }
-  /* I figli (icon/name/status-dot) non devono intercettare l'evento click:
-     così il click si risolve sempre sul button genitore. */
   .sidebar-link > * { pointer-events: none; }
-  .sidebar-link:hover { background: var(--sidebar-bg-hover); color: var(--sidebar-text-active); }
+  .sidebar-link:hover {
+    background: var(--sidebar-bg-hover);
+    color: var(--text);
+  }
   .sidebar-link:active { background: var(--sidebar-bg-active); }
-  .sidebar-link:focus-visible { outline: 2px solid var(--nexus-accent); outline-offset: -2px; }
-  .sidebar-link.active { background: var(--sidebar-bg-active); color: var(--sidebar-text-active); font-weight: 500; }
+  .sidebar-link:focus-visible { outline: 2px solid var(--acg-blue); outline-offset: -2px; }
+  .sidebar-link.active {
+    background: var(--sidebar-bg-active);
+    color: var(--acg-blue);
+    border-left-color: var(--acg-blue);
+    font-weight: 600;
+  }
   .sidebar-link .icon {
     width: 22px;
     height: 22px;
@@ -138,10 +193,13 @@
     align-items: center;
     justify-content: center;
     font-size: 0.78rem;
-    background: var(--sidebar-bg-active);
-    color: var(--sidebar-text-active);
+    background: transparent;
+    color: var(--sidebar-text);
     flex-shrink: 0;
     font-weight: 600;
+  }
+  .sidebar-link.active .icon {
+    color: var(--acg-blue);
   }
   .sidebar-link .name { flex: 1; min-width: 0; }
   .sidebar-link .status-dot {
@@ -160,15 +218,15 @@
   }
   .sidebar-footer .user { color: var(--sidebar-text); }
 
-  /* Mobile topbar */
+  /* Mobile topbar (chiara, stile DOC) */
   .topbar {
     display: none;
-    background: var(--sidebar-bg);
-    color: var(--sidebar-text-active);
+    background: var(--surface);
+    color: var(--text);
     align-items: center;
     padding: 0 14px;
     gap: 10px;
-    border-bottom: 1px solid var(--sidebar-border);
+    border-bottom: 1px solid var(--border-subtle);
   }
   @media (max-width: 760px) {
     .topbar { display: flex; }
@@ -950,22 +1008,23 @@
     position: fixed;
     right: 22px;
     bottom: 22px;
-    width: 58px;
-    height: 58px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    background: var(--nexus-accent);
-    color: #0f172a;
+    background: var(--acg-blue);
+    color: #ffffff;
     border: none;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.6rem;
-    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.45), 0 2px 6px rgba(0,0,0,0.12);
+    font-size: 1.4rem;
+    box-shadow: var(--shadow-primary), 0 2px 6px rgba(0,0,0,0.08);
     z-index: 60;
-    transition: transform 0.12s, box-shadow 0.12s;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    font-family: 'DM Sans', system-ui, sans-serif;
   }
-  .nexus-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0, 212, 255, 0.55); }
+  .nexus-fab:hover { transform: translateY(-2px); background: var(--acg-blue-dark); box-shadow: 0 10px 28px rgba(0, 110, 183, 0.4); }
   .nexus-fab:active { transform: translateY(0); }
   .nexus-fab .badge-unread {
     position: absolute;
@@ -1053,7 +1112,7 @@
   }
   .nexus-header .avatar {
     width: 32px; height: 32px; border-radius: 6px;
-    background: #2563eb;
+    background: var(--acg-blue);
     color: #ffffff;
     display: flex; align-items: center; justify-content: center;
     font-size: 0.82rem;
@@ -1141,10 +1200,10 @@
   }
   .nexus-bubble.user .time { color: rgba(255, 255, 255, 0.75); }
 
-  /* Utente: blu sobrio Slack/Teams-like */
+  /* Utente: blu ACG */
   .nexus-bubble.user {
     align-self: flex-end;
-    background: #2563eb;
+    background: var(--acg-blue);
     color: #ffffff;
     margin-left: auto;
   }
@@ -1250,7 +1309,7 @@
     top: -4px; right: -4px;
     min-width: 16px; height: 16px;
     border-radius: 8px;
-    background: #2563eb;
+    background: var(--acg-blue);
     color: #ffffff;
     font-size: 10px;
     font-weight: 600;
@@ -1284,7 +1343,7 @@
     font-size: 13px;
     font-family: inherit;
   }
-  .nexus-example:hover { border-color: #2563eb; background: #f9fafb; }
+  .nexus-example:hover { border-color: var(--acg-blue); background: var(--surface-alt); }
 
   /* Input bar: flat, bianco, bordo sottile */
   .nexus-input {
@@ -1313,8 +1372,8 @@
   }
   .nexus-input textarea:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    border-color: var(--acg-blue);
+    box-shadow: 0 0 0 3px rgba(0, 110, 183, 0.12);
   }
   .nexus-input textarea::placeholder { color: #9ca3af; }
   .nexus-btn-icon {
@@ -1334,13 +1393,13 @@
   }
   .nexus-btn-icon:hover { background: #f3f4f6; color: #111827; }
   .nexus-btn-icon[hidden] { display: none !important; }
-  /* Bottone invio: blu sobrio, no shadow */
+  /* Bottone invio: blu ACG */
   .nexus-btn-icon.nexus-btn-send {
-    background: #2563eb;
+    background: var(--acg-blue);
     color: #ffffff;
   }
   .nexus-btn-icon.nexus-btn-send:hover {
-    background: #1d4ed8;
+    background: var(--acg-blue-dark);
     color: #ffffff;
   }
   .nexus-btn-icon.recording {
@@ -1578,7 +1637,7 @@
       <div class="user" id="footerUser">—</div>
       <div style="margin-top:4px;display:flex;gap:8px;align-items:center;">
         <span>v0.2 auth</span>
-        <button id="logoutBtn" class="logout-btn" style="margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,0.12);color:#94a3b8;padding:3px 8px;border-radius:5px;cursor:pointer;font-size:0.72rem;">Esci</button>
+        <button id="logoutBtn" class="logout-btn" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--text-secondary);padding:3px 8px;border-radius:5px;cursor:pointer;font-size:0.72rem;font-family:inherit;">Esci</button>
       </div>
     </div>
   </aside>
