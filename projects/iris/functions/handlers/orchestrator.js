@@ -12,6 +12,7 @@ import { handleMemoDossier } from "./memo.js";
 import { handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
+import { runPreventivoWorkflow } from "./preventivo.js";
 
 function flowId() {
   return `flow_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -190,7 +191,67 @@ async function workflowPreventivo({ flowInstanceId, payload }) {
   const pIva = String(payload.piva || payload.p_iva || "").trim();
   const oggetto = String(payload.oggetto || payload.intervento || payload.note || "preventivo").trim();
   const sourceEmailId = payload.sourceEmailId || null;
+  const sourceEmailSender = payload.sourceEmailSender || null;
   const threadPartecipanti = Array.isArray(payload.threadPartecipanti) ? payload.threadPartecipanti : [];
+
+  // NUOVO: se arriva da IRIS auto-trigger, usa runPreventivoWorkflow (sincrono)
+  // che fa arricchimento + CRM + CALLIOPE Sonnet + salva bozza.
+  if (payload.triggeredBy === "iris_auto_intent" || payload.intent === "preparare_preventivo") {
+    const tFull = Date.now();
+    try {
+      const userMsg = [
+        `prepara preventivo`,
+        condominio ? `per ${condominio}` : "",
+        committente ? `intestato a ${committente}` : "",
+        pIva ? `con P.IVA ${pIva}` : "",
+        oggetto ? `per ${oggetto}` : "",
+      ].filter(Boolean).join(" ");
+      const ctx = {
+        dati_estratti: payload.dati_estratti || null,
+        sourceEmailId,
+        sourceEmailSender,
+        threadPartecipanti,
+      };
+      const r = await runPreventivoWorkflow({ userMessage: userMsg, context: ctx, sessionId: `iris_auto_${flowInstanceId}` });
+      const stepData = {
+        step: 1, name: "preventivo_workflow_sync", ok: !!r._preventivoReady, ms: Date.now() - tFull,
+        result: { bozzaId: r.data?.bozzaId, numero: r.data?.preventivo?.numero, totale: r.data?.preventivo?.totale },
+      };
+      summary.steps.push(stepData);
+      await logStep(flowInstanceId, stepData);
+
+      // Push notification con preview
+      if (r._preventivoReady && r.data?.bozzaId) {
+        try {
+          const prev = r.data.preventivo || {};
+          const totale = typeof prev.totale === "number" ? `€${prev.totale.toFixed(2)}` : "—";
+          const intest = (prev.intestatario || {}).ragione_sociale || committente || "?";
+          const condStr = condominio || "cliente";
+          await sendPushNotification(
+            `📄 Preventivo ${condStr} pronto`,
+            `Preventivo per ${intest} (${totale}). Apri NEXUS per approvare.`,
+            `/#nexus/bozza/${r.data.bozzaId}`,
+            null,
+          );
+        } catch (e) { logger.warn("push preventivo failed", { error: String(e).slice(0, 150) }); }
+      }
+
+      summary.pendingApproval = {
+        bozzaId: r.data?.bozzaId,
+        committente,
+        condominio,
+        sourceEmailId,
+        threadPartecipanti,
+        preventivoReady: !!r._preventivoReady,
+      };
+      return summary;
+    } catch (e) {
+      const stepData = { step: 1, name: "preventivo_workflow_sync", ok: false, error: String(e).slice(0, 300), ms: Date.now() - tFull };
+      summary.steps.push(stepData);
+      await logStep(flowInstanceId, stepData);
+      // Cadi al vecchio flusso step-based sotto (fallback)
+    }
+  }
 
   // STEP 1: MEMO condominio
   const step1Start = Date.now();

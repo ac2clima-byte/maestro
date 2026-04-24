@@ -3944,6 +3944,22 @@ function init() {
   // Supporta ?share=<testo> (Chrome ext) e ?sharedAt=<ts> (SW Share Target)
   handleShareIntent();
 
+  // Hash routing: #nexus/bozza/<id> apre chat + prepara messaggio "apri preventivo ID"
+  const hashPreventivo = /^#?nexus\/bozza\/(.+)$/.exec(location.hash);
+  if (hashPreventivo) {
+    const bozzaId = hashPreventivo[1].slice(0, 50);
+    setTimeout(() => {
+      nexusOpen();
+      requestAnimationFrame(() => {
+        const input = $("#nexusInput");
+        if (input) {
+          input.value = `apri preventivo ${bozzaId}`;
+          input.focus();
+        }
+      });
+    }, 800);
+  }
+
   // FCM push notifications — DISABILITATO finché la VAPID key non è configurata
   // (attualmente in FCM_VAPID_KEY c'è un placeholder che genera 401 da FCM).
   // Per riattivare: prendere VAPID key reale da Firebase Console →

@@ -11,6 +11,7 @@ import {
   handleStatoLavagna, handleIrisAnalizzaEmail,
 } from "./iris.js";
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
+import { handleBozzePendenti, handleApriBozza } from "./preventivo.js";
 import { handleMemoDossier } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
@@ -179,6 +180,17 @@ export const DIRECT_HANDLERS = [
     return (col === "echo" && /(wa.*analizz.*ultim|analizz.*ultim.*wa|ultimo.*whats)/.test(az))
       || /analizz(?:a|mi)?\s+(?:l[''])?ultim[oa]\s+(wa|whatsapp|messaggio.*wa)/.test(m);
   }, fn: handleWaInboxAnalyzeLast },
+  // Bozze preventivo pendenti
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return (col === "calliope" && /(bozz.*pendent|da.*approv|preventivi.*attesa)/.test(az))
+      || /bozz\w*\s+pendent|cosa.*(c'?.|da)\s+approv|preventivi.*(in\s+)?attesa|bozz\w*\s+da\s+approv/.test(m);
+  }, fn: handleBozzePendenti },
+  // Apri bozza specifica ("apri preventivo XYZ" / "mostra il primo")
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return /^(apri|mostra|vedi)\s+(il\s+primo|preventivo\s+[a-z0-9-]+)/i.test(m);
+  }, fn: handleApriBozza },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "echo" && /(wa.*inbox|wa.*arrivo|messaggi.*wa|whatsapp.*arrivo|whatsapp.*inbox)/.test(az))

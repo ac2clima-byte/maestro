@@ -582,6 +582,97 @@ async function applyRulesToEmail(emailId, emailData, emailRef) {
   return { matched, actionsExecuted };
 }
 
+// ─── Trigger automatico workflow da intent ────────────────────
+//
+// Quando IRIS ha classificato un'email con un intent riconosciuto
+// (preparare_preventivo, aprire_intervento_urgente, ecc.), scrive sulla
+// Lavagna un messaggio che l'orchestrator processa. Idempotente:
+// se già triggerato (campo `intent_triggered_at`), skip.
+
+const INTENT_TO_WORKFLOW = {
+  preparare_preventivo: { to: "orchestrator", type: "preparare_preventivo", priority: "normal" },
+  aprire_intervento_urgente: { to: "orchestrator", type: "guasto_urgente", priority: "high" },
+  aprire_intervento_ordinario: { to: "ares", type: "richiesta_intervento", priority: "normal" },
+  registrare_fattura: { to: "charta", type: "registra_fattura", priority: "normal" },
+  registrare_incasso: { to: "charta", type: "registra_incasso", priority: "normal" },
+  sollecitare_pagamento: { to: "calliope", type: "sollecito_pagamento", priority: "normal" },
+  gestire_pec: { to: "dikea", type: "pec_ufficiale", priority: "high" },
+};
+
+async function triggerIntentWorkflow(emailId, emailData, emailRef) {
+  if (emailData.intent_triggered_at) return { skipped: "already_triggered" };
+  const cls = emailData.classification || {};
+  const intent = cls.intent;
+  if (!intent || intent === "nessuna_azione" || intent === "archiviare") {
+    return { skipped: "no_action_intent", intent };
+  }
+
+  const mapping = INTENT_TO_WORKFLOW[intent];
+  if (!mapping) {
+    logger.info("intent non mappato a workflow", { emailId, intent });
+    return { skipped: "intent_not_mapped", intent };
+  }
+
+  const raw = emailData.raw || {};
+  const de = cls.dati_estratti || {};
+
+  // Costruisci payload specifico per tipo
+  const payload = {
+    sourceEmailId: emailId,
+    sourceEmailSender: raw.sender,
+    sourceEmailSenderName: raw.sender_name,
+    sourceEmailSubject: raw.subject,
+    intent,
+    dati_estratti: de,
+    contesto_thread: cls.contesto_thread,
+    prossimo_passo: cls.prossimo_passo,
+  };
+
+  if (mapping.type === "preparare_preventivo") {
+    // Estrai dati specifici per il workflow preventivo
+    if (Array.isArray(de.aziende) && de.aziende.length) {
+      payload.committente = de.aziende[0].nome;
+      payload.piva = de.aziende[0].piva;
+    }
+    if (Array.isArray(de.condomini) && de.condomini.length) {
+      payload.condominio = de.condomini[0];
+    }
+    payload.oggetto = cls.prossimo_passo || raw.subject || "verifica impianto";
+  } else if (mapping.type === "guasto_urgente") {
+    if (Array.isArray(de.condomini) && de.condomini.length) payload.condominio = de.condomini[0];
+    payload.testo = cls.summary || raw.subject;
+    payload.descrizione = cls.summary;
+  } else if (mapping.type === "sollecito_pagamento") {
+    if (Array.isArray(de.aziende) && de.aziende.length) payload.cliente = de.aziende[0].nome;
+    payload.importo = Array.isArray(de.importi) && de.importi.length ? de.importi[0].valore : null;
+  }
+
+  try {
+    const ref = await db.collection("nexo_lavagna").add({
+      from: "iris_intent_trigger",
+      to: mapping.to,
+      type: mapping.type,
+      payload,
+      status: "pending",
+      priority: mapping.priority,
+      sourceEmailId: emailId,
+      triggeredBy: "iris_auto_intent",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    logger.info("IRIS intent trigger fired", { emailId, intent, workflow: mapping.type, lavagnaId: ref.id });
+    // Marca email
+    await emailRef.set({
+      intent_triggered_at: FieldValue.serverTimestamp(),
+      intent_triggered: { intent, lavagnaId: ref.id, to: mapping.to, type: mapping.type },
+    }, { merge: true });
+    return { triggered: true, intent, lavagnaId: ref.id, workflow: mapping.type };
+  } catch (e) {
+    logger.error("triggerIntentWorkflow failed", { error: String(e).slice(0, 300), emailId, intent });
+    return { error: String(e).slice(0, 200) };
+  }
+}
+
 export const irisRuleEngine = onDocumentCreated(
   { region: REGION, document: "iris_emails/{emailId}", memory: "256MiB", maxInstances: 5 },
   async (event) => {
@@ -593,11 +684,21 @@ export const irisRuleEngine = onDocumentCreated(
     let result;
     try { result = await applyRulesToEmail(emailId, data, snap.ref); }
     catch (e) { logger.error("applyRulesToEmail failed", { error: String(e), emailId }); return; }
+
+    // Intent-based auto-trigger dei workflow (preparare_preventivo ecc.)
+    let intentResult = null;
+    try {
+      intentResult = await triggerIntentWorkflow(emailId, data, snap.ref);
+    } catch (e) {
+      logger.warn("triggerIntentWorkflow uncaught", { error: String(e).slice(0, 200), emailId });
+    }
+
     try {
       await snap.ref.set({
         rule_processed_at: FieldValue.serverTimestamp(),
         rules_matched: result.matched,
         actions_executed: result.actionsExecuted,
+        intent_trigger_result: intentResult || null,
       }, { merge: true });
     } catch (e) { logger.error("mark processed failed", { error: String(e), emailId }); }
   }

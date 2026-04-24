@@ -9,6 +9,14 @@
       ]
     },
     {
+      "collectionGroup": "nexus_chat",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "iris_rules",
       "queryScope": "COLLECTION",
       "fields": [

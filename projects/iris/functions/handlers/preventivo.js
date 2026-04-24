@@ -489,32 +489,181 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
 /**
  * Intercepta "approva"/"modifica"/"rifiuta" dopo un preventivo pendingApproval.
  */
+/**
+ * Handler NEXUS chat: "bozze pendenti" / "cosa c'è da approvare".
+ * Lista bozze preventivo in stato da_approvare con preview, e se c'è una
+ * bozza sola la mostra direttamente con i bottoni approva/modifica/rifiuta.
+ */
+export async function handleBozzePendenti() {
+  const snap = await db.collection("calliope_bozze")
+    .where("tipo", "==", "preventivo")
+    .where("status", "==", "da_approvare")
+    .limit(10)
+    .get();
+  if (snap.empty) {
+    return { content: "Nessun preventivo in attesa di approvazione. Tutto a posto." };
+  }
+
+  const bozze = [];
+  snap.forEach(d => {
+    const v = d.data() || {};
+    bozze.push({
+      id: d.id,
+      preventivo: v.preventivo,
+      intestatario: v.intestatario,
+      condominio: v.condominio,
+      createdAt: v.createdAt,
+    });
+  });
+
+  // Sort by createdAt desc in memoria
+  bozze.sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() || 0;
+    const tb = b.createdAt?.toMillis?.() || 0;
+    return tb - ta;
+  });
+
+  // Se 1 sola bozza: mostra direttamente con pendingApproval
+  if (bozze.length === 1) {
+    const b = bozze[0];
+    const content = formatPreventivoChat(b.preventivo);
+    return {
+      content: `📬 Un preventivo in attesa di approvazione:\n\n${content}`,
+      data: {
+        bozzaId: b.id,
+        preventivo: b.preventivo,
+        pendingApproval: {
+          kind: "preventivo_approvazione",
+          bozzaId: b.id,
+          destinatario: null,
+          cc: [],
+        },
+      },
+    };
+  }
+
+  // Lista compatta
+  const lines = [];
+  lines.push(`📬 **${bozze.length} preventivi in attesa di approvazione**`);
+  lines.push("");
+  bozze.forEach((b, i) => {
+    const p = b.preventivo || {};
+    const intest = (b.intestatario || p.intestatario || {}).ragione_sociale || "?";
+    const cond = (b.condominio || {}).nome || "?";
+    const tot = typeof p.totale === "number" ? `€${p.totale.toFixed(2)}` : "—";
+    lines.push(`${i + 1}. **${p.numero || b.id.slice(-6)}** — ${cond} / ${intest} (${tot})`);
+  });
+  lines.push("");
+  lines.push(`Dimmi "mostra il primo" oppure "apri preventivo <numero>" per approvarlo.`);
+  return {
+    content: lines.join("\n"),
+    data: { bozze: bozze.map(b => ({ id: b.id, numero: b.preventivo?.numero, totale: b.preventivo?.totale })) },
+  };
+}
+
+/**
+ * Handler: "apri preventivo <numero>" o "mostra il primo" dopo una lista
+ */
+export async function handleApriBozza(parametri, ctx) {
+  const msg = String(ctx?.userMessage || "").toLowerCase();
+  const numM = /(?:apri|mostra|vedi).*(?:preventivo\s+)?([a-z0-9-]{6,})/i.exec(msg);
+  const numero = numM ? numM[1] : null;
+  const isFirst = /\b(primo|prima|il\s+primo)\b/i.test(msg);
+
+  let snap;
+  if (numero) {
+    snap = await db.collection("calliope_bozze")
+      .where("tipo", "==", "preventivo")
+      .where("status", "==", "da_approvare")
+      .limit(20)
+      .get();
+  } else if (isFirst) {
+    snap = await db.collection("calliope_bozze")
+      .where("tipo", "==", "preventivo")
+      .where("status", "==", "da_approvare")
+      .limit(1)
+      .get();
+  } else {
+    return null;
+  }
+
+  let target = null;
+  snap.forEach(d => {
+    if (target) return;
+    const v = d.data();
+    if (numero) {
+      const n = (v.preventivo || {}).numero || "";
+      if (n.toLowerCase().includes(numero.toLowerCase()) || d.id.includes(numero)) {
+        target = { id: d.id, data: v };
+      }
+    } else {
+      target = { id: d.id, data: v };
+    }
+  });
+
+  if (!target) return null;
+
+  const content = formatPreventivoChat(target.data.preventivo);
+  return {
+    content,
+    data: {
+      bozzaId: target.id,
+      preventivo: target.data.preventivo,
+      pendingApproval: {
+        kind: "preventivo_approvazione",
+        bozzaId: target.id,
+        destinatario: null,
+        cc: [],
+      },
+    },
+  };
+}
+
 export async function tryInterceptPreventivoApproval({ userMessage, sessionId, userId }) {
   const t = String(userMessage || "").trim();
   if (!t) return null;
 
-  // Trova pendingApproval da ultimo messaggio assistant
+  // Parola-chiave quickcheck: evita query Firestore se non è una risposta
+  // plausibile di approvazione/modifica/rifiuto
+  if (!/^\s*(approv|ok|manda|invia|va\s+bene|procedi|rifiut|scart|annull|modific)/i.test(t)) {
+    return null;
+  }
+
+  // Trova pendingApproval dall'ultimo messaggio assistant della sessione.
+  // Uso orderBy(createdAt desc) senza where sessionId per evitare compound index;
+  // filtro in memoria.
   let pending = null;
+  let scanCount = 0;
   try {
     const snap = await db.collection("nexus_chat")
-      .where("sessionId", "==", sessionId)
       .orderBy("createdAt", "desc")
-      .limit(4)
+      .limit(50)
       .get();
     snap.forEach(d => {
       if (pending) return;
+      scanCount++;
       const v = d.data() || {};
+      if (v.sessionId !== sessionId) return;
       if (v.role !== "assistant") return;
       const pa = v.direct?.data?.pendingApproval;
       if (pa && pa.kind === "preventivo_approvazione") pending = pa;
     });
-  } catch { return null; }
-  if (!pending || !pending.bozzaId) return null;
+  } catch (e) {
+    logger.warn("preventivo intercept: query failed", { error: String(e).slice(0, 200) });
+    return null;
+  }
+  if (!pending || !pending.bozzaId) {
+    logger.info("preventivo intercept: no pending found", { sessionId, scanCount });
+    return null;
+  }
+  logger.info("preventivo intercept: pending found", { sessionId, bozzaId: pending.bozzaId });
 
   const bozzaRef = db.collection("calliope_bozze").doc(pending.bozzaId);
 
   if (/^\s*(approv|ok|manda|invia|invia.*pure|va\s+bene|procedi)\b/i.test(t)) {
-    await bozzaRef.set({ status: "approvato", approvedAt: FieldValue.serverTimestamp() }, { merge: true });
+    try {
+      await bozzaRef.set({ status: "approvato", approvedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } catch (e) { logger.warn("preventivo approve: bozza set failed", { error: String(e).slice(0, 200) }); }
     // Accoda send_email su Lavagna (ECHO lo processerà quando disponibile)
     try {
       await db.collection("nexo_lavagna").add({
@@ -528,13 +677,14 @@ export async function tryInterceptPreventivoApproval({ userMessage, sessionId, u
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
-    } catch {}
+    } catch (e) { logger.warn("preventivo approve: lavagna add failed", { error: String(e).slice(0, 200) }); }
     // Aggiorna charta_preventivi
     try {
       const q = await db.collection("charta_preventivi").where("bozzaId", "==", pending.bozzaId).limit(1).get();
       q.forEach(d => d.ref.set({ stato: "inviato", inviatoAt: FieldValue.serverTimestamp() }, { merge: true }));
-    } catch {}
+    } catch (e) { logger.warn("preventivo approve: charta update failed", { error: String(e).slice(0, 200) }); }
     const dest = pending.destinatario || "(destinatario da verificare)";
+    logger.info("preventivo approve: returning handled response", { bozzaId: pending.bozzaId });
     return {
       content: `✅ Preventivo approvato e messo in coda per invio.\n\nDestinatario: ${dest}\nBozza: \`${pending.bozzaId}\`\n\nECHO invierà l'email non appena attivo. Per ora resta in coda \`nexo_lavagna\`.`,
       data: { approved: true, bozzaId: pending.bozzaId },
