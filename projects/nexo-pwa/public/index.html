@@ -1023,41 +1023,43 @@
     /* Su mobile il bottone fullscreen è inutile (già a schermo intero) */
     .nexus-fullscreen-btn { display: none !important; }
   }
-  /* Header Telegram-style: azzurro NEXO, avatar 🧠, status line */
+  /* ── Redesign Slack-style: neutro, flat, professionale ────────── */
   .nexus-header {
-    padding: 10px 14px;
-    background: linear-gradient(135deg, var(--nexus-accent) 0%, #0891b2 100%);
-    color: #ffffff;
+    padding: 12px 16px;
+    background: #ffffff;
+    color: #111827;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    border-bottom: 1px solid #e5e7eb;
     z-index: 2;
   }
   .nexus-header .brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-weight: 600;
     flex: 1;
     min-width: 0;
   }
   .nexus-header .avatar {
-    width: 38px; height: 38px; border-radius: 50%;
-    background: rgba(255,255,255,0.2);
+    width: 32px; height: 32px; border-radius: 6px;
+    background: #2563eb;
+    color: #ffffff;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.2rem;
+    font-size: 0.82rem;
+    font-weight: 700;
     flex-shrink: 0;
+    letter-spacing: 0.5px;
   }
   .nexus-header .brand .dot { display: none; }
-  .nexus-header .name { font-size: 1.02rem; font-weight: 600; line-height: 1.1; }
+  .nexus-header .name { font-size: 0.95rem; font-weight: 600; line-height: 1.1; color: #111827; }
   .nexus-header .hint {
-    color: rgba(255,255,255,0.85);
-    font-size: 0.75rem;
+    color: #6b7280;
+    font-size: 0.78rem;
     font-weight: 400;
     line-height: 1.1;
-    margin-top: 1px;
+    margin-top: 2px;
   }
   .nexus-header.is-typing .hint::after {
     content: "";
@@ -1072,257 +1074,213 @@
     80%, 100% { content: "..."; }
   }
   .nexus-header .close {
-    background: transparent; border: none; color: rgba(255,255,255,0.9);
-    cursor: pointer; font-size: 1.25rem;
-    padding: 6px 8px; border-radius: 8px;
+    background: transparent; border: none;
+    color: #6b7280;
+    cursor: pointer; font-size: 1.05rem;
+    padding: 6px 8px; border-radius: 4px;
     font-family: system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-    transition: background 0.15s;
+    transition: background 0.12s, color 0.12s;
+    line-height: 1;
   }
-  .nexus-header .close:hover { background: rgba(255,255,255,0.18); }
+  .nexus-header .close:hover { background: #f3f4f6; color: #111827; }
   .nexus-header-actions { display: flex; gap: 2px; align-items: center; }
 
-  /* Area messaggi — sfondo pattern Telegram */
+  /* Area messaggi: bianco/grigio chiarissimo, no pattern */
   .nexus-messages {
     flex: 1;
     overflow-y: auto;
-    padding: 14px 12px 16px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    background-color: #e4ebf3;
-    background-image:
-      radial-gradient(circle at 20% 30%, rgba(0, 212, 255, 0.05) 0%, transparent 40%),
-      radial-gradient(circle at 80% 70%, rgba(0, 212, 255, 0.06) 0%, transparent 40%),
-      linear-gradient(to bottom, rgba(255,255,255,0.4), rgba(255,255,255,0) 80px);
+    gap: 10px;
+    background-color: #ffffff;
     scroll-behavior: smooth;
     position: relative;
+    font-size: 14px;
   }
 
-  /* Badge data centrale (come Telegram "Oggi", "Ieri") */
+  /* Badge data: piccolo, grigio, pulito */
   .nexus-date-badge {
     align-self: center;
-    background: rgba(114, 142, 163, 0.85);
-    color: #fff;
-    padding: 3px 12px;
-    border-radius: 999px;
-    font-size: 0.72rem;
+    color: #9ca3af;
+    font-size: 11px;
     font-weight: 500;
-    margin: 10px 0 4px;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    letter-spacing: 0.2px;
+    margin: 14px 0 4px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
   }
 
-  /* Bolla messaggio con coda (tail) + ombra leggera */
+  /* Bolle: senza coda, bordi sobri, ombra zero */
   .nexus-bubble {
-    max-width: 75%;
-    padding: 7px 11px 6px;
-    border-radius: 12px;
-    font-size: 0.92rem;
-    line-height: 1.4;
+    max-width: 80%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
     white-space: pre-wrap;
     word-wrap: break-word;
     position: relative;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
-    animation: nexus-bubble-in 0.18s ease-out;
     margin-bottom: 2px;
   }
-  @keyframes nexus-bubble-in {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  /* Aggiungi piccolo padding sotto per il timestamp inline */
   .nexus-bubble .time {
-    font-size: 0.66rem;
-    color: rgba(60, 80, 110, 0.55);
+    font-size: 11px;
+    color: #9ca3af;
     float: right;
-    margin: 4px 0 -2px 8px;
+    margin: 3px 0 -2px 10px;
     user-select: none;
+    font-weight: 400;
   }
-  .nexus-bubble.user .time { color: rgba(15, 50, 80, 0.55); }
+  .nexus-bubble.user .time { color: rgba(255, 255, 255, 0.75); }
 
-  /* Utente: verde-azzurro stile Telegram (effetti) */
+  /* Utente: blu sobrio Slack/Teams-like */
   .nexus-bubble.user {
     align-self: flex-end;
-    background: #e1f7cb;
-    color: #0f172a;
-    border-radius: 14px;
-    border-bottom-right-radius: 4px;
+    background: #2563eb;
+    color: #ffffff;
     margin-left: auto;
   }
-  .nexus-bubble.user::after {
-    content: "";
-    position: absolute;
-    bottom: 0; right: -6px;
-    width: 12px; height: 14px;
-    background: #e1f7cb;
-    border-radius: 0 0 0 12px;
-    clip-path: polygon(0 0, 0 100%, 100% 100%);
-  }
 
-  /* Assistente NEXUS: bianco con coda a sinistra */
+  /* Assistente NEXUS: grigio chiaro */
   .nexus-bubble.assistant {
     align-self: flex-start;
-    background: #ffffff;
-    color: var(--text);
-    border-radius: 14px;
-    border-bottom-left-radius: 4px;
+    background: #f1f3f5;
+    color: #1a1a1a;
     margin-right: auto;
   }
-  .nexus-bubble.assistant::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: -6px;
-    width: 12px; height: 14px;
-    background: #ffffff;
-    border-radius: 0 0 12px 0;
-    clip-path: polygon(100% 0, 0 100%, 100% 100%);
+
+  /* Consecutive: compatta senza gap extra */
+  .nexus-bubble.user.consecutive,
+  .nexus-bubble.assistant.consecutive {
+    margin-top: 0;
   }
 
-  /* Consecutive same-sender bubbles: rimuovi coda + compatta */
-  .nexus-bubble.user.consecutive::after,
-  .nexus-bubble.assistant.consecutive::after { display: none; }
-  .nexus-bubble.user.consecutive { border-bottom-right-radius: 14px; }
-  .nexus-bubble.assistant.consecutive { border-bottom-left-radius: 14px; }
+  /* Highlight sottile quando TTS sta leggendo */
+  .nexus-bubble.is-speaking {
+    box-shadow: inset 0 0 0 1px #60a5fa;
+  }
 
-  /* Typing indicator come Telegram: bolla con 3 puntini */
-  .nexus-bubble.is-speaking { box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.35), 0 1px 2px rgba(0,0,0,0.08); }
-
-  /* Meta sotto la bolla assistant (Collega chip + stato) */
+  /* Meta sotto la bolla */
   .nexus-bubble-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 8px;
     margin-top: 6px;
-    font-size: 0.72rem;
+    font-size: 11px;
     align-items: center;
+    color: #6b7280;
   }
   .nexus-badge-col {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: #e0f2fe;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
-    font-weight: 600;
-    font-size: 0.68rem;
-    letter-spacing: 0.2px;
-    text-transform: uppercase;
+    display: inline-block;
+    padding: 0;
+    background: transparent;
+    color: #9ca3af;
+    border: none;
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0;
+    text-transform: none;
   }
-  .nexus-badge-col::before { content: "via "; opacity: 0.6; font-weight: 500; text-transform: none; }
+  .nexus-badge-col::before { content: "via "; color: #9ca3af; font-weight: 400; }
   .nexus-badge-stato {
-    padding: 2px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--surface-soft);
-    color: var(--text-muted);
-    font-size: 0.68rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 11px;
   }
-  .nexus-badge-stato.in_attesa_collega { background:#fef3c7; color:#b45309; border-color:#fde68a; }
-  .nexus-badge-stato.completata { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
-  .nexus-badge-stato.collega_inattivo { background:#f3f4f6; color:#64748b; border-color:#e5e7eb; }
-  .nexus-badge-stato.timeout { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
-  .nexus-badge-stato.errore { background:#fef2f2; color:#b91c1c; border-color:#fecaca; }
+  .nexus-badge-stato.in_attesa_collega { color: #b45309; }
+  .nexus-badge-stato.completata { color: #047857; }
+  .nexus-badge-stato.collega_inattivo { color: #6b7280; }
+  .nexus-badge-stato.timeout,
+  .nexus-badge-stato.errore { color: #b91c1c; }
 
-  /* Typing bubble (3 pallini) */
+  /* Typing: tre pallini grigi, niente bolla */
   .nexus-typing {
     display: inline-flex;
     gap: 4px;
-    padding: 10px 13px;
-    background: #ffffff;
-    border-radius: 14px;
-    border-bottom-left-radius: 4px;
+    padding: 10px 12px;
+    background: #f1f3f5;
+    border-radius: 8px;
     align-self: flex-start;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.08);
-    position: relative;
-    animation: nexus-bubble-in 0.18s ease-out;
-  }
-  .nexus-typing::after {
-    content: "";
-    position: absolute;
-    bottom: 0; left: -6px;
-    width: 12px; height: 14px;
-    background: #ffffff;
-    border-radius: 0 0 12px 0;
-    clip-path: polygon(100% 0, 0 100%, 100% 100%);
+    margin-right: auto;
   }
   .nexus-typing span {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #94a3b8;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #9ca3af;
     animation: nexus-typing-bounce 1.2s infinite ease-in-out;
   }
   .nexus-typing span:nth-child(2) { animation-delay: 0.15s; }
   .nexus-typing span:nth-child(3) { animation-delay: 0.3s; }
   @keyframes nexus-typing-bounce {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-5px); opacity: 1; }
+    30% { transform: translateY(-4px); opacity: 1; }
   }
 
-  /* Scroll-to-bottom FAB */
+  /* Scroll-to-bottom: sobrio */
   .nexus-scroll-down {
     position: absolute;
-    right: 14px;
-    bottom: 12px;
-    width: 40px; height: 40px;
+    right: 16px;
+    bottom: 14px;
+    width: 32px; height: 32px;
     border-radius: 50%;
     background: #ffffff;
-    border: none;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     display: none;
     align-items: center; justify-content: center;
-    font-size: 1.2rem;
-    color: #64748b;
+    font-size: 14px;
+    color: #6b7280;
     cursor: pointer;
     z-index: 5;
-    transition: transform 0.15s;
   }
   .nexus-scroll-down.show { display: flex; }
-  .nexus-scroll-down:hover { transform: scale(1.05); }
+  .nexus-scroll-down:hover { background: #f9fafb; color: #111827; }
   .nexus-scroll-down .count {
     position: absolute;
     top: -4px; right: -4px;
-    min-width: 18px; height: 18px;
-    border-radius: 9px;
-    background: #00d4ff;
-    color: #0f172a;
-    font-size: 0.68rem;
-    font-weight: 700;
+    min-width: 16px; height: 16px;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 600;
     display: flex; align-items: center; justify-content: center;
-    padding: 0 5px;
+    padding: 0 4px;
   }
 
   .nexus-empty {
-    color: var(--text-muted);
+    color: #6b7280;
     text-align: center;
     padding: 40px 20px;
-    font-size: 0.9rem;
+    font-size: 14px;
+    line-height: 1.6;
   }
   .nexus-empty .examples {
-    margin-top: 14px;
+    margin-top: 16px;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    font-size: 0.85rem;
+    font-size: 13px;
   }
   .nexus-example {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
     padding: 8px 12px;
     cursor: pointer;
     text-align: left;
-    color: var(--text);
-    transition: border-color 0.12s, background 0.12s;
-    font-size: 0.88rem;
+    color: #1a1a1a;
+    transition: background 0.12s, border-color 0.12s;
+    font-size: 13px;
+    font-family: inherit;
   }
-  .nexus-example:hover { border-color: var(--nexus-accent); background: #f0fbff; }
+  .nexus-example:hover { border-color: #2563eb; background: #f9fafb; }
 
-  /* Input bar stile Telegram: pill shape, bianco, allegato a sinistra, mic/send a destra */
+  /* Input bar: flat, bianco, bordo sottile */
   .nexus-input {
-    border-top: 1px solid rgba(0,0,0,0.08);
-    padding: 8px 10px;
+    border-top: 1px solid #e5e7eb;
+    padding: 10px 12px;
     display: flex;
     gap: 6px;
     align-items: flex-end;
@@ -1331,51 +1289,49 @@
   }
   .nexus-input textarea {
     flex: 1;
-    min-height: 42px;
+    min-height: 40px;
     max-height: 120px;
-    border: 1px solid transparent;
-    border-radius: 22px;
-    padding: 10px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 9px 12px;
     font: inherit;
-    font-size: 0.95rem;
+    font-size: 14px;
     resize: none;
     line-height: 1.4;
-    background: #f1f3f6;
-    transition: background 0.15s, border-color 0.15s;
+    background: #ffffff;
+    color: #111827;
+    transition: border-color 0.12s, box-shadow 0.12s;
   }
   .nexus-input textarea:focus {
     outline: none;
-    background: #ffffff;
-    border-color: var(--nexus-accent);
-    box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.12);
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
   }
-  .nexus-input textarea::placeholder { color: #94a3b8; }
+  .nexus-input textarea::placeholder { color: #9ca3af; }
   .nexus-btn-icon {
-    width: 42px; height: 42px;
-    border-radius: 50%;
+    width: 36px; height: 36px;
+    border-radius: 6px;
     border: none;
     background: transparent;
     cursor: pointer;
-    font-size: 1.15rem;
+    font-size: 1rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #64748b;
-    transition: background 0.12s, color 0.12s, transform 0.12s;
+    color: #6b7280;
+    transition: background 0.12s, color 0.12s;
     flex-shrink: 0;
     font-family: system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   }
-  .nexus-btn-icon:hover { background: rgba(0, 212, 255, 0.1); color: #0f172a; }
-  .nexus-btn-icon:active { transform: scale(0.92); }
+  .nexus-btn-icon:hover { background: #f3f4f6; color: #111827; }
   .nexus-btn-icon[hidden] { display: none !important; }
-  /* Bottone invio: cerchio cyan quando c'è del testo */
+  /* Bottone invio: blu sobrio, no shadow */
   .nexus-btn-icon.nexus-btn-send {
-    background: var(--nexus-accent);
+    background: #2563eb;
     color: #ffffff;
-    box-shadow: 0 2px 6px rgba(0, 212, 255, 0.3);
   }
   .nexus-btn-icon.nexus-btn-send:hover {
-    background: #0891b2;
+    background: #1d4ed8;
     color: #ffffff;
   }
   .nexus-btn-icon.recording {
@@ -1383,10 +1339,10 @@
     animation: nexus-mic-pulse 1.1s infinite;
   }
   .nexus-btn-icon.speaking {
-    background: #dbeafe; color: #1d4ed8;
+    background: #eff6ff; color: #1d4ed8;
   }
   .nexus-btn-icon.idle {
-    background: #d1fae5; color: #047857;
+    background: #f0fdf4; color: #047857;
   }
   @keyframes nexus-mic-pulse {
     0% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); }
@@ -4347,7 +4303,7 @@ bootstrapAuth().catch(e => {
 <div id="nexusPanel" class="nexus-panel" role="dialog" aria-labelledby="nexusTitle">
   <div class="nexus-header" id="nexusHeader">
     <div class="brand">
-      <div class="avatar" aria-hidden="true">🧠</div>
+      <div class="avatar" aria-hidden="true">NX</div>
       <div>
         <div id="nexusTitle" class="name">NEXUS</div>
         <div class="hint" id="nexusStatus">online</div>
