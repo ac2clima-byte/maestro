@@ -212,25 +212,28 @@ export async function handleWaInboxList(parametri) {
     });
   });
 
-  if (!rows.length) return { content: "📭 Nessun messaggio WhatsApp in arrivo non archiviato." };
-
-  const lines = rows.slice(0, 15).map((r, i) => {
-    const when = r.when ? fmtDataOra(r.when) : "?";
-    const urgIcon = r.nexo?.urgenza === "critica" ? "🔴" :
-                    r.nexo?.urgenza === "alta" ? "🟠" :
-                    r.urgente ? "⚠️" : " ·";
-    const riassunto = r.nexo?.riassunto || r.sintesi_ai || r.body.slice(0, 80);
-    const intent = r.nexo?.intent ? ` [${r.nexo.intent}]` : "";
-    const statoTag = r.stato === "chiuso" ? " ✓" : "";
-    return `${i + 1}. ${urgIcon} [${when}] **${r.from}**${intent}${statoTag}\n   ${riassunto}`;
-  }).join("\n\n");
+  if (!rows.length) return { content: "Non ho messaggi WhatsApp in attesa." };
 
   const totale = rows.length;
   const urgenti = rows.filter(r => r.nexo?.urgenza === "critica" || r.nexo?.urgenza === "alta" || r.urgente).length;
-  const header = `📱 **WhatsApp in arrivo** — ${totale} messaggi${urgenti ? ` (${urgenti} urgenti)` : ""}`;
+
+  const parts = [];
+  if (urgenti) {
+    parts.push(`Hai ${totale} messaggi WhatsApp in attesa, ${urgenti} urgenti.`);
+  } else {
+    parts.push(`Hai ${totale} messaggi WhatsApp in attesa.`);
+  }
+
+  const primi = rows.slice(0, 5).map((r, i) => {
+    const riassunto = (r.nexo?.riassunto || r.sintesi_ai || r.body.slice(0, 80)).replace(/\s+/g, " ").trim();
+    return `${i + 1}. ${r.from}: ${riassunto}`;
+  }).join("\n");
+  parts.push(primi);
+
+  if (rows.length > 5) parts.push(`E altri ${rows.length - 5} più vecchi.`);
 
   return {
-    content: `${header}\n\n${lines}${rows.length > 15 ? `\n\n…e altri ${rows.length - 15}.` : ""}`,
+    content: parts.join("\n\n"),
     data: { total: totale, urgenti, sampled: rows.slice(0, 15) },
   };
 }
@@ -288,26 +291,35 @@ export async function handleWaInboxAnalyzeLast(parametri) {
     }, { merge: true });
   } catch {}
 
-  const senderLabel = d.from_name || d.from_number || "?";
-  const when = fmtDataOra(d.wa_timestamp || d.created_at);
-  const lines = [];
-  lines.push(`📱 **Ultimo WA da ${senderLabel}** (${when})`);
-  lines.push("");
-  lines.push(`> ${String(d.body).slice(0, 300)}`);
-  lines.push("");
-  lines.push(`**Intent**: \`${analysis.intent || "?"}\``);
-  lines.push(`**Urgenza**: ${analysis.urgenza || "?"}`);
-  if (analysis.riassunto) lines.push(`**Riassunto**: ${analysis.riassunto}`);
+  const senderLabel = d.from_name || d.from_number || "qualcuno";
+  const firstWord = senderLabel.split(/\s+/)[0];
   const ent = analysis.entita || {};
-  const entRows = [];
-  if (ent.condominio) entRows.push(`  • Condominio: ${ent.condominio}`);
-  if (ent.indirizzo) entRows.push(`  • Indirizzo: ${ent.indirizzo}`);
-  if (ent.impianto) entRows.push(`  • Impianto: ${ent.impianto}`);
-  if (entRows.length) { lines.push("**Entità**:"); lines.push(entRows.join("\n")); }
-  if (analysis.azione_suggerita) { lines.push(""); lines.push(`**Azione suggerita**: ${analysis.azione_suggerita}`); }
+  const parts = [];
+
+  // Apertura naturale
+  parts.push(`Ultimo WhatsApp da ${firstWord}.`);
+
+  // Riassunto (o body se manca)
+  const riassunto = analysis.riassunto || (String(d.body).slice(0, 180));
+  parts.push(riassunto.replace(/\s+/g, " ").trim());
+
+  // Dati chiave in frase
+  const entBits = [];
+  if (ent.condominio) entBits.push(`condominio ${ent.condominio}`);
+  if (ent.indirizzo) entBits.push(ent.indirizzo);
+  if (ent.impianto) entBits.push(ent.impianto);
+  if (entBits.length) parts.push(`Riguarda ${entBits.join(", ")}.`);
+
+  // Urgenza / azione proposta
+  if (analysis.urgenza === "critica" || analysis.urgenza === "alta") {
+    parts.push(`È urgente.`);
+  }
+  if (analysis.azione_suggerita) {
+    parts.push(`${analysis.azione_suggerita.replace(/\.$/, "")}. Procedo?`);
+  }
 
   return {
-    content: lines.join("\n"),
+    content: parts.join(" "),
     data: { msgId: doc.id, analysis },
   };
 }

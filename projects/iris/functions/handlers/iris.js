@@ -66,8 +66,10 @@ export async function handleEmailOggi() {
 
 export async function handleEmailTotali() {
   const emails = await fetchIrisEmails(500);
+  const ultimo = emails[0]?.received_time;
+  const quando = ultimo ? fmtDataOra(ultimo) : "non saprei";
   return {
-    content: `In totale ho indicizzato **${emails.length} email** (ultime 500 mostrate). La più recente è di ${fmtDataOra(emails[0]?.received_time)}.`,
+    content: `Ne ho indicizzate ${emails.length}, l'ultima è arrivata il ${quando}.`,
     data: { count: emails.length },
   };
 }
@@ -77,7 +79,7 @@ export async function handleRicercaEmailMittente(parametri) {
     parametri.mittente || parametri.sender || parametri.nome || parametri.from || "",
   ).trim().toLowerCase();
   if (!query) {
-    return { content: "Mi manca il nome del mittente. Riprova specificando chi." };
+    return { content: "Di chi? Dimmi un nome." };
   }
   const emails = await fetchIrisEmails(400);
   const match = emails.filter(e => {
@@ -85,28 +87,28 @@ export async function handleRicercaEmailMittente(parametri) {
     return bag.includes(query);
   });
   if (!match.length) {
-    return { content: `Non trovo email da "${query}" nelle ultime 400.` };
+    return { content: `Non trovo email da ${query} nelle ultime 400.` };
   }
-  const lines = match.slice(0, 8).map(emailLine).join("\n");
-  const more = match.length > 8 ? `\n…e altre ${match.length - 8}.` : "";
-  return {
-    content: `Ho trovato **${match.length} email** da "${query}":\n\n${lines}${more}`,
-    data: { count: match.length, query },
-  };
+  // Riutilizzo la presentazione conversazionale
+  const conv = conversationalPresent(match, `email da ${query}`);
+  return conv || { content: `Ne ho ${match.length} da ${query}.`, data: { count: match.length, query } };
 }
 
 export async function handleEmailSenzaRisposta() {
   const emails = await fetchIrisEmails(500);
   const att = emails.filter(e => e.followup && e.followup.needsAttention);
-  if (!att.length) return { content: "Tutte le email sono state gestite (nessuna in attesa >48h)." };
-  const lines = att.slice(0, 10).map((e, i) => {
-    const days = e.followup.daysWithoutReply || 0;
-    const who = e.senderName || e.sender;
-    return `${i + 1}. ⏰ ${days}g — ${who}: ${e.subject}`;
-  }).join("\n");
-  const more = att.length > 10 ? `\n…e altre ${att.length - 10}.` : "";
+  if (!att.length) return { content: "Tutte gestite, niente in attesa da più di 48 ore." };
+  const primo = att[0];
+  const chi = primo.senderName || primo.sender || "qualcuno";
+  const giorni = primo.followup?.daysWithoutReply || 0;
+  if (att.length === 1) {
+    return {
+      content: `Una è in attesa da ${giorni} giorni: ${chi}. Vuoi che te la legga?`,
+      data: { count: 1 },
+    };
+  }
   return {
-    content: `Hai **${att.length} email senza risposta da più di 48h**:\n\n${lines}${more}`,
+    content: `Ne hai ${att.length} senza risposta da più di due giorni. La più vecchia è di ${chi}, ${giorni} giorni. Vuoi partire da quella?`,
     data: { count: att.length },
   };
 }
@@ -118,17 +120,14 @@ export async function handleEmailPerCategoria(parametri) {
   for (const e of emails) groups[e.category] = (groups[e.category] || 0) + 1;
   if (wanted && groups[wanted] !== undefined) {
     const match = emails.filter(e => e.category === wanted);
-    const lines = match.slice(0, 8).map(emailLine).join("\n");
-    return {
-      content: `Categoria **${wanted}**: ${match.length} email.\n\n${lines}`,
-      data: { count: match.length, categoria: wanted },
-    };
+    const conv = conversationalPresent(match, `email ${wanted.toLowerCase().replace(/_/g, " ")}`);
+    return conv || { content: `Ne ho ${match.length} di categoria ${wanted}.`, data: { count: match.length } };
   }
-  const breakdown = Object.entries(groups)
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `  · ${k}: ${v}`).join("\n");
+  // Panoramica per categoria — 3 più popolate
+  const top = Object.entries(groups).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const frasi = top.map(([k, v]) => `${v} ${k.toLowerCase().replace(/_/g, " ")}`).join(", ");
   return {
-    content: `Distribuzione email per categoria (ultime ${emails.length}):\n\n${breakdown}`,
+    content: `Sulle ultime ${emails.length}: ${frasi}.`,
     data: groups,
   };
 }
@@ -149,15 +148,16 @@ export async function handleStatoLavagna() {
       createdAt: v.createdAt || null,
     });
   });
-  if (!rows.length) return { content: "La Lavagna è vuota — nessun messaggio scambiato." };
-  const lines = rows.map((r, i) =>
-    `${i + 1}. ${r.from} → ${r.to} · ${r.type} [${r.status}]` +
-    (r.priority !== "normal" ? ` prio:${r.priority}` : "")
-  ).join("\n");
-  return {
-    content: `Ultimi **${rows.length} messaggi** sulla Lavagna:\n\n${lines}`,
-    data: { count: rows.length },
-  };
+  if (!rows.length) return { content: "Niente sulla Lavagna al momento." };
+  const pending = rows.filter(r => r.status === "pending" || r.status === "in_progress").length;
+  const urgenti = rows.filter(r => r.priority === "high").length;
+  const parts = [];
+  if (urgenti) {
+    parts.push(`Sulla Lavagna ci sono ${rows.length} messaggi, ${pending} in lavorazione di cui ${urgenti} urgenti.`);
+  } else {
+    parts.push(`Sulla Lavagna ci sono ${rows.length} messaggi recenti${pending ? `, ${pending} in lavorazione` : ""}.`);
+  }
+  return { content: parts.join(" "), data: { count: rows.length, pending, urgenti } };
 }
 
 // ─── Archivia email in cartella per mittente ───────────────────
@@ -323,39 +323,73 @@ async function classifyEmailV2(apiKey, email) {
   try { return JSON.parse(text.slice(s, e + 1)); } catch { return null; }
 }
 
-function formatAnalyzedEmail(email, cls) {
-  const lines = [];
-  lines.push(`📧 **Email analizzata** — ${email.senderName || email.sender || "?"}`);
-  lines.push(`_Oggetto: ${email.subject || "(vuoto)"} · Ricevuta: ${fmtDataOra(email.received_time)}_`);
-  lines.push("");
-  lines.push(`**Categoria**: ${cls.category || "?"}`);
-  lines.push(`**Intent**: \`${cls.intent || "?"}\``);
-  if (cls.confidence) lines.push(`**Confidenza**: ${cls.confidence}`);
-  lines.push("");
-  lines.push(`**Contesto thread**: ${cls.contesto_thread || "—"}`);
-  lines.push("");
-  lines.push(`**Prossimo passo proposto**: ${cls.prossimo_passo || "—"}`);
+// Primo nome (per indicare chi ha scritto in modo naturale)
+function firstName(full) {
+  const parts = String(full || "").trim().split(/\s+/);
+  return parts[0] || "";
+}
 
+// Riscrive l'intent in frase umana
+function intentNaturale(intent) {
+  const map = {
+    preparare_preventivo: "preparare un preventivo",
+    registrare_fattura: "registrare la fattura",
+    aprire_intervento_urgente: "aprire un intervento urgente",
+    aprire_intervento_ordinario: "aprire un intervento",
+    rispondere_a_richiesta: "risponderti",
+    registrare_incasso: "registrare l'incasso",
+    gestire_pec: "gestire la PEC",
+    sollecitare_pagamento: "mandare un sollecito",
+    archiviare: "archiviarla",
+    nessuna_azione: null,
+  };
+  return map[intent] || null;
+}
+
+function formatAnalyzedEmail(email, cls) {
+  const who = firstName(email.senderName) || (email.sender || "").split("@")[0] || "qualcuno";
+  const ctx = (cls.contesto_thread || "").trim();
+  const prossimo = (cls.prossimo_passo || "").trim();
   const de = cls.dati_estratti || {};
-  if (Array.isArray(de.persone) && de.persone.length) {
-    lines.push("");
-    lines.push(`**Persone**: ${de.persone.map(p => p.nome + (p.azienda ? ` (${p.azienda})` : "")).filter(Boolean).join(", ")}`);
-  }
+
+  const parts = [];
+
+  // Apertura: "Ho visto la mail di Torriglia. [contesto]"
+  parts.push(`Ho visto la mail di ${who}.`);
+  if (ctx) parts.push(ctx);
+
+  // Dati estratti in frase: "Ti manda la P.IVA 02486680065 per 3i efficientamento, riferito a De Amicis."
+  const dataBits = [];
   if (Array.isArray(de.aziende) && de.aziende.length) {
-    lines.push(`**Aziende**: ${de.aziende.map(a => a.nome + (a.piva ? ` [P.IVA ${a.piva}]` : "")).filter(Boolean).join(", ")}`);
+    const a = de.aziende[0];
+    if (a.nome && a.piva) dataBits.push(`${a.nome} (P.IVA ${a.piva})`);
+    else if (a.nome) dataBits.push(a.nome);
   }
   if (Array.isArray(de.condomini) && de.condomini.length) {
-    lines.push(`**Condomini**: ${de.condomini.filter(Boolean).join(", ")}`);
+    dataBits.push(`condominio ${de.condomini[0]}`);
   }
   if (Array.isArray(de.importi) && de.importi.length) {
-    lines.push(`**Importi**: ${de.importi.map(i => `€${i.valore}${i.causale ? ` (${i.causale})` : ""}`).join(", ")}`);
+    const i = de.importi[0];
+    dataBits.push(`€${i.valore}${i.causale ? ` per ${i.causale}` : ""}`);
   }
-  if (Array.isArray(de.riferimenti_documenti) && de.riferimenti_documenti.length) {
-    lines.push(`**Riferimenti**: ${de.riferimenti_documenti.filter(Boolean).join(", ")}`);
+  // Non duplico le info se il contesto_thread le ha già citate
+  const ctxLower = ctx.toLowerCase();
+  const nuoviBits = dataBits.filter(b => !ctxLower.includes(b.toLowerCase().slice(0, 15)));
+  if (nuoviBits.length) {
+    parts.push(`Dati chiave: ${nuoviBits.join(", ")}.`);
   }
-  lines.push("");
-  lines.push(`❓ **È corretto?** Rispondi "sì", "sì ma [modifica]", oppure "no, l'intent è [altro]".`);
-  return lines.join("\n");
+
+  // Proposta d'azione
+  const azioneNat = intentNaturale(cls.intent);
+  if (prossimo) {
+    parts.push(`${prossimo.replace(/\.$/, "")}. Procedo?`);
+  } else if (azioneNat) {
+    parts.push(`Vuoi che provi a ${azioneNat}?`);
+  } else {
+    parts.push(`Ho capito bene?`);
+  }
+
+  return parts.join(" ");
 }
 
 /**

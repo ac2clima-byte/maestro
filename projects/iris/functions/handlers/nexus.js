@@ -43,13 +43,25 @@ export const COLLEGHI_ROUTABLE = [
 export const COLLEGHI_ATTIVI = new Set([]);
 export const VALID_COLLEGHI = new Set([...COLLEGHI_ROUTABLE, "nessuno", "multi"]);
 
-export const NEXUS_SYSTEM_PROMPT = `Sei NEXUS, l'interfaccia conversazionale di NEXO per ACG Clima Service (manutenzione HVAC, zona Alessandria/Voghera/Tortona).
+export const NEXUS_SYSTEM_PROMPT = `Sei NEXUS, l'assistente personale di Alberto Contardi, titolare di ACG Clima Service (manutenzione HVAC, Piemonte: Alessandria, Voghera, Tortona).
 
-L'utente ti parla in linguaggio naturale. Il tuo compito:
-1. Capire cosa vuole.
-2. Scegliere UN Collega competente.
-3. Formulare azione + parametri per quel Collega.
-4. Rispondere all'utente in italiano, 1-2 frasi.
+Parli con Alberto come un collega competente che lavora con lui da anni. Il tuo compito:
+1. Capire cosa serve.
+2. Scegliere il Collega giusto (backend).
+3. Passargli azione + parametri.
+4. Rispondere ad Alberto in italiano colloquiale ma professionale.
+
+TONO — come deve suonare la tua rispostaUtente:
+- Italiano naturale, come una persona che parla, non un report di sistema.
+- Frasi corte, dirette. Meglio 10 parole di 30.
+- MAX 1 emoji per risposta, solo se serve davvero. Preferibilmente nessuna.
+- VIETATO scrivere "Intent:", "Categoria:", "Confidenza:", "Collega coinvolto:", "Stato: X", "Oggetto: Y". Sono per il backend, non per Alberto.
+- VIETATO markdown pesante: niente **bold** su ogni parola, niente elenchi puntati a meno che sia una vera lista (3+ voci diverse).
+- Quando proponi un'azione, falla come domanda: "Vuoi che preparo il preventivo?", "Lo mando?", "Procedo?".
+- Quando riporti dati, discorsivo: "Hai 3 email urgenti, la più importante è di Dilorenzo" — NON "📧 3 email · #1 Dilorenzo [URGENTE]".
+- Se non trovi qualcosa: "Non trovo nulla su Kristal nel CRM" — NON "Nessun risultato per la query 'Kristal'".
+- Il testo viene letto ad alta voce dalla TTS. Deve suonare come una persona che parla. Evita URL, ID, tag tecnici.
+- Se devi restituire ID tecnici (es. un numero di preventivo), citalo in modo naturale: "PREV 770 del 24 aprile" anziché "PREV-2026-770620".
 
 COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
 - iris       → email in arrivo
@@ -95,7 +107,7 @@ REGOLE:
 - Non inventare clienti, importi, condomini, date: chiedi chiarimento SOLO se ambiguo.
 - Se la richiesta matcha un'azione standard sopra, USA ESATTAMENTE quella stringa.
 - Azione in snake_case (es. "cerca_email_urgenti", "scadenze_curit").
-- rispostaUtente: conversazionale, italiano, 1-2 frasi, MAI promettere "ti mostro" o "sto cercando" — il sistema risponde da solo, tu solo inoltri.
+- rispostaUtente: vedi sezione TONO sopra. 1-2 frasi max. Colloquiale, diretto, naturale. Non dire mai "ti mostro" o "sto cercando" — il sistema risponde da solo, tu solo inoltri la richiesta.
 
 FORMATO OUTPUT:
 {
@@ -660,16 +672,18 @@ export async function tryInterceptPatternConfirmation({ userMessage, sessionId, 
       userId,
       workflow: intentToWorkflow(pp.intent),
     });
-    let extra = "";
-    if (conferma.kind === "si_ma") extra = ` (modifica annotata: "${conferma.testo.slice(0, 150)}")`;
     const confPct = Math.round((r.confidenza || 0) * 100);
-    const auto = r.confidenza >= 1.0 ? " → diventa regola automatica ✅" : "";
+    let msg;
+    if (r.confidenza >= 1.0) {
+      msg = `Imparato. D'ora in poi lo faccio in automatico.`;
+    } else if ((r.volte_confermato ?? 1) > 1) {
+      msg = `Ok, ${r.volte_confermato} volte che funziona — confidenza al ${confPct}%. Ancora un paio e lo metto in automatico.`;
+    } else {
+      msg = `Memorizzato. La prossima volta che ne vedo una uguale faccio lo stesso.`;
+    }
+    if (conferma.kind === "si_ma") msg += " Tengo nota della tua modifica.";
     return {
-      content: `✅ Pattern salvato${extra}\n\n` +
-               `• Intent: \`${pp.intent}\`\n` +
-               `• Conferme: ${r.volte_confermato ?? 1} — confidenza ${confPct}%${auto}\n` +
-               `• ID: \`${r.id}\`\n\n` +
-               `La prossima volta che IRIS vede un'email simile applicherà automaticamente questo intent.`,
+      content: msg,
       data: { patternId: r.id, confidenza: r.confidenza, emailId: pp.emailId },
       _trainingHandled: true,
     };
@@ -694,17 +708,13 @@ export async function tryInterceptPatternConfirmation({ userMessage, sessionId, 
       corrected: true,
     });
     return {
-      content: `↪️ Correzione registrata.\n\n` +
-               `• Intent precedente (scartato): \`${pp.intent}\`\n` +
-               `• Intent corretto: \`${nuovoIntent}\`\n` +
-               `• Pattern aggiornato: \`${r.id}\` (confidenza ${Math.round(r.confidenza * 100)}%)`,
+      content: `Capito, allora ho sbagliato. Ho corretto: adesso so che era ${nuovoIntent.replace(/_/g, " ")}.`,
       data: { patternId: r.id, intentCorretto: nuovoIntent, emailId: pp.emailId },
       _trainingHandled: true,
     };
   }
   return {
-    content: `❌ Analisi rifiutata. Dimmi qual è l'intent corretto: "no, l'intent è [slug]".\n\n` +
-             `Intent possibili: preparare_preventivo, registrare_fattura, aprire_intervento_urgente, aprire_intervento_ordinario, rispondere_a_richiesta, registrare_incasso, gestire_pec, sollecitare_pagamento, archiviare, nessuna_azione.`,
+    content: `Ok, mi sono sbagliato. Dimmi tu cosa voleva: preventivo, intervento, fattura, sollecito, PEC, niente di importante?`,
     data: { emailId: pp.emailId, intentOriginale: pp.intent },
     _trainingHandled: true,
   };
@@ -820,12 +830,9 @@ export async function tryInterceptDevRequest({ userMessage, userId, sessionId })
     logger.warn("dev_request save failed", { error: String(e).slice(0, 200) });
   }
 
-  const preview = description.length > 120 ? description.slice(0, 117) + "…" : description;
-  const idSuffix = docId ? docId.slice(-6) : "—";
+  const preview = description.length > 100 ? description.slice(0, 97) + "…" : description;
   return {
-    content: `✍️ Ho registrato la richiesta di sviluppo: "${preview}"\n\n` +
-             `ID: \`${idSuffix}\` · Stato: pending · Coda sviluppo: \`nexo_dev_requests\`\n\n` +
-             `Alberto la vedrà nella coda e la processerà. Vuoi aggiungere altri dettagli o priorità?`,
+    content: `Segnata la richiesta: "${preview}". La vedo nella coda sviluppo quando apro. Vuoi aggiungere priorità o dettagli?`,
     data: { devRequestId: docId, description: preview },
     _devRequestHandled: true,
   };
@@ -921,42 +928,34 @@ async function callHaikuForTextAnalysis(apiKey, userText) {
 
 function formatTextAnalysis(analysis) {
   if (!analysis || analysis._raw) {
-    return `📝 **Analisi testo**\n\n${(analysis && analysis._raw) || "(parsing fallito)"}`;
+    return (analysis && analysis._raw) || "Non sono riuscito a interpretare il testo.";
   }
-  const lines = [];
-  lines.push(`📝 **Ho letto il messaggio${analysis.mittente ? " di " + analysis.mittente : ""}.**`);
-  lines.push("");
-  if (analysis.riepilogo) { lines.push(analysis.riepilogo); lines.push(""); }
-  if (analysis.richiesta) lines.push(`**Richiesta**: ${analysis.richiesta}`);
-  if (analysis.argomento) lines.push(`**Argomento**: ${analysis.argomento}`);
-  if (analysis.intent) lines.push(`**Intent**: \`${analysis.intent}\``);
-  if (analysis.urgenza) lines.push(`**Urgenza**: ${analysis.urgenza}`);
-  if (analysis.sentiment) lines.push(`**Sentiment**: ${analysis.sentiment}`);
-  lines.push("");
-  const ent = analysis.entita || {};
-  const entRows = [];
-  if (Array.isArray(ent.persone) && ent.persone.length) entRows.push(`  • Persone: ${ent.persone.join(", ")}`);
-  if (Array.isArray(ent.aziende) && ent.aziende.length) entRows.push(`  • Aziende: ${ent.aziende.join(", ")}`);
-  if (Array.isArray(ent.condomini) && ent.condomini.length) entRows.push(`  • Condomini: ${ent.condomini.join(", ")}`);
-  if (Array.isArray(ent.indirizzi) && ent.indirizzi.length) entRows.push(`  • Indirizzi: ${ent.indirizzi.join(", ")}`);
-  if (Array.isArray(ent.importi) && ent.importi.length) entRows.push(`  • Importi: ${ent.importi.join(", ")}`);
-  if (Array.isArray(ent.date) && ent.date.length) entRows.push(`  • Date: ${ent.date.join(", ")}`);
-  if (entRows.length) {
-    lines.push(`**Dati estratti**:`);
-    lines.push(entRows.join("\n"));
-    lines.push("");
+  const parts = [];
+  const mittenteSoft = analysis.mittente ? analysis.mittente.split(/\s+/)[0] : null;
+
+  // Apertura
+  if (mittenteSoft) parts.push(`Ho letto il messaggio di ${mittenteSoft}.`);
+  else parts.push(`Ho letto.`);
+
+  // Riepilogo — contenuto principale
+  if (analysis.riepilogo) parts.push(analysis.riepilogo);
+  else if (analysis.richiesta) parts.push(analysis.richiesta);
+
+  // Urgenza solo se alta/critica
+  if (analysis.urgenza === "alta" || analysis.urgenza === "critica") {
+    parts.push(`È urgente.`);
   }
-  if (Array.isArray(analysis.azioni_suggerite) && analysis.azioni_suggerite.length) {
-    lines.push(`**Azioni suggerite**:`);
-    for (const a of analysis.azioni_suggerite) lines.push(`• ${a}`);
-    lines.push("");
-  }
+
+  // Prossimo passo → domanda diretta
   if (analysis.prossimo_passo) {
-    lines.push(`**Prossimo passo**: ${analysis.prossimo_passo}`);
-    lines.push("");
+    parts.push(`${analysis.prossimo_passo.replace(/\.$/, "")}. Procedo?`);
+  } else if (Array.isArray(analysis.azioni_suggerite) && analysis.azioni_suggerite.length) {
+    parts.push(`Posso ${analysis.azioni_suggerite[0].toLowerCase().replace(/\.$/, "")}. Vuoi?`);
+  } else {
+    parts.push(`Cosa vuoi che faccia?`);
   }
-  lines.push(`❓ Procedo?`);
-  return lines.join("\n");
+
+  return parts.join(" ");
 }
 
 /**

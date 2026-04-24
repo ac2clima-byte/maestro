@@ -325,47 +325,55 @@ REGOLE:
   return parsed;
 }
 
-// Formatta JSON preventivo per la chat
+// Numero preventivo naturale per la voce (es: "PREV-2026-770620" → "770")
+function numeroNaturale(numero) {
+  const m = /(\d+)$/.exec(String(numero || ""));
+  return m ? m[1].slice(-3) : String(numero || "").slice(-4);
+}
+
+// Formatta il preventivo in modo conversazionale — suona bene letto ad alta voce.
 function formatPreventivoChat(prev) {
-  const lines = [];
-  lines.push(`📄 **Preventivo ${prev.numero || "—"}** — ${prev.data || ""}`);
-  lines.push("");
-  lines.push(`**Intestatario**:`);
   const int = prev.intestatario || {};
-  lines.push(`  ${int.ragione_sociale || "—"}`);
-  if (int.piva) lines.push(`  P.IVA ${int.piva}`);
-  if (int.indirizzo || int.citta) lines.push(`  ${[int.indirizzo, int.cap, int.citta, int.provincia].filter(Boolean).join(", ")}`);
-  if (int.pec) lines.push(`  PEC: ${int.pec}`);
-  if (int.codice_sdi) lines.push(`  SDI: ${int.codice_sdi}`);
-  lines.push("");
-  lines.push(`**Oggetto**: ${prev.oggetto || "—"}`);
-  if (prev.luogo_esecuzione) {
-    const l = prev.luogo_esecuzione;
-    lines.push(`**Luogo**: ${l.descrizione || "—"}${l.indirizzo ? ` (${l.indirizzo})` : ""}`);
+  const luogo = prev.luogo_esecuzione || {};
+  const voci = Array.isArray(prev.voci) ? prev.voci : [];
+  const tot = typeof prev.totale === "number" ? prev.totale.toFixed(2) : (prev.totale || "?");
+  const imp = typeof prev.totale_imponibile === "number" ? prev.totale_imponibile.toFixed(2) : null;
+  const ivaP = prev.iva_percentuale || 22;
+  const numBreve = numeroNaturale(prev.numero);
+
+  const parts = [];
+  // Apertura: "Preventivo pronto. Intestato a 3i efficientamento per il De Amicis, viene €866 più IVA."
+  const chi = int.ragione_sociale ? int.ragione_sociale.replace(/\s+(S\.r\.l\.|S\.p\.A\.|S\.n\.c\.|Società Benefit).*$/i, "").trim() : null;
+  const dove = luogo.descrizione || luogo.indirizzo || null;
+
+  const apertura = [`Preventivo pronto`];
+  if (numBreve) apertura.push(`(numero ${numBreve})`);
+  apertura.push(`.`);
+  parts.push(apertura.join(" ").replace(/ \./, "."));
+
+  // Descrizione contenuto
+  const desc = [];
+  if (chi) desc.push(`Intestato a ${chi}`);
+  if (dove) desc.push(`per il ${dove.replace(/^condominio\s+/i, "")}`);
+  if (desc.length) parts.push(`${desc.join(" ")}.`);
+
+  // Totale — forma naturale
+  if (imp) {
+    parts.push(`Viene ${imp} euro più IVA ${ivaP}%, in totale ${tot} euro.`);
+  } else {
+    parts.push(`Totale ${tot} euro.`);
   }
-  lines.push("");
-  if (Array.isArray(prev.voci) && prev.voci.length) {
-    lines.push(`**Voci**:`);
-    prev.voci.forEach((v, i) => {
-      const qtaUnita = `${v.quantita || 1}${v.unita ? " " + v.unita : ""}`;
-      const prezzo = typeof v.prezzo_unitario === "number" ? v.prezzo_unitario.toFixed(2) : v.prezzo_unitario;
-      const tot = typeof v.totale === "number" ? v.totale.toFixed(2) : v.totale;
-      lines.push(`  ${i + 1}. ${v.descrizione} — ${qtaUnita} × €${prezzo} = €${tot}`);
-    });
-    lines.push("");
+
+  // Voci: brevemente
+  if (voci.length) {
+    const voceCount = voci.length;
+    parts.push(`Ho messo ${voceCount} voci di lavoro standard per una verifica di questo tipo.`);
   }
-  if (typeof prev.totale_imponibile === "number") {
-    lines.push(`**Imponibile**: €${prev.totale_imponibile.toFixed(2)}`);
-    if (typeof prev.iva_importo === "number") lines.push(`**IVA ${prev.iva_percentuale || 22}%**: €${prev.iva_importo.toFixed(2)}`);
-    if (typeof prev.totale === "number") lines.push(`**TOTALE**: €${prev.totale.toFixed(2)}`);
-  }
-  lines.push("");
-  if (prev.condizioni_pagamento) lines.push(`_Pagamento: ${prev.condizioni_pagamento}_`);
-  if (prev.validita) lines.push(`_Validità: ${prev.validita}_`);
-  lines.push("");
-  lines.push(`---`);
-  lines.push(`✅ Rispondi **"approva"** per inviare · ✏️ **"modifica: [istruzioni]"** per correzioni · ❌ **"rifiuta"** per scartare`);
-  return lines.join("\n");
+
+  // Chiusura: chiedi azione
+  parts.push(`Lo approvi e lo mando, oppure vuoi cambiare qualcosa?`);
+
+  return parts.join(" ");
 }
 
 /**
@@ -381,7 +389,7 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
 
   if (!input.committente && !input.condominio) {
     return {
-      content: "Per preparare il preventivo mi servono almeno il condominio e il committente.\n\nEsempio: *'prepara preventivo per De Amicis intestato a 3i efficientamento con P.IVA 02486680065 per verifica riscaldamento'*",
+      content: "Mi servono il condominio e il committente. Dimmi per esempio: prepara preventivo per De Amicis intestato a 3i efficientamento.",
     };
   }
 
@@ -501,7 +509,7 @@ export async function handleBozzePendenti() {
     .limit(10)
     .get();
   if (snap.empty) {
-    return { content: "Nessun preventivo in attesa di approvazione. Tutto a posto." };
+    return { content: "Non hai preventivi in attesa. Tutto a posto." };
   }
 
   const bozze = [];
@@ -528,7 +536,7 @@ export async function handleBozzePendenti() {
     const b = bozze[0];
     const content = formatPreventivoChat(b.preventivo);
     return {
-      content: `📬 Un preventivo in attesa di approvazione:\n\n${content}`,
+      content: `Hai un preventivo in attesa. ${content}`,
       data: {
         bozzaId: b.id,
         preventivo: b.preventivo,
@@ -542,21 +550,22 @@ export async function handleBozzePendenti() {
     };
   }
 
-  // Lista compatta
-  const lines = [];
-  lines.push(`📬 **${bozze.length} preventivi in attesa di approvazione**`);
-  lines.push("");
-  bozze.forEach((b, i) => {
+  // Lista compatta — tono discorsivo
+  const parts = [`Hai ${bozze.length} preventivi in attesa.`];
+  const elenco = bozze.slice(0, 5).map((b, i) => {
     const p = b.preventivo || {};
-    const intest = (b.intestatario || p.intestatario || {}).ragione_sociale || "?";
-    const cond = (b.condominio || {}).nome || "?";
-    const tot = typeof p.totale === "number" ? `€${p.totale.toFixed(2)}` : "—";
-    lines.push(`${i + 1}. **${p.numero || b.id.slice(-6)}** — ${cond} / ${intest} (${tot})`);
-  });
-  lines.push("");
-  lines.push(`Dimmi "mostra il primo" oppure "apri preventivo <numero>" per approvarlo.`);
+    const intest = ((b.intestatario || p.intestatario || {}).ragione_sociale || "?")
+      .replace(/\s+(S\.r\.l\.|S\.p\.A\.|S\.n\.c\.|Società Benefit).*$/i, "").trim();
+    const cond = ((b.condominio || {}).nome || "").replace(/^condominio\s+/i, "");
+    const tot = typeof p.totale === "number" ? `${p.totale.toFixed(0)} euro` : "";
+    const bits = [intest, cond && `per ${cond}`, tot].filter(Boolean).join(" ");
+    return `${i + 1}. ${bits}`;
+  }).join("\n");
+  parts.push(elenco);
+  if (bozze.length > 5) parts.push(`E altri ${bozze.length - 5} più indietro.`);
+  parts.push(`Dimmi il numero, oppure "mostra il primo" per aprirlo.`);
   return {
-    content: lines.join("\n"),
+    content: parts.join("\n\n"),
     data: { bozze: bozze.map(b => ({ id: b.id, numero: b.preventivo?.numero, totale: b.preventivo?.totale })) },
   };
 }
@@ -683,10 +692,13 @@ export async function tryInterceptPreventivoApproval({ userMessage, sessionId, u
       const q = await db.collection("charta_preventivi").where("bozzaId", "==", pending.bozzaId).limit(1).get();
       q.forEach(d => d.ref.set({ stato: "inviato", inviatoAt: FieldValue.serverTimestamp() }, { merge: true }));
     } catch (e) { logger.warn("preventivo approve: charta update failed", { error: String(e).slice(0, 200) }); }
-    const dest = pending.destinatario || "(destinatario da verificare)";
+    const dest = pending.destinatario || null;
     logger.info("preventivo approve: returning handled response", { bozzaId: pending.bozzaId });
+    const msg = dest
+      ? `Approvato. Lo mando a ${dest} appena ECHO è attivo, per ora è in coda.`
+      : `Approvato. Appena ho il destinatario lo mando.`;
     return {
-      content: `✅ Preventivo approvato e messo in coda per invio.\n\nDestinatario: ${dest}\nBozza: \`${pending.bozzaId}\`\n\nECHO invierà l'email non appena attivo. Per ora resta in coda \`nexo_lavagna\`.`,
+      content: msg,
       data: { approved: true, bozzaId: pending.bozzaId },
       _preventivoHandled: true,
     };
@@ -699,7 +711,7 @@ export async function tryInterceptPreventivoApproval({ userMessage, sessionId, u
       q.forEach(d => d.ref.set({ stato: "rifiutato", rifiutatoAt: FieldValue.serverTimestamp() }, { merge: true }));
     } catch {}
     return {
-      content: `❌ Preventivo scartato. Bozza \`${pending.bozzaId}\` marcata come rifiutata.`,
+      content: `Ok, lo scarto. Se serve ne preparo un altro quando vuoi.`,
       data: { rejected: true, bozzaId: pending.bozzaId },
       _preventivoHandled: true,
     };
