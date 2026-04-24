@@ -30,3 +30,8 @@
 - Lavagna: collection nexo_lavagna su nexo-hub-15f2d
 - Architettura: context/nexo-architettura.md
 - Mappa Guazzotti: context/memo-guazzotti-tec-map.md
+
+## Dev Requests
+All'inizio di ogni conversazione, controlla automaticamente le dev requests su GitHub:
+git pull origin main && ls tasks/dev-request-*.md
+Se ci sono dev-request senza corrispondente dev-approved, leggili e discutili con Alberto.
