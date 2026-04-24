@@ -22,29 +22,43 @@ export async function handleDelphiKpi(parametri) {
     if ((e.followup || {}).needsAttention) senzaRisposta++;
   }
 
-  const lines = [
-    `📊 **DELPHI — KPI ultimi ${finestraSett * 7} giorni** (cross-source)`,
-    ``,
-    `**📧 Email (IRIS)**`,
-    `  · Indicizzate: ${emails.length}`,
-    `  · Urgenti: ${urg}`,
-    `  · Senza risposta >48h: ${senzaRisposta}`,
-    ``,
-    `**🗒️ Lavagna**`,
-    `  · Messaggi nel periodo: ${lavCount}`,
-    ``,
-    `**🔧 Interventi COSMINA**`,
-    `  · Attivi ora: ${cosmStats.attivi}`,
-    `  · Completati periodo: ${cosmStats.completati}`,
-    ``,
-    `**📋 Guazzotti TEC**`,
-    `  · RTI totali: ${guazStats.rtiTot} · RTIDF totali: ${guazStats.rtidfTot}`,
-    `  · GRTIDF pronti fatturazione (fatturabili): ${guazStats.grtidfPronti} docs = **€ ${guazStats.valoreBloccato.toFixed(2)}**`,
-    `  · Esposizione totale clienti: € ${guazStats.esposTot.toFixed(2)}`,
-    `  · Scaduto clienti: € ${guazStats.scadutoTot.toFixed(2)}`,
-  ];
+  // Risposta naturale discorsiva
+  const giorni = finestraSett * 7;
+  const parts = [];
+
+  // Email
+  const bitsEmail = [`${emails.length} email indicizzate`];
+  if (urg > 0) bitsEmail.push(`${urg} urgenti`);
+  if (senzaRisposta > 0) bitsEmail.push(`${senzaRisposta} senza risposta da più di due giorni`);
+  parts.push(`Negli ultimi ${giorni} giorni: ${bitsEmail.join(", ")}.`);
+
+  // Interventi
+  if (cosmStats.attivi || cosmStats.completati) {
+    const bitsInt = [];
+    if (cosmStats.attivi) bitsInt.push(`${cosmStats.attivi} interventi ancora aperti`);
+    if (cosmStats.completati) bitsInt.push(`${cosmStats.completati} chiusi nel periodo`);
+    parts.push(`Su COSMINA abbiamo ${bitsInt.join(", ")}.`);
+  }
+
+  // Guazzotti — focus sul dato più importante
+  if (guazStats.rtiTot || guazStats.valoreBloccato) {
+    const sub = [];
+    if (guazStats.grtidfPronti > 0) {
+      sub.push(`ci sono ${guazStats.grtidfPronti} GRTIDF pronti da fatturare per ${guazStats.valoreBloccato.toFixed(0)} euro bloccati`);
+    }
+    if (guazStats.scadutoTot > 0) {
+      sub.push(`e ${guazStats.scadutoTot.toFixed(0)} euro di scaduto clienti`);
+    }
+    if (sub.length) parts.push(`Su Guazzotti ${sub.join(", ")}.`);
+  }
+
+  // Chiusura: cosa puoi fare tu
+  if (senzaRisposta > 5 || guazStats.grtidfPronti > 5) {
+    parts.push(`Vuoi che ti aiuti su qualcosa?`);
+  }
+
   return {
-    content: lines.join("\n"),
+    content: parts.join(" "),
     data: {
       emails: emails.length, urgenti: urg, senzaRisposta,
       lavMsgCount: lavCount,

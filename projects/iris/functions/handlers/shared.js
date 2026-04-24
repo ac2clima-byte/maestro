@@ -320,6 +320,49 @@ export function emailLine(e, i) {
   return `${idx}[${when}] ${who} — ${subj}`;
 }
 
+// ─── Naturalize: post-processor content per tono conversazionale ─
+//
+// Rete di sicurezza: qualsiasi content prodotto dai direct handler passa
+// di qui prima di essere scritto in nexus_chat. Rimuove:
+//  - markdown bold **...** (mantiene il testo)
+//  - bullet "· " e "- " a inizio riga → frasi separate
+//  - emoji di sezione/titolo (📧 📊 🏢 ecc.) quando sono all'inizio di riga
+//  - linee "CAMPO: valore" quando sembrano report (es. "Firestore: OK")
+// Non è perfetto ma mangia la maggioranza dei formati robotici rimasti.
+const SECTION_EMOJIS = /^\s*[📧📊🏢🚨✅⚠️🔎📋🔧💰🗒️📱📞📄📁✍️🔔↪️📬❓🎤🔊🔇🟣🟢🟠🔴🟡📎]\s*\*?\*?/;
+
+export function naturalize(text) {
+  if (!text || typeof text !== "string") return text;
+  let s = text;
+
+  // Se il content è già breve e senza formati, non toccarlo
+  const hasBullet = /(\n\s*[·•-]\s+)|(\n\s*\*\*)|(^\s*[📧📊🏢🚨⚠️🔎📋🔧])/m.test(s);
+  if (!hasBullet) return s;
+
+  // Split per blocchi, processa linea per linea
+  const lines = s.split(/\r?\n/);
+  const out = [];
+  for (let line of lines) {
+    // Rimuovi header di sezione "🏢 **PHARO — ...**"
+    line = line.replace(SECTION_EMOJIS, "");
+    // Rimuovi **bold** ma tieni testo
+    line = line.replace(/\*\*(.+?)\*\*/g, "$1");
+    // Converti bullet "  · X" o "- X" a "X." inline
+    line = line.replace(/^\s*[·•]\s+/, "");
+    line = line.replace(/^\s*-\s+/, "");
+    // Trim doppi spazi
+    line = line.replace(/\s{2,}/g, " ").trim();
+    out.push(line);
+  }
+  // Riga vuota consecutiva → collassa
+  const collapsed = [];
+  for (const l of out) {
+    if (!l && collapsed.length && !collapsed[collapsed.length - 1]) continue;
+    collapsed.push(l);
+  }
+  return collapsed.join("\n").trim();
+}
+
 // ─── FCM Push Notifications ────────────────────────────────────
 // sendPushNotification — legge i token FCM da nexo_config/fcm_tokens
 // e manda via FCM Admin SDK. Link apre la PWA.

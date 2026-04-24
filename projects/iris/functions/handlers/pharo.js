@@ -32,18 +32,32 @@ export async function handlePharoStatoSuite() {
     ? Math.max(0, Math.min(100, 100 - pending * 2 - errori * 5 - emailAttesa))
     : 0;
 
-  const emoji = punteggio >= 80 ? "✅" : punteggio >= 50 ? "⚠️" : "🚨";
-  const lines = [
-    `${emoji} **Stato Suite NEXO** — punteggio: ${punteggio}/100`,
-    ``,
-    `  · Firestore: ${firestoreOk ? "✅ OK" : "❌ down"}`,
-    `  · Email indicizzate: ${emails}`,
-    `  · Email senza risposta >48h: ${emailAttesa}`,
-    `  · Lavagna pending: ${pending}`,
-    `  · Lavagna errori: ${errori}`,
-  ];
+  // Risposta naturale, discorsiva
+  const parts = [];
+  if (!firestoreOk) {
+    parts.push("Firestore sembra avere problemi, non riesco a leggere tutto.");
+  } else if (punteggio >= 80) {
+    parts.push("La suite è a posto.");
+  } else if (punteggio >= 50) {
+    parts.push("La suite funziona ma ha qualche arretrato.");
+  } else {
+    parts.push("La suite è congestionata.");
+  }
+
+  const bits = [];
+  if (emails) bits.push(`${emails} email indicizzate`);
+  if (emailAttesa) bits.push(`${emailAttesa} senza risposta da più di due giorni`);
+  if (pending) bits.push(`${pending} messaggi pending sulla lavagna`);
+  if (errori) bits.push(`${errori} in errore`);
+  if (bits.length) parts.push(bits.join(", ") + ".");
+
+  if (punteggio < 80 && (pending > 10 || emailAttesa > 10)) {
+    const cosa = pending > 10 ? "i messaggi pending" : "le email arretrate";
+    parts.push(`Vuoi che proviamo a ripulire ${cosa}?`);
+  }
+
   return {
-    content: lines.join("\n"),
+    content: parts.join(" "),
     data: { punteggio, pending, errori, emailAttesa, emails, firestoreOk },
   };
 }
@@ -64,21 +78,22 @@ export async function handlePharoProblemiAperti() {
     });
   } catch {}
 
-  const parts = ["🔎 **Problemi aperti PHARO**\n"];
   if (!att.length && !lavFailed.length) {
-    return { content: "✅ Nessun problema aperto al momento!" };
+    return { content: "Tutto sotto controllo, niente di aperto al momento." };
   }
+  const parts = [];
   if (att.length) {
-    const lines = att.slice(0, 6).map((e, i) => {
-      const days = e.followup.daysWithoutReply || 0;
-      return `  ${i + 1}. ⏰ ${days}g — ${e.senderName || e.sender}: ${e.subject}`;
-    }).join("\n");
-    parts.push(`**Email senza risposta** (${att.length}):\n${lines}`);
+    const primo = att[0];
+    const chi = primo.senderName || primo.sender || "qualcuno";
+    const gg = primo.followup?.daysWithoutReply || 0;
+    if (att.length === 1) parts.push(`Una email è in attesa da ${gg} giorni, di ${chi}.`);
+    else parts.push(`Ci sono ${att.length} email senza risposta da più di due giorni, la più vecchia è di ${chi} (${gg} giorni).`);
   }
   if (lavFailed.length) {
-    parts.push(`\n**Lavagna errori** (${lavFailed.length}):\n  · ${lavFailed.slice(0, 5).join("\n  · ")}`);
+    parts.push(`Sulla lavagna ci sono ${lavFailed.length} messaggi in errore.`);
   }
-  return { content: parts.join("\n"), data: { emailCount: att.length, lavFailedCount: lavFailed.length } };
+  parts.push(`Vuoi che ti elenchi i principali?`);
+  return { content: parts.join(" "), data: { emailCount: att.length, lavFailedCount: lavFailed.length } };
 }
 
 // ─── PHARO RTI Monitoring (Guazzotti TEC) ──────────────────────
@@ -372,30 +387,34 @@ export async function handlePharoRtiMonitoring(parametri = {}) {
     });
   }
 
-  const lines = [
-    `🏢 **PHARO — Monitoring Guazzotti TEC (v2 con regole business)**`,
-    ``,
-    `**RTI**: ${out.rti.total} totali (GRTI: ${out.rti_gen.total}, CRTI: ${out.rti_con.total})`,
-    `  · Non fatturabili esclusi: ${out.rti_gen.non_fatturabili + out.rti_con.non_fatturabili}`,
-    `  · Già fatturati (rtidf_fatturato): ${out.rti_gen.rtidf_fatturato}`,
-    `**RTIDF**: ${out.rtidf.total} totali (GRTIDF: ${out.rtidf_gen.total}, CRTIDF: ${out.rtidf_con.total})`,
-    `  · Fatturati (esclusi): ${out.rtidf_gen.fatturato + out.rtidf_con.fatturato}`,
-    `**Tickets**: ${out.tickets.total} (${out.tickets.aperti} aperti, ${out.tickets.aperti_vecchi_30g} >30g)`,
-    ``,
-    `**💰 Valore fatturazione bloccata**: ${m.grtidf_pronti_fattura.valore_eur} € (solo GRTIDF inviati fatturabili)`,
-    ``,
-  ];
-  if (out.warnings.length) {
-    lines.push(`⚠️ **Alert attivi** (${out.warnings.length}):`);
-    out.warnings.forEach(w => lines.push(`  · [${w.severita}|${w.codice}] ${w.titolo}`));
-  } else {
-    lines.push(`✅ Nessun alert attivo — tutto in ordine.`);
-  }
-  if (out.errors.length) {
-    lines.push(``, `❌ Errori lettura: ${out.errors.map(e => e.collection).join(", ")}`);
+  // Risposta naturale invece di report
+  const parts = [];
+  const valore = m.grtidf_pronti_fattura?.valore_eur || 0;
+  const ticketVecchi = out.tickets.aperti_vecchi_30g || 0;
+  const critici = out.warnings.filter(w => w.severita === "critical").length;
+
+  // Apertura: situazione RTI
+  parts.push(`Su Guazzotti: ${out.rti.total} RTI totali, ${out.rtidf.total} RTIDF, ${out.tickets.aperti} ticket aperti${ticketVecchi ? ` (${ticketVecchi} da oltre 30 giorni)` : ""}.`);
+
+  // Punto chiave: fatturazione bloccata
+  if (valore > 0) {
+    parts.push(`Ci sono ${valore.toFixed(2)} euro di fatturazione bloccata su ${m.grtidf_pronti_fattura.count || "?"} GRTIDF pronti da inviare.`);
   }
 
-  return { content: lines.join("\n"), data: out };
+  // Alert: solo il più urgente, in linguaggio naturale
+  if (out.warnings.length) {
+    const first = out.warnings[0];
+    if (critici > 1) {
+      parts.push(`Ho ${critici} alert critici, il principale è: ${first.titolo.toLowerCase()}.`);
+    } else {
+      parts.push(`Un alert: ${first.titolo.toLowerCase()}.`);
+    }
+    parts.push(`Vuoi l'elenco completo?`);
+  } else {
+    parts.push(`Nessun alert, è tutto in ordine.`);
+  }
+
+  return { content: parts.join(" "), data: out };
 }
 
 // Helper per writePharoAlert (usato dallo scheduler pharoCheckRti)
