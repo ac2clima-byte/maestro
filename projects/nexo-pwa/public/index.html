@@ -992,6 +992,27 @@
     overflow: hidden;
   }
   .nexus-panel.open { display: flex; }
+  /* Transizione fluida apertura/chiusura/fullscreen */
+  .nexus-panel {
+    transition:
+      width 0.3s ease,
+      height 0.3s ease,
+      right 0.3s ease,
+      bottom 0.3s ease,
+      border-radius 0.3s ease;
+  }
+  /* Fullscreen desktop (escluso mobile dove è già 100vw/vh) */
+  .nexus-panel.fullscreen {
+    right: 0 !important;
+    bottom: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    max-width: none !important;
+    z-index: 200; /* sopra sidebar */
+  }
   @media (max-width: 640px) {
     .nexus-panel {
       right: 0; bottom: 0; top: 0; left: 0;
@@ -999,6 +1020,8 @@
       border-radius: 0;
     }
     .nexus-fab.hidden-when-open { display: none; }
+    /* Su mobile il bottone fullscreen è inutile (già a schermo intero) */
+    .nexus-fullscreen-btn { display: none !important; }
   }
   /* Header Telegram-style: azzurro NEXO, avatar 🧠, status line */
   .nexus-header {
@@ -3074,9 +3097,27 @@ function nexusOpen() {
 }
 function nexusClose() {
   $("#nexusPanel").classList.remove("open");
+  $("#nexusPanel").classList.remove("fullscreen");  // esce anche dal fullscreen
   $("#nexusFab").classList.remove("hidden-when-open");
+  nexusUpdateFullscreenBtn();
   // Stop TTS quando chiudi il pannello
   if (nexusTts.supported) nexusTtsStop();
+}
+
+function nexusFullscreenToggle() {
+  const panel = $("#nexusPanel");
+  if (!panel) return;
+  panel.classList.toggle("fullscreen");
+  nexusUpdateFullscreenBtn();
+}
+
+function nexusUpdateFullscreenBtn() {
+  const btn = $("#nexusFullscreenBtn");
+  if (!btn) return;
+  const isFs = $("#nexusPanel")?.classList.contains("fullscreen");
+  btn.textContent = isFs ? "⛷" : "⛶";
+  btn.setAttribute("aria-label", isFs ? "Comprimi" : "Espandi a tutto schermo");
+  btn.setAttribute("title", isFs ? "Comprimi" : "Espandi a tutto schermo");
 }
 
 // Cancella la chat corrente: crea nuova sessione, svuota messaggi visibili.
@@ -3885,6 +3926,7 @@ function nexusStopVoice()  { nexusVoiceStop();  }
 function nexusWire() {
   $("#nexusFab").addEventListener("click", nexusOpen);
   $("#nexusClose").addEventListener("click", nexusClose);
+  $("#nexusFullscreenBtn")?.addEventListener("click", nexusFullscreenToggle);
   $("#nexusClearBtn")?.addEventListener("click", nexusClear);
   $("#nexusSendBtn").addEventListener("click", nexusSend);
   const mic = $("#nexusMicBtn");
@@ -3913,9 +3955,15 @@ function nexusWire() {
       nexusSend();
     }
   });
-  // ESC chiude il pannello
+  // ESC: prima esce dal fullscreen (se attivo), poi chiude il pannello
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && $("#nexusPanel").classList.contains("open")) {
+    if (ev.key !== "Escape") return;
+    const panel = $("#nexusPanel");
+    if (!panel || !panel.classList.contains("open")) return;
+    if (panel.classList.contains("fullscreen")) {
+      panel.classList.remove("fullscreen");
+      nexusUpdateFullscreenBtn();
+    } else {
       nexusClose();
     }
   });
@@ -4307,6 +4355,7 @@ bootstrapAuth().catch(e => {
     </div>
     <div class="nexus-header-actions">
       <button class="close" id="nexusTtsToggle" aria-label="Attiva lettura vocale" title="Attiva/disattiva lettura ad alta voce" hidden>🔇</button>
+      <button class="close nexus-fullscreen-btn" id="nexusFullscreenBtn" aria-label="Espandi a tutto schermo" title="Espandi a tutto schermo">⛶</button>
       <button class="close" id="nexusClearBtn" aria-label="Cancella conversazione" title="Cancella la chat">🗑️</button>
       <button class="close" id="nexusClose" aria-label="Chiudi">×</button>
     </div>
