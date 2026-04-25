@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>NEXO v0.3 — Sprint stabilizzazione</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 980px; margin: 30px auto; padding: 0 20px; color: #222; background: #f7f8fa; }
+  h1 { color: #006eb7; border-bottom: 3px solid #006eb7; padding-bottom: 8px; }
+  h2 { color: #004f85; margin-top: 36px; }
+  .meta { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
+  .ok { color: #1a7f37; font-weight: 600; }
+  .ko { color: #cf222e; font-weight: 600; }
+  .warn { color: #bf8700; font-weight: 600; }
+  table { border-collapse: collapse; width: 100%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-radius: 6px; overflow: hidden; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #eaeef2; }
+  th { background: #006eb7; color: white; font-weight: 500; }
+  tr:last-child td { border-bottom: none; }
+  .step { background: white; padding: 16px 20px; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-left: 4px solid #006eb7; }
+  .step.ok { border-left-color: #1a7f37; }
+  .step.ko { border-left-color: #cf222e; }
+  .step.warn { border-left-color: #bf8700; }
+  pre { background: #0d1117; color: #c9d1d9; padding: 12px; border-radius: 6px; font-size: 0.85rem; overflow-x: auto; }
+  code { background: #f0f3f6; padding: 1px 6px; border-radius: 3px; font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 0.88em; }
+  .stat { display: inline-block; padding: 4px 12px; border-radius: 12px; background: #e7f0fa; color: #006eb7; font-weight: 600; margin-right: 8px; font-size: 0.85rem; }
+  .stat.green { background: #dcfce7; color: #166534; }
+  .stat.red { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<h1>NEXO v0.3 — Sprint di stabilizzazione</h1>
+<div class="meta">25 aprile 2026 · 5 task in sequenza · esecuzione automatica MAESTRO</div>
+
+<h2>Riepilogo</h2>
+<div>
+  <span class="stat green">3 task ✅</span>
+  <span class="stat green">1 task con verifiche parziali</span>
+  <span class="stat">1 deploy hosting + 1 deploy functions</span>
+</div>
+
+<h2>1. Fix polling IRIS — daemon + cron autorestart</h2>
+<div class="step ok">
+  <p><span class="ok">✅ Completato</span></p>
+  <ul>
+    <li>Daemon launcher: <code>scripts/start-iris-poller.sh</code> (start/stop/status)</li>
+    <li>Polling avviato con PID 6954 (verificato attivo)</li>
+    <li>Autorestart cron ogni 5 minuti se il processo muore</li>
+  </ul>
+  <pre>*/5 * * * * pgrep -f 'iris_local_poller.sh' > /dev/null || /home/albertocontardi/maestro-bridge/scripts/start-iris-poller.sh start &gt;&gt; logs/iris_poller.log 2&gt;&amp;1</pre>
+</div>
+
+<h2>2. NEXUS linguaggio naturale rinforzato</h2>
+<div class="step ok">
+  <p><span class="ok">✅ Completato + bug fix oggi</span></p>
+  <ul>
+    <li><strong>System prompt rinforzato</strong>: REGOLA ASSOLUTA in cima a <code>handlers/nexus.js</code> — "rispondi in italiano naturale come un collega che parla. Niente emoji. Niente bold. Niente bullet."</li>
+    <li><strong>Post-processor <code>naturalize()</code></strong> applicato globalmente in <code>writeNexusMessage()</code></li>
+    <li><strong>Bug fix oggi</strong>: regex bullet <code>-</code> richiedeva 2 spazi di indent, ora cattura anche bullet senza indent</li>
+    <li>Deploy <code>nexusRouter</code> aggiornato</li>
+  </ul>
+  <p>Test unit <code>naturalize()</code>:</p>
+  <table>
+    <tr><th>Input</th><th>Output</th></tr>
+    <tr><td><code>"Hai 103 email **importanti** 📧 di cui:\n- 35 senza risposta"</code></td><td><code>"Hai 103 email importanti di cui:\n35 senza risposta"</code></td></tr>
+    <tr><td><code>"**Cliente**: Kristal\n**Esposizione**: 1500€"</code></td><td><code>"Cliente: Kristal\nEsposizione: 1500€"</code></td></tr>
+    <tr><td><code>"🚨 Attenzione: 5 fatture scadute"</code></td><td><code>"Attenzione: 5 fatture scadute"</code></td></tr>
+  </table>
+</div>
+
+<h2>3. CHARTA — dati reali da Guazzotti TEC</h2>
+<div class="step ok">
+  <p><span class="ok">✅ Completato</span></p>
+  <ul>
+    <li><code>handleChartaEsposizioneCliente</code> — output naturale: <em>"X ha N euro di esposizione, di cui M scaduti"</em></li>
+    <li><code>handleFattureScadute</code> — aggrega <code>TotaleEsposizione</code>/<code>TotaleScaduto</code> da <code>pagamenti_clienti</code></li>
+    <li><code>handleChartaReportMensile</code> — combina email IRIS del mese + esposizione totale + GRTIDF da <code>rtidf</code></li>
+  </ul>
+</div>
+
+<h2>4. Modularizzazione PWA — index.html da 4529 → 134 righe</h2>
+<div class="step ok">
+  <p><span class="ok">✅ Completato</span></p>
+  <table>
+    <tr><th>File</th><th>Righe</th><th>Ruolo</th></tr>
+    <tr><td><code>public/index.html</code></td><td>134</td><td>solo markup + reference a CSS/JS esterni</td></tr>
+    <tr><td><code>public/css/main.css</code></td><td>1608</td><td>tutti gli stili PWA</td></tr>
+    <tr><td><code>public/js/app.js</code></td><td>2784</td><td>tutto il modulo ES (router, NEXUS chat, sidebar)</td></tr>
+    <tr><td><strong>Totale</strong></td><td><strong>4526</strong></td><td>(prima 4529 monolitico)</td></tr>
+  </table>
+  <p>Deploy hosting OK. Asset HTTP 200:</p>
+  <pre>GET /css/main.css?v=v03  →  HTTP 200, content-type: text/css
+GET /js/app.js?v=v03      →  HTTP 200, content-type: text/javascript</pre>
+</div>
+
+<h2>5. Test E2E Playwright — caricamento moduli</h2>
+<div class="step ok">
+  <p><span class="ok">✅ Modular load verified</span></p>
+  <table>
+    <tr><th>Verifica</th><th>Risultato</th></tr>
+    <tr><td>CSS modulare (<code>/css/main.css</code>) caricato</td><td><span class="ok">✅</span></td></tr>
+    <tr><td>JS modulare (<code>/js/app.js</code>) caricato come ES module</td><td><span class="ok">✅</span></td></tr>
+    <tr><td>Auth gate visibile su pagina pulita</td><td><span class="ok">✅</span></td></tr>
+    <tr><td>Console errors</td><td><span class="ok">0 errori</span></td></tr>
+  </table>
+  <div class="step warn" style="margin-top:12px;">
+    <p><span class="warn">⚠️ Login E2E saltato</span> — credenziali non disponibili in env (<code>NEXO_TEST_PASSWORD</code> non impostata). Test E2E navigazione 11 Colleghi e chat NEXUS quindi non eseguiti automaticamente, ma il caricamento dei moduli è verificato.</p>
+  </div>
+</div>
+
+<h2>Deploy effettuati oggi</h2>
+<table>
+  <tr><th>Target</th><th>Project</th><th>Esito</th></tr>
+  <tr><td>hosting NEXO PWA modulare</td><td>nexo-hub-15f2d</td><td><span class="ok">✅ release complete</span></td></tr>
+  <tr><td>functions:nexusRouter (fix naturalize)</td><td>nexo-hub-15f2d</td><td><span class="ok">✅ Successful update</span></td></tr>
+</table>
+
+<h2>Prossimi passi</h2>
+<ul>
+  <li>Test E2E completo con login (richiede password test)</li>
+  <li>Cleanup preventivi test duplicati (Task 31, in attesa conferma)</li>
+  <li>Upgrade Node 20 → Node 22 entro 2026-10-30 (deprecation warning runtime)</li>
+</ul>
+
+<p style="margin-top:30px;color:#666;font-size:0.85rem;">Generato automaticamente · MAESTRO autopilot · 2026-04-25</p>
+</body>
+</html>
