@@ -1583,3 +1583,30 @@ exchangelib.errors.TransportError: No valid version headers found in response (E
 [2026-04-25T07:49:48Z] ─── fine ciclo ───
 [2026-04-25T07:54:48Z] ─── inizio ciclo IRIS (limit=50) ───
 [2026-04-25T07:54:48Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-04-25T07:58:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    neutro       davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 47 column 4 (char 1649)
+  #16  FAILED: <urlopen error _ssl.c:983: The handshake operation timed out>
+  #17  FAILED: Expecting ',' delimiter: line 51 column 4 (char 1905)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+[2026-04-25T07:58:48Z] ─── fine ciclo ───
+[2026-04-25T08:03:48Z] ─── inizio ciclo IRIS (limit=50) ───

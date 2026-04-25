@@ -322,45 +322,40 @@ export function emailLine(e, i) {
 
 // ─── Naturalize: post-processor content per tono conversazionale ─
 //
-// Rete di sicurezza: qualsiasi content prodotto dai direct handler passa
-// di qui prima di essere scritto in nexus_chat. Rimuove:
-//  - markdown bold **...** (mantiene il testo)
-//  - bullet "· " e "- " a inizio riga → frasi separate
-//  - emoji di sezione/titolo (📧 📊 🏢 ecc.) quando sono all'inizio di riga
-//  - linee "CAMPO: valore" quando sembrano report (es. "Firestore: OK")
-// Non è perfetto ma mangia la maggioranza dei formati robotici rimasti.
-const SECTION_EMOJIS = /^\s*[📧📊🏢🚨✅⚠️🔎📋🔧💰🗒️📱📞📄📁✍️🔔↪️📬❓🎤🔊🔇🟣🟢🟠🔴🟡📎]\s*\*?\*?/;
+// Rete di sicurezza AGGRESSIVA: qualsiasi content prodotto dai direct handler
+// passa di qui prima di essere scritto in nexus_chat. Rimuove SEMPRE:
+//  - markdown bold **...** (tiene il testo)
+//  - bullet "· " e "- " a inizio riga
+//  - emoji decorative (📧 📊 🏢 🚨 ✅ ⚠️ ❌ ⏰ 💰 ecc.)
+//  - separatori "—", "─" a inizio riga
+//  - linee vuote consecutive
+
+const DECORATIVE_EMOJIS = /[📧📊🏢🚨✅⚠️❌⏰🔎📋🔧💰🗒️📱📞📄📁✍️🔔↪️📬❓🎤🔊🔇🟣🟢🟠🔴🟡📎🎯🚀💡🔥🌟✨🆕]/g;
 
 export function naturalize(text) {
   if (!text || typeof text !== "string") return text;
   let s = text;
 
-  // Se il content è già breve e senza formati, non toccarlo
-  const hasBullet = /(\n\s*[·•-]\s+)|(\n\s*\*\*)|(^\s*[📧📊🏢🚨⚠️🔎📋🔧])/m.test(s);
-  if (!hasBullet) return s;
-
-  // Split per blocchi, processa linea per linea
-  const lines = s.split(/\r?\n/);
-  const out = [];
-  for (let line of lines) {
-    // Rimuovi header di sezione "🏢 **PHARO — ...**"
-    line = line.replace(SECTION_EMOJIS, "");
-    // Rimuovi **bold** ma tieni testo
-    line = line.replace(/\*\*(.+?)\*\*/g, "$1");
-    // Converti bullet "  · X" o "- X" a "X." inline
-    line = line.replace(/^\s*[·•]\s+/, "");
-    line = line.replace(/^\s*-\s+/, "");
-    // Trim doppi spazi
-    line = line.replace(/\s{2,}/g, " ").trim();
-    out.push(line);
-  }
+  // Rimuovi SEMPRE le emoji decorative (anche inline) — non solo a inizio riga
+  s = s.replace(DECORATIVE_EMOJIS, "");
+  // Rimuovi **bold** mantenendo il testo
+  s = s.replace(/\*\*(.+?)\*\*/g, "$1");
+  // Rimuovi *italic* mantenendo il testo (singolo *)
+  s = s.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "$1");
+  // Rimuovi underscore italic _testo_
+  s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, "$1");
+  // Rimuovi bullet "· " e "• " e "- " a inizio riga (sostituisci con nulla)
+  s = s.replace(/^\s*[·•]\s+/gm, "");
+  s = s.replace(/^\s{2,}-\s+/gm, "");
+  // Rimuovi separatori "─────" e righe di soli "─"
+  s = s.replace(/^\s*[─━]+\s*$/gm, "");
+  // Rimuovi parentesi backtick `xxxxx` inline (mantiene contenuto)
+  s = s.replace(/`([^`\n]+)`/g, "$1");
+  // Trim doppi spazi
+  s = s.replace(/[ \t]{2,}/g, " ");
   // Riga vuota consecutiva → collassa
-  const collapsed = [];
-  for (const l of out) {
-    if (!l && collapsed.length && !collapsed[collapsed.length - 1]) continue;
-    collapsed.push(l);
-  }
-  return collapsed.join("\n").trim();
+  s = s.replace(/\n{3,}/g, "\n\n");
+  return s.trim();
 }
 
 // ─── FCM Push Notifications ────────────────────────────────────

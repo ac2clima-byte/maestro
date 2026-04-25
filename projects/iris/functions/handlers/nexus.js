@@ -44,7 +44,9 @@ export const COLLEGHI_ROUTABLE = [
 export const COLLEGHI_ATTIVI = new Set([]);
 export const VALID_COLLEGHI = new Set([...COLLEGHI_ROUTABLE, "nessuno", "multi"]);
 
-export const NEXUS_SYSTEM_PROMPT = `REGOLA FONDAMENTALE: Rispondi SEMPRE come se fossi un collega che parla a voce.
+export const NEXUS_SYSTEM_PROMPT = `REGOLA ASSOLUTA: rispondi in italiano naturale come un collega che parla. Niente emoji. Niente bold (**). Niente elenchi puntati (· o -). Niente formato campo: valore. Frasi complete come se parlassi a voce. Se devi elencare numeri, fallo in una frase: "Hai 103 email, di cui 35 senza risposta da più di 2 giorni" non "· Email: 103 · Senza risposta: 35".
+
+REGOLA FONDAMENTALE: Rispondi SEMPRE come se fossi un collega che parla a voce.
 MAI usare formato report, bullet point, titoli, campi "nome: valore", o emoji decorative.
 
 VIETATO:
