@@ -780,3 +780,282 @@ exchangelib.errors.TransportError: No valid version headers found in response (E
   #16  FAILED: <urlopen error _ssl.c:983: The handshake operation timed out>
   #17  FAILED: Expecting ',' delimiter: line 51 column 4 (char 1905)
   #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+[2026-04-25T08:07:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 56 column 6 (char 2591)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         high    neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 69 column 4 (char 2427)
+  #16  PEC_UFFICIALE                 high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    neutro       studiomdconsulting@gmail.com              → RISPONDI
+  #24  FAILED: Expecting ',' delimiter: line 61 column 4 (char 2071)
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-25T08:16:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 60 column 6 (char 2848)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 58 column 6 (char 2754)
+  #16  PEC_UFFICIALE                 high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  RISPOSTA_CLIENTE              high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → ARCHIVIA
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-25T08:22:10Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x75af5093ec60>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
+[2026-04-25T08:27:30Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7b7410987590>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
+[2026-04-25T08:32:52Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7272e2f3acc0>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
+[2026-04-25T08:38:13Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x70bbfedc3890>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
+[2026-04-25T08:43:35Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7911c79d2000>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
+[2026-04-25T08:48:55Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x77ffa4887950>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
+[2026-04-25T08:54:17Z] ERR: ciclo FAILED (rc=1): ultime righe:
+    yield from self._get_elements(payload=payload_func(chunk, **kwargs))
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 300, in _get_elements
+    yield from self._response_generator(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 263, in _response_generator
+    response = self._get_response_xml(payload=payload)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 396, in _get_response_xml
+    r = self._get_response(payload=payload, api_version=api_version)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/services/common.py", line 346, in _get_response
+    session = self.protocol.get_session()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 246, in get_session
+    self.increase_poolsize()
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 212, in increase_poolsize
+    self._session_pool.put(self.create_session(), block=False)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 318, in create_session
+    if self.auth_type == NTLM and self.credentials.type == self.credentials.EMAIL:
+       ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 119, in auth_type
+    self.config.auth_type = self.get_auth_type()
+                            ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 470, in get_auth_type
+    return get_service_authtype(protocol=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/transport.py", line 103, in get_service_authtype
+    raise TransportError(str(e)) from e
+exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x7f98ec4c4e00>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))

@@ -1,0 +1,18 @@
+{
+  "steps": [
+    {
+      "step": "login",
+      "status": "skipped",
+      "reason": "no_password"
+    }
+  ],
+  "colleghi": [],
+  "nexus": [],
+  "errors": [],
+  "moduleLoad": {
+    "cssLoaded": true,
+    "jsLoaded": true,
+    "authGateVisible": true
+  },
+  "ts": "2026-04-25T08:15:25.569Z"
+}

@@ -42,18 +42,30 @@ export async function handleChartaEsposizioneCliente(parametri, ctx) {
   });
 
   if (!matches.length) {
-    return { content: `💰 Nessun cliente trovato per "${q}" in pagamenti_clienti (Guazzotti TEC).` };
+    return { content: `Non trovo nessun cliente "${q}" nei dati di Guazzotti.` };
   }
 
-  const top = matches.sort((a, b) => b.esposizione - a.esposizione).slice(0, 5);
-  const lines = top.map(m =>
-    `**${m.nome}** [${m.codice}]\n` +
-    `  · Esposizione: € ${m.esposizione.toFixed(2)} (scaduto: € ${m.scaduto.toFixed(2)}, a scadere: € ${m.scadenzaCorrente.toFixed(2)})\n` +
-    `  · Aging: 30g=${m.scaduto30.toFixed(0)} · 60g=${m.scaduto60.toFixed(0)} · 90g=${m.scaduto90.toFixed(0)} · oltre=${m.scadutoOltre.toFixed(0)}\n` +
-    `  · Risk: ${m.riskLevel || "?"} · Rif: ${m.dataRif || "?"}`
-  ).join("\n\n");
+  const top = matches.sort((a, b) => b.esposizione - a.esposizione).slice(0, 3);
+
+  // Risposta naturale, una frase per cliente
+  const parts = [];
+  if (matches.length === 1) {
+    const m = top[0];
+    const bits = [`${m.nome} ha ${m.esposizione.toFixed(0)} euro di esposizione`];
+    if (m.scaduto > 0) bits.push(`di cui ${m.scaduto.toFixed(0)} scaduti`);
+    if (m.scadutoOltre > 0) bits.push(`${m.scadutoOltre.toFixed(0)} oltre i 6 mesi`);
+    parts.push(bits.join(", ") + ".");
+    if (m.riskLevel) parts.push(`Livello di rischio: ${m.riskLevel}.`);
+  } else {
+    parts.push(`Ho ${matches.length} clienti che corrispondono. I principali per esposizione:`);
+    const elenco = top.map((m, i) => {
+      const scad = m.scaduto > 0 ? `, ${m.scaduto.toFixed(0)} scaduti` : "";
+      return `${i + 1}. ${m.nome}: ${m.esposizione.toFixed(0)} euro${scad}`;
+    }).join("\n");
+    parts.push(elenco);
+  }
   return {
-    content: `💰 **Esposizione "${q}"** (${matches.length} match, top 5):\n\n${lines}`,
+    content: parts.join("\n\n"),
     data: { count: matches.length, top },
   };
 }
@@ -139,17 +151,45 @@ export async function handleChartaRegistraIncasso(parametri, ctx) {
   }
 }
 
+// Fatture scadute: dati REALI da pagamenti_clienti (Guazzotti TEC)
+// + email indicizzate come fallback aggregato.
 export async function handleFattureScadute() {
-  const emails = await fetchIrisEmails(500);
-  const fatt = emails.filter(e => e.category === "FATTURA_FORNITORE");
-  const rich = emails.filter(e => e.category === "RICHIESTA_PAGAMENTO");
-  const parts = [`💰 **CHARTA v0.1** — dati da email indicizzate (Fatture-in-Cloud non ancora integrato)`];
-  parts.push(`\n📥 ${fatt.length} fatture fornitori + ${rich.length} richieste pagamento.`);
-  if (fatt.length) {
-    const lines = fatt.slice(0, 5).map(emailLine).join("\n");
-    parts.push(`\nUltime fatture ricevute:\n${lines}`);
+  let totEsposizione = 0, totScaduto = 0, totOltre = 0;
+  let topClienti = [];
+  try {
+    const snap = await getGuazzottiDb().collection("pagamenti_clienti").limit(300).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const exp = Number(v.TotaleEsposizione || 0);
+      const sca = Number(v.TotaleScaduto || 0);
+      totEsposizione += exp;
+      totScaduto += sca;
+      totOltre += Number(v.ScadutoOltre360 || 0) + Number(v.Scaduto360 || 0) + Number(v.Scaduto180 || 0);
+      if (sca > 0) topClienti.push({ nome: v.Cliente, scaduto: sca, esposizione: exp });
+    });
+    topClienti.sort((a, b) => b.scaduto - a.scaduto);
+  } catch (e) {
+    return { content: `Non riesco a leggere i dati di Guazzotti: ${String(e).slice(0, 100)}.` };
   }
-  return { content: parts.join("\n"), data: { fatture: fatt.length, richieste: rich.length } };
+
+  if (totScaduto === 0) {
+    return { content: "Nessun cliente ha scaduti al momento, esposizione tutta nei termini." };
+  }
+
+  const parts = [];
+  parts.push(`Esposizione totale: ${totEsposizione.toFixed(0)} euro, di cui ${totScaduto.toFixed(0)} scaduti${totOltre > 0 ? ` (${totOltre.toFixed(0)} oltre i 6 mesi)` : ""}.`);
+  if (topClienti.length) {
+    const top3 = topClienti.slice(0, 3);
+    const elenco = top3.map(c => `${c.nome}: ${c.scaduto.toFixed(0)} euro`).join(", ");
+    parts.push(`I clienti con più scaduto sono ${elenco}.`);
+  }
+  if (totScaduto > 5000) {
+    parts.push(`Vuoi che mando un sollecito ai principali?`);
+  }
+  return {
+    content: parts.join(" "),
+    data: { totEsposizione, totScaduto, totOltre, topCount: topClienti.length },
+  };
 }
 
 export async function handleChartaIncassiOggi() {
@@ -159,15 +199,22 @@ export async function handleChartaIncassiOggi() {
     /pagament|incass|bonifico|accredit|saldo/i.test(`${e.subject} ${e.summary}`),
   );
   if (!incassi.length) {
-    return { content: "💰 Oggi non ho indicizzato email che segnalano incassi." };
+    return { content: "Oggi nessuna email su incassi o pagamenti." };
   }
-  const lines = incassi.slice(0, 8).map(emailLine).join("\n");
+  if (incassi.length === 1) {
+    const e = incassi[0];
+    return {
+      content: `Oggi un'email di pagamento da ${e.senderName || e.sender}: ${e.subject}.`,
+      data: { count: 1 },
+    };
+  }
   return {
-    content: `💰 **${incassi.length} email oggi** con keyword incasso/pagamento:\n\n${lines}\n\n_CHARTA v0.1: per importi reali serve Fatture-in-Cloud._`,
+    content: `Oggi sono arrivate ${incassi.length} email su pagamenti, la prima è di ${incassi[0].senderName || incassi[0].sender}.`,
     data: { count: incassi.length },
   };
 }
 
+// Report mensile: dati REALI da pagamenti_clienti aggregato + email IRIS
 export async function handleChartaReportMensile(parametri) {
   let yyyymm = String(parametri.mese || parametri.yyyymm || parametri.periodo || "").trim()
     || new Date().toISOString().slice(0, 7);
@@ -178,32 +225,66 @@ export async function handleChartaReportMensile(parametri) {
     const [a, m] = yyyymm.split("-");
     yyyymm = `${a}-${m.padStart(2, "0")}`;
   }
-  const emails = await fetchIrisEmails(500);
 
   const m = /^(\d{4})-(\d{2})$/.exec(yyyymm);
-  if (!m) return { content: `Formato mese non valido: "${yyyymm}". Usa YYYY-MM.` };
+  if (!m) return { content: `Formato mese non valido: ${yyyymm}. Usa formato 2026-04.` };
   const start = new Date(`${yyyymm}-01T00:00:00Z`);
   const end = new Date(start); end.setUTCMonth(end.getUTCMonth() + 1);
+  const meseLabel = start.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
 
-  let forn = 0, rich = 0, guast = 0, contr = 0;
+  // Email IRIS del mese
+  const emails = await fetchIrisEmails(500);
+  let forn = 0, rich = 0, guast = 0;
   for (const e of emails) {
     if (!e.received_time) continue;
     const ric = new Date(e.received_time);
     if (ric < start || ric >= end) continue;
     if (e.category === "FATTURA_FORNITORE") forn++;
-    else if (e.category === "RICHIESTA_PAGAMENTO") rich++;
+    else if (/RICHIESTA_PAGAMENTO|SOLLECITO/.test(e.category || "")) rich++;
     else if (e.category === "GUASTO_URGENTE") guast++;
-    else if (e.category === "RICHIESTA_CONTRATTO") contr++;
   }
 
+  // Dati Guazzotti pagamenti — esposizione corrente + GRTIDF pronti
+  let totExp = 0, totScad = 0, grtidfPronti = 0, valoreBloccato = 0;
+  try {
+    const pSnap = await getGuazzottiDb().collection("pagamenti_clienti").limit(300).get();
+    pSnap.forEach(d => {
+      const v = d.data() || {};
+      totExp += Number(v.TotaleEsposizione || 0);
+      totScad += Number(v.TotaleScaduto || 0);
+    });
+  } catch (e) { logger.warn("charta: pagamenti read", { error: String(e).slice(0, 80) }); }
+  try {
+    const rSnap = await getGuazzottiDb().collection("rtidf").limit(400).get();
+    rSnap.forEach(d => {
+      const v = d.data() || {};
+      const tipo = String(v.tipo || "").toLowerCase();
+      const stato = String(v.stato || "").toLowerCase();
+      const isGen = tipo === "generico" || String(v.numero_rtidf || "").toUpperCase().startsWith("GRTIDF");
+      if (isGen && stato === "inviato" && v.fatturabile !== false) {
+        grtidfPronti++;
+        valoreBloccato += Number(v.costo_intervento || 0);
+      }
+    });
+  } catch (e) { logger.warn("charta: rtidf read", { error: String(e).slice(0, 80) }); }
+
+  const parts = [];
+  parts.push(`Report ${meseLabel}.`);
+  if (forn || rich || guast) {
+    const bits = [];
+    if (forn) bits.push(`${forn} fatture fornitori`);
+    if (rich) bits.push(`${rich} richieste pagamento`);
+    if (guast) bits.push(`${guast} guasti urgenti`);
+    parts.push(`Email del mese: ${bits.join(", ")}.`);
+  }
+  if (totExp > 0) {
+    parts.push(`Esposizione clienti totale ${totExp.toFixed(0)} euro, scaduto ${totScad.toFixed(0)}.`);
+  }
+  if (grtidfPronti > 0) {
+    parts.push(`In più, ${grtidfPronti} GRTIDF pronti da fatturare per ${valoreBloccato.toFixed(0)} euro bloccati.`);
+  }
   return {
-    content:
-      `📊 **Report mensile ${yyyymm}** (CHARTA v0.1, dati da iris_emails):\n\n` +
-      `  · Fatture fornitori: ${forn}\n` +
-      `  · Richieste pagamento: ${rich}\n` +
-      `  · Guasti urgenti: ${guast}\n` +
-      `  · Richieste contratto: ${contr}\n\n` +
-      `_Totali € reali arriveranno con integrazione Fatture-in-Cloud._`,
-    data: { yyyymm, forn, rich, guast, contr },
+    content: parts.join(" "),
+    data: { yyyymm, forn, rich, guast, totExp, totScad, grtidfPronti, valoreBloccato },
   };
 }

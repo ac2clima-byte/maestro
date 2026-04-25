@@ -346,7 +346,7 @@ export function naturalize(text) {
   s = s.replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, "$1");
   // Rimuovi bullet "· " e "• " e "- " a inizio riga (sostituisci con nulla)
   s = s.replace(/^\s*[·•]\s+/gm, "");
-  s = s.replace(/^\s{2,}-\s+/gm, "");
+  s = s.replace(/^[ \t]*-\s+/gm, "");
   // Rimuovi separatori "─────" e righe di soli "─"
   s = s.replace(/^\s*[─━]+\s*$/gm, "");
   // Rimuovi parentesi backtick `xxxxx` inline (mantiene contenuto)
