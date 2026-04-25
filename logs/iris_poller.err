@@ -29,3 +29,729 @@
   #25  COMUNICAZIONE_INTERNA         high    neutro       cristina.davi@guazzottienergia.com        → INOLTRA
   #26  FAILED: Expecting ',' delimiter: line 67 column 4 (char 2075)
   #27  COMUNICAZIONE_INTERNA         high    neutro       enrica.manenti@gruppobadano.com           → ARCHIVIA
+[2026-04-24T20:16:24Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #3  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #4  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #5  FAILED: <urlopen error _ssl.c:983: The handshake operation timed out>
+  #6  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #7  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #8  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #9  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #11  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #12  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #13  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #14  FAILED: Expecting ',' delimiter: line 45 column 4 (char 1675)
+  #15  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #16  FAILED: Expecting ',' delimiter: line 71 column 6 (char 2835)
+[2026-04-24T20:25:24Z] ERR: ciclo FAILED (rc=124): ultime righe:
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #3  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #4  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → INOLTRA
+  #5  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #6  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #7  FAILED: Expecting ',' delimiter: line 63 column 6 (char 2640)
+  #8  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #9  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #11  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #12  AMMINISTRATORE_CONDOMINIO     high    frustrato    sara.quagliano@acgclimaservice.com        → RISPONDI
+  #13  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → RISPONDI
+  #14  FAILED: Expecting ',' delimiter: line 59 column 6 (char 2701)
+  #15  FAILED: Expecting ',' delimiter: line 56 column 4 (char 1760)
+  #16  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #17  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → RISPONDI
+  #18  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #19  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #21  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #22  RISPOSTA_CLIENTE              high    neutro       studiomdconsulting@gmail.com              → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #24  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #25  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-24T20:34:24Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → INOLTRA
+  #3  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #4  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #5  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #6  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #7  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #8  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #9  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #11  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #12  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #13  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #14  FAILED: Expecting ',' delimiter: line 58 column 6 (char 2592)
+  #15  FAILED: Expecting ',' delimiter: line 69 column 8 (char 2770)
+  #16  FAILED: Expecting ',' delimiter: line 63 column 4 (char 2003)
+  #17  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #18  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #19  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #21  RISPOSTA_CLIENTE              high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #22  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #23  FAILED: Expecting ',' delimiter: line 52 column 4 (char 1880)
+  #24  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #25  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #26  FAILED: Expecting ',' delimiter: line 62 column 4 (char 1896)
+[2026-04-24T20:41:25Z] ERR: ciclo FAILED (rc=1): ultime righe:
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/cached_property.py", line 67, in __get__
+    return obj_dict.setdefault(name, self.func(obj))
+                                     ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/account.py", line 367, in root
+    return Root.get_distinguished(account=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/roots.py", line 145, in get_distinguished
+    return cls._get_distinguished(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/base.py", line 226, in _get_distinguished
+    return cls.resolve(account=folder.account, folder=folder)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/base.py", line 530, in resolve
+    folders = list(FolderCollection(account=account, folders=[folder]).resolve())
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/collections.py", line 334, in resolve
+    additional_fields = self.get_folder_fields(target_cls=self._get_target_cls())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/collections.py", line 282, in get_folder_fields
+    for f in target_cls.supported_fields(version=self.account.version)
+                                                 ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/account.py", line 221, in version
+    self._version = self.protocol.version.copy()
+                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 480, in version
+    self.config.version = Version.guess(self, api_version_hint=self.api_version_hint)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/version.py", line 204, in guess
+    raise TransportError(f"No valid version headers found in response ({e!r})")
+exchangelib.errors.TransportError: No valid version headers found in response (ErrorTimeoutExpired("Reraised from ConnectTimeout(HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x73722e387740>, 'Connection to remote.gruppobadano.it timed out. (connect timeout=120)')))"))
+[2026-04-24T20:48:27Z] ERR: ciclo FAILED (rc=1): ultime righe:
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/cached_property.py", line 67, in __get__
+    return obj_dict.setdefault(name, self.func(obj))
+                                     ^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/account.py", line 367, in root
+    return Root.get_distinguished(account=self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/roots.py", line 145, in get_distinguished
+    return cls._get_distinguished(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/base.py", line 226, in _get_distinguished
+    return cls.resolve(account=folder.account, folder=folder)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/base.py", line 530, in resolve
+    folders = list(FolderCollection(account=account, folders=[folder]).resolve())
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/collections.py", line 334, in resolve
+    additional_fields = self.get_folder_fields(target_cls=self._get_target_cls())
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/folders/collections.py", line 282, in get_folder_fields
+    for f in target_cls.supported_fields(version=self.account.version)
+                                                 ^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/account.py", line 221, in version
+    self._version = self.protocol.version.copy()
+                    ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/protocol.py", line 480, in version
+    self.config.version = Version.guess(self, api_version_hint=self.api_version_hint)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/albertocontardi/.local/lib/python3.12/site-packages/exchangelib/version.py", line 204, in guess
+    raise TransportError(f"No valid version headers found in response ({e!r})")
+exchangelib.errors.TransportError: No valid version headers found in response (ErrorTimeoutExpired("Reraised from ConnectTimeout(HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x7ce3a3943c20>, 'Connection to remote.gruppobadano.it timed out. (connect timeout=120)')))"))
+[2026-04-24T20:57:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → RISPONDI
+  #6  NEWSLETTER_SPAM               high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    positivo     andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    neutro       davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    frustrato    sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → RISPONDI
+  #15  FAILED: Expecting ',' delimiter: line 52 column 8 (char 2677)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+[2026-04-24T21:06:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 58 column 6 (char 2593)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → RISPONDI
+  #15  FAILED: Expecting ',' delimiter: line 58 column 8 (char 2863)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  FAILED: Expecting ',' delimiter: line 65 column 6 (char 2823)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    neutro       studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #27  FAILED: Expecting ',' delimiter: line 72 column 6 (char 2847)
+[2026-04-24T21:15:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → ARCHIVIA
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → RISPONDI
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 39 column 4 (char 1556)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  FAILED: Expecting ',' delimiter: line 63 column 4 (char 1959)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-24T21:24:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → RISPONDI
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 60 column 6 (char 2641)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    neutro       davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    frustrato    sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 54 column 6 (char 2686)
+  #16  FAILED: Expecting ',' delimiter: line 70 column 8 (char 2735)
+  #17  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → RISPONDI
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #27  FAILED: Expecting ',' delimiter: line 59 column 4 (char 1781)
+[2026-04-24T21:33:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → ARCHIVIA
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  FAILED: Expecting ',' delimiter: line 61 column 8 (char 2939)
+  #14  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 53 column 6 (char 2510)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  FAILED: Expecting ',' delimiter: line 49 column 4 (char 1923)
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #27  FAILED: Expecting ',' delimiter: line 74 column 6 (char 2755)
+  #28  COMUNICAZIONE_INTERNA         high    neutro       enrica.manenti@gruppobadano.com           → ARCHIVIA
+[2026-04-24T21:42:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → RISPONDI
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    positivo     andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    frustrato    sara.quagliano@acgclimaservice.com        → APRI_INTERVENTO
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 56 column 6 (char 2637)
+  #16  FAILED: Expecting ',' delimiter: line 73 column 8 (char 2758)
+  #17  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → VERIFICA_PAGAMENTO
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    neutro       edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → VERIFICA_PAGAMENTO
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #27  FAILED: Expecting ',' delimiter: line 65 column 4 (char 1952)
+  #28  COMUNICAZIONE_INTERNA         high    neutro       enrica.manenti@gruppobadano.com           → ARCHIVIA
+  #29  COMUNICAZIONE_INTERNA         medium  neutro       assistenza.tecnica@guazzottienergia.com   → ARCHIVIA
+[2026-04-24T21:51:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         medium  positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 52 column 4 (char 2131)
+  #9  FAILED: Expecting ',' delimiter: line 64 column 4 (char 2057)
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → APRI_INTERVENTO
+  #14  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 58 column 6 (char 2802)
+  #16  FAILED: Expecting ',' delimiter: line 69 column 4 (char 2088)
+  #17  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #27  FAILED: Expecting ',' delimiter: line 63 column 4 (char 2016)
+[2026-04-24T22:00:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 46 column 6 (char 2523)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → ARCHIVIA
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 58 column 4 (char 2158)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  RISPOSTA_CLIENTE              high    neutro       starvo@tin.it                             → VERIFICA_PAGAMENTO
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → RISPONDI
+  #19  AMMINISTRATORE_CONDOMINIO     high    positivo     amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #27  FAILED: Expecting ',' delimiter: line 71 column 4 (char 2225)
+  #28  COMUNICAZIONE_INTERNA         high    neutro       enrica.manenti@gruppobadano.com           → ARCHIVIA
+[2026-04-24T22:09:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → INOLTRA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → RISPONDI
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 52 column 6 (char 2713)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  FAILED: Expecting ',' delimiter: line 62 column 4 (char 1957)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
+  #27  FAILED: Expecting ',' delimiter: line 63 column 4 (char 1940)
+[2026-04-24T22:18:27Z] ERR: ciclo FAILED (rc=124): ultime righe:
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → RISPONDI
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → VERIFICA_PAGAMENTO
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  FAILED: Expecting ',' delimiter: line 51 column 4 (char 1803)
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 54 column 6 (char 2715)
+  #16  FAILED: Expecting ',' delimiter: line 61 column 4 (char 1921)
+  #17  FAILED: Expecting ',' delimiter: line 62 column 4 (char 1948)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → URGENTE_CHIAMA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+[2026-04-24T22:27:28Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → RISPONDI
+  #3  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 57 column 6 (char 3023)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → INOLTRA
+  #15  FAILED: Expecting ',' delimiter: line 59 column 4 (char 2017)
+  #16  FAILED: Expecting ',' delimiter: line 65 column 4 (char 1943)
+  #17  FAILED: Expecting ',' delimiter: line 67 column 8 (char 2791)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  RISPOSTA_CLIENTE              high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-25T06:46:47Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → INOLTRA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         medium  positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 50 column 8 (char 2767)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → APRI_INTERVENTO
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 49 column 4 (char 1740)
+  #16  FAILED: Expecting ',' delimiter: line 66 column 4 (char 1999)
+  #17  FAILED: Expecting ',' delimiter: line 64 column 4 (char 2028)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+[2026-04-25T06:55:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    positivo     andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → VERIFICA_PAGAMENTO
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  FAILED: Expecting ',' delimiter: line 58 column 8 (char 2866)
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 53 column 8 (char 2736)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  FAILED: Expecting ',' delimiter: line 69 column 4 (char 2134)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+[2026-04-25T07:04:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → RISPONDI
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         medium  positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → RISPONDI
+  #15  FAILED: Expecting ',' delimiter: line 52 column 8 (char 2769)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  FAILED: Expecting ',' delimiter: line 69 column 6 (char 2772)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → INOLTRA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → ARCHIVIA
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  FAILED: Expecting ',' delimiter: line 48 column 4 (char 1883)
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
+[2026-04-25T07:13:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 54 column 8 (char 2901)
+  #9  FAILED: Expecting ',' delimiter: line 74 column 8 (char 2819)
+  #10  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → RISPONDI
+  #15  FAILED: Expecting ',' delimiter: line 45 column 4 (char 1706)
+  #16  FAILED: Expecting ',' delimiter: line 62 column 4 (char 1919)
+  #17  FAILED: Expecting ',' delimiter: line 58 column 4 (char 1947)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-25T07:22:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  FAILED: Expecting ',' delimiter: line 60 column 4 (char 1866)
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 57 column 4 (char 2163)
+  #16  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
+  #17  RISPOSTA_CLIENTE              high    neutro       starvo@tin.it                             → INOLTRA
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  COMUNICAZIONE_INTERNA         medium  neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  FAILED: Expecting ',' delimiter: line 61 column 4 (char 2122)
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+[2026-04-25T07:31:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  NEWSLETTER_SPAM               high    neutro       Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 65 column 4 (char 2157)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 40 column 4 (char 1554)
+  #16  FAILED: Expecting ',' delimiter: line 67 column 4 (char 2126)
+  #17  FAILED: Expecting ',' delimiter: line 58 column 4 (char 1976)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+[2026-04-25T07:40:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → INOLTRA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  FAILED: Expecting ',' delimiter: line 60 column 8 (char 2848)
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  FAILED: Expecting ',' delimiter: line 52 column 4 (char 1764)
+  #14  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 64 column 6 (char 2781)
+  #16  FAILED: Expecting ',' delimiter: line 56 column 4 (char 1727)
+  #17  FAILED: Expecting ',' delimiter: line 57 column 4 (char 1830)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  RISPOSTA_CLIENTE              high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+[2026-04-25T07:49:48Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #4  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #5  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #6  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #7  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #8  FAILED: Expecting ',' delimiter: line 55 column 6 (char 2584)
+  #9  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #12  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #13  FAILED: Expecting ',' delimiter: line 61 column 8 (char 2818)
+  #14  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #15  FAILED: Expecting ',' delimiter: line 53 column 6 (char 2719)
+  #16  FAILED: Expecting ',' delimiter: line 70 column 6 (char 2744)
+  #17  FAILED: Expecting ',' delimiter: line 66 column 8 (char 2719)
+  #18  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
+  #21  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #22  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #23  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
+  #24  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #25  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA

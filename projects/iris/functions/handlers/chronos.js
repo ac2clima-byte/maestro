@@ -325,20 +325,29 @@ export async function handleChronosListaCampagne(parametri = {}) {
 
   const includeArchived = !!parametri.archived;
   const rows = Array.from(campagne.values())
+    // Skip campagne archiviate a prescindere (raramente utili nella ricerca
+    // generale; per includerle: parametri.includeArchived=true).
+    // Questo filtra anche i "dati sporchi" come POSTELEGRAFONICI.
     .filter(c => includeArchived || !c.archiviata)
     .sort((a, b) => (b.count || 0) - (a.count || 0));
 
   if (!rows.length) {
-    return { content: "Nessuna campagna attiva trovata.", data: { campagne: [] } };
+    return { content: "Non hai campagne attive al momento.", data: { campagne: [] } };
   }
 
-  const lines = rows.slice(0, 10).map((c, i) => {
-    const tag = c.source === "bacheca_inferred" ? " _(bacheca)_" : "";
-    const archLabel = c.archiviata ? " [archiviata]" : "";
-    return `${i + 1}. **${c.nome}**${archLabel}${tag} — ${c.count} interventi`;
-  });
+  // Risposta naturale
+  const totali = rows.length;
+  const attive = rows.filter(c => !c.archiviata).length;
+  const parts = [];
+  if (attive === totali) parts.push(`Hai ${totali} campagne attive.`);
+  else parts.push(`Hai ${attive} campagne attive e ${totali - attive} archiviate.`);
+
+  const elenco = rows.slice(0, 8).map((c, i) => {
+    const archNote = c.archiviata ? " (archiviata)" : "";
+    return `${i + 1}. ${c.nome}${archNote} — ${c.count} interventi`;
+  }).join("\n");
   return {
-    content: `📋 **Campagne attive** (${rows.length}):\n\n${lines.join("\n")}`,
+    content: `${parts.join(" ")}\n\n${elenco}`,
     data: { campagne: rows },
   };
 }
@@ -356,22 +365,59 @@ export async function handleChronosCampagne(parametri, ctx) {
     return handleChronosListaCampagne(parametri);
   }
 
-  // Cerca nome esatto o fuzzy
+  // Ricerca fuzzy: splitta query in parole, trova campagne che contengono
+  // TUTTE le parole significative. "Letture WalkBy" → cerca "letture" (walkby
+  // è probabilmente sinonimo non presente nel nome) → fallback a "letture".
   const lista = await handleChronosListaCampagne({ archived: true });
-  const candidates = (lista.data?.campagne || []).filter(c =>
-    c.nome.toLowerCase().includes(nome.toLowerCase())
-  );
+  const allCamps = lista.data?.campagne || [];
+
+  const SYNONYMS = {
+    walkby: ["letture", "acg", "fs", "contatori"],
+    lettura: ["letture"],
+    spegnimento: ["spegnimento", "spegni"],
+    accensione: ["accensione", "accendi"],
+    contatori: ["contatori", "letture"],
+  };
+
+  const normalize = s => String(s).toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  const STOP = new Set(["di", "del", "delle", "della", "per", "con", "e", "il", "la", "lo", "i", "gli", "le", "un", "una", "uno"]);
+  const words = normalize(nome).split(/\s+/).filter(w => w.length >= 2 && !STOP.has(w));
+
+  // Candidate scoring: match parole + sinonimi. Archiviate penalizzate.
+  const scored = allCamps.map(c => {
+    const bag = normalize(c.nome + " " + (c.descrizione || ""));
+    let score = 0, matchedWords = 0;
+    for (const w of words) {
+      const syns = [w, ...(SYNONYMS[w] || [])];
+      const anyHit = syns.some(s => bag.includes(s));
+      if (anyHit) { matchedWords++; score += 10; }
+      if (bag.includes(w)) score += 5;
+    }
+    // Penalità forte per archiviate (non voglio vederle in un match fuzzy)
+    if (c.archiviata) score -= 100;
+    return { camp: c, score, matchedWords };
+  }).filter(x => x.matchedWords > 0 && x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const candidates = scored.map(x => x.camp);
   if (!candidates.length) {
-    const attive = (lista.data?.campagne || []).slice(0, 8).map(c => `· ${c.nome}`).join("\n");
+    const attive = allCamps.slice(0, 8).map(c => c.nome).join(", ");
     return {
-      content: `Nessuna campagna trovata per "${nome}".\n\nCampagne disponibili:\n${attive}`,
+      content: `Non trovo una campagna che corrisponde a "${nome}". Quelle disponibili sono: ${attive}.`,
     };
   }
   if (candidates.length > 1) {
-    const opzioni = candidates.slice(0, 5).map(c => `· ${c.nome} (${c.count} interv.)`).join("\n");
-    return {
-      content: `Ho trovato ${candidates.length} campagne con "${nome}":\n\n${opzioni}\n\nSpecifica meglio.`,
-    };
+    // Ambiguità: se il top score è molto superiore ai seguenti, prendi il top
+    const topScore = scored[0].score;
+    const secondScore = scored[1]?.score || 0;
+    if (topScore >= secondScore * 2 && scored[0].matchedWords >= words.length) {
+      // Match dominante: vai con questo
+    } else {
+      const opzioni = candidates.slice(0, 4).map(c => `${c.nome} (${c.count} interventi)`).join("; ");
+      return {
+        content: `Ho trovato più campagne: ${opzioni}. Quale vuoi?`,
+      };
+    }
   }
 
   // Match univoco: calcola metriche
@@ -387,26 +433,26 @@ export async function handleChronosCampagne(parametri, ctx) {
     .sort((a, b) => b[1] - a[1]).slice(0, 5)
     .map(([t, n]) => `${t}=${n}`).join(", ");
 
-  const lines = [
-    `📋 **Campagna: ${camp.nome}**`,
-    camp.descrizione ? `_${camp.descrizione.slice(0, 150)}_` : "",
-    ``,
-    `**Avanzamento**: \`${bar}\` ${perc}% completato`,
-    ``,
-    `  · ✅ Completati: ${stats.completati}`,
-    `  · 📅 Programmati: ${stats.programmati}`,
-    `  · ⚠️ Scaduti: ${stats.scaduti}`,
-    `  · 📝 Da Programmare: ${stats.da_programmare}`,
-    `  · ❌ Non Fatti: ${stats.non_fatti}`,
-    `  · 🚫 Da Non Fare: ${stats.da_non_fare}`,
-    `  ─────────────`,
-    `  · **Totale: ${stats.totale}**`,
-    ``,
-    `**Per tecnico**: ${topTech || "-"}`,
-  ].filter(Boolean);
+  // Risposta naturale discorsiva
+  const parts = [];
+  parts.push(`Campagna ${camp.nome}: ${perc}% completato.`);
+  const bits = [];
+  if (stats.completati) bits.push(`${stats.completati} fatti`);
+  if (stats.programmati) bits.push(`${stats.programmati} programmati`);
+  if (stats.scaduti) bits.push(`${stats.scaduti} scaduti`);
+  if (stats.da_programmare) bits.push(`${stats.da_programmare} da programmare`);
+  if (stats.non_fatti) bits.push(`${stats.non_fatti} non fatti`);
+  if (bits.length) parts.push(`Sui ${stats.totale} totali: ${bits.join(", ")}.`);
+  if (topTech) {
+    const firstTech = topTech.split(",")[0];
+    parts.push(`Il tecnico con più interventi è ${firstTech.replace("=", " con ")}.`);
+  }
+  if (stats.scaduti > 0) {
+    parts.push(`Vuoi che recuperiamo gli scaduti?`);
+  }
 
   return {
-    content: lines.join("\n"),
+    content: parts.join(" "),
     data: {
       campagna: camp,
       stats,

@@ -128,10 +128,14 @@ async function waitForCompletion() {
 }
 
 // === TASK PROCESSING ===
+// I task con prefisso "dev-request-" sono segnalazioni Claude Chat in arrivo
+// da NEXUS: NON vanno eseguite come task normali (MAESTRO le SKIPPA).
+// Sono lette da Claude Chat all'inizio delle sessioni per revisione con Alberto.
 function getPendingTasks() {
   if (!existsSync(TASKS_DIR)) return [];
   return readdirSync(TASKS_DIR)
     .filter(f => f.endsWith('.md'))
+    .filter(f => !f.startsWith('dev-request-'))
     .map(f => f.replace('.md', ''))
     .filter(id => !existsSync(join(RESULTS_DIR, `${id}.md`)));
 }

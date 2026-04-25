@@ -122,6 +122,52 @@
     flex-direction: column;
     border-right: 1px solid var(--sidebar-border);
     overflow-y: auto;
+    transition: transform 0.3s ease, margin-left 0.3s ease;
+  }
+  /* Nascosta su desktop: slide out + griglia a 1 col (content full width) */
+  .app.sidebar-hidden {
+    grid-template-columns: 0 1fr;
+  }
+  .app.sidebar-hidden .sidebar {
+    transform: translateX(-100%);
+  }
+  /* Bottone hamburger floating per riaprire sidebar quando nascosta */
+  .sidebar-toggle-floating {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 55;
+    width: 40px; height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 1.15rem;
+    cursor: pointer;
+    display: none;
+    align-items: center; justify-content: center;
+    box-shadow: var(--shadow-sm);
+    font-family: 'DM Sans', system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+    transition: background 0.12s;
+  }
+  .sidebar-toggle-floating:hover { background: var(--surface-alt); }
+  .app.sidebar-hidden .sidebar-toggle-floating { display: flex; }
+  /* Bottone hamburger nell'header sidebar (desktop, chiude) */
+  .sidebar-toggle-inline {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    margin-left: auto;
+    display: none;
+  }
+  .sidebar-toggle-inline:hover { background: var(--surface-alt); color: var(--text); }
+  @media (min-width: 761px) {
+    .sidebar-toggle-inline { display: inline-flex; }
   }
   .sidebar-header {
     padding: 20px 18px 14px;
@@ -1615,10 +1661,16 @@
     <div style="margin-left:auto;font-size:0.85rem;opacity:.7;" id="topbarTitle">Home</div>
   </div>
 
+  <!-- Hamburger floating (visibile solo quando sidebar è nascosta su desktop) -->
+  <button class="sidebar-toggle-floating" id="sidebarShowBtn" aria-label="Mostra menu" title="Mostra menu">☰</button>
+
   <aside class="sidebar collapsed" id="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-brand">NEXO</div>
-      <div class="sidebar-tag">Hub dei Colleghi · ACG Suite</div>
+    <div class="sidebar-header" style="display:flex;align-items:flex-start;gap:10px;">
+      <div style="flex:1;min-width:0;">
+        <div class="sidebar-brand">NEXO</div>
+        <div class="sidebar-tag">Hub dei Colleghi · ACG Suite</div>
+      </div>
+      <button class="sidebar-toggle-inline" id="sidebarHideBtn" aria-label="Nascondi menu" title="Nascondi menu">☰</button>
     </div>
 
     <div class="sidebar-section">
@@ -1774,6 +1826,23 @@ function renderSidebarNav() {
       ev.preventDefault();
       ev.stopPropagation();
       navigate(route);
+    });
+
+    // Tastiera: frecce su/giù per spostare focus, Enter per aprire
+    sidebarEl.addEventListener("keydown", (ev) => {
+      if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp" && ev.key !== "Home" && ev.key !== "End") return;
+      const links = Array.from(sidebarEl.querySelectorAll(".sidebar-link"));
+      if (!links.length) return;
+      const current = document.activeElement;
+      let idx = links.indexOf(current);
+      if (idx < 0) idx = 0;
+      let next;
+      if (ev.key === "ArrowDown") next = Math.min(idx + 1, links.length - 1);
+      else if (ev.key === "ArrowUp") next = Math.max(idx - 1, 0);
+      else if (ev.key === "Home") next = 0;
+      else next = links.length - 1;
+      ev.preventDefault();
+      links[next].focus();
     });
   }
 }
@@ -3350,7 +3419,15 @@ function nexusTtsStop() {
     nexusTts.abortCtrl = null;
   }
   nexusTts.speakingBubbleId = null;
+  nexusTtsUpdateStopBtn();
   nexusRenderMessages();
+}
+
+function nexusTtsUpdateStopBtn() {
+  const btn = $("#nexusStopTtsBtn");
+  if (!btn) return;
+  const playing = !!nexusTts.speakingBubbleId;
+  btn.hidden = !playing;
 }
 
 // Pulisce il testo per la lettura: rimuove markdown, emoji superflue
@@ -3378,6 +3455,7 @@ async function nexusTtsSpeak(text, bubbleId) {
   nexusTtsStop();
 
   nexusTts.speakingBubbleId = bubbleId || null;
+  nexusTtsUpdateStopBtn();
   nexusRenderMessages();
 
   try {
@@ -3961,6 +4039,21 @@ function nexusWire() {
   $("#nexusFab").addEventListener("click", nexusOpen);
   $("#nexusClose").addEventListener("click", nexusClose);
   $("#nexusFullscreenBtn")?.addEventListener("click", nexusFullscreenToggle);
+  // Stop TTS: bottone dedicato + tap sull'area messaggi interrompe
+  $("#nexusStopTtsBtn")?.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (nexusTts.supported) nexusTtsStop();
+  });
+  $("#nexusMessages")?.addEventListener("click", () => {
+    if (nexusTts.supported && nexusTts.speakingBubbleId) nexusTtsStop();
+  });
+  // Qualsiasi tasto interrompe TTS (ma non interferisce con digitazione nell'input)
+  document.addEventListener("keydown", (ev) => {
+    if (!nexusTts.supported || !nexusTts.speakingBubbleId) return;
+    // Non interrompere se l'utente sta digitando nell'input della chat
+    if (ev.target && ev.target.id === "nexusInput") return;
+    nexusTtsStop();
+  });
   $("#nexusClearBtn")?.addEventListener("click", nexusClear);
   $("#nexusSendBtn").addEventListener("click", nexusSend);
   const mic = $("#nexusMicBtn");
@@ -4003,12 +4096,36 @@ function nexusWire() {
   });
 }
 
+// ── Sidebar toggle nascondibile (desktop) ────────────────────
+const SIDEBAR_HIDDEN_KEY = "nexo.sidebar.hidden";
+function nexoSetSidebarHidden(hidden) {
+  const app = document.querySelector(".app");
+  if (!app) return;
+  app.classList.toggle("sidebar-hidden", !!hidden);
+  try { localStorage.setItem(SIDEBAR_HIDDEN_KEY, hidden ? "1" : "0"); } catch {}
+}
+function nexoToggleSidebar() {
+  const app = document.querySelector(".app");
+  if (!app) return;
+  nexoSetSidebarHidden(!app.classList.contains("sidebar-hidden"));
+}
+
 // ── Bootstrap ──────────────────────────────────────────────────
 function init() {
   renderSidebarNav();
   $("#menuBtn")?.addEventListener("click", () => {
     $("#sidebar").classList.toggle("collapsed");
   });
+  // Desktop: toggle hide/show sidebar
+  $("#sidebarHideBtn")?.addEventListener("click", nexoToggleSidebar);
+  $("#sidebarShowBtn")?.addEventListener("click", nexoToggleSidebar);
+  // Ripristina stato da localStorage (solo desktop)
+  if (window.innerWidth > 760) {
+    try {
+      const wasHidden = localStorage.getItem(SIDEBAR_HIDDEN_KEY) === "1";
+      if (wasHidden) nexoSetSidebarHidden(true);
+    } catch {}
+  }
   if (window.innerWidth > 760) $("#sidebar").classList.remove("collapsed");
 
   const initialRoute = location.hash.replace(/^#/, "") || "home";
@@ -4388,6 +4505,7 @@ bootstrapAuth().catch(e => {
       </div>
     </div>
     <div class="nexus-header-actions">
+      <button class="close" id="nexusStopTtsBtn" aria-label="Ferma voce" title="Ferma la voce" hidden>⏹</button>
       <button class="close" id="nexusTtsToggle" aria-label="Attiva lettura vocale" title="Attiva/disattiva lettura ad alta voce" hidden>🔇</button>
       <button class="close nexus-fullscreen-btn" id="nexusFullscreenBtn" aria-label="Espandi a tutto schermo" title="Espandi a tutto schermo">⛶</button>
       <button class="close" id="nexusClearBtn" aria-label="Cancella conversazione" title="Cancella la chat">🗑️</button>

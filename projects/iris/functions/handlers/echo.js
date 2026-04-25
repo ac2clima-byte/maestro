@@ -253,12 +253,8 @@ export async function handleEchoWhatsApp(parametri, ctx) {
 
   if (isEchoDryRun(cfg)) {
     await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "ECHO_DRY_RUN attivo" });
-    const telLabel = resolved.telSource ? ` [${resolved.telSource}]` : "";
     return {
-      content:
-        `📤 Simulato: WA a **${resolved.displayName}** (${maskNumber(chatId)})${telLabel}\n` +
-        `— ${body}\n\n` +
-        `_Fonte: ${resolved.resolvedFrom} · DRY_RUN attivo, nessun invio reale._`,
+      content: `Non ho mandato il messaggio a ${resolved.displayName} perché il dry-run è attivo. Vuoi che lo attivi?`,
       data: { dryRun: true, id, resolvedFrom: resolved.resolvedFrom },
     };
   }
@@ -291,10 +287,7 @@ export async function handleEchoWhatsApp(parametri, ctx) {
           updatedAt: new Date().toISOString(),
         });
         return {
-          content:
-            `✅ WA inviato a **${resolved.displayName}** (${maskNumber(chatId)})\n` +
-            `— ${body}\n\n` +
-            `_Fonte contatto: ${resolved.resolvedFrom} · ID: \`${id}\`_`,
+          content: `Messaggio inviato a ${resolved.displayName} su WhatsApp.`,
           data: { id, sent: true, resolvedFrom: resolved.resolvedFrom },
         };
       }
@@ -307,5 +300,5 @@ export async function handleEchoWhatsApp(parametri, ctx) {
   }
 
   await persistEchoMessage({ ...baseMsg, status: "failed", failedReason: lastErr });
-  return { content: `❌ ECHO: invio fallito. ${lastErr || "errore sconosciuto"}` };
+  return { content: `Non sono riuscito a inviare il messaggio. ${lastErr || "Errore sconosciuto"}.` };
 }
