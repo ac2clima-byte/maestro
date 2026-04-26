@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T14:38:57.307Z
+Ultimo aggiornamento: 2026-04-26T14:41:10.349Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 17430s
-Timestamp Firestore: 2026-04-26T14:38:56.001Z
+Uptime: 17563s
+Timestamp Firestore: 2026-04-26T14:41:08.996Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-26T14:38:56.001Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 17430.010997658,
-  "timestamp": "2026-04-26T14:38:56.001Z"
+  "uptime": 17563.018164509,
+  "timestamp": "2026-04-26T14:41:08.996Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-26T14:38:56.001Z
 Nessuno.
 
 ## Ultimi 5 commit
+- 1d18c95 status update
+- 10e79f1 fix: CLAUDE.md regola FORGE ordine obbligatorio
 - 8200fda status update
 - 1ee8c2d status update
 - 832cd92 result: fix-dev-requests-stato-e-sessione
-- a18929b fix(iris): stato dev-requests + errore sessione archiviazione
-- 50409c4 analysis: IpLhnHlTK3TfJVTIuYtG
