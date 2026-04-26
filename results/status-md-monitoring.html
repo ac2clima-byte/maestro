@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>STATUS.md su GitHub — monitoring Claude Chat</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+  .num { font-size:32px; font-weight:700; color:var(--ok); }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+  th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.55; }
+  code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+  <h1>STATUS.md su GitHub — monitoring Claude Chat</h1>
+  <p class="sub">Ogni cambio fase di MAESTRO ora scrive STATUS.md nella root del repo e lo pusha. Claude Chat può fare git pull e leggere lo stato senza dipendere da Firestore.</p>
+
+  <div class="grid">
+    <div class="stat"><div class="num">~5</div><div class="lbl">push per task lavorato</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">push per cicli idle infiniti</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">push polling↔idle (rumore)</div></div>
+  </div>
+
+  <h2>Logica di deduplica</h2>
+  <table>
+    <tr><th>Caso</th><th>Comportamento</th></tr>
+    <tr><td>fase di lavoro nuova (found_task, sending_to_code, waiting_result, pushing_result)</td><td><span class="pill ok">PUSH</span></td></tr>
+    <tr><td>stessa fase con task diverso (found_task A → found_task B)</td><td><span class="pill ok">PUSH</span></td></tr>
+    <tr><td>stessa fase di lavoro con stesso task</td><td><span class="pill warn">SKIP</span></td></tr>
+    <tr><td>idle ripetuto</td><td><span class="pill warn">SKIP</span></td></tr>
+    <tr><td>polling ripetuto</td><td><span class="pill warn">SKIP</span></td></tr>
+    <tr><td>transizione fra fasi rumorose (polling↔idle)</td><td><span class="pill warn">SKIP</span></td></tr>
+  </table>
+
+  <h2>Test logica (3 scenari simulati)</h2>
+  <pre>Scenario 1 — 1 task completo + 3 cicli idle: 6 push (5 fasi + wrap polling)
+Scenario 2 — 100 cicli alternati polling/idle senza task: 1 push
+Scenario 3 — 2 task back-to-back: 10 push (5 per task)</pre>
+
+  <h2>Cosa scrive STATUS.md</h2>
+  <pre># Claude Code Status
+Fase: waiting_result
+Task: nome-task
+Dettagli: Claude Code sta lavorando
+Timestamp: 2026-04-26T09:30:00.000Z
+Uptime: 1234s</pre>
+
+  <h2>Come legge Claude Chat</h2>
+  <pre>git pull origin main
+cat STATUS.md</pre>
+
+  <h2>Implementazione</h2>
+  <ul>
+    <li><code>maestro.mjs</code> · <code>updateStatus(fase, dettagli)</code></li>
+    <li>Firestore (<code>nexo_code_status/current</code>): write sempre — utile per la dashboard.</li>
+    <li>STATUS.md + git push: solo se la transizione cambia stato significativo.</li>
+    <li>Commit mirato (<code>git commit STATUS.md</code>) per non trascinare result/task pendenti.</li>
+    <li>Errori git silenziati: il loop MAESTRO non si blocca per problemi di push.</li>
+  </ul>
+
+  <h2>Stato corrente</h2>
+  <p>Il file STATUS.md è stato creato manualmente con valori bootstrap. <span class="pill warn">L'aggiornamento dinamico parte solo dopo restart MAESTRO</span> (il processo PID 30594 attuale ha ancora il codice precedente).</p>
+</body>
+</html>

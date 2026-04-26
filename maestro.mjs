@@ -29,7 +29,51 @@ function getDb() {
   return _db;
 }
 
+// Tiene traccia dell'ultima fase scritta per deduplicare i write/push.
+// Firestore: scriviamo sempre (timestamp/uptime servono per il liveness).
+// STATUS.md su GitHub: pushiamo solo al CAMBIO di fase, e mai per
+// transizioni "noisy" che si ripeterebbero ad ogni ciclo (idle→idle,
+// polling→polling) — altrimenti è uno commit ogni 15 secondi.
+let lastFase = '';
+let lastTask = '';
+const STATUS_FILE = join(REPO_DIR, 'STATUS.md');
+const NOISY_FASI = new Set(['idle', 'polling']);
+
+function writeStatusFile(fase, dettagli) {
+  const lines = [
+    '# Claude Code Status',
+    `Fase: ${fase}`,
+    `Task: ${dettagli.task || 'nessuno'}`,
+    `Dettagli: ${dettagli.msg || ''}`,
+    `Timestamp: ${new Date().toISOString()}`,
+    `Uptime: ${Math.round(process.uptime())}s`,
+    '',
+  ];
+  writeFileSync(STATUS_FILE, lines.join('\n'), 'utf-8');
+}
+
+function commitAndPushStatus(fase) {
+  // Commit mirato solo a STATUS.md per non trascinare altre modifiche
+  // pendenti (results/*, tasks/*) che hanno il loro commit dedicato.
+  try {
+    execSync('git add STATUS.md', { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
+    execSync(`git commit STATUS.md -m "status: ${fase}" --allow-empty`, {
+      cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000,
+    });
+    // pull --rebase per evitare conflitti col poller / Claude Code
+    try { execSync('git pull --rebase origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 }); } catch {}
+    execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
+  } catch (e) {
+    // Non bloccare il loop MAESTRO se git push fallisce: stampiamo e via.
+    const msg = (e.stderr || e.message || '').toString().slice(0, 200);
+    if (!msg.includes('nothing to commit')) {
+      console.error(`[STATUS PUSH ERROR] ${msg}`);
+    }
+  }
+}
+
 async function updateStatus(fase, dettagli = {}) {
+  // Firestore: write sempre (cheap + utile per liveness/uptime in dashboard)
   try {
     const db = getDb();
     await db.collection(STATUS_COLLECTION).doc(STATUS_DOC).set({
@@ -42,6 +86,24 @@ async function updateStatus(fase, dettagli = {}) {
   } catch (e) {
     console.error(`[STATUS ERROR] ${e.message}`);
   }
+
+  // STATUS.md + git push: SOLO al cambio di fase, e SOLO se la transizione
+  // "porta informazione". Una transizione idle↔polling è puro rumore di loop
+  // (avviene ogni 15s quando non ci sono task) e va saltata, altrimenti
+  // genereremmo un push ogni 15 secondi a vuoto. Si pusha quindi quando:
+  //   - cambio di fase E almeno una delle due fasi NON è in NOISY_FASI
+  //   - oppure cambio di task (entriamo in un nuovo lavoro)
+  const taskNow = dettagli.task || '';
+  const sameFase = fase === lastFase;
+  const sameTask = taskNow === lastTask;
+  const noisyTransition = NOISY_FASI.has(fase) && NOISY_FASI.has(lastFase);
+  const skip = sameFase ? (NOISY_FASI.has(fase) || sameTask) : noisyTransition;
+  if (skip) return;
+
+  lastFase = fase;
+  lastTask = taskNow;
+  try { writeStatusFile(fase, dettagli); } catch (e) { console.error(`[STATUS FILE ERROR] ${e.message}`); }
+  commitAndPushStatus(fase);
 }
 
 // === GIT HELPERS ===
