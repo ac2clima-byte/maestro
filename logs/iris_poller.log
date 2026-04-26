@@ -7054,3 +7054,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #21  FAILED: Expecting ',' delimiter: line 57 column 4 (char 1899)
   #22  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
 [2026-04-26T20:08:40Z] ─── fine ciclo ───
+[2026-04-26T20:13:40Z] ─── inizio ciclo IRIS (limit=50) ───
