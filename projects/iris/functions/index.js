@@ -24,7 +24,7 @@ import {
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci } from "./handlers/preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva } from "./handlers/preventivo.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -227,6 +227,31 @@ export const nexusRouter = onRequest(
 
     await ensureNexusSession(sessionId, userId, userMessage);
     const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage });
+
+    // Preventivo IVA: se nel pending in attesa_approvazione l'utente cita un
+    // regime IVA (reverse charge, split, esente, "iva N%") ricalcoliamo IVA
+    // + totale e mostriamo riepilogo aggiornato.
+    try {
+      const prevIva = await tryInterceptPreventivoIva({ userMessage, sessionId, userId });
+      if (prevIva && prevIva._preventivoIvaHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: prevIva.content,
+          direct: { data: prevIva.data || null, failed: false },
+          stato: "completata",
+          modello: "preventivo_iva",
+        });
+        res.status(200).json({
+          intent: { collega: "orchestrator", azione: "preventivo_iva", parametri: {}, rispostaUtente: prevIva.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: prevIva.data || null, failed: false },
+          modello: "preventivo_iva", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("preventivo iva intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
 
     // Preventivo voci: se la sessione ha un nexo_preventivi_pending in stato
     // attesa_voci, parsa il messaggio per estrarre voci+importi.

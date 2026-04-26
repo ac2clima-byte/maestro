@@ -657,6 +657,158 @@ export function parseVociPreventivo(text) {
   return out;
 }
 
+// ─── tryInterceptPreventivoIva ─────────────────────────────────
+// Quando il preventivo pending è in stato "attesa_approvazione" e l'utente
+// scrive un'indicazione su IVA (regime/aliquota), ricalcoliamo IVA + totale
+// e aggiorniamo il pending. Esempi accettati:
+//   "iva 0 reverse charge" / "iva 0" / "senza iva" / "esente iva"
+//   "iva 10" / "iva 10%" / "iva 4" / "iva 22"
+//   "reverse charge" / "inversione contabile" → 0% + nota art.17 c.6 DPR 633/72
+//   "split payment" → 22% + nota art.17-ter DPR 633/72
+// L'imponibile NON cambia: cambiano solo aliquota e totale.
+//
+// Restituisce {content, data, _preventivoIvaHandled:true} se ha intercettato,
+// null altrimenti (così il chiamante prosegue con tryInterceptPreventivoApproval).
+export function parseRegimeIva(text) {
+  const t = String(text || "").toLowerCase();
+  if (!t) return null;
+
+  // Pattern triggers
+  const hasIvaKeyword = /\biva\b/.test(t);
+  const hasReverse = /\b(reverse\s*charge|inversione\s+contabile|inversion\s+contabil)\b/.test(t);
+  const hasSplit = /\b(split\s*payment|split-payment)\b/.test(t);
+  const hasEsente = /\besent\w+/.test(t);
+  const hasSenzaIva = /\bsenza\s+iva\b/.test(t);
+
+  if (!hasIvaKeyword && !hasReverse && !hasSplit && !hasEsente) return null;
+
+  // Reverse charge: aliquota 0 + nota
+  if (hasReverse) {
+    return {
+      aliquota: 0,
+      nota: "Operazione soggetta a reverse charge ex art. 17 c.6 DPR 633/72.",
+      regime: "reverse_charge",
+    };
+  }
+  // Split payment: aliquota 22 (esposta) + nota
+  if (hasSplit) {
+    return {
+      aliquota: 22,
+      nota: "Operazione soggetta a split payment ex art. 17-ter DPR 633/72.",
+      regime: "split_payment",
+      splitPayment: true,
+    };
+  }
+  // Esente / senza iva → 0% senza nota reverse
+  if (hasEsente || hasSenzaIva) {
+    return { aliquota: 0, nota: null, regime: "esente" };
+  }
+  // Pattern "iva N" o "iva N%" — N numero esplicito
+  const m = t.match(/\biva\s*(?:al\s+)?(\d{1,2})\s*%?/);
+  if (m) {
+    const a = Number(m[1]);
+    if (Number.isFinite(a) && a >= 0 && a <= 30) {
+      return { aliquota: a, nota: null, regime: a === 0 ? "esente" : "ordinario" };
+    }
+  }
+  return null;
+}
+
+export async function tryInterceptPreventivoIva({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+
+  // Quickcheck: deve contenere parole-chiave IVA/regime
+  if (!/\b(iva|reverse|split|esent|senza\s+iva)\b/i.test(t)) return null;
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_preventivi_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    // Accettiamo l'IVA SIA in attesa_approvazione (caso normale dopo voci)
+    // SIA in attesa_voci (se l'utente lo dice insieme alle voci, es.
+    // "verifica 200, iva 0 reverse charge").
+    if (pendingData.stato !== "attesa_approvazione" && pendingData.stato !== "attesa_voci") return null;
+  } catch {
+    return null;
+  }
+
+  const regime = parseRegimeIva(t);
+  if (!regime) return null;
+
+  // Se siamo ancora in attesa_voci e non c'è imponibile salvato, non possiamo
+  // ricalcolare — segnaliamo all'utente di mandare prima le voci.
+  const totaleImponibile = Number(pendingData.totale_imponibile);
+  if (!Number.isFinite(totaleImponibile) || totaleImponibile <= 0) {
+    return {
+      content: `Ho capito il regime ${regime.regime}, ma prima dimmi le voci con gli importi (es. "verifica impianto 200").`,
+      _preventivoIvaHandled: true,
+    };
+  }
+
+  const aliquota = regime.aliquota;
+  const ivaImporto = Math.round(totaleImponibile * (aliquota / 100) * 100) / 100;
+  const totale = Math.round((totaleImponibile + ivaImporto) * 100) / 100;
+
+  try {
+    await pendingDoc.ref.set({
+      iva_aliquota: aliquota,
+      iva_importo: ivaImporto,
+      iva_regime: regime.regime,
+      iva_nota: regime.nota || null,
+      iva_split_payment: !!regime.splitPayment,
+      totale,
+      stato: "attesa_approvazione",
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    return { content: `Errore aggiornamento IVA: ${String(e).slice(0, 150)}`, _preventivoIvaHandled: true };
+  }
+
+  const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  const elenco = voci.map((v, i) => `${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`).join("\n");
+
+  // Etichetta IVA in una frase
+  let ivaLabel;
+  if (regime.regime === "reverse_charge") ivaLabel = `IVA 0% (reverse charge)`;
+  else if (regime.regime === "split_payment") ivaLabel = `IVA ${aliquota}% (split payment, non incassata)`;
+  else if (aliquota === 0) ivaLabel = `IVA 0% (esente)`;
+  else ivaLabel = `IVA ${aliquota}% ${fmtEur(ivaImporto)} €`;
+
+  // Per reverse charge il "totale fattura" è imponibile (l'IVA la versa il cessionario).
+  // Per split payment il committente paga solo l'imponibile, l'IVA va all'erario.
+  const blocchi = [
+    `Riepilogo aggiornato per ${pendingData.condominio?.nome || "—"}:`,
+    elenco,
+    ``,
+    `Imponibile ${fmtEur(totaleImponibile)} €, ${ivaLabel}, totale ${fmtEur(totale)} €.`,
+  ];
+  if (regime.nota) {
+    blocchi.push("");
+    blocchi.push(`Nota fiscale: ${regime.nota}`);
+  }
+  blocchi.push("");
+  blocchi.push(`Lo genero in PDF? Rispondi "sì" per procedere, "modifica" per cambiare le voci, "annulla" per scartare.`);
+
+  return {
+    content: blocchi.join("\n"),
+    data: {
+      pendingId: sessionId,
+      iva_aliquota: aliquota,
+      iva_importo: ivaImporto,
+      iva_regime: regime.regime,
+      iva_nota: regime.nota,
+      iva_split_payment: !!regime.splitPayment,
+      totale_imponibile: totaleImponibile,
+      totale,
+    },
+    _preventivoIvaHandled: true,
+  };
+}
+
 // Estrae le istruzioni extra (testo senza numeri) dal messaggio voci.
 // Esempio: "sopralluogo 200, mandami via mail, mettilo su doc" →
 //   voci=["sopralluogo 200"], istruzioni=["mandami via mail","mettilo su doc"]

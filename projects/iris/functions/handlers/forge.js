@@ -24,7 +24,7 @@ import {
   loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoVoci } from "./preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva } from "./preventivo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -93,6 +93,33 @@ export const nexusTestInternal = onRequest(
     try {
       await ensureNexusSession(sessionId, userId, message);
       const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: message });
+
+      // Intercept preventivo IVA: regime fiscale (reverse charge, split,
+      // esente, "iva N%") modifica IVA+totale del pending.
+      try {
+        const prevIva = await tryInterceptPreventivoIva({ userMessage: message, sessionId, userId });
+        if (prevIva && prevIva._preventivoIvaHandled) {
+          const cleaned = naturalize(prevIva.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: prevIva.data || null, failed: false },
+            stato: "completata", modello: "preventivo_iva",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "orchestrator", azione: "preventivo_iva",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: prevIva.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "preventivo_iva",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: preventivo iva intercept failed", { error: String(e).slice(0, 150) });
+      }
 
       // Intercept preventivo voci: se la sessione ha un pending in attesa_voci
       // parsa il messaggio (es. "sopralluogo 200, relazione tecnica 150").
