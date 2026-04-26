@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<title>IRIS · tasti Archivia + Elimina</title>
+<style>
+:root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+.sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+.card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+.grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+.stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+.num { font-size:30px; font-weight:700; color:var(--ok); }
+.lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+.pill.ok { background:rgba(34,197,94,.18); color:var(--ok); }
+.pill.warn { background:rgba(245,158,11,.18); color:var(--warn); }
+table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+img { max-width:100%; border-radius:10px; border:1px solid #1f2a3d; }
+pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; font-size:12px; line-height:1.5; overflow:auto; }
+code { background:#0f172a; padding:1px 6px; border-radius:4px; font-size:12px; }
+</style></head><body>
+<h1>IRIS · tasti Archivia + Elimina</h1>
+<p class="sub">Implementati i bottoni Archivia (blu ACG) ed Elimina (rosso) in ogni card email IRIS, sia in vista singola che thread. Backend: <code>irisArchiveEmail</code> già esistente, <code>irisDeleteEmail</code> nuovo. Soft-delete: il documento Firestore non viene rimosso, viene marcato <code>status=deleted</code>.</p>
+
+<div class="grid">
+  <div class="stat"><div class="num">9/9</div><div class="lbl">Smoke test PASS</div></div>
+  <div class="stat"><div class="num">2</div><div class="lbl">Bottoni nuovi per card</div></div>
+  <div class="stat"><div class="num">1</div><div class="lbl">Endpoint nuovo deployato</div></div>
+  <div class="stat"><div class="num">0</div><div class="lbl">Email reali toccate nel test</div></div>
+</div>
+
+<h2>Componenti</h2>
+<table>
+  <tr><th>Layer</th><th>File</th><th>Modifica</th></tr>
+  <tr><td>Handler backend</td><td><code>handlers/iris.js</code></td><td>Nuovo <code>handleIrisDeleteEmail</code>: scrive <code>iris_delete_queue</code> con <code>mode=soft</code>; marca <code>iris_emails.{id}.status=deleted</code> + <code>eliminata_il</code> + <code>deleteQueueId</code>. Pattern identico ad archive.</td></tr>
+  <tr><td>Endpoint HTTP</td><td><code>functions/index.js</code></td><td>Nuovo export <code>irisDeleteEmail</code> (POST autenticato, <code>verifyAcgIdToken</code>, region europe-west1).</td></tr>
+  <tr><td>Firestore rules</td><td><code>firestore.rules</code></td><td>Aggiunta regola <code>iris_delete_queue</code> (read pubblica, write Admin SDK only).</td></tr>
+  <tr><td>UI card single</td><td><code>iris/index.html</code></td><td>Bottoni <code>📦 Archivia</code> e <code>🗑️ Elimina</code> in <code>renderEmailCard</code> · wire <code>data-archive</code>/<code>data-delete</code> in <code>renderEmails</code>.</td></tr>
+  <tr><td>UI thread</td><td><code>iris/index.html</code></td><td>Stessi due bottoni in <code>renderThreadCard</code> · wire con <code>stopPropagation</code> per non collidere col toggle thread.</td></tr>
+  <tr><td>Filtro lista</td><td><code>iris/index.html</code></td><td><code>applyFilters</code> esclude <code>status=archived</code> e <code>status=deleted</code>. Loader email aggiunge campo <code>status</code> dal doc Firestore.</td></tr>
+  <tr><td>JS azioni inline</td><td><code>iris/index.html</code></td><td>Wrapper <code>archiveEmail/deleteEmail</code> + <code>archiveEmailFromCard/deleteEmailFromCard</code> · toast <code>.iris-toast</code> · animazione fade della card · <code>confirm()</code> obbligatorio prima dell'eliminazione.</td></tr>
+  <tr><td>JS wrapper PWA</td><td><code>app.js</code></td><td>Aggiunta <code>IRIS_DELETE_URL</code> + <code>archiveEmail()</code> e <code>deleteEmail()</code> riusabili dalla home/digest.</td></tr>
+  <tr><td>CSS</td><td><code>iris/index.html</code></td><td>Stile <code>.btn-archive</code> (blu <code>#006eb7</code>) e <code>.btn-delete</code> (rosso <code>#dc2626</code>), piccoli, hover dedicato. Toast IRIS con animazione.</td></tr>
+</table>
+
+<h2>Conferma test smoke (Playwright headless)</h2>
+<table>
+  <tr><th>Check</th><th>Esito</th><th>Dettaglio</th></tr>
+  <tr><td>CSS .btn-archive deployato</td><td><span class="pill ok">OK</span></td><td>regola presente in main.css IRIS</td></tr>
+  <tr><td>CSS .btn-delete deployato</td><td><span class="pill ok">OK</span></td><td>idem</td></tr>
+  <tr><td>HTML markup contiene btn-archive/btn-delete</td><td><span class="pill ok">OK</span></td><td>/iris/ rendering server</td></tr>
+  <tr><td>HTML contiene IRIS_DELETE_URL</td><td><span class="pill ok">OK</span></td><td></td></tr>
+  <tr><td>Bottone Archivia colore blu ACG</td><td><span class="pill ok">OK</span></td><td>rgb(0, 110, 183) confermato</td></tr>
+  <tr><td>Bottone Elimina colore rosso</td><td><span class="pill ok">OK</span></td><td>rgb(220, 38, 38) confermato</td></tr>
+  <tr><td>Pageload zero errori console</td><td><span class="pill ok">OK</span></td><td></td></tr>
+  <tr><td>Endpoint irisDeleteEmail live</td><td><span class="pill ok">OK</span></td><td>HTTP 401 senza ID Token (auth gate attivo)</td></tr>
+  <tr><td>Mock card render produce 5 bottoni</td><td><span class="pill ok">OK</span></td><td>Leggi · Correggi · 📦 Archivia · 🗑️ Elimina · 🛠️ Dev</td></tr>
+</table>
+
+<h2>Screenshot · IRIS in produzione (sessione autenticata pre-esistente)</h2>
+<p style="color:var(--mute);font-size:13px">In una sessione browser già autenticata, le card email reali mostrano i nuovi bottoni a destra (📦 Archivia in blu, 🗑️ Elimina in rosso). I 5 bottoni sono coerenti su tutte le card.</p>
+<img src="../projects/nexo-pwa/test-screenshots/iris-archive-delete/02-mock-buttons.png" alt="Card IRIS con bottoni nuovi" />
+
+<h2>Sicurezza</h2>
+<p style="color:var(--mute);font-size:13px;line-height:1.55">
+- Auth gate attivo: <code>irisDeleteEmail</code> ritorna 401 senza Firebase ID Token (verificato con <code>curl</code>).<br>
+- <b>Soft-delete</b>: il doc Firestore <code>iris_emails</code> resta in collection con <code>status=deleted</code>. Nessun documento viene cancellato definitivamente.<br>
+- Coda EWS in <code>mode=soft</code>: il consumer Hetzner (futuro) sposterà l'email in <code>Deleted Items</code> di Outlook (recoverable), non hard-delete.<br>
+- <b>Confirm() obbligatorio</b> prima dell'eliminazione: l'utente deve esplicitamente confermare.<br>
+- Niente click reali nei test automatici: lo script <code>test-iris-archive-delete.mjs</code> verifica markup e CSS senza chiamare l'endpoint con email vere.<br>
+</p>
+
+<h2>Endpoint live</h2>
+<pre>POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail   (esistente)
+POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail    (nuovo)
+Headers: Authorization: Bearer &lt;Firebase ID Token ACG&gt;
+Body:    { "emailId": "&lt;id doc iris_emails&gt;" }
+Response (delete):  { "ok": true, "queueId": "...", "emailId": "..." }</pre>
+
+<h2>Gap noto · consumer Hetzner</h2>
+<p style="color:var(--warn);font-size:13px;line-height:1.55">
+Come segnalato nell'analisi <code>dev-analysis-KbAuca5msDQaw0rD01ic.md</code>: il poller Hetzner (<code>scripts/iris_hetzner_poller.py</code>) non consuma né <code>iris_archive_queue</code> né <code>iris_delete_queue</code>. Le email vengono marcate correttamente in Firestore (la PWA le nasconde dalla lista) ma il movimento EWS in Outlook non avviene finché non si attiva il consumer. Task separato.
+</p>
+</body></html>
