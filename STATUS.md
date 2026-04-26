@@ -1,5 +1,5 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T17:39:01.898Z
+Ultimo aggiornamento: 2026-04-26T17:39:18.248Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
@@ -23,11 +23,11 @@ Timestamp Firestore: 2026-04-26T17:39:00.738Z
 </details>
 
 ## Task pending
-Nessuno.
+- nexus-bug-button-in-chat
 
 ## Ultimi 5 commit
-- b44b59f status update
+- 62d23d1 wip
+- afe4004 status update
+- 8933efa status update
+- 8863457 task: bottone bug in chat NEXUS
 - f0925e2 result: fix-storage-permessi-pdf
-- 0927ba0 fix(storage): permessi lettura PDF preventivi
-- 4db3e18 fix(iris): navigazione email completa in chat
-- ada8969 task: fix Storage permessi PDF
