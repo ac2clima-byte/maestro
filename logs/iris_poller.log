@@ -6961,3 +6961,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #15  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
   #16  RISPOSTA_CLIENTE              high    neutro       davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
 [2026-04-26T19:41:40Z] ─── fine ciclo ───
+[2026-04-26T19:46:40Z] ─── inizio ciclo IRIS (limit=50) ───
