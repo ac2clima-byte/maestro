@@ -1,22 +1,22 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T10:21:44.882Z
+Ultimo aggiornamento: 2026-04-26T10:31:41.916Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
-Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 2000s
-Timestamp Firestore: 2026-04-26T10:21:45.235Z
+Fase: pushing_result
+Task: forge-test-reali-15
+Dettagli: push risultato
+Uptime: 2593s
+Timestamp Firestore: 2026-04-26T10:31:38.932Z
 
 <details><summary>Payload JSON</summary>
 
 ```json
 {
-  "fase": "idle",
-  "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 1999.554839084,
-  "timestamp": "2026-04-26T10:21:45.235Z"
+  "fase": "pushing_result",
+  "task": "forge-test-reali-15",
+  "dettagli": "push risultato",
+  "uptime": 2592.542006502,
+  "timestamp": "2026-04-26T10:31:38.932Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-26T10:21:45.235Z
 Nessuno.
 
 ## Ultimi 5 commit
+- 25c15d1 result: forge-test-reali-15
+- 7a8b8c4 test(forge): 15 test reali business ACG Clima
+- 2975707 task: FORGE 15 test reali
+- fea6dc2 status update
 - 433db9e status update
-- 4289758 result: forge-test-nexus-diretto
-- 74d2262 feat(forge): endpoint test interno + script test automatico
-- 2cd198b task: FORGE test NEXUS diretto
-- 85310a3 status update
