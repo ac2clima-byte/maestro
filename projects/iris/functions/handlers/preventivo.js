@@ -69,12 +69,42 @@ export function parsePreventivoInput(userMessage, context = {}) {
 async function arricchisciAzienda(apiKey, committente, piva) {
   if (!apiKey || (!committente && !piva)) return null;
 
-  // Check cache esistente
+  // 1. Lookup diretto su piva_XXX (più veloce)
   if (piva) {
     try {
       const cached = await db.collection("memo_aziende").doc(`piva_${piva}`).get();
       if (cached.exists) return { ...cached.data(), _fromCache: true };
     } catch {}
+  }
+
+  // 2. Lookup per nome: scan memo_aziende e cerca match su ragione_sociale
+  //    (token-based, case-insensitive, ignora suffissi "S.r.l." / "Società Benefit").
+  //    Risolve il caso "intestato a 3i" senza piva esplicita: la doc è
+  //    cached con id "piva_02486680065" e ragione_sociale "3i efficientamento
+  //    energetico S.r.l. Società Benefit" → matcha sul token "3i".
+  if (committente) {
+    try {
+      const qTokens = String(committente).toLowerCase()
+        .replace(/[^\wà-ÿ\s]/g, " ")
+        .split(/\s+/)
+        .filter(t => t && t.length >= 2 && !/^(s\.?r\.?l|s\.?p\.?a|spa|srl|societa|società|benefit|di|del|della|il|la|lo)$/.test(t));
+      if (qTokens.length) {
+        const snap = await db.collection("memo_aziende").limit(100).get();
+        for (const d of snap.docs) {
+          if (d.id === "_stats") continue;
+          const v = d.data() || {};
+          const rs = String(v.ragione_sociale || "").toLowerCase();
+          if (!rs) continue;
+          // Match: tutti i token query devono apparire nella ragione sociale
+          const allMatch = qTokens.every(t => rs.includes(t));
+          if (allMatch) {
+            return { ...v, _fromCache: true, _matchedBy: "ragione_sociale_tokens" };
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn("arricchisciAzienda nome-lookup fail", { error: String(e).slice(0, 120) });
+    }
   }
 
   const system = `Sei un esperto di anagrafica aziende italiane.
@@ -524,6 +554,7 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
   }
 
   const voci = parseVociPreventivo(t);
+  const istruzioniExtra = extractIstruzioniExtra(t);
   if (!voci.length) {
     return {
       content: `Non ho trovato voci nel formato "descrizione importo". Esempio valido: "sopralluogo 200, relazione tecnica 150, verifica impianto 300".`,
@@ -542,6 +573,7 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
       totale_imponibile: totaleImponibile,
       iva_importo: ivaImporto,
       totale,
+      istruzioni_extra: istruzioniExtra,
       stato: "attesa_approvazione",
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -551,14 +583,19 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
 
   const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const elenco = voci.map((v, i) => `${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`).join("\n");
-  const content = [
+  const blocchi = [
     `Riepilogo preventivo per ${pendingData.condominio?.nome || "—"}:`,
     elenco,
     ``,
     `Imponibile ${fmtEur(totaleImponibile)} €, IVA 22% ${fmtEur(ivaImporto)} €, totale ${fmtEur(totale)} €.`,
-    ``,
-    `Lo genero in PDF? Rispondi "sì" per procedere, "modifica" per cambiare le voci, "annulla" per scartare.`,
-  ].join("\n");
+  ];
+  if (istruzioniExtra.length) {
+    blocchi.push("");
+    blocchi.push(`Istruzioni extra ricevute: ${istruzioniExtra.join("; ")}.`);
+  }
+  blocchi.push("");
+  blocchi.push(`Lo genero in PDF? Rispondi "sì" per procedere, "modifica" per cambiare le voci, "annulla" per scartare.`);
+  const content = blocchi.join("\n");
 
   return {
     content,
@@ -568,6 +605,7 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
       totale_imponibile: totaleImponibile,
       iva_importo: ivaImporto,
       totale,
+      istruzioni_extra: istruzioniExtra,
       pendingPrev: { kind: "preventivo_approvazione_voci", pendingId: sessionId },
     },
     _preventivoVociHandled: true,
@@ -575,23 +613,63 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
 }
 
 // Parser robusto delle voci: accetta separatori "," ";" newline.
-// Ogni voce ha forma "descrizione [: ]? importo (€|euro)?"
-// Importo: cifre con eventuale "," o "." come decimale.
+// Ogni voce ha forma "descrizione importo".
+// Accetta TUTTE queste varianti:
+//   "sopralluogo 200"
+//   "sopralluogo 200€"     "sopralluogo 200 €"
+//   "sopralluogo 200€ + iva"   "sopralluogo 200 + iva"
+//   "sopralluogo euro 200"     "sopralluogo €200"
+//   "Verifica impianto di distribuzione riscaldamento 200€ + iva"
+//   "1. sopralluogo: 200"
+// L'IVA viene calcolata sempre al 22% — l'eventuale "+ iva" è solo
+// conferma esplicita dell'utente, non cambia il calcolo.
 export function parseVociPreventivo(text) {
   const out = [];
   if (!text) return out;
   // Split su virgola, punto-e-virgola o newline
   const items = String(text).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+
   for (const raw of items) {
-    // Rimuovi prefissi numerici "1." / "1)"
-    const noPrefix = raw.replace(/^\d+[\.\)]\s*/, "");
-    // Match: "<descrizione> <importo>"
-    const m = noPrefix.match(/^(.+?)[\s:]+([\d]+(?:[.,]\d+)?)\s*(?:€|eur|euro)?\s*$/i);
+    // 1. Rimuovi prefissi numerici "1." / "1)"
+    let s = raw.replace(/^\d+\s*[\.\)]\s*/, "");
+    // 2. Rimuovi suffissi "+ iva" / "+iva" / "+ IVA" / "iva inclusa" / "iva esclusa"
+    s = s.replace(/\s*\+?\s*iva\s+(?:inclus|esclus)\w*/gi, "");
+    s = s.replace(/\s*\+\s*iva\b/gi, "");
+    s = s.replace(/\s*\biva\s+(?:inclus|esclus)\w*/gi, "");
+    // 3. Normalizza simboli euro: "€" / "EUR" / "euro" → marcatore unico " ¤ "
+    //    (evita che "euro" prima del numero confonda il regex)
+    s = s.replace(/\s*€\s*/g, " ¤ ").replace(/\b(?:eur|euro)\b/gi, " ¤ ");
+    s = s.replace(/\s+/g, " ").trim();
+    if (!s) continue;
+    // 4. Estrai numero (descrizione + importo). L'importo è l'ULTIMO numero
+    //    della stringa, eventualmente preceduto/seguito da "¤".
+    //    Pattern: <descrizione non vuota> [¤?] <numero> [¤?]
+    const m = s.match(/^(.+?)\s*[\¤]?\s*([\d]+(?:[.,]\d{1,2})?)\s*[\¤]?\s*$/);
     if (!m) continue;
-    const desc = m[1].trim().replace(/[:\-—]\s*$/, "").trim();
+    let desc = m[1].trim();
+    // Pulizia descrizione: togli ":" ":", trattini, "¤" residui, spazi multipli
+    desc = desc.replace(/[\¤:]/g, " ").replace(/\s*[\-—–]\s*$/, "").replace(/\s+/g, " ").trim();
+    if (!desc) continue;
     const importo = Number(m[2].replace(",", "."));
-    if (!desc || !Number.isFinite(importo) || importo <= 0) continue;
+    if (!Number.isFinite(importo) || importo <= 0) continue;
     out.push({ descrizione: desc, importo: Math.round(importo * 100) / 100 });
+  }
+  return out;
+}
+
+// Estrae le istruzioni extra (testo senza numeri) dal messaggio voci.
+// Esempio: "sopralluogo 200, mandami via mail, mettilo su doc" →
+//   voci=["sopralluogo 200"], istruzioni=["mandami via mail","mettilo su doc"]
+export function extractIstruzioniExtra(text) {
+  if (!text) return [];
+  const items = String(text).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+  const out = [];
+  for (const raw of items) {
+    // Skip se ha un numero che potrebbe essere un importo
+    if (/\d/.test(raw)) continue;
+    // Skip se è troppo corto per essere un'istruzione
+    if (raw.length < 4) continue;
+    out.push(raw);
   }
   return out;
 }
