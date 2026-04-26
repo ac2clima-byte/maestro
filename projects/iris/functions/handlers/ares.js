@@ -661,10 +661,13 @@ function _extractTecniciCrea(userMessage, parametri) {
 // Riusa parseRangeDataInterventi per la data, poi imposta l'ora.
 function _parseDataOra(userMessage, parametri) {
   const m = String(userMessage || "").toLowerCase();
-  // Data: priorità a parametri.data, poi userMessage
+  // Data: priorità a parametri.data ma SEMPRE concateno il userMessage per
+  // dare contesto di tense ("programma" = futuro). Se Haiku passa solo
+  // "lunedì" senza il verbo, il parser default a "passato più recente".
   let baseDate = null;
   if (parametri.data) {
-    const r = parseRangeDataInterventi(String(parametri.data));
+    const hint = String(parametri.data) + " " + m;
+    const r = parseRangeDataInterventi(hint);
     if (r) baseDate = new Date(r.from);
   }
   if (!baseDate) {
