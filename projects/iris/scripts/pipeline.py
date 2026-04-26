@@ -295,8 +295,12 @@ def fetch_emails(n: int) -> list[dict]:
                     to_recipients.append(addr)
         except Exception:
             pass
+        msg_id = item.message_id or str(item.id)
+        # Pre-calcola doc id (stesso algoritmo di doc_id_for) così
+        # _extract_attachments può usarlo come prefisso del path Storage.
+        email_doc_id = re.sub(r"[^a-zA-Z0-9._-]", "_", msg_id).strip("_")[:150] or "unknown"
         out.append({
-            "message_id": item.message_id or str(item.id),
+            "message_id": msg_id,
             "subject": item.subject or "",
             "sender": item.sender.email_address if item.sender else "",
             "sender_name": item.sender.name if item.sender else "",
@@ -310,7 +314,7 @@ def fetch_emails(n: int) -> list[dict]:
             "in_reply_to": in_reply_to or None,
             "references": refs,
             "to_recipients": to_recipients,
-            "attachments": _extract_attachments(item),
+            "attachments": _extract_attachments(item, email_doc_id=email_doc_id),
         })
     return out
 

@@ -1979,6 +1979,19 @@ function renderAttachmentChips(atts) {
   const others = atts.filter(a => a.detectedType !== "foto");
   const chips = [];
 
+  // Helper: se l'allegato ha downloadUrl (caricato in Firebase Storage),
+  // renderizza come <a target="_blank" download> per aprirlo/scaricarlo.
+  // Altrimenti come <span> non cliccabile (legacy email indicizzate prima
+  // che il poller iniziasse a salvare i binari).
+  const wrapClickable = (a, inner, classExtra = "") => {
+    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
+    if (a.downloadUrl) {
+      const filename = a.filename || "allegato";
+      return `<a class="att-chip ${classExtra} att-clickable" href="${escapeHtml(a.downloadUrl)}" target="_blank" rel="noopener" download="${escapeHtml(filename)}" title="${escapeHtml(tooltip + " · clicca per aprire")}" style="text-decoration:none;cursor:pointer;">${inner}</a>`;
+    }
+    return `<span class="att-chip ${classExtra}" title="${escapeHtml(tooltip)}">${inner}</span>`;
+  };
+
   for (const a of others) {
     const meta = ATTACHMENT_LABELS[a.detectedType] || ATTACHMENT_LABELS.altro;
     const ext = a.filename ? a.filename.split(".").pop().toUpperCase() : "";
@@ -1986,23 +1999,26 @@ function renderAttachmentChips(atts) {
     if (a.detectedType === "fattura" && a.amount) {
       extra = ` ${a.amount.replace(/^EUR\s*/, "€")}`;
     }
-    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
-    chips.push(
-      `<span class="att-chip t-${escapeHtml(a.detectedType)}" title="${escapeHtml(tooltip)}">` +
-      `${meta.icon} <strong>${escapeHtml(meta.label)}${escapeHtml(extra)}</strong>` +
-      (ext ? ` <span style="opacity:.65">(${escapeHtml(ext)})</span>` : "") +
-      `</span>`
-    );
+    const inner = `${meta.icon} <strong>${escapeHtml(meta.label)}${escapeHtml(extra)}</strong>` +
+      (ext ? ` <span style="opacity:.65">(${escapeHtml(ext)})</span>` : "");
+    chips.push(wrapClickable(a, inner, `t-${escapeHtml(a.detectedType)}`));
   }
 
   if (photos.length === 1) {
-    const a = photos[0];
-    const tooltip = `${a.filename || ""}${a.size ? " · " + formatBytes(a.size) : ""}`;
-    chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">📷 <strong>1 foto</strong></span>`);
+    chips.push(wrapClickable(photos[0], `📷 <strong>1 foto</strong>`, "t-foto"));
   } else if (photos.length > 1) {
-    const totalSize = photos.reduce((s, a) => s + (a.size || 0), 0);
-    const tooltip = totalSize ? `Totale ${formatBytes(totalSize)}` : "";
-    chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">📷 <strong>${photos.length} foto</strong></span>`);
+    // Più foto: se la prima ha URL (cliccabile a quella; le altre indicate dal contatore).
+    const first = photos[0];
+    const inner = `📷 <strong>${photos.length} foto</strong>`;
+    if (first.downloadUrl) {
+      const totalSize = photos.reduce((s, a) => s + (a.size || 0), 0);
+      const tt = `${first.filename || ""}${totalSize ? " · totale " + formatBytes(totalSize) : ""} · apri prima foto`;
+      chips.push(`<a class="att-chip t-foto att-clickable" href="${escapeHtml(first.downloadUrl)}" target="_blank" rel="noopener" title="${escapeHtml(tt)}" style="text-decoration:none;cursor:pointer;">${inner}</a>`);
+    } else {
+      const totalSize = photos.reduce((s, a) => s + (a.size || 0), 0);
+      const tooltip = totalSize ? `Totale ${formatBytes(totalSize)}` : "";
+      chips.push(`<span class="att-chip t-foto" title="${escapeHtml(tooltip)}">${inner}</span>`);
+    }
   }
 
   return `<div class="attachments">${chips.join("")}</div>`;
