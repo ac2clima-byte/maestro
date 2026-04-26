@@ -164,6 +164,51 @@ function _extractTecnico(userMessage) {
   return null;
 }
 
+// listName che consideriamo "interventi" (non solo "INTERVENTI" maiuscolo).
+// Match case-insensitive su substring: "intervent" cattura
+//   INTERVENTI, INTERVENTI DA ESEGUIRE, Interventi da eseguire,
+//   ACCENSIONE/SPEGNIMENTO (escluso — vedi sotto).
+function _isListInterventi(listName) {
+  const ln = String(listName || "").toUpperCase();
+  if (/INTERVENT/.test(ln)) return true;
+  if (/ACCENSIONE|SPEGNIMENTO/.test(ln)) return true;
+  if (/TICKET\s+DA\s+CHIUDER/.test(ln)) return true;
+  return false;
+}
+
+// Estrae tutti i nomi tecnici da una card (techName + techNames[]).
+// Dedup case-insensitive (techName spesso duplicato in techNames[]).
+function _allTechs(data) {
+  const seen = new Set();
+  const out = [];
+  const add = (t) => {
+    const s = String(t || "").trim();
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(s);
+  };
+  add(data.techName);
+  if (Array.isArray(data.techNames)) for (const t of data.techNames) add(t);
+  return out;
+}
+
+// Converte campo `due` in Date (gestisce string ISO, Timestamp Firestore, Date).
+function _parseDue(due) {
+  if (!due) return null;
+  try {
+    if (due.toDate) return due.toDate();
+    if (due instanceof Date) return due;
+    if (typeof due === "string") {
+      // ISO "2026-04-23T12:00:00.000Z" o "2026-04-23"
+      const d = new Date(due);
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+  } catch {}
+  return null;
+}
+
 export async function handleAresInterventiAperti(parametri, ctx) {
   const limit = Math.min(Number(parametri.limit) || 20, 50);
   const userMessage = String((ctx && ctx.userMessage) || "");
@@ -186,17 +231,67 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   const tense = _tense(userMessage);
   const includeTerminali = tense === "past" || /\btutt[ie]\b|\banche\s+chius/.test(userMessageLower);
 
-  let snap;
+  // ── QUERY FIRESTORE ────────────────────────────────────────────
+  // Strategia:
+  //   - Se c'è tecnicoFilter: due query parallele per intercettare
+  //     sia chi ha tecnico in techName (primario) sia chi è in techNames[]
+  //     (co-assegnato). Senza filtro listName per non perdere ACCENSIONE/
+  //     SPEGNIMENTO o INTERVENTI DA ESEGUIRE (filtro applicato in memoria).
+  //   - Se NO tecnicoFilter: query su listName INTERVENTI con limit alto.
+  //   - inBacheca==true non viene mai aggiunto come filtro Firestore
+  //     (richiede indice composito); viene applicato in memoria solo se
+  //     non è una richiesta storica.
+  const cosm = getCosminaDb();
+  const tecnicoUpper = tecnicoFilter ? tecnicoFilter.toUpperCase() : null;
+  const docs = new Map();
+  const stats = { source: null, queries: [], rawCount: 0, federicoMatch: 0 };
+
   try {
-    // Se c'è un range storico (passato), togli inBacheca==true per recuperare
-    // anche interventi già archiviati.
-    let q = getCosminaDb().collection("bacheca_cards")
-      .where("listName", "==", "INTERVENTI");
-    if (!range || tense !== "past") {
-      q = q.where("inBacheca", "==", true);
+    if (tecnicoUpper) {
+      stats.source = "byTecnico";
+      // Query 1: techName == TECNICO (case-sensitive UPPERCASE)
+      const q1 = cosm.collection("bacheca_cards").where("techName", "==", tecnicoUpper).limit(500);
+      // Query 2: techNames array-contains TECNICO
+      const q2 = cosm.collection("bacheca_cards").where("techNames", "array-contains", tecnicoUpper).limit(500);
+      let s1, s2;
+      try {
+        [s1, s2] = await Promise.all([q1.get(), q2.get()]);
+      } catch (eMulti) {
+        // Se l'indice array-contains non esiste, fallback a query 1 + scan
+        logger.warn("ares query parallela fallita, fallback techName solo", { error: String(eMulti).slice(0, 150) });
+        s1 = await q1.get();
+        s2 = { forEach: () => {} };
+      }
+      stats.queries.push({ q: "techName==" + tecnicoUpper, count: s1.size });
+      stats.queries.push({ q: "techNames array-contains " + tecnicoUpper, count: s2.size || 0 });
+      s1.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
+      s2.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
+
+      // Fallback ulteriore: il primo nome è capitalize → potrebbe essere
+      // "Federico" non "FEDERICO". Provo Capitalize se 0 risultati.
+      if (docs.size === 0) {
+        const cap = tecnicoUpper.charAt(0) + tecnicoUpper.slice(1).toLowerCase();
+        const q3 = cosm.collection("bacheca_cards").where("techName", "==", cap).limit(500);
+        const q4 = cosm.collection("bacheca_cards").where("techNames", "array-contains", cap).limit(500);
+        try {
+          const [s3, s4] = await Promise.all([q3.get(), q4.get()]);
+          stats.queries.push({ q: "techName==" + cap + " (fallback)", count: s3.size });
+          stats.queries.push({ q: "techNames AC " + cap + " (fallback)", count: s4.size });
+          s3.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
+          s4.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
+        } catch {}
+      }
+    } else {
+      // No tecnicoFilter: query su listName INTERVENTI (case-sensitive
+      // exact match Firestore, ma allarghiamo in memoria)
+      stats.source = "byListName";
+      const q = cosm.collection("bacheca_cards")
+        .where("listName", "==", "INTERVENTI")
+        .limit(800);
+      const s = await q.get();
+      stats.queries.push({ q: "listName==INTERVENTI", count: s.size });
+      s.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
     }
-    q = q.limit(Math.max(limit * 3, 200));
-    snap = await q.get();
   } catch (e) {
     const msg = String(e?.message || e);
     if (/permission|denied|UNAUTHENTICATED|403/i.test(msg)) {
@@ -211,50 +306,67 @@ export async function handleAresInterventiAperti(parametri, ctx) {
     }
     throw e;
   }
+  stats.rawCount = docs.size;
 
+  // ── FILTRO IN MEMORIA ──────────────────────────────────────────
   const items = [];
-  snap.forEach((d) => {
+  let scannedTecnico = 0, filteredByList = 0, filteredByStato = 0,
+      filteredByDate = 0, filteredByCitta = 0;
+
+  for (const d of docs.values()) {
     const data = d.data() || {};
     const stato = String(data.stato || "").toLowerCase();
 
-    // Stato: scarta terminali a meno che la richiesta sia storica
-    if (!includeTerminali && STATI_TERMINALI_RE.test(stato)) return;
+    // Filtro listName (allargato a INTERVENTI / DA ESEGUIRE / ACCENSIONE / TICKET)
+    if (!_isListInterventi(data.listName)) { filteredByList++; continue; }
 
-    let tecnico = data.techName;
-    if (!tecnico && Array.isArray(data.techNames) && data.techNames.length) {
-      tecnico = String(data.techNames[0]);
-    }
-    if (tecnicoFilter && !String(tecnico || "").toLowerCase().includes(tecnicoFilter)) return;
+    // Filtro stato terminali
+    if (!includeTerminali && STATI_TERMINALI_RE.test(stato)) { filteredByStato++; continue; }
 
-    let due;
-    if (data.due) {
-      try {
-        const v = data.due.toDate ? data.due.toDate() : new Date(data.due);
-        if (!Number.isNaN(v.getTime())) due = v;
-      } catch {}
+    // Filtro tecnico (anche se la query era già su techName/techNames,
+    // ricontrolliamo per sicurezza: il fallback ListName non filtra)
+    const techs = _allTechs(data);
+    if (tecnicoFilter) {
+      const techHay = techs.join("|").toLowerCase();
+      if (!techHay.includes(tecnicoFilter)) { scannedTecnico++; continue; }
     }
 
-    // Range data
+    const due = _parseDue(data.due);
+
+    // Filtro range data
     if (range) {
-      if (!due) return;
-      if (due < range.from || due >= range.to) return;
+      if (!due) { filteredByDate++; continue; }
+      if (due < range.from || due >= range.to) { filteredByDate++; continue; }
     }
 
-    // Filtro città (boardName + desc + zona)
+    // Filtro città (boardName + desc + zona + workDescription + name)
     if (citta) {
       const hay = [data.boardName, data.desc, data.zona, data.workDescription, data.name]
         .map(x => String(x || "").toLowerCase()).join(" ");
-      if (!hay.includes(citta)) return;
+      if (!hay.includes(citta)) { filteredByCitta++; continue; }
     }
 
     items.push({
       id: d.id,
       condominio: data.boardName || "?",
       stato: stato || "aperto",
-      tecnico: tecnico || "-",
+      tecnico: techs.join(" + ") || "-",
+      techPrimary: data.techName || (techs[0] || "-"),
+      techCount: techs.length,
       due,
       name: data.name || "(senza titolo)",
+      workDescription: data.workDescription || "",
+      listName: data.listName || "",
     });
+  }
+
+  // Logging diagnostico (visibile in Cloud Functions logs)
+  logger.info("[ARES] handleAresInterventiAperti", {
+    tecnicoFilter, range: range ? range.label : null, citta,
+    tense, includeTerminali,
+    stats, items: items.length,
+    filteredByList, filteredByStato, scannedTecnico,
+    filteredByDate, filteredByCitta,
   });
 
   items.sort((a, b) => {
@@ -274,31 +386,58 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   const verb = (tense === "past") ? "ha avuto" : (tense === "future" ? "avrà" : "ha");
 
   if (!top.length) {
-    const parts = [];
-    if (tecnicoCap) parts.push(tecnicoCap);
-    parts.push(rangeLabel ? `${rangeLabel}` : "");
-    parts.push(cittaCap ? `a ${cittaCap}` : "");
-    const ctx = parts.filter(Boolean).join(" ");
+    // Diagnostica: quando 0 risultati, dichiara cosa è stato cercato.
+    const totaleTecnico = tecnicoFilter ? stats.rawCount : null;
+    const diag = (() => {
+      const parts = [];
+      if (totaleTecnico != null) parts.push(`${totaleTecnico} card totali`);
+      if (rangeLabel) parts.push(`filtro data ${rangeLabel}`);
+      if (cittaCap) parts.push(`filtro città ${cittaCap}`);
+      if (!includeTerminali) parts.push("solo aperti");
+      else parts.push("anche chiusi");
+      return parts.length ? ` (cercato: ${parts.join(", ")})` : "";
+    })();
+
     if (rangeLabel || cittaCap) {
       return {
-        content: tecnicoCap
-          ? `${tecnicoCap} ${rangeLabel ? rangeLabel + " " : ""}${cittaCap ? "a " + cittaCap + " " : ""}non ha interventi.`.replace(/\s+/g, " ").trim()
-          : `Nessun intervento ${rangeLabel || ""}${cittaCap ? " a " + cittaCap : ""}.`.replace(/\s+/g, " ").trim(),
-        data: { count: 0, tecnico: tecnicoFilter, range: rangeLabel, citta },
+        content: (tecnicoCap
+          ? `${tecnicoCap} ${rangeLabel ? rangeLabel + " " : ""}${cittaCap ? "a " + cittaCap + " " : ""}non ha interventi`
+          : `Nessun intervento ${rangeLabel || ""}${cittaCap ? " a " + cittaCap : ""}`).replace(/\s+/g, " ").trim() + diag + ".",
+        data: { count: 0, tecnico: tecnicoFilter, range: rangeLabel, citta, stats },
       };
     }
     if (tecnicoCap) {
-      return { content: `${tecnicoCap} non ha interventi attivi in bacheca.`, data: { count: 0, tecnico: tecnicoFilter } };
+      return { content: `${tecnicoCap} non ha interventi attivi in bacheca${diag}.`, data: { count: 0, tecnico: tecnicoFilter, stats } };
     }
-    return { content: "Non ho trovato interventi attivi nella bacheca COSMINA.", data: { count: 0 } };
+    return { content: "Non ho trovato interventi nella bacheca COSMINA.", data: { count: 0, stats } };
   }
 
-  // Render righe in prosa: niente 1./2./3. e niente "·"
+  // Render righe in prosa. Se boardName è generico (ZZ000 / CLIENTI PRIVATI),
+  // usa il `name` o `workDescription` come fallback.
   const renderLine = (i) => {
     const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
-    const cond = String(i.condominio || "?").replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 60);
-    const tag = i.tecnico !== "-" ? `tecnico ${i.tecnico}` : "non assegnato";
+    const board = String(i.condominio || "");
+    let cond;
+    if (/^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
+      // Pulisce suffissi tipo "- Intervento concluso DA X IL Y ALLE ORE Z"
+      cond = String(i.name || i.workDescription || "intervento privato")
+        .replace(/\s*-?\s*Intervento\s+concluso\s+DA\s+.+$/i, "")
+        .replace(/\s*-?\s*Intervento\s+concluso\s*$/i, "")
+        .trim()
+        .slice(0, 80);
+    } else {
+      cond = board.replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 70);
+    }
     const stato = i.stato || "aperto";
+    let tag;
+    if (i.techCount > 1) {
+      // Co-assegnato: evidenzia
+      tag = `tecnici ${i.tecnico}`;
+    } else if (i.tecnico && i.tecnico !== "-") {
+      tag = `tecnico ${i.tecnico}`;
+    } else {
+      tag = "non assegnato";
+    }
     return `${data}, ${cond}, stato ${stato}, ${tag}`;
   };
 
@@ -308,12 +447,31 @@ export async function handleAresInterventiAperti(parametri, ctx) {
     const tecnicoTag = tecnicoCap ? `${tecnicoCap}` : "";
     const dataTag = rangeLabel ? rangeLabel : "";
     const cittaTag = cittaCap ? `a ${cittaCap}` : "";
-    const cond = String(i.condominio || "?").replace(/^[A-Z0-9]+\s*-\s*/, "").trim();
-    const dueIt = i.due ? i.due.toLocaleDateString("it-IT") : "data non specificata";
+    const board = String(i.condominio || "");
+    let cond;
+    if (!board || /^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
+      const fb = String(i.name || i.workDescription || "")
+        .replace(/\s*-?\s*Intervento\s+concluso\s+DA\s+.+$/i, "")
+        .trim();
+      cond = fb || "intervento privato";
+    } else {
+      cond = board.replace(/^[A-Z0-9]+\s*-\s*/, "").trim();
+    }
     const head = `${tecnicoTag} ${dataTag} ${cittaTag}`.replace(/\s+/g, " ").trim();
+    // Co-assegnato: dedup, case-insensitive, esclude il tecnico richiesto
+    let coAss = "";
+    if (i.techCount > 1 && tecnicoFilter) {
+      const others = String(i.tecnico).split(" + ")
+        .filter(t => !t.toLowerCase().includes(tecnicoFilter));
+      const dedup = [...new Set(others.map(t => t.trim()))].filter(Boolean);
+      if (dedup.length) coAss = ` (co-assegnato a ${dedup.join(", ")})`;
+    }
+    // Se c'è già il giorno nel range label ("giovedì 23/04/2026") evita "il 23/04/2026"
+    const includeDateSuffix = !dataTag || !i.due || !dataTag.includes(i.due.toLocaleDateString("it-IT"));
+    const dueIt = (i.due && includeDateSuffix) ? ` il ${i.due.toLocaleDateString("it-IT")}` : "";
     return {
-      content: `${head ? head + " " : ""}${verb} un intervento il ${dueIt}: ${cond}, stato ${i.stato}.`.trim(),
-      data: { count: 1, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top },
+      content: `${head ? head + " " : ""}${verb} un intervento${dueIt}: ${cond}, stato ${i.stato}${coAss}.`.trim(),
+      data: { count: 1, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats },
     };
   }
 
@@ -328,7 +486,7 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   const more = items.length > top.length ? `\n\nAltri ${items.length - top.length} non mostrati.` : "";
   return {
     content: `${intro}\n\n${righe}${more}`,
-    data: { count: top.length, totalMatched: items.length, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top },
+    data: { count: top.length, totalMatched: items.length, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats },
   };
 }
 
