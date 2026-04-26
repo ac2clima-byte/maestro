@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T17:47:35.596Z
+Ultimo aggiornamento: 2026-04-26T17:57:35.083Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 499s
-Timestamp Firestore: 2026-04-26T17:47:34.491Z
+Uptime: 1095s
+Timestamp Firestore: 2026-04-26T17:57:30.429Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,19 +15,19 @@ Timestamp Firestore: 2026-04-26T17:47:34.491Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 499.133563942,
-  "timestamp": "2026-04-26T17:47:34.491Z"
+  "uptime": 1095.047881979,
+  "timestamp": "2026-04-26T17:57:30.429Z"
 }
 ```
 
 </details>
 
 ## Task pending
-Nessuno.
+- dev-request-J9tIBTJnMp6GhkQvGi7J (dev-request)
 
 ## Ultimi 5 commit
-- a44936d result: nexus-bug-button-in-chat
-- df6f579 feat(nexus): bottone bug in chat con contesto conversazione
-- 1e04858 status update
-- 62d23d1 wip
-- afe4004 status update
+- e6f9923 dev-request da NEXUS (1)
+- b5bf42b result: test-bottone-bug-chat
+- 467aafd fix(nexus): bottone bug funzionante in chat
+- 7584487 task: test e fix bottone bug chat
+- 4f4e1b5 status update
