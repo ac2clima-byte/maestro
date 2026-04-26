@@ -27,7 +27,9 @@ from exchangelib import Account, Configuration, Credentials, DELEGATE
 from exchangelib.protocol import BaseProtocol, NoVerifyHTTPAdapter
 
 import firebase_admin
-from firebase_admin import credentials as fb_credentials, firestore
+from firebase_admin import credentials as fb_credentials, firestore, storage as fb_storage
+import hashlib as _hashlib
+import uuid as _uuid
 
 # Local modules.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -61,6 +63,10 @@ USER_ID = "alberto"
 
 # Limite dimensione PDF da scaricare per estrarre testo (2MB).
 MAX_PDF_BYTES = 2_000_000
+# Max byte salvati in Firebase Storage (per il bottone "Apri" nella PWA).
+# 10MB copre PDF normali, screenshot, documenti scansionati. Allegati più
+# grandi vengono lasciati nell'inbox EWS; mostriamo solo metadata.
+MAX_STORAGE_BYTES = 10_000_000
 # Lunghezza max testo estratto persistito su Firestore.
 MAX_EXTRACTED_TEXT = 600
 
@@ -111,12 +117,87 @@ def _make_account():
     )
 
 
-def _extract_attachments(item) -> list[dict]:
+_BUCKET_CACHE = {"bucket": None}
+
+def _get_storage_bucket():
+    """
+    Restituisce il bucket Firebase Storage default. Cachato per riusi nel
+    ciclo di processing email. Se Firebase Admin non è ancora inizializzato
+    o il bucket di default non è accessibile, ritorna None (e _save_attachment_to_storage
+    fa graceful skip).
+    """
+    if _BUCKET_CACHE["bucket"] is not None:
+        return _BUCKET_CACHE["bucket"] or None
+    try:
+        # Firebase Admin si aspetta che initialize_app() sia stato chiamato con
+        # storageBucket settato. Se manca, fb_storage.bucket() solleva.
+        b = fb_storage.bucket("nexo-hub-15f2d.firebasestorage.app")
+        _BUCKET_CACHE["bucket"] = b
+        return b
+    except Exception:
+        try:
+            # Fallback: bucket default del progetto
+            b = fb_storage.bucket()
+            _BUCKET_CACHE["bucket"] = b
+            return b
+        except Exception:
+            _BUCKET_CACHE["bucket"] = False
+            return None
+
+def _save_attachment_to_storage(
+    raw_content: bytes,
+    filename: str,
+    mime: str,
+    email_id: str,
+) -> dict:
+    """
+    Carica il binario allegato in iris_attachments/{email_id}/{filename} di
+    Firebase Storage e ritorna {storagePath, downloadUrl}. Genera un download
+    token UUID v4 per URL pubblici (pattern firebase storage standard).
+    Ritorna dict vuoto in caso di errore (logga ma non interrompe la pipeline).
+    """
+    if not raw_content or not filename:
+        return {}
+    if len(raw_content) > MAX_STORAGE_BYTES:
+        return {}
+    bucket = _get_storage_bucket()
+    if not bucket:
+        return {}
+
+    # Sanifica filename per il path: rimuovi caratteri non safe per Storage.
+    safe_filename = re.sub(r"[^\w\s.\-_()]", "_", filename).strip("._") or "allegato"
+    # Path: iris_attachments/{email_doc_id}/{filename_sanificato}
+    storage_path = f"iris_attachments/{email_id}/{safe_filename}"
+    try:
+        blob = bucket.blob(storage_path)
+        token = str(_uuid.uuid4())
+        blob.metadata = {"firebaseStorageDownloadTokens": token}
+        blob.upload_from_string(raw_content, content_type=mime or "application/octet-stream")
+        # Costruisci download URL Firebase Storage pubblico
+        bucket_name = bucket.name
+        encoded_path = storage_path.replace("/", "%2F")
+        url = (f"https://firebasestorage.googleapis.com/v0/b/{bucket_name}/o/"
+               f"{encoded_path}?alt=media&token={token}")
+        return {
+            "storagePath": storage_path,
+            "downloadUrl": url,
+        }
+    except Exception as e:
+        logger = globals().get("logger")
+        if logger:
+            try: logger.warning(f"_save_attachment_to_storage failed: {e}")
+            except Exception: pass
+        return {}
+
+def _extract_attachments(item, email_doc_id: str = "") -> list[dict]:
     """
     Read-only extraction. Per ogni allegato:
       - filename, mimeType, size sempre.
       - Se PDF e size <= MAX_PDF_BYTES: scarica content, estrai prime righe.
       - Classifica detectedType. Se fattura, prova ad estrarre importo.
+      - Se size <= MAX_STORAGE_BYTES e email_doc_id presente: carica il
+        binario su Firebase Storage e salva downloadUrl + storagePath
+        nell'entry così la PWA può aprirlo cliccando l'icona.
 
     Salta inline-only (cid embedded) per evitare rumore — manteniamo solo
     quelli con filename utile.
@@ -140,9 +221,14 @@ def _extract_attachments(item) -> list[dict]:
 
             extracted_text = ""
             amount = None
+            raw_content = None
+            try:
+                raw_content = getattr(a, "content", None)
+            except Exception:
+                raw_content = None
+
             if (mime or "").lower() == "application/pdf" and (size or 0) <= MAX_PDF_BYTES:
                 try:
-                    raw_content = getattr(a, "content", None)
                     if raw_content:
                         extracted_text = tag_extract_pdf_text(
                             raw_content, max_pages=2, max_chars=1500,
@@ -165,6 +251,20 @@ def _extract_attachments(item) -> list[dict]:
                 entry["extractedText"] = extracted_text[:MAX_EXTRACTED_TEXT]
             if amount:
                 entry["amount"] = amount
+
+            # Carica binario su Storage per renderlo apribile dalla PWA.
+            # Skippa se manca email_doc_id, raw_content, o size oversize.
+            if email_doc_id and raw_content and (size or 0) <= MAX_STORAGE_BYTES:
+                try:
+                    storage_info = _save_attachment_to_storage(
+                        raw_content, filename, mime or "", email_doc_id,
+                    )
+                    if storage_info.get("downloadUrl"):
+                        entry["downloadUrl"] = storage_info["downloadUrl"]
+                        entry["storagePath"] = storage_info["storagePath"]
+                except Exception:
+                    pass
+
             out.append(entry)
         except Exception:
             continue

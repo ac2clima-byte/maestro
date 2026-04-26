@@ -6501,3 +6501,7 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
     raise TransportError(str(e)) from e
 exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano.it', port=443): Max retries exceeded with url: /ews/exchange.asmx (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x79bc21440c80>: Failed to resolve 'remote.gruppobadano.it' ([Errno -3] Temporary failure in name resolution)"))
 [2026-04-25T21:43:40Z] ─── fine ciclo ───
+[2026-04-26T17:13:39Z] ╔══ IRIS local poller — loop ogni 300s ══╗
+[2026-04-26T17:13:39Z] ╔══ IRIS local poller — loop ogni 300s ══╗
+[2026-04-26T17:13:39Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-04-26T17:13:39Z] ─── inizio ciclo IRIS (limit=50) ───
