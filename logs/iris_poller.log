@@ -7209,3 +7209,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #25  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
   #26  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
 [2026-04-26T20:53:41Z] ─── fine ciclo ───
+[2026-04-26T20:58:41Z] ─── inizio ciclo IRIS (limit=50) ───
