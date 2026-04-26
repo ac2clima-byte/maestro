@@ -1,0 +1,440 @@
+{
+  "ts": "2026-04-26T08:41:29.612Z",
+  "features": [
+    {
+      "id": "a",
+      "name": "Login (SSO custom token)",
+      "check": "auth",
+      "ok": true,
+      "detail": {
+        "gateHidden": true,
+        "rootVisible": true,
+        "footerUser": "alberto.contardi@acgclimaservice.com",
+        "authError": ""
+      },
+      "screenshot": "feat-a-login.png"
+    },
+    {
+      "id": "b",
+      "name": "Dashboard home",
+      "check": "home",
+      "ok": true,
+      "detail": {
+        "hasMain": true,
+        "hasContent": true,
+        "preview": "NEXO\nHub dei Colleghi · ACG Suite\n☰\nDASHBOARD\n🏠\nHome\nCOLLEGHI\n📧\nIRIS\n📢\nECHO\n🔧\nARES\n📅\nCHRONOS\n🧠\nMEMO\n💰\nCHARTA\n📦\nEMPORION\n⚖️\nDIKEA\n📊\nDELPHI\n👁️\nPHARO\n✍️\nCALLIOPE\nalberto.contardi@acgclimaservic"
+      },
+      "screenshot": "feat-b-home.png"
+    },
+    {
+      "id": "c",
+      "name": "Sidebar (visibilità + click)",
+      "check": "sidebar",
+      "ok": true,
+      "detail": {
+        "has": true,
+        "items": 14,
+        "classes": "sidebar"
+      },
+      "screenshot": "feat-c-sidebar.png"
+    },
+    {
+      "id": "d",
+      "name": "NEXUS Chat (apertura + risposta semplice)",
+      "check": "chat",
+      "ok": true,
+      "detail": {
+        "panelVisible": true,
+        "hasInput": true
+      },
+      "screenshot": "feat-d-chat-open.png"
+    },
+    {
+      "id": "e",
+      "name": "Chat fullscreen toggle",
+      "check": "fullscreen",
+      "ok": true,
+      "detail": {
+        "hasFullscreenClass": true,
+        "classes": "nexus-panel open fullscreen"
+      },
+      "screenshot": "feat-e-fullscreen.png"
+    },
+    {
+      "id": "f",
+      "name": "Voce TTS (presenza pulsante + voci browser Elsa)",
+      "check": "tts",
+      "ok": true,
+      "detail": {
+        "hasToggleBtn": true,
+        "hasStopBtn": true,
+        "toggleHidden": false,
+        "voicesCount": 0,
+        "hasElsa": false,
+        "voiceSample": []
+      },
+      "screenshot": "feat-d-chat-open.png"
+    },
+    {
+      "id": "g",
+      "name": "Microfono continuo (presenza pulsante)",
+      "check": "mic",
+      "ok": true,
+      "detail": {
+        "hasMicBtn": true,
+        "hidden": false
+      },
+      "screenshot": "feat-d-chat-open.png"
+    },
+    {
+      "id": "h",
+      "name": "Cancella chat (clear conversazione)",
+      "check": "clear",
+      "ok": true,
+      "detail": {
+        "hasClearBtn": true
+      },
+      "screenshot": "feat-d-chat-open.png"
+    },
+    {
+      "id": "i",
+      "name": "Swipe email IRIS (presenza interfaccia)",
+      "check": "iris-swipe",
+      "ok": true,
+      "detail": {
+        "hasSwipe": false,
+        "hasFrame": true,
+        "bodyHasIris": true
+      },
+      "screenshot": "feat-i-iris.png"
+    },
+    {
+      "id": "j",
+      "name": "Pagine Colleghi (apertura tutti 11)",
+      "check": "colleghi",
+      "ok": true,
+      "detail": {
+        "results": [
+          {
+            "id": "iris",
+            "ok": true
+          },
+          {
+            "id": "echo",
+            "ok": true
+          },
+          {
+            "id": "ares",
+            "ok": true
+          },
+          {
+            "id": "chronos",
+            "ok": true
+          },
+          {
+            "id": "memo",
+            "ok": true
+          },
+          {
+            "id": "charta",
+            "ok": true
+          },
+          {
+            "id": "emporion",
+            "ok": true
+          },
+          {
+            "id": "dikea",
+            "ok": true
+          },
+          {
+            "id": "delphi",
+            "ok": true
+          },
+          {
+            "id": "pharo",
+            "ok": true
+          },
+          {
+            "id": "calliope",
+            "ok": true
+          }
+        ],
+        "ok": 11,
+        "total": 11
+      },
+      "screenshot": "feat-j-collega-iris.png"
+    },
+    {
+      "id": "k",
+      "name": "CHRONOS badge campagne",
+      "check": "chronos-badge",
+      "ok": true,
+      "detail": {
+        "badgeCount": 1,
+        "badgeText": [
+          "✅ Attivo v0.5"
+        ]
+      },
+      "screenshot": "feat-k-chronos-badge.png"
+    },
+    {
+      "id": "l",
+      "name": "PHARO dashboard RTI",
+      "check": "pharo-rti",
+      "ok": true,
+      "detail": {
+        "hasContent": true,
+        "mentionsRti": true,
+        "preview": "NEXO\nHub dei Colleghi · ACG Suite\n☰\nDASHBOARD\n🏠\nHome\nCOLLEGHI\n📧\nIRIS\n📢\nECHO\n🔧\nARES\n📅\nCHRONOS\n🧠\nMEMO\n💰\nCHARTA\n📦\nEMPORION\n⚖️\nDIKEA\n📊\nDELPHI\n👁️\nPHARO\n✍️\nCALLIOPE\nalberto.contardi@acgclimaservic"
+      },
+      "screenshot": "feat-l-pharo.png"
+    }
+  ],
+  "chats": [
+    {
+      "i": 1,
+      "q": "ciao",
+      "reply": "Ciao Alberto, sono NEXUS. Come va? Cosa posso fare per te?10:42\n      \n      assegnata🔊",
+      "replyPreview": "Ciao Alberto, sono NEXUS. Come va? Cosa posso fare per te?10:42\n      \n      assegnata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "nessuno",
+      "collegaActual": null,
+      "azione": null,
+      "stato": null,
+      "routingOk": false,
+      "modello": null,
+      "screenshot": "chat-01.png"
+    },
+    {
+      "i": 2,
+      "q": "quante email ho?",
+      "reply": "Ne ho indicizzate 103, l'ultima è arrivata il 24/04, 18:00.10:42\n      \n      completata🔊",
+      "replyPreview": "Ne ho indicizzate 103, l'ultima è arrivata il 24/04, 18:00.10:42\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "iris",
+      "collegaActual": "iris",
+      "azione": "email_totali",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-02.png"
+    },
+    {
+      "i": 3,
+      "q": "email urgenti",
+      "reply": "Hai 4 email urgente. La prima è da Acquisti (A.Nannetti S.r.l.), riguarda a. nannetti & c. comunica revoca di incarico come terzo responsabile. allegato non leggibile in questo contesto. richiesta conferma ricezione. Vuoi che te la legga?10:42\n      \n      completata🔊",
+      "replyPreview": "Hai 4 email urgente. La prima è da Acquisti (A.Nannetti S.r.l.), riguarda a. nannetti & c. comunica revoca di incarico come terzo responsabile. allegato non leggibile in questo contesto. richiesta conferma ricezione. Vuoi che te la legga?10:42\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "iris",
+      "collegaActual": null,
+      "azione": null,
+      "stato": null,
+      "routingOk": false,
+      "modello": null,
+      "screenshot": "chat-03.png"
+    },
+    {
+      "i": 4,
+      "q": "stato della suite",
+      "reply": "La suite è congestionata. 103 email indicizzate, 35 senza risposta da più di due giorni, 100 messaggi pending sulla lavagna. Vuoi che proviamo a ripulire i messaggi pending?10:42\n      \n      completata🔊",
+      "replyPreview": "La suite è congestionata. 103 email indicizzate, 35 senza risposta da più di due giorni, 100 messaggi pending sulla lavagna. Vuoi che proviamo a ripulire i messaggi pending?10:42\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "pharo",
+      "collegaActual": null,
+      "azione": null,
+      "stato": null,
+      "routingOk": false,
+      "modello": null,
+      "screenshot": "chat-04.png"
+    },
+    {
+      "i": 5,
+      "q": "interventi aperti",
+      "reply": "20 interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — aperto · tecnico=FEDERICO\n4. [13/10/2025] S021 - CONDOMINIO CLASTIDIUM - VIA MAZZINI, 11 - C — chiuso · non assegnato\n5. [17/10/2025] Z028 - CONDOMINIO RAVERA - VIA GARIBALDI 65 - NOVI — chiuso · non assegnato\n6. [22/10/2025] Z024 - CONDOMINIO EMET - VIA CAVALLOTTI 57 - NOVI — chiuso · non assegnato\n7. [23/10/2025] R009 - PALAZZINA I MELOGRANI D - VIA PELIZZA DA VO — chiuso · non assegnato\n8. [24/10/2025] V021 - CONDOMINIO VENERE - VIA MILAZZO, 34 - TORTO — chiuso · non assegnato\n9. [24/10/2025] V021 - CONDOMINIO VENERE - VIA MILAZZO, 34 - TORTO — chiuso · non assegnato\n10. [28/10/2025] R026 - CONDOMINIO ITALIA - VIA LUIGI MAZZA 20 - VA — chiuso · non assegnato\n11. [29/10/2025] G028 - CONDOMINIO SAN FRANCISCO - VIA CAVALLOTTI F — chiuso · non assegnato\n12. [29/10/2025] Z024 - CONDOMINIO EMET - VIA CAVALLOTTI 57 - NOVI — chiuso · non assegnato\n13. [31/10/2025] U077 - CONDOMINIO SUSY - VIALE SICILIA 107 - PAVIA — chiuso · non assegnato\n14. [03/11/2025] G026 - CONDOMINIO LESIMA - VIA SANT’AMBROGIO, 22/2 — chiuso · non assegnato\n15. [03/11/2025] R012 - CONDOMINIO AUGUSTA - PIAZZA CORNAGGIA 25 - — chiuso · non assegnato\n16. [04/11/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — chiuso · non assegnato\n17. [04/11/2025] R009 - PALAZZINA I MELOGRANI D - VIA PELIZZA DA VO — chiuso · non assegnato\n18. [06/11/2025] F007 - CONDOMINIO TORRALBA - VIA CARLO MARX 3 - VO — chiuso · non assegnato\n19. [06/11/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORINO, 10 - NI — chiuso · non assegnato\n20. [06/11/2025] U060 - CONDOMINIO FEBBRONI (PAVIA) - VIA GORINI, 9 — chiuso · non assegnato10:42\n      \n      completata🔊",
+      "replyPreview": "20 interventi attivi su COSMINA (mostro i primi 20 di 60):\n\n1. [28/08/2025] ZZ052 - CONDOMINIO VESTA - CORSO CARLO MARX, 40/52 — chiuso · non assegnato\n2. [28/08/2025] ZZ055 - CONDOMINIO CORSO MONFERRATO 37 - CORSO MON — chiuso · non assegnato\n3. [15/09/2025] ZZ028 - CONDOMINIO GLICINI B - VIA TORIN",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "ares",
+      "collegaActual": "ares",
+      "azione": "interventi_aperti",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-05.png"
+    },
+    {
+      "i": 6,
+      "q": "come va la campagna walkby?",
+      "reply": "Negli ultimi 28 giorni: 103 email indicizzate, 4 urgenti, 35 senza risposta da più di due giorni. Su COSMINA abbiamo 369 interventi ancora aperti. Su Guazzotti ci sono 52 GRTIDF pronti da fatturare per 14557 euro bloccati, e 179593 euro di scaduto clienti. Vuoi che ti aiuti su qualcosa?10:42\n      \n      completata🔊",
+      "replyPreview": "Negli ultimi 28 giorni: 103 email indicizzate, 4 urgenti, 35 senza risposta da più di due giorni. Su COSMINA abbiamo 369 interventi ancora aperti. Su Guazzotti ci sono 52 GRTIDF pronti da fatturare per 14557 euro bloccati, e 179593 euro di scaduto clienti. Vuoi che ti aiuti su qualcosa?10:42\n      \n",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "chronos",
+      "collegaActual": "delphi",
+      "azione": "kpi_dashboard",
+      "stato": "completata",
+      "routingOk": false,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-06.png"
+    },
+    {
+      "i": 7,
+      "q": "dimmi tutto su Kristal",
+      "reply": "Ho trovato CONDOMINIO KRISTAL (codice U058). VIA AMATI, 1/3/5/7, PAVIA. amministratore: Arrigone. Ha 1 impianti registrati.10:42\n      \n      completata🔊",
+      "replyPreview": "Ho trovato CONDOMINIO KRISTAL (codice U058). VIA AMATI, 1/3/5/7, PAVIA. amministratore: Arrigone. Ha 1 impianti registrati.10:42\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "memo",
+      "collegaActual": "memo",
+      "azione": "dossier_cliente",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-07.png"
+    },
+    {
+      "i": 8,
+      "q": "manda whatsapp a Alberto: test",
+      "reply": "Non ho mandato il messaggio a Alberto Contardi perché il dry-run è attivo. Vuoi che lo attivi?10:43\n      \n      completata🔊",
+      "replyPreview": "Non ho mandato il messaggio a Alberto Contardi perché il dry-run è attivo. Vuoi che lo attivi?10:43\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "echo",
+      "collegaActual": "echo",
+      "azione": "sendWhatsApp",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-08.png"
+    },
+    {
+      "i": 9,
+      "q": "fatture scadute",
+      "reply": "Esposizione totale: 203074 euro, di cui 179593 scaduti (76639 oltre i 6 mesi). I clienti con più scaduto sono CONDOMINIO CALATAFIMI: 21276 euro, AC2 CLIMA SRL UNIPERSONALE in liquidazione: 6555 euro, CONDOMINIO I GIARDINI 1/2: 5511 euro. Vuoi che mando un sollecito ai principali?10:43\n      \n      completata🔊",
+      "replyPreview": "Esposizione totale: 203074 euro, di cui 179593 scaduti (76639 oltre i 6 mesi). I clienti con più scaduto sono CONDOMINIO CALATAFIMI: 21276 euro, AC2 CLIMA SRL UNIPERSONALE in liquidazione: 6555 euro, CONDOMINIO I GIARDINI 1/2: 5511 euro. Vuoi che mando un sollecito ai principali?10:43\n      \n      c",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "charta",
+      "collegaActual": "charta",
+      "azione": "fatture_scadute",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-09.png"
+    },
+    {
+      "i": 10,
+      "q": "scadenze CURIT",
+      "reply": "⚖ 3 scadenze normative nei prossimi 90g:\n\n1. [06/05/2026] (10g) MANUT · VIA CLARETTO LUIGI, 18/20 P.T\n2. [10/06/2026] (45g) MANUT · VIA BELLOCCHIO, 6\n3. [10/06/2026] (45g) MANUT · VIA MORUZZI, 1310:43\n      \n      completata🔊",
+      "replyPreview": "⚖ 3 scadenze normative nei prossimi 90g:\n\n1. [06/05/2026] (10g) MANUT · VIA CLARETTO LUIGI, 18/20 P.T\n2. [10/06/2026] (45g) MANUT · VIA BELLOCCHIO, 6\n3. [10/06/2026] (45g) MANUT · VIA MORUZZI, 1310:43\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "dikea",
+      "collegaActual": null,
+      "azione": null,
+      "stato": null,
+      "routingOk": false,
+      "modello": null,
+      "screenshot": "chat-10.png"
+    },
+    {
+      "i": 11,
+      "q": "report mensile",
+      "reply": "Negli ultimi 28 giorni: 103 email indicizzate, 4 urgenti, 35 senza risposta da più di due giorni. Su COSMINA abbiamo 369 interventi ancora aperti. Su Guazzotti ci sono 52 GRTIDF pronti da fatturare per 14557 euro bloccati, e 179593 euro di scaduto clienti. Vuoi che ti aiuti su qualcosa?10:43\n      \n      completata🔊",
+      "replyPreview": "Negli ultimi 28 giorni: 103 email indicizzate, 4 urgenti, 35 senza risposta da più di due giorni. Su COSMINA abbiamo 369 interventi ancora aperti. Su Guazzotti ci sono 52 GRTIDF pronti da fatturare per 14557 euro bloccati, e 179593 euro di scaduto clienti. Vuoi che ti aiuti su qualcosa?10:43\n      \n",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "charta",
+      "collegaActual": "delphi",
+      "azione": "kpi_dashboard",
+      "stato": "completata",
+      "routingOk": false,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-11.png"
+    },
+    {
+      "i": 12,
+      "q": "bozze pendenti",
+      "reply": "Hai 7 preventivi in attesa.\n\n1. 3i efficientamento energetico per DE AMICIS 866 euro\n2. 3i efficientamento energetico per DE AMICIS 1220 euro\n3. 3i efficientamento energetico per DE AMICIS 1098 euro\n4. 3i efficientamento energetico per DE AMICIS 1147 euro\n5. 3i efficientamento energetico per DE AMICIS 1098 euro\n\nE altri 2 più indietro.\n\nDimmi il numero, oppure \"mostra il primo\" per aprirlo.10:43\n      \n      completata🔊",
+      "replyPreview": "Hai 7 preventivi in attesa.\n\n1. 3i efficientamento energetico per DE AMICIS 866 euro\n2. 3i efficientamento energetico per DE AMICIS 1220 euro\n3. 3i efficientamento energetico per DE AMICIS 1098 euro\n4. 3i efficientamento energetico per DE AMICIS 1147 euro\n5. 3i efficientamento energetico per DE AMIC",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "preventivo",
+      "collegaActual": null,
+      "azione": null,
+      "stato": null,
+      "modello": null,
+      "screenshot": "chat-12.png"
+    },
+    {
+      "i": 13,
+      "q": "analizza l'ultima mail di Torriglia",
+      "reply": "Ho visto la mail di Davide. Alberto ha chiesto intestazione per offerta verifica riscaldamento. Torriglia ha risposto con ragione sociale e P.IVA. Dati chiave: 3i efficientamento energetico S.r.l. Società Benefit (P.IVA 02486680065), condominio De Amicis. Preparare preventivo verifica riscaldamento intestato a 3i efficientamento energetico per Condominio De Amicis. Procedo?10:43\n      \n      completata🔊",
+      "replyPreview": "Ho visto la mail di Davide. Alberto ha chiesto intestazione per offerta verifica riscaldamento. Torriglia ha risposto con ragione sociale e P.IVA. Dati chiave: 3i efficientamento energetico S.r.l. Società Benefit (P.IVA 02486680065), condominio De Amicis. Preparare preventivo verifica riscaldamento ",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "iris",
+      "collegaActual": "iris",
+      "azione": "analizza_email",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-13.png"
+    },
+    {
+      "i": 14,
+      "q": "cosa manca in magazzino?",
+      "reply": "Nessun articolo sotto scorta al momento.10:43\n      \n      completata🔊",
+      "replyPreview": "Nessun articolo sotto scorta al momento.10:43\n      \n      completata🔊",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "emporion",
+      "collegaActual": "emporion",
+      "azione": "disponibilita",
+      "stato": "completata",
+      "routingOk": true,
+      "modello": "claude-haiku-4-5",
+      "screenshot": "chat-14.png"
+    },
+    {
+      "i": 15,
+      "q": "scrivi risposta a Moraschi",
+      "reply": "Bozza CALLIOPE (DRY-RUN, tono: professionale, salvata come boz_mofiudzj_wyma)\n\nA: Moraschi Roberto\nOggetto: Re: Prev. Carbonio 108-4”\n\n---\nOggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\ngrazie per la conferma. Ottima notizia che il pezzo sia disponibile, anche nella taglia più grande.\n\nPuò inviarci il preventivo con disponibilità e tempi di consegna, così procediamo con l'ordine?\n\nResto in attesa e la ringrazio per la collaborazione.\n\nCordiali saluti,\nAlberto Contardi\nACG Clima Service\n---\n\n DRY-RUN: la bozza NON è stata inviata. Rivedila e approva quando sei pronto.10:43\n      \n      completata🔊",
+      "replyPreview": "Bozza CALLIOPE (DRY-RUN, tono: professionale, salvata come boz_mofiudzj_wyma)\n\nA: Moraschi Roberto\nOggetto: Re: Prev. Carbonio 108-4”\n\n---\nOggetto: R: Prev. Carbonio 108-4\"\n\nGentile Roberto,\n\ngrazie per la conferma. Ottima notizia che il pezzo sia disponibile, anche nella taglia più grande.\n\nPuò inv",
+      "hasReply": true,
+      "naturalLanguage": true,
+      "meaningful": true,
+      "collegaExpected": "calliope",
+      "collegaActual": null,
+      "azione": null,
+      "stato": null,
+      "routingOk": false,
+      "modello": null,
+      "screenshot": "chat-15.png"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [
+    "[nexus] send failed: TypeError: Failed to fetch\n    at nexusSend (https://nexo-hub-15f2d.web.app/js/app.js?v=v03:2023:24)",
+    "[nexus] send failed: TypeError: Failed to fetch\n    at nexusSend (https://nexo-hub-15f2d.web.app/js/app.js?v=v03:2023:24)"
+  ]
+}

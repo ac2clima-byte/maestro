@@ -96,6 +96,7 @@ function looksMeaningful(text) {
   console.log("\n═══ STEP 1: Login form ═══");
   await page.goto(PWA, { waitUntil: "networkidle", timeout: 30000 });
   await page.waitForSelector("#authEmail", { timeout: 15000 });
+  await page.waitForTimeout(1500); // attendi init Firebase Auth SDK
   await page.fill("#authEmail", TARGET_EMAIL);
   await page.fill("#authPassword", TARGET_PASSWORD);
   await page.click("#authBtn");
@@ -230,7 +231,7 @@ function looksMeaningful(text) {
   await page.waitForTimeout(400);
 
   // i. Swipe email IRIS — vai a #iris e verifica presenza interfaccia swipe
-  await page.goto(`${PWA}/#iris`, { waitUntil: "networkidle" });
+  await page.goto(`${PWA}/#iris`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2500);
   const irisState = await page.evaluate(() => {
     const swipe = document.querySelector(".iris-swipe, .swipe-card, .iris-card");
@@ -246,7 +247,7 @@ function looksMeaningful(text) {
   const collegheResults = [];
   for (const c of COLLEGHI) {
     try {
-      await page.goto(`${PWA}/#collega:${c}`, { waitUntil: "networkidle" });
+      await page.goto(`${PWA}/#collega:${c}`, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(700);
       const ok = await page.evaluate(() => {
         return !!document.querySelector(".collega-page, .collega-wip, .iris-frame, #appRoot:not([hidden])");
@@ -262,7 +263,7 @@ function looksMeaningful(text) {
   console.log(`  j. Colleghi: ${okC}/${COLLEGHI.length} OK`);
 
   // k. CHRONOS badge campagne
-  await page.goto(`${PWA}/#collega:chronos`, { waitUntil: "networkidle" });
+  await page.goto(`${PWA}/#collega:chronos`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2500);
   const chronosBadge = await page.evaluate(() => {
     const badges = Array.from(document.querySelectorAll(".badge, .campagna-badge, [data-badge], .chip"));
@@ -273,7 +274,7 @@ function looksMeaningful(text) {
   console.log(`  k. CHRONOS badges: ${chronosBadge.badgeCount > 0 ? "✅" : "❌"} (${chronosBadge.badgeCount} badges)`);
 
   // l. PHARO RTI dashboard
-  await page.goto(`${PWA}/#collega:pharo`, { waitUntil: "networkidle" });
+  await page.goto(`${PWA}/#collega:pharo`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(3000);
   const pharo = await page.evaluate(() => {
     const main = document.querySelector("#main, .pharo-page, #appRoot");
@@ -286,13 +287,13 @@ function looksMeaningful(text) {
 
   // ─── STEP 3: 15 test conversazionali ─────────────────────────
   console.log("\n═══ STEP 3: 15 test conversazionali NEXUS ═══");
-  await page.goto(PWA, { waitUntil: "networkidle" });
+  await page.goto(PWA, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(2000);
 
   for (const t of CHAT_TESTS) {
     const sid = `audit_q${t.i}_${Date.now().toString(36)}`;
     await page.evaluate(s => localStorage.setItem("nexo.nexus.sessionId", s), sid);
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector("#nexusFab", { timeout: 10000 });
     await page.click("#nexusFab");
     await page.waitForSelector("#nexusInput", { timeout: 5000 });

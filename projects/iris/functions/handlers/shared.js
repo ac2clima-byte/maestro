@@ -330,7 +330,7 @@ export function emailLine(e, i) {
 //  - separatori "—", "─" a inizio riga
 //  - linee vuote consecutive
 
-const DECORATIVE_EMOJIS = /[📧📊🏢🚨✅⚠️❌⏰🔎📋🔧💰🗒️📱📞📄📁✍️🔔↪️📬❓🎤🔊🔇🟣🟢🟠🔴🟡📎🎯🚀💡🔥🌟✨🆕]/g;
+const DECORATIVE_EMOJIS = /[📧📊🏢🚨✅⚠️❌⏰🔎📋🔧💰🗒️📱📞📄📁✍️🔔↪️📬❓🎤🔊🔇🟣🟢🟠🔴🟡📎🎯🚀💡🔥🌟✨🆕⚖️⚖🔒🔓📦📇👁️📤📥💳💵💸📈📉🏷️📌📍🛒🚚🏠🏭]/gu;
 
 export function naturalize(text) {
   if (!text || typeof text !== "string") return text;
