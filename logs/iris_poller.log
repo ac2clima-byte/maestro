@@ -6537,3 +6537,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #23  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
   #24  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
 [2026-04-26T17:17:39Z] ─── fine ciclo ───
+[2026-04-26T17:31:40Z] ─── inizio ciclo IRIS (limit=50) ───
