@@ -606,15 +606,16 @@ export async function handleChronosAgendaGiornaliera(parametri, ctx) {
   slot.sort((a, b) => a.ora.localeCompare(b.ora));
   const dataStr = giorno.toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "long" });
 
+  const tecnicoLabel = tecnico.charAt(0).toUpperCase() + tecnico.slice(1);
   if (!slot.length) {
-    return { content: `📅 ${tecnico.toUpperCase()} non ha interventi pianificati per ${dataStr}.` };
+    return { content: `${tecnicoLabel} non ha interventi pianificati per ${dataStr}.` };
   }
 
   const lines = slot.slice(0, 12).map((s, i) =>
     `${i + 1}. ${s.ora} — ${String(s.cond).slice(0, 50)}`,
   ).join("\n");
   return {
-    content: `📅 **Agenda ${tecnico.toUpperCase()} — ${dataStr}** (${slot.length} interventi):\n\n${lines}`,
+    content: `Agenda ${tecnicoLabel} ${dataStr}, ${slot.length} interventi: \n${lines}`,
     data: { tecnico, giorno: giorno.toISOString().slice(0, 10), count: slot.length },
   };
 }

@@ -75,45 +75,31 @@ export async function handleMemoDossier(parametri, ctx) {
   q = q.replace(/^(il|la|lo|gli|le|i|condominio)\s+/, "").trim();
   if (!q) return { content: "Su quale cliente cerco? Dammi un nome." };
 
-  // ── Cache-first: prova prima memo_clienti_cache (nexo-hub) ──
+  // ── Cache-first per ricerca multi-match (lista). ──
+  // Per match singolo o richieste "dimmi tutto / dossier" andiamo SEMPRE al
+  // path live così il dossier è completo (impianti + interventi + RTI + email).
+  const wantsFullDossier = /\b(dimmi\s+tutto|dossier|tutto\s+su|completo|storico|impianti|interventi)\b/i.test(
+    String((ctx && ctx.userMessage) || "")
+  );
   try {
     const stats = await memoCacheGetStats();
     const fresh = stats && memoCacheAgeMs(stats) < MEMO_CACHE_TTL_MS;
-    if (fresh) {
+    if (fresh && !wantsFullDossier) {
       const matches = await memoCacheSearch(q);
-      if (matches.length) {
+      if (matches.length > 1) {
+        // Più match: lista e basta (senza bullet/emoji)
         const top = matches.slice(0, 3);
-        const parts = [];
-        if (matches.length === 1) {
-          const c = top[0];
-          const bits = [];
-          if (c.indirizzo || c.citta) bits.push(`${[c.indirizzo, c.citta].filter(Boolean).join(", ")}`);
-          if (c.telefono) bits.push(`tel ${c.telefono}`);
-          if (c.email) bits.push(c.email);
-          if (c.amministratore) bits.push(`amministratore: ${c.amministratore}`);
-          parts.push(`Ho trovato ${c.nome} (codice ${c.codice}).`);
-          if (bits.length) parts.push(bits.join(". ") + ".");
-          if (c.num_impianti > 0) parts.push(`Ha ${c.num_impianti} impianti registrati.`);
-          return {
-            content: parts.join(" "),
-            data: { source: "cache", cliente: c, totalMatches: 1, clienti: [c.nome] },
-          };
-        }
-        parts.push(`Ho ${matches.length} risultati per "${q}".`);
-        const elenco = top.map((c, i) => `${i + 1}. ${c.nome} (${c.codice}, ${c.citta || "?"})`).join("\n");
-        parts.push(elenco);
+        const parts = [`Ho ${matches.length} risultati per "${q}".`];
+        parts.push(top.map((c, i) => `${i + 1}. ${c.nome} (${c.codice}, ${c.citta || "?"})`).join("\n"));
         if (matches.length > 3) parts.push(`E altri ${matches.length - 3}.`);
-        parts.push(`Dimmi quale vuoi vedere.`);
+        parts.push(`Dimmi quale intendi.`);
         return {
           content: parts.join("\n\n"),
           data: { source: "cache", totalMatches: matches.length, clienti: top.map(c => c.nome) },
         };
       }
-      // Cache fresca ma nessun match → ritorna subito
-      return {
-        content: `Non trovo nulla su ${q} nel CRM.`,
-        data: { source: "cache", totalMatches: 0 },
-      };
+      // matches.length === 1 → fall-through al path live per dossier completo
+      // matches.length === 0 → fall-through (potrebbe essere una persona, non un condominio)
     }
   } catch (e) {
     logger.warn("memo cache lookup failed, fallback live", { error: String(e).slice(0, 150) });
@@ -228,93 +214,72 @@ export async function handleMemoDossier(parametri, ctx) {
   });
 
   const sections = [];
-  sections.push(`📇 **Dossier per "${q}"** (MEMO v0.2 — COSMINA + Guazzotti + email)`);
+  sections.push(`Dossier per "${q}":`);
   sections.push("");
 
   if (clienti.length) {
-    sections.push(`**🏢 Anagrafica CRM** (${clienti.length} match):`);
+    sections.push(`Anagrafica CRM (${clienti.length}):`);
     clienti.slice(0, 5).forEach(c => {
-      sections.push(`  · **${c.nome}** [${c.codice || c.id}] — ${c.indirizzo}${c.comune ? ", " + c.comune : ""}`);
-      if (c.amministratore) sections.push(`    Amministratore: ${c.amministratore}`);
-      if (c.telefono) sections.push(`    Tel: ${c.telefono}`);
+      sections.push(`${c.nome} [${c.codice || c.id}] — ${c.indirizzo}${c.comune ? ", " + c.comune : ""}`);
+      if (c.amministratore) sections.push(`  Amministratore: ${c.amministratore}`);
+      if (c.telefono) sections.push(`  Tel: ${c.telefono}`);
     });
-    if (clienti.length > 5) sections.push(`  …e altri ${clienti.length - 5}.`);
-  } else {
-    sections.push(`**🏢 Anagrafica CRM**: nessun cliente diretto trovato.`);
+    if (clienti.length > 5) sections.push(`E altri ${clienti.length - 5}.`);
   }
-  sections.push("");
 
   if (impianti.length) {
-    sections.push(`**⚙️ Impianti CURIT** (${impianti.length}):`);
+    sections.push("");
+    sections.push(`Impianti CURIT (${impianti.length}):`);
     impianti.slice(0, 5).forEach(i => {
-      sections.push(`  · Targa ${i.targa} — ${i.indirizzo} — ${i.combustibile}`);
-      if (i.occupante) sections.push(`    Occupante: ${i.occupante}`);
-      if (i.ritardo_manut > 0) sections.push(`    ⚠️ ${i.ritardo_manut}g di ritardo manutenzione`);
-      if (i.scadenza) sections.push(`    Scadenza dichiarazione: ${i.scadenza}`);
+      sections.push(`Targa ${i.targa} — ${i.indirizzo} — ${i.combustibile}`);
+      if (i.occupante) sections.push(`  Occupante: ${i.occupante}`);
+      if (i.ritardo_manut > 0) sections.push(`  ${i.ritardo_manut}g di ritardo manutenzione`);
+      if (i.scadenza) sections.push(`  Scadenza dichiarazione: ${i.scadenza}`);
     });
-    if (impianti.length > 5) sections.push(`  …e altri ${impianti.length - 5}.`);
-  } else {
-    sections.push(`**⚙️ Impianti**: nessuno trovato.`);
+    if (impianti.length > 5) sections.push(`E altri ${impianti.length - 5}.`);
   }
-  sections.push("");
 
   if (interventi.length) {
-    sections.push(`**🔧 Interventi (bacheca COSMINA)** — ultimi ${Math.min(interventi.length, 10)} di ${interventi.length}:`);
-    interventi.slice(0, 10).forEach(it => {
+    sections.push("");
+    sections.push(`Ultimi interventi (${Math.min(interventi.length, 5)} di ${interventi.length}):`);
+    interventi.slice(0, 5).forEach(it => {
       const t = it.tecnico ? ` · ${it.tecnico}` : "";
       const s = it.stato ? ` [${it.stato}]` : "";
-      sections.push(`  · ${it.updated || it.due || "?"}${t}${s} — ${(it.name || "").slice(0, 80)}`);
-      if (it.workDescription) sections.push(`    → ${it.workDescription.slice(0, 100)}`);
+      sections.push(`${it.updated || it.due || "?"}${t}${s} — ${(it.name || "").slice(0, 80)}`);
     });
-  } else {
-    sections.push(`**🔧 Interventi**: nessuno trovato sulla bacheca.`);
   }
-  sections.push("");
 
   if (rti.length) {
-    sections.push(`**📋 RTI/RTIDF Guazzotti TEC** (${rti.length}):`);
-    rti.slice(0, 8).forEach(r => {
-      const fat = r.fatturabile === false ? " [non fatturabile]" : "";
-      sections.push(`  · ${r.numero_rti} (${r.tipo}) — ${r.data} — ${r.stato}${fat} · ${r.tecnico}`);
-      if (r.intervento) sections.push(`    → ${r.intervento}`);
+    sections.push("");
+    sections.push(`RTI/RTIDF Guazzotti (${rti.length}):`);
+    rti.slice(0, 5).forEach(r => {
+      const fat = r.fatturabile === false ? " (non fatturabile)" : "";
+      sections.push(`${r.numero_rti} (${r.tipo}) — ${r.data} — ${r.stato}${fat} · ${r.tecnico}`);
     });
-    if (rti.length > 8) sections.push(`  …e altri ${rti.length - 8}.`);
-  } else {
-    sections.push(`**📋 RTI Guazzotti**: nessuno trovato.`);
+    if (rti.length > 5) sections.push(`E altri ${rti.length - 5}.`);
   }
-  sections.push("");
 
   if (emails.length) {
-    sections.push(`**📧 Email correlate** (${emails.length}):`);
-    emails.slice(0, 5).forEach(e => sections.push(`  · ${emailLine(e)}`));
-    if (emails.length > 5) sections.push(`  …e altre ${emails.length - 5}.`);
-  } else {
-    sections.push(`**📧 Email**: nessuna email correlata nelle ultime 500 indicizzate.`);
+    sections.push("");
+    sections.push(`Email correlate (${emails.length}):`);
+    emails.slice(0, 3).forEach(e => sections.push(emailLine(e)));
+    if (emails.length > 3) sections.push(`E altre ${emails.length - 3}.`);
   }
 
   const totalMatches = clienti.length + impianti.length + interventi.length + rti.length + emails.length;
   if (totalMatches === 0) {
     return {
       content:
-        `📇 **Dossier per "${q}"** (MEMO v0.2)\n\n` +
-        `Non ho trovato nulla su "${q}" nelle fonti disponibili:\n` +
-        `  · crm_clienti (${clientiSnap.size || 0} docs)\n` +
-        `  · cosmina_impianti (${impiantiSnap.size || 0} docs)\n` +
-        `  · bacheca_cards interventi (${cardsSnap.size || 0} docs)\n` +
-        `  · rti guazzotti (${rtiSnap.size || 0} docs)\n` +
-        `  · iris_emails (${(irisEmails || []).length} docs)\n\n` +
-        `Possibili cause:\n` +
-        `  · Nome scritto diversamente (prova varianti)\n` +
-        `  · È una persona e non un condominio/cliente\n` +
-        `  · Cliente dismesso o non ancora caricato\n` +
-        (errors.length ? `\n❌ Errori lettura: ${errors.map(e => e.source).join(", ")}` : ""),
+        `Non trovo nulla su "${q}" nel CRM, negli impianti, nella bacheca interventi, ` +
+        `negli RTI Guazzotti né nelle ultime ${(irisEmails || []).length} email indicizzate. ` +
+        `Forse è una persona e non un condominio. Vuoi che cerchi nei contatti rubrica?`,
       data: { query: q, totalMatches: 0, errors },
     };
   }
 
   if (errors.length) {
     sections.push("");
-    sections.push(`❌ Errori lettura parziali: ${errors.map(e => e.source).join(", ")}`);
+    sections.push(`Errori lettura parziali: ${errors.map(e => e.source).join(", ")}.`);
   }
 
   return {
@@ -516,3 +481,130 @@ export async function handleListaTecnici(parametri, ctx) {
   };
 }
 
+
+// ─── handleMemoChiE: identifica una persona ──────────────────────
+// Cerca in 3 fonti:
+//   1. cosmina_contatti_interni (rubrica colleghi/tecnici ACG/Guazzotti)
+//   2. iris_emails (mittenti indicizzati negli ultimi 500)
+//   3. crm_clienti (raro, ma possibile per amministratori condomini)
+//
+// Esempi: "chi è Davide Torriglia?" / "chi è Lorenzo Dellafiore?"
+export async function handleMemoChiE(parametri, ctx) {
+  const userMessage = String((ctx && ctx.userMessage) || "");
+  // Nome dal parametro o estratto dal messaggio
+  let nome = String(parametri.nome || parametri.persona || parametri.query || "").trim();
+  if (!nome) {
+    const m = userMessage.match(/chi\s+(?:è|e)\s+(.+?)[\?!\.]?\s*$/i);
+    if (m && m[1]) nome = m[1].trim();
+  }
+  if (!nome) return { content: "Di chi vuoi sapere? Dimmi il nome." };
+  const qLow = nome.toLowerCase();
+  const tokens = qLow.split(/[\s,]+/).filter(t => t.length >= 2);
+
+  function matchTokens(haystack) {
+    const h = String(haystack || "").toLowerCase();
+    return tokens.every(t => h.includes(t));
+  }
+
+  // 1. Rubrica interna ACG/Guazzotti
+  let rubricaHits = [];
+  try {
+    const cosm = getCosminaDb();
+    const snap = await cosm.collection("cosmina_contatti_interni").limit(500).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const fullName = `${v.nome || ""} ${v.cognome || ""}`.trim();
+      if (!matchTokens(fullName)) return;
+      rubricaHits.push({
+        nome: fullName,
+        categoria: v.categoria || "?",
+        azienda: v.azienda || "ACG (azienda non specificata)",
+        telefono: v.telefono_personale || v.telefono_lavoro || v.interno || "",
+        email: v.email || "",
+      });
+    });
+  } catch (e) {
+    logger.warn("memo chiE rubrica fail", { error: String(e).slice(0, 120) });
+  }
+
+  // 2. Email indicizzate
+  let emailHits = [];
+  try {
+    const emails = await fetchIrisEmails(500);
+    const matching = (emails || []).filter(e => {
+      const bag = `${e.senderName || ""} ${e.sender || ""} ${e.subject || ""}`.toLowerCase();
+      return matchTokens(bag);
+    });
+    // Dedup per sender
+    const seen = new Set();
+    for (const e of matching) {
+      const key = (e.sender || "").toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      emailHits.push({
+        senderName: e.senderName || "",
+        sender: e.sender || "",
+        subject: e.subject || "",
+        received: e.received_time || "",
+      });
+      if (emailHits.length >= 5) break;
+    }
+  } catch (e) {
+    logger.warn("memo chiE email fail", { error: String(e).slice(0, 120) });
+  }
+
+  // 3. CRM (amministratori, ecc.)
+  let crmHits = [];
+  try {
+    const cosm = getCosminaDb();
+    const snap = await cosm.collection("crm_clienti").limit(700).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      if (matchTokens(v.amministratore)) {
+        crmHits.push({ nome: v.amministratore, ruolo: "amministratore", condominio: v.nome || v.codice });
+      }
+    });
+  } catch {}
+
+  if (rubricaHits.length === 0 && emailHits.length === 0 && crmHits.length === 0) {
+    return {
+      content: `Non trovo nulla su ${nome} né nella rubrica colleghi né tra i mittenti email né come amministratore di condominio.`,
+      data: { query: nome, found: 0 },
+    };
+  }
+
+  const parts = [];
+  if (rubricaHits.length) {
+    const h = rubricaHits[0];
+    const cap = (s) => s.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    let line = `${cap(h.nome)} è un ${h.categoria || "contatto"} di ${h.azienda}`;
+    const bits = [];
+    if (h.telefono) bits.push(`tel ${h.telefono}`);
+    if (h.email) bits.push(h.email);
+    if (bits.length) line += ", " + bits.join(", ");
+    parts.push(line + ".");
+  }
+  if (emailHits.length) {
+    const e = emailHits[0];
+    const data = e.received ? new Date(e.received).toLocaleDateString("it-IT") : "?";
+    let line = `Risulta come mittente email: ${e.senderName || e.sender}`;
+    if (e.sender) line += ` (${e.sender})`;
+    line += `, ultima mail "${(e.subject || "").slice(0, 80)}" del ${data}.`;
+    if (emailHits.length > 1) line += ` In totale ${emailHits.length} mittenti distinti riconducibili.`;
+    parts.push(line);
+  }
+  if (crmHits.length) {
+    const c = crmHits[0];
+    parts.push(`È amministratore di ${c.condominio || "un condominio"}${crmHits.length > 1 ? ` e altri ${crmHits.length - 1} clienti` : ""}.`);
+  }
+
+  return {
+    content: parts.join(" "),
+    data: {
+      query: nome,
+      rubrica: rubricaHits.length ? rubricaHits[0] : null,
+      emails: emailHits,
+      crm: crmHits,
+    },
+  };
+}

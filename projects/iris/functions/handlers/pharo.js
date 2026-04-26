@@ -10,9 +10,14 @@ export async function handlePharoStatoSuite() {
 
   try {
     const snap = await db.collection("nexo_lavagna")
-      .orderBy("createdAt", "desc").limit(100).get();
+      .orderBy("createdAt", "desc").limit(200).get();
     snap.forEach(d => {
-      const s = (d.data() || {}).status;
+      const v = d.data() || {};
+      // Escludi i messaggi originati dai test FORGE / sessioni di test.
+      const sid = String((v.payload && v.payload.sessionId) || "");
+      const fromForge = sid.startsWith("forge-test") || v.from === "forge" || v.tipo === "test";
+      if (fromForge) return;
+      const s = v.status;
       if (s === "pending" || s === "in_progress") pending++;
       else if (s === "failed" || s === "error" || s === "errore") errori++;
     });
@@ -37,11 +42,11 @@ export async function handlePharoStatoSuite() {
   if (!firestoreOk) {
     parts.push("Firestore sembra avere problemi, non riesco a leggere tutto.");
   } else if (punteggio >= 80) {
-    parts.push("La suite è a posto.");
+    parts.push(`La suite è a posto (punteggio ${punteggio}/100).`);
   } else if (punteggio >= 50) {
-    parts.push("La suite funziona ma ha qualche arretrato.");
+    parts.push(`La suite funziona ma ha qualche arretrato (punteggio ${punteggio}/100).`);
   } else {
-    parts.push("La suite è congestionata.");
+    parts.push(`La suite è congestionata (punteggio ${punteggio}/100).`);
   }
 
   const bits = [];
@@ -447,4 +452,102 @@ export async function writePharoAlert({ tipo, severita, titolo, descrizione, dat
     lastSeenAt: now,
   });
   return ref.id;
+}
+
+// ─── RTI pronti per fattura ──────────────────────────────────────
+// Conta GRTIDF inviati con costo_intervento compilato e fatturabile != false.
+// Esclusi: stati "bozza" (non finiti) e "fatturato" (già emesso).
+export async function handlePharoRtiProntiFattura() {
+  const gdb = getGuazzottiDb();
+  let pronti = 0;
+  let valoreEur = 0;
+  let senzaCosto = 0;
+  try {
+    const snap = await gdb.collection("rtidf").limit(500).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const tipo = classifyRtiTipo(v, "rtidf");
+      const stato = String(v.stato || "").toLowerCase();
+      if (tipo !== "generico") return;
+      if (v.fatturabile === false) return;
+      if (stato === "bozza" || stato === "fatturato") return;
+      const c = Number(v.costo_intervento || 0);
+      if (!Number.isFinite(c) || c === 0) {
+        if (stato === "definito" || stato === "definitivo" || stato === "inviato") senzaCosto++;
+        return;
+      }
+      if (stato === "inviato" || stato === "definito" || stato === "definitivo") {
+        pronti++;
+        valoreEur += c;
+      }
+    });
+  } catch (e) {
+    return { content: `Non riesco a leggere RTIDF da Guazzotti: ${String(e).slice(0, 120)}`, _failed: true };
+  }
+  const valoreFmt = Math.round(valoreEur).toLocaleString("it-IT");
+  const tail = senzaCosto > 0 ? ` Altri ${senzaCosto} sono pronti ma senza costo ancora compilato.` : "";
+  return {
+    content: `Ci sono ${pronti} RTI pronti per la fattura, per un valore totale di ${valoreFmt} euro.${tail}`,
+    data: { count: pronti, valoreEur: Math.round(valoreEur), senzaCosto },
+  };
+}
+
+// ─── Bozze CRTI vecchie per tecnico ──────────────────────────────
+// Cerca CRTI in stato "bozza" con techName che matcha (case-insensitive,
+// fuzzy substring). "Lorenzo" → trova "Dellafiore Lorenzo" / "Lorenzo Dellafiore".
+// Soglia "vecchie": >30 giorni dalla createdAt / data_creazione.
+export async function handlePharoBozzeCrtiPerTecnico(parametri = {}, ctx = {}) {
+  const userMessage = String((ctx && ctx.userMessage) || "").toLowerCase();
+  let tecnico = String(parametri.tecnico || parametri.nome || "").trim().toLowerCase();
+  if (!tecnico) {
+    // Fallback: estrai "di <Nome>" dal messaggio
+    const m = userMessage.match(/\b(?:di|per|del)\s+([a-zà-ÿ]+)(?:\s|$|,|\?|!)/i);
+    if (m && m[1] && !/^(oggi|tutti|nostri|mese|anno)$/i.test(m[1])) {
+      tecnico = m[1].toLowerCase();
+    }
+  }
+  if (!tecnico) {
+    return { content: "Quale tecnico? Dimmi il nome (es. 'bozze CRTI di Lorenzo')." };
+  }
+
+  const gdb = getGuazzottiDb();
+  let snap;
+  try {
+    snap = await gdb.collection("rti").limit(700).get();
+  } catch (e) {
+    return { content: `Non riesco a leggere RTI da Guazzotti: ${String(e).slice(0, 120)}`, _failed: true };
+  }
+
+  const now = new Date();
+  const soglia30g = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  let totBozze = 0;
+  let vecchie = 0;
+  let nomeCompletoTrovato = null;
+  snap.forEach(d => {
+    const v = d.data() || {};
+    const tipo = classifyRtiTipo(v, "rti");
+    if (tipo !== "contabilizzazione") return; // CRTI = contabilizzazione
+    const stato = String(v.stato || "").toLowerCase();
+    if (stato !== "bozza") return;
+    const tech = String(v.techName || (Array.isArray(v.techNames) ? v.techNames[0] : "") || "").toLowerCase();
+    if (!tech.includes(tecnico)) return;
+    if (!nomeCompletoTrovato && tech) nomeCompletoTrovato = tech;
+    totBozze++;
+    const created = parseDocDate(v.createdAt) || parseDocDate(v.data_creazione) || parseDocDate(v.data);
+    if (!created || created < soglia30g) vecchie++;
+  });
+
+  const cap = (s) => s.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  const nomeOut = nomeCompletoTrovato ? cap(nomeCompletoTrovato) : (tecnico.charAt(0).toUpperCase() + tecnico.slice(1));
+
+  if (totBozze === 0) {
+    return {
+      content: `Non trovo bozze CRTI a nome ${nomeOut}.`,
+      data: { tecnico, totBozze: 0, vecchie: 0 },
+    };
+  }
+  return {
+    content: `${nomeOut} ha ${totBozze} bozze CRTI in totale, di cui ${vecchie} vecchie più di 30 giorni.`,
+    data: { tecnico, nomeMatch: nomeCompletoTrovato, totBozze, vecchie },
+  };
 }

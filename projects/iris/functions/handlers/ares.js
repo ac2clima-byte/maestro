@@ -1,10 +1,20 @@
 // handlers/ares.js — interventi (lettura + scrittura).
 import { getCosminaDb, db, FieldValue, logger } from "./shared.js";
 
-export async function handleAresInterventiAperti(parametri) {
+export async function handleAresInterventiAperti(parametri, ctx) {
   const limit = Math.min(Number(parametri.limit) || 20, 50);
-  const tecnicoFilter = String(parametri.tecnico || "").trim().toLowerCase();
-  const oggiFlag = /oggi|today|giorno/.test(JSON.stringify(parametri).toLowerCase());
+  const userMessage = String((ctx && ctx.userMessage) || "").toLowerCase();
+  // Estrai tecnico dal messaggio se Haiku non l'ha passato:
+  // pattern "interventi (aperti) di <Nome>" / "<Nome>'s interventi" / "di <Nome>".
+  let tecnicoFilter = String(parametri.tecnico || parametri.nome || "").trim().toLowerCase();
+  if (!tecnicoFilter) {
+    const m = userMessage.match(/\b(?:di|del|per)\s+([a-zà-ÿ]+)(?:\s|$|,|\?|!)/i);
+    if (m && m[1] && !/^(oggi|domani|tutti|nostri|loro|noi|voi)$/i.test(m[1])) {
+      tecnicoFilter = m[1].toLowerCase();
+    }
+  }
+  const oggiFlag = /oggi|today|giorno/.test(JSON.stringify(parametri).toLowerCase())
+    || /\boggi\b/.test(userMessage);
 
   let snap;
   try {
@@ -71,6 +81,15 @@ export async function handleAresInterventiAperti(parametri) {
   const top = items.slice(0, limit);
 
   if (!top.length) {
+    if (tecnicoFilter) {
+      const cap = tecnicoFilter.charAt(0).toUpperCase() + tecnicoFilter.slice(1);
+      return {
+        content: oggiFlag
+          ? `${cap} non ha interventi programmati per oggi.`
+          : `${cap} non ha interventi attivi in bacheca.`,
+        data: { count: 0, tecnico: tecnicoFilter, oggi: oggiFlag },
+      };
+    }
     return { content: oggiFlag
       ? "Nessun intervento programmato per oggi."
       : "Non ho trovato interventi attivi nella bacheca COSMINA." };
@@ -78,14 +97,25 @@ export async function handleAresInterventiAperti(parametri) {
 
   const lines = top.map((i, idx) => {
     const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
-    const tag = i.tecnico !== "-" ? `tecnico=${i.tecnico}` : "non assegnato";
+    const tag = i.tecnico !== "-" ? `tecnico ${i.tecnico}` : "non assegnato";
     return `${idx + 1}. [${data}] ${i.condominio.slice(0, 50)} — ${i.stato} · ${tag}`;
   }).join("\n");
 
-  const header = oggiFlag
-    ? `🔧 Interventi di **oggi** (${top.length}):`
-    : `🔧 **${top.length}** interventi attivi su COSMINA${items.length > top.length ? ` (mostro i primi ${top.length} di ${items.length})` : ""}:`;
-  return { content: `${header}\n\n${lines}`, data: { count: top.length } };
+  let header;
+  if (tecnicoFilter) {
+    const cap = tecnicoFilter.charAt(0).toUpperCase() + tecnicoFilter.slice(1);
+    header = oggiFlag
+      ? `${cap} ha ${top.length} interventi oggi:`
+      : `${cap} ha ${top.length} interventi attivi:`;
+  } else {
+    header = oggiFlag
+      ? `Interventi di oggi (${top.length}):`
+      : `${top.length} interventi attivi su COSMINA${items.length > top.length ? ` (mostro i primi ${top.length} di ${items.length})` : ""}:`;
+  }
+  return {
+    content: `${header}\n${lines}`,
+    data: { count: top.length, tecnico: tecnicoFilter || null, oggi: oggiFlag },
+  };
 }
 
 async function isAresDryRun() {

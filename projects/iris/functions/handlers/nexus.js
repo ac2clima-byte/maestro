@@ -13,7 +13,7 @@ import {
 } from "./iris.js";
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleBozzePendenti, handleApriBozza } from "./preventivo.js";
-import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici } from "./memo.js";
+import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
@@ -24,6 +24,7 @@ import {
 } from "./charta.js";
 import {
   handlePharoStatoSuite, handlePharoProblemiAperti, handlePharoRtiMonitoring,
+  handlePharoRtiProntiFattura, handlePharoBozzeCrtiPerTecnico,
 } from "./pharo.js";
 import {
   handleDelphiKpi, handleDelphiConfrontoMoM, handleDelphiCostoAI,
@@ -92,14 +93,34 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
     azioni: sendWhatsApp, sendTelegram, sendEmail, sendPush,
             wa_inbox (lista messaggi WA ricevuti, "messaggi WA in arrivo"),
             wa_analizza_ultimo (analizza ultimo WA ricevuto)
-- ares       → interventi: interventi_aperti, apri_intervento, assegna_tecnico
-- chronos    → pianificazione:
-    azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera
-- memo       → dossier_cliente, storico_impianto, lista_tecnici (rubrica
-    interna ACG/Guazzotti). "tecnici", "lista tecnici", "chi sono i tecnici",
-    "tecnici acg", "tecnici guazzotti" → azione lista_tecnici.
+- ares       → interventi:
+    azioni: interventi_aperti (parametri opzionali: {tecnico, data}),
+            apri_intervento, assegna_tecnico
+    IMPORTANTE: "interventi aperti di [tecnico]" / "interventi di [tecnico] oggi"
+      → interventi_aperti con parametri.tecnico = nome (es. Marco, Malvicino,
+      Lorenzo). Se l'utente cita "oggi" / "domani" passa anche parametri.data.
+- chronos    → pianificazione + campagne:
+    azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera,
+            campagne_attive (lista), campagna_status (parametri: {nome})
+    IMPORTANTE: tutto ciò che parla di CAMPAGNE = CHRONOS.
+      Esempi: "come va la campagna walkby", "campagna spegnimento",
+      "Letture WalkBy ACG", "campagna riempimento" → campagna_status
+      con parametri.nome = il nome della campagna citato dall'utente.
+      NON delphi, NON charta. DELPHI è solo per KPI cross-source generici.
+    IMPORTANTE: "agenda di [tecnico]" → agenda_giornaliera con
+      parametri.tecnico = nome (es. "agenda di Malvicino domani").
+- memo       → dossier_cliente, storico_impianto, lista_tecnici, chi_e_persona
+    "tecnici", "lista tecnici", "chi sono i tecnici", "tecnici acg",
+    "tecnici guazzotti" → azione lista_tecnici.
+    "chi è [Persona]" / "chi è [Nome Cognome]" → azione chi_e_persona
+      con parametri.nome = stringa completa. Vale per persone (clienti,
+      contatti rubrica), non per condomini. NON confondere con dossier_cliente.
 - charta     → amministrativo:
-    azioni: fatture_scadute, incassi_oggi, report_mensile
+    azioni: fatture_scadute, incassi_oggi, report_mensile (parametri: {mese}),
+            esposizione_cliente (parametri: {nome})
+    IMPORTANTE: "report mensile [mese italiano] [anno]" passa il mese in
+      parametri così com'è ("aprile 2026", "marzo 2025"). L'handler lo
+      parsifica. NON dire "formato non valido" all'utente.
 - emporion   → magazzino:
     azioni: disponibilita (parametri: {codice, descrizione}), dov_si_trova
 - dikea      → compliance:
@@ -107,14 +128,24 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
 - delphi     → analisi:
     azioni: kpi_dashboard, costo_ai, margine_intervento
     IMPORTANTE: "come siamo andati" / "come va il mese" / "andamento" = kpi_dashboard
-- pharo      → monitoring:
-    azioni: stato_suite, problemi_aperti, controllo_heartbeat
+- pharo      → monitoring + RTI/RTIDF:
+    azioni: stato_suite, problemi_aperti, controllo_heartbeat,
+            rti_pronti_fattura (GRTIDF/CRTIDF con costo compilato pronti),
+            bozze_crti_per_tecnico (parametri: {tecnico})
     IMPORTANTE: "stato della suite" / "come sta il sistema" = stato_suite
+    IMPORTANTE: tutto ciò che riguarda RTI/RTIDF/CRTI/CRTIDF/GRTI/GRTIDF
+      = PHARO. Esempi: "RTI pronti per fattura" → rti_pronti_fattura,
+      "bozze CRTI di [tecnico]" / "bozze CRTI vecchie di [tecnico]" →
+      bozze_crti_per_tecnico (parametri.tecnico = nome). NON memo, NON charta.
 - calliope   → content:
     azioni: bozza_risposta (parametri: {emailId, tono}), sollecito_pagamento
 - orchestrator → workflow multi-step (attiva con azione "preparare_preventivo",
     parametri: {condominio, committente, piva, oggetto, destinatario}).
-    Trigger: "prepara preventivo per X", "fai un'offerta a Y per Z".
+    Trigger: "prepara preventivo per X", "fai un'offerta a Y per Z",
+    "prepara preventivo per X intestato a Y".
+    IMPORTANTE: per QUALSIASI richiesta che inizia con "prepara preventivo"
+    o "fai preventivo" → SEMPRE collega="orchestrator" + azione="preparare_preventivo".
+    NON usare collega="nessuno" per i preventivi.
 - nessuno    → saluti, chiarimenti
 
 IMPORTANTE — Richieste di sviluppo: se l'utente chiede modifiche UI, nuove feature,
@@ -297,11 +328,18 @@ export const DIRECT_HANDLERS = [
       || /\bcerca\s+cliente\s+(?:in\s+)?(?:via|viale|corso|piazza)/i.test(m)
       || /chi\s+[èe]\s+in\s+(?:via|viale|corso|piazza)/i.test(m);
   }, fn: handleMemoRicercaIndirizzo },
-  // MEMO — dossier generico (fallback)
+  // MEMO — chi è [Persona] (rubrica + email + amministratori)
+  // PRIMA del dossier generico per intercettare il pattern "chi è X".
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "memo" && /(chi_e|chi_è|persona|rubrica)/.test(az)) return true;
+    return /^\s*chi\s+(?:è|e)\s+\S+/i.test(m);
+  }, fn: handleMemoChiE },
+  // MEMO — dossier generico (fallback su condominio/cliente)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "memo" && /(dossier|cliente|condominio|tutto_su|storico|impian|ricerca)/.test(az))
-      || /dimmi\s+tutto.*(su|di|sul|sulla)|chi\s+e|dossier|storico\s+di/.test(m);
+      || /dimmi\s+tutto.*(su|di|sul|sulla)|dossier|storico\s+di/.test(m);
   }, fn: handleMemoDossier },
   { match: (col, az) => /lavagna/.test(az) && col !== "pharo", fn: handleStatoLavagna },
   { match: (col, az, ctx) => {
@@ -331,6 +369,22 @@ export const DIRECT_HANDLERS = [
       || /(manda|invia|scrivi).*(whatsapp|wa\b|messaggio.*whats)/.test(m);
   }, fn: handleEchoWhatsApp },
   { match: (col, az) => col === "calliope" && /(bozza|scriv|risp|preventiv|sollecit|comunicazion)/.test(az), fn: handleCalliopeBozza },
+  // PHARO — RTI pronti per fattura (specifico, prima del generico monitoring)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "pharo" && /rti_pronti_fattura|pronti_fattura|rti.*pronti.*fatt/.test(az)) return true;
+    return /\brti\s+(?:sono\s+)?pronti\s+(?:per\s+)?(?:la\s+)?fattur/.test(m)
+        || /quanti\s+rti\s+pronti/.test(m)
+        || /rti\s+da\s+fatturare/.test(m);
+  }, fn: handlePharoRtiProntiFattura },
+  // PHARO — Bozze CRTI per tecnico
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "pharo" && /(bozze_crti|bozze.*crti|crti_per_tecnic)/.test(az)) return true;
+    return /bozze\s+crti\b/.test(m)
+        || /\bcrti\s+vecchi/.test(m)
+        || /\bcrti\s+(?:di|del|per)\s+[a-zà-ÿ]/i.test(m);
+  }, fn: handlePharoBozzeCrtiPerTecnico },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "pharo" && /(rti|rtidf|ticket|guazzott|pending|rapporti|monitor)/.test(az))
@@ -389,14 +443,17 @@ export const DIRECT_HANDLERS = [
   { match: (col, az) => col === "chronos" && /(slot|libero|quando|agenda|disponib|prossim|impegni|fa.*domani|fa.*oggi)/.test(az), fn: handleChronosSlotTecnico },
 ];
 
-export async function tryDirectAnswer(intent, userMessage) {
+export async function tryDirectAnswer(intent, userMessage, sessionId = null) {
   const azione = (intent.azione || "").toLowerCase();
   const collega = (intent.collega || "").toLowerCase();
-  const ctx = { userMessage: String(userMessage || "") };
+  const ctx = { userMessage: String(userMessage || ""), sessionId: sessionId || null };
   const handler = DIRECT_HANDLERS.find(h => h.match(collega, azione, ctx));
   if (!handler) return null;
   try {
-    const result = await handler.fn(intent.parametri || {}, ctx);
+    // Propaga sessionId nei parametri per le safety check (ECHO dry-run su forge-test)
+    const params = { ...(intent.parametri || {}) };
+    if (sessionId && !params.sessionId) params.sessionId = sessionId;
+    const result = await handler.fn(params, ctx);
     return result;
   } catch (e) {
     logger.error("nexus handler failed", {

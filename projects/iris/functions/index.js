@@ -406,7 +406,7 @@ export const nexusRouter = onRequest(
     const intent = parseAndValidateIntent(haiku.text, userMessage);
 
     // Try direct answer
-    const direct = await tryDirectAnswer(intent, userMessage);
+    const direct = await tryDirectAnswer(intent, userMessage, sessionId);
     let finalContent = intent.rispostaUtente;
     let stato = "assegnata";
     let lavagnaId = null;

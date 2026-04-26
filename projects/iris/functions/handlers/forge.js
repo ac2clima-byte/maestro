@@ -122,7 +122,7 @@ export const nexusTestInternal = onRequest(
       }
 
       const intent = parseAndValidateIntent(haiku.text, message);
-      const direct = await tryDirectAnswer(intent, message);
+      const direct = await tryDirectAnswer(intent, message, sessionId);
 
       let finalContent = intent.rispostaUtente;
       let stato = "assegnata";

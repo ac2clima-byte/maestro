@@ -142,7 +142,11 @@ async function resolveDestinatarioViaMemo(rawInput) {
   return { error: "non_trovato" };
 }
 
-function isEchoDryRun(cfg) {
+function isEchoDryRun(cfg, parametri = {}) {
+  // Sicurezza: sessioni di test FORGE → SEMPRE dry-run, qualsiasi config dica.
+  const sid = String(parametri.sessionId || "");
+  if (sid.startsWith("forge-test")) return true;
+  if (parametri.forceDryRun === true) return true;
   if (cfg && typeof cfg.dry_run === "boolean") return cfg.dry_run;
   const v = (process.env.ECHO_DRY_RUN ?? process.env.DRY_RUN ?? "true").toLowerCase();
   return v === "true";
@@ -194,9 +198,7 @@ export async function handleEchoWhatsApp(parametri, ctx) {
   if (/^\+?\d{9,15}$/.test(dest.replace(/[\s\-()]/g, ""))) {
     return {
       content:
-        `🚫 ECHO rifiuta numeri grezzi dal prompt per sicurezza.\n\n` +
-        `Indica il destinatario per NOME (tecnico, cliente, condominio).\n` +
-        `Es. "manda whatsapp a Malvicino: ..." — cercherò il numero in COSMINA.`,
+        `Non mando a numeri grezzi per sicurezza. Dimmi il nome (tecnico, cliente, condominio) e cerco io il numero in COSMINA.`,
     };
   }
 
@@ -251,7 +253,7 @@ export async function handleEchoWhatsApp(parametri, ctx) {
     sessionId: parametri.sessionId,
   };
 
-  if (isEchoDryRun(cfg)) {
+  if (isEchoDryRun(cfg, parametri)) {
     await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "ECHO_DRY_RUN attivo" });
     return {
       content: `Non ho mandato il messaggio a ${resolved.displayName} perché il dry-run è attivo. Vuoi che lo attivi?`,

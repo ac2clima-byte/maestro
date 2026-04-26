@@ -215,9 +215,36 @@ export async function handleChartaIncassiOggi() {
 }
 
 // Report mensile: dati REALI da pagamenti_clienti aggregato + email IRIS
-export async function handleChartaReportMensile(parametri) {
-  let yyyymm = String(parametri.mese || parametri.yyyymm || parametri.periodo || "").trim()
-    || new Date().toISOString().slice(0, 7);
+export async function handleChartaReportMensile(parametri, ctx) {
+  // Parsing flessibile: oltre al formato 2026-04 supporta nomi mesi italiani.
+  // Il messaggio dell'utente è la fonte più ricca quando Haiku non passa il mese pulito.
+  const userMessage = String((ctx && ctx.userMessage) || "");
+  const MESI_IT = {
+    gennaio: "01", febbraio: "02", marzo: "03", aprile: "04",
+    maggio: "05", giugno: "06", luglio: "07", agosto: "08",
+    settembre: "09", ottobre: "10", novembre: "11", dicembre: "12",
+  };
+  let yyyymm = String(parametri.mese || parametri.yyyymm || parametri.periodo || "").trim();
+
+  // Cerca pattern "<mese italiano> <anno>" prima nel param, poi nel messaggio
+  function tryParseItalian(s) {
+    const lo = String(s || "").toLowerCase();
+    const re = /\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+(\d{4}))?/i;
+    const m = lo.match(re);
+    if (!m) return null;
+    const mese = MESI_IT[m[1].toLowerCase()];
+    const anno = m[2] || String(new Date().getFullYear());
+    return `${anno}-${mese}`;
+  }
+
+  const fromParam = tryParseItalian(yyyymm);
+  if (fromParam) yyyymm = fromParam;
+  if (!yyyymm) {
+    const fromMsg = tryParseItalian(userMessage);
+    if (fromMsg) yyyymm = fromMsg;
+  }
+  if (!yyyymm) yyyymm = new Date().toISOString().slice(0, 7);
+
   if (/^\d{1,2}$/.test(yyyymm)) {
     const anno = new Date().getFullYear();
     yyyymm = `${anno}-${yyyymm.padStart(2, "0")}`;
@@ -234,15 +261,30 @@ export async function handleChartaReportMensile(parametri) {
 
   // Email IRIS del mese
   const emails = await fetchIrisEmails(500);
-  let forn = 0, rich = 0, guast = 0;
+  let forn = 0, rich = 0, guast = 0, emailMese = 0;
   for (const e of emails) {
     if (!e.received_time) continue;
     const ric = new Date(e.received_time);
     if (ric < start || ric >= end) continue;
+    emailMese++;
     if (e.category === "FATTURA_FORNITORE") forn++;
     else if (/RICHIESTA_PAGAMENTO|SOLLECITO/.test(e.category || "")) rich++;
     else if (e.category === "GUASTO_URGENTE") guast++;
   }
+
+  // Interventi del mese (bacheca COSMINA, due nel mese)
+  let interventiMese = 0;
+  try {
+    const cSnap = await getCosminaDb().collection("bacheca_cards")
+      .where("listName", "==", "INTERVENTI").limit(800).get();
+    cSnap.forEach(d => {
+      const v = d.data() || {};
+      try {
+        const due = v.due?.toDate ? v.due.toDate() : (v.due ? new Date(v.due) : null);
+        if (due && due >= start && due < end) interventiMese++;
+      } catch {}
+    });
+  } catch (e) { logger.warn("charta: bacheca read", { error: String(e).slice(0, 80) }); }
 
   // Dati Guazzotti pagamenti — esposizione corrente + GRTIDF pronti
   let totExp = 0, totScad = 0, grtidfPronti = 0, valoreBloccato = 0;
@@ -269,22 +311,22 @@ export async function handleChartaReportMensile(parametri) {
   } catch (e) { logger.warn("charta: rtidf read", { error: String(e).slice(0, 80) }); }
 
   const parts = [];
-  parts.push(`Report ${meseLabel}.`);
+  parts.push(`Report ${meseLabel}: ${emailMese} email indicizzate, ${interventiMese} interventi pianificati.`);
   if (forn || rich || guast) {
     const bits = [];
     if (forn) bits.push(`${forn} fatture fornitori`);
     if (rich) bits.push(`${rich} richieste pagamento`);
     if (guast) bits.push(`${guast} guasti urgenti`);
-    parts.push(`Email del mese: ${bits.join(", ")}.`);
+    parts.push(`Tra le email: ${bits.join(", ")}.`);
   }
   if (totExp > 0) {
-    parts.push(`Esposizione clienti totale ${totExp.toFixed(0)} euro, scaduto ${totScad.toFixed(0)}.`);
+    parts.push(`Esposizione clienti totale ${Math.round(totExp).toLocaleString("it-IT")} euro, scaduto ${Math.round(totScad).toLocaleString("it-IT")} euro.`);
   }
   if (grtidfPronti > 0) {
-    parts.push(`In più, ${grtidfPronti} GRTIDF pronti da fatturare per ${valoreBloccato.toFixed(0)} euro bloccati.`);
+    parts.push(`In più, ${grtidfPronti} GRTIDF pronti da fatturare per ${Math.round(valoreBloccato).toLocaleString("it-IT")} euro bloccati.`);
   }
   return {
     content: parts.join(" "),
-    data: { yyyymm, forn, rich, guast, totExp, totScad, grtidfPronti, valoreBloccato },
+    data: { yyyymm, emailMese, interventiMese, forn, rich, guast, totExp, totScad, grtidfPronti, valoreBloccato },
   };
 }
