@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T15:06:52.711Z
+Ultimo aggiornamento: 2026-04-26T15:16:45.741Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 19105s
-Timestamp Firestore: 2026-04-26T15:06:51.409Z
+Uptime: 19698s
+Timestamp Firestore: 2026-04-26T15:16:43.922Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-26T15:06:51.409Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 19105.396715282,
-  "timestamp": "2026-04-26T15:06:51.409Z"
+  "uptime": 19697.87128181,
+  "timestamp": "2026-04-26T15:16:43.922Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-26T15:06:51.409Z
 Nessuno.
 
 ## Ultimi 5 commit
+- 9b44820 result: fix-preventivo-parser-e-piva
+- ebdd940 fix(preventivo): parser robusto + P.IVA reale
+- 2971684 task: fix parser preventivo + P.IVA
+- 156bf67 status update
 - c22e771 status update
-- 3fe8431 status update
-- e7ad479 status update
-- c664bdb status update
-- 980529d fix(preventivo): chiedi voci ad Alberto, non inventare prezzi
