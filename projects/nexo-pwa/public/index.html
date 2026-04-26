@@ -94,6 +94,26 @@
 
 </div>
 
+<!-- Segnala bug — bottone globale fisso top-right (hidden finché auth non è completata) -->
+<button id="reportBugBtn" class="report-bug-btn" type="button" aria-label="Segnala un bug" title="Segnala un bug" hidden>
+  <span aria-hidden="true">🐛</span>
+  <span class="report-bug-label">Segnala bug</span>
+</button>
+
+<!-- Segnala bug — modal -->
+<div id="reportBugModal" class="report-bug-modal" role="dialog" aria-modal="true" aria-labelledby="reportBugTitle" aria-hidden="true">
+  <div class="rb-card">
+    <h2 id="reportBugTitle">Segnala un bug</h2>
+    <p class="rb-hint">Descrivi cosa non funziona. La richiesta finisce nella coda dev di Claude Code.</p>
+    <textarea id="reportBugText" placeholder="Descrivi cosa non funziona…" maxlength="4000"></textarea>
+    <div class="rb-error" id="reportBugError"></div>
+    <div class="rb-actions">
+      <button type="button" class="rb-btn" id="reportBugCancel">Annulla</button>
+      <button type="button" class="rb-btn rb-btn-primary" id="reportBugSubmit">Invia</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEXUS chat — FAB + pannello -->
 <button id="nexusFab" class="nexus-fab" aria-label="Apri NEXUS chat" title="Parla con NEXUS">
   <span aria-hidden="true">💬</span>

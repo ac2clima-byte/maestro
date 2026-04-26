@@ -2430,6 +2430,10 @@ function init() {
   nexusRenderMessages();
   nexusEnsureSubscribed();
 
+  // Segnala bug — toglie hidden al bottone (i listener sono già wirati allo startup)
+  const _rbBtn = document.getElementById("reportBugBtn");
+  if (_rbBtn) _rbBtn.hidden = false;
+
   // Service Worker per Web Share Target (Android)
   registerShareTargetSw();
 
@@ -2782,3 +2786,136 @@ bootstrapAuth().catch(e => {
   const err = $("#authError");
   if (err) err.textContent = "Errore init: " + (e.message || e);
 });
+
+// ── Report bug (bottone globale "Segnala bug") ───────────────
+// Scrive in nexo_dev_requests (stessa shape usata da IRIS dev-requests).
+// MAESTRO polla la collection ogni ~2 min e materializza tasks/dev-request-{id}.md
+// → Claude Code analizza in tasks/dev-analysis-{id}.md.
+const REPORT_BUG_COOLDOWN_MS = 30_000;
+let _reportBugLastSentAt = 0;
+
+async function submitBugReport(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return { ok: false, error: "Scrivi una descrizione." };
+  if (trimmed.length > 4000) return { ok: false, error: "Troppo lungo (max 4000 caratteri)." };
+  try {
+    const { db, fsMod } = await getFirestore();
+    const me = (CURRENT_USER && CURRENT_USER.email) || null;
+    const payload = {
+      description: trimmed,
+      status: "pending",
+      source: "report_bug_btn",
+      userId: me,
+      createdAt: fsMod.serverTimestamp(),
+      emailRef: null,
+    };
+    const ref = await fsMod.addDoc(fsMod.collection(db, "nexo_dev_requests"), payload);
+    return { ok: true, id: ref.id };
+  } catch (err) {
+    console.error("submitBugReport failed:", err);
+    return { ok: false, error: (err && err.message) ? err.message : String(err) };
+  }
+}
+
+function reportBugShowToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "nexo-toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+function reportBugOpen() {
+  const modal = document.getElementById("reportBugModal");
+  const text = document.getElementById("reportBugText");
+  const err = document.getElementById("reportBugError");
+  if (!modal) return;
+  if (err) err.textContent = "";
+  modal.setAttribute("aria-hidden", "false");
+  setTimeout(() => text && text.focus(), 50);
+}
+
+function reportBugClose() {
+  const modal = document.getElementById("reportBugModal");
+  const text = document.getElementById("reportBugText");
+  if (!modal) return;
+  modal.setAttribute("aria-hidden", "true");
+  if (text) text.value = "";
+}
+
+function reportBugWire() {
+  const btn = document.getElementById("reportBugBtn");
+  const cancel = document.getElementById("reportBugCancel");
+  const submit = document.getElementById("reportBugSubmit");
+  const text = document.getElementById("reportBugText");
+  const err = document.getElementById("reportBugError");
+  const modal = document.getElementById("reportBugModal");
+  if (!btn || !modal || !submit) return;
+
+  // Wire idempotente: i listener vengono attaccati una sola volta allo startup.
+  if (btn._reportBugWired) return;
+  btn._reportBugWired = true;
+  // Il bottone resta hidden finché l'auth non viene completata: init() lo
+  // rivelerà con btn.hidden = false dopo onAuthStateChanged(user).
+
+  btn.addEventListener("click", () => {
+    if (!CURRENT_USER) return; // safety: nessun submit pre-auth
+    reportBugOpen();
+  });
+  cancel?.addEventListener("click", () => reportBugClose());
+  // Click sul backdrop (fuori dalla card) chiude il modal
+  modal.addEventListener("click", (ev) => {
+    if (ev.target === modal) reportBugClose();
+  });
+  // Esc chiude
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && modal.getAttribute("aria-hidden") === "false") reportBugClose();
+  });
+
+  submit.addEventListener("click", async () => {
+    if (!CURRENT_USER) {
+      if (err) err.textContent = "Devi essere autenticato per segnalare un bug.";
+      return;
+    }
+    const now = Date.now();
+    const since = now - _reportBugLastSentAt;
+    if (since < REPORT_BUG_COOLDOWN_MS) {
+      const wait = Math.ceil((REPORT_BUG_COOLDOWN_MS - since) / 1000);
+      if (err) err.textContent = `Aspetta ${wait}s prima di inviare un'altra segnalazione.`;
+      return;
+    }
+    if (err) err.textContent = "";
+    submit.disabled = true;
+    submit.textContent = "Invio…";
+    try {
+      const r = await submitBugReport(text ? text.value : "");
+      if (!r.ok) {
+        if (err) err.textContent = r.error || "Errore invio.";
+        return;
+      }
+      _reportBugLastSentAt = Date.now();
+      reportBugClose();
+      reportBugShowToast("Segnalazione inviata. Claude Code la sta analizzando.");
+      // Cooldown visivo sul bottone principale per 30s
+      btn.disabled = true;
+      const original = btn.querySelector(".report-bug-label")?.textContent;
+      const labelEl = btn.querySelector(".report-bug-label");
+      if (labelEl) labelEl.textContent = "Inviata ✓";
+      setTimeout(() => {
+        btn.disabled = false;
+        if (labelEl && original) labelEl.textContent = original;
+      }, REPORT_BUG_COOLDOWN_MS);
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Invia";
+    }
+  });
+}
+
+// Wire allo startup: i listener sono attivi subito ma il bottone resta
+// hidden finché init() (post-auth) non chiama btn.hidden = false.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => reportBugWire());
+} else {
+  reportBugWire();
+}

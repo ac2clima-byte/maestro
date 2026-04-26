@@ -1,0 +1,49 @@
+{
+  "steps": [
+    {
+      "name": "markup presente",
+      "status": "ok",
+      "detail": "{\"btn\":true,\"modal\":true,\"label\":\"Segnala bug\",\"submit\":true,\"cancel\":true,\"textarea\":true}"
+    },
+    {
+      "name": "bottone hidden pre-auth",
+      "status": "ok",
+      "detail": "{\"appHidden\":true,\"gateVisible\":true,\"btnHasHiddenAttr\":true,\"btnVisible\":false}"
+    },
+    {
+      "name": "bottone visibile top-right post-auth",
+      "status": "ok",
+      "detail": "{\"visible\":true,\"top\":14,\"right\":14,\"bg\":\"rgb(0, 110, 183)\",\"color\":\"rgb(255, 255, 255)\",\"position\":\"fixed\",\"zIndex\":\"70\"}"
+    },
+    {
+      "name": "guardia CURRENT_USER blocca apertura pre-auth",
+      "status": "ok",
+      "detail": "aria-hidden=true"
+    },
+    {
+      "name": "modal visibile (aria-hidden=false → display:flex)",
+      "status": "ok",
+      "detail": "{\"ariaHidden\":\"false\",\"display\":\"flex\",\"visible\":true}"
+    },
+    {
+      "name": "textarea accetta testo",
+      "status": "ok",
+      "detail": "value=\"test bug report - smoke test playwright\""
+    },
+    {
+      "name": "Annulla chiude e svuota",
+      "status": "ok",
+      "detail": "{\"ariaHidden\":\"true\",\"text\":\"\"}"
+    },
+    {
+      "name": "Esc chiude il modal",
+      "status": "ok",
+      "detail": "aria-hidden=true"
+    },
+    {
+      "name": "click backdrop chiude",
+      "status": "ok",
+      "detail": "aria-hidden=true"
+    }
+  ]
+}

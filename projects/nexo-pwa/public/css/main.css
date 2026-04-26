@@ -1028,6 +1028,115 @@
   .content.fullbleed .page { display: none; }
   .content:not(.fullbleed) .iris-frame-wrap { display: none; }
 
+  /* ── Report bug (bottone globale + modal) ─────────────── */
+  .report-bug-btn[hidden] { display: none !important; }
+  .report-bug-btn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    background: var(--acg-blue);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 110, 183, 0.25);
+    z-index: 70;
+    transition: transform 0.12s, background 0.12s, opacity 0.12s;
+  }
+  .report-bug-btn:hover { background: var(--acg-blue-dark); transform: translateY(-1px); }
+  .report-bug-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  @media (max-width: 760px) {
+    .report-bug-label { display: none; }
+    .report-bug-btn { padding: 8px 10px; }
+  }
+
+  .report-bug-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .report-bug-modal[aria-hidden="false"] { display: flex; }
+  .report-bug-modal .rb-card {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    width: min(520px, 100%);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    padding: 22px;
+    gap: 14px;
+  }
+  .report-bug-modal h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--acg-blue);
+  }
+  .report-bug-modal .rb-hint {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+  .report-bug-modal textarea {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: var(--bg);
+    box-sizing: border-box;
+  }
+  .report-bug-modal textarea:focus {
+    outline: none;
+    border-color: var(--acg-blue);
+    box-shadow: 0 0 0 3px rgba(0, 110, 183, 0.18);
+  }
+  .report-bug-modal .rb-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .report-bug-modal .rb-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .report-bug-modal .rb-btn-primary {
+    background: var(--acg-blue);
+    border-color: var(--acg-blue);
+    color: #fff;
+  }
+  .report-bug-modal .rb-btn-primary:hover { background: var(--acg-blue-dark); }
+  .report-bug-modal .rb-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .report-bug-modal .rb-error {
+    color: var(--err);
+    font-size: 0.85rem;
+    min-height: 1em;
+  }
+
   /* ── NEXUS chat ───────────────────────────────────────── */
   :root { color-scheme: light; }
 
