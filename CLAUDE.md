@@ -114,3 +114,19 @@ toccato.
 - Se una collection Firestore non esiste, stampalo e vai avanti
 - Se un'API non è raggiungibile, stampalo e vai avanti
 - Mantieni codice MODULARE: 1 file per handler, niente monoliti
+
+## Regola FORGE — Ordine obbligatorio per ogni task
+1. FIXA il codice
+2. TESTA con Playwright o curl (verifica che funzioni)
+3. Se test FAIL → torna al punto 1
+4. DEPLOYA (functions + hosting)
+5. RITESTA dopo il deploy
+6. COMMITTA e PUSHA
+7. MANDA email report a ac2clima@gmail.com come ULTIMO step:
+   curl -X POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexoSendReport \
+     -H "Content-Type: application/json" \
+     -d '{"to":"ac2clima@gmail.com","subject":"NEXO FORGE: [nome-task] [PASS/FAIL]","body":"[dettagli test]","forgeKey":"nexo-forge-2026"}'
+
+NON mandare email SENZA aver prima fixato, testato e deployato.
+NON saltare i test.
+NON considerare un task completato se i test falliscono.
