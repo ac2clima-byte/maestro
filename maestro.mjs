@@ -585,16 +585,59 @@ async function processTask(task) {
 // senza dover guardare GitHub. I messaggi forge hanno source="forge"
 // così la PWA può stilarli diversamente.
 
-// Estrae i primi 1-3 paragrafi della sezione "Diagnosi" da un'analisi
-// markdown. Se non trova "Diagnosi" prende il primo paragrafo non-titolo.
+// Pulisce un blocco markdown da elementi tipografici (numerazione, bullet,
+// bold, backtick, headers, blockquote, link markdown). Mantiene il testo
+// di prosa.
+function cleanProseBlock(s) {
+  return String(s || '')
+    .replace(/^#{1,6}\s+[^\n]+\n?/gm, '')   // rimuovi heading
+    .replace(/^\s*\d+\)\s+/gm, '')           // "1) "
+    .replace(/^\s*\d+\.\s+/gm, '')           // "1. "
+    .replace(/^\s*[-•·]\s+/gm, '')           // bullet
+    .replace(/^\s*>\s?/gm, '')               // blockquote prefix
+    .replace(/`([^`]+)`/g, '$1')             // backtick
+    .replace(/\*\*([^*]+)\*\*/g, '$1')       // bold
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // link markdown → testo
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+// Prende le prime N frasi di prosa "vere". Salta quelle che terminano con
+// ":" (sono introduzioni di liste) o sono troppo brevi.
+// Fallback: se non trova frasi prosa qualificate, prende comunque le prime
+// N righe non vuote concatenate.
+function firstSentencesOfProse(text, n, maxLen) {
+  if (!text) return null;
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const sentences = [];
+  for (const ln of lines) {
+    const parts = ln.split(/(?<=[.!?])\s+/);
+    for (const p of parts) {
+      const t = p.trim();
+      if (!t || t.length < 10) continue;
+      if (/:\s*$/.test(t)) continue;
+      sentences.push(t);
+      if (sentences.length >= n) break;
+    }
+    if (sentences.length >= n) break;
+  }
+  let out = sentences.slice(0, n).join(' ');
+  // Fallback: nessuna prosa qualificata → usa direttamente le prime righe
+  if (!out) {
+    out = lines.slice(0, n + 2).join(' ').trim();
+  }
+  if (!out) return null;
+  if (out.length > maxLen) out = out.slice(0, maxLen - 1).replace(/\s+\S*$/, '') + '…';
+  return out;
+}
+
+// Estrae sintesi della sezione "Diagnosi" (o fallback al primo blocco prosa).
 function extractAnalysisSummary(md) {
   if (!md) return null;
   const txt = String(md);
-  // Sezione "## Diagnosi" o "## Diagnosi — cosa succede"
   const diagM = txt.match(/^##\s+Diagnosi[^\n]*\n+([\s\S]*?)(?=\n##\s|\n#\s|$)/m);
   let body = diagM ? diagM[1] : null;
   if (!body) {
-    // Fallback: primo blocco non-quote dopo l'intro
     const lines = txt.split('\n');
     let buf = [];
     let started = false;
@@ -603,47 +646,26 @@ function extractAnalysisSummary(md) {
       if (/^>/.test(l)) continue;
       if (/^\s*$/.test(l)) { if (started && buf.length) break; continue; }
       buf.push(l); started = true;
-      if (buf.length >= 6) break;
+      if (buf.length >= 8) break;
     }
     body = buf.join('\n');
   }
   if (!body) return null;
-  // Pulizia leggera: prendi le prime 2 frasi di prosa, max 350 caratteri.
-  const cleaned = body
-    .replace(/^\s*\d+\.\s+/gm, '')   // rimuovi numerazione liste
-    .replace(/^\s*[-•·]\s+/gm, '')   // rimuovi bullet
-    .replace(/`([^`]+)`/g, '$1')     // rimuovi backtick
-    .replace(/\*\*([^*]+)\*\*/g, '$1') // rimuovi bold
-    .replace(/\n{2,}/g, '\n')
-    .trim();
-  // Prendi prime 2-3 frasi
-  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
-  let out = sentences.slice(0, 3).join(' ');
-  if (out.length > 380) out = out.slice(0, 360).replace(/\s+\S*$/, '') + '…';
-  return out || null;
+  return firstSentencesOfProse(cleanProseBlock(body), 2, 350);
 }
 
-// Estrae il primo paragrafo della sezione "## Proposta" (o "Proposta — …").
+// Estrae sintesi della sezione "## Proposta" — primo step in prosa
+// (saltando il titolo "### 1) ...").
 function extractAnalysisProposal(md) {
   if (!md) return null;
   const txt = String(md);
   const propM = txt.match(/^##\s+Proposta[^\n]*\n+([\s\S]*?)(?=\n##\s|\n#\s|$)/m);
   if (!propM) return null;
   const body = propM[1];
-  // Cerca il primo step numerato "### 1)" o la prima frase
-  const stepM = body.match(/^###?\s*1\)?\s*[^\n]+\n+([\s\S]*?)(?=\n###?\s|\n##\s|$)/m);
-  let raw = stepM ? stepM[1] : body;
-  raw = raw
-    .replace(/^\s*\d+\.\s+/gm, '')
-    .replace(/^\s*[-•·]\s+/gm, '')
-    .replace(/`([^`]+)`/g, '$1')
-    .replace(/\*\*([^*]+)\*\*/g, '$1')
-    .replace(/\n{2,}/g, '\n')
-    .trim();
-  const sentences = raw.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
-  let out = sentences.slice(0, 2).join(' ');
-  if (out.length > 250) out = out.slice(0, 230).replace(/\s+\S*$/, '') + '…';
-  return out || null;
+  // Cerca contenuto del primo step numerato (escludendo il titolo)
+  const stepM = body.match(/^###?\s*\d+\)\s*[^\n]+\n+([\s\S]*?)(?=\n###?\s|\n##\s|$)/m);
+  const raw = stepM ? stepM[1] : body;
+  return firstSentencesOfProse(cleanProseBlock(raw), 2, 240);
 }
 
 // Scrive un messaggio "forge" nella sessione NEXUS dell'utente.
