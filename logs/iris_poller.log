@@ -7082,3 +7082,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #18  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → RISPONDI
   #19  FAILED: Expecting ',' delimiter: line 45 column 4 (char 1765)
 [2026-04-26T20:17:41Z] ─── fine ciclo ───
+[2026-04-26T20:22:41Z] ─── inizio ciclo IRIS (limit=50) ───
