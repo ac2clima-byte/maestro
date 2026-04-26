@@ -889,12 +889,15 @@ function buildGraphDataPreventivo(pendingData) {
 
   const indirizzoCond = cond.indirizzo || "";
   const note = pendingData.iva_nota || "";
+  // Template "preventivo-doc" (config locale GRAPH) usa nomi camelCase:
+  // clientName (REQ), condominioName, indirizzo, comune, provincia, ecc.
   return {
-    cliente: intest.ragione_sociale || "",
-    condominio: cond.nome || "",
+    clientName: intest.ragione_sociale || "",
+    condominioName: cond.nome || "",
     indirizzo: indirizzoCond,
+    comune: "",
+    provincia: "",
     descrizione: `Preventivo per ${cond.nome || "intervento"}`,
-    data_documento: new Date().toISOString().slice(0, 10),
     righe,
     riepilogo_iva: [{
       aliquota,
@@ -905,9 +908,9 @@ function buildGraphDataPreventivo(pendingData) {
     importo_iva: ivaImporto,
     totale,
     note,
-    // Campi extra utili al template
     piva_cliente: intest.piva || "",
     condizioni_pagamento: "Pagamento a 30 gg DFFM",
+    validita_offerta: "30 giorni",
   };
 }
 
