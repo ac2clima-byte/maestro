@@ -28,6 +28,8 @@ function _tense(msg) {
   const m = String(msg || "").toLowerCase();
   if (/\b(?:aveva|ha\s+avuto|è\s+stato|era|ho\s+avuto|ieri|scors[oa])\b/.test(m)) return "past";
   if (/\b(?:avrà|avra|avremo|domani|prossim[oa])\b/.test(m)) return "future";
+  // Verbi imperativi di creazione = sempre futuri
+  if (/\b(?:metti|mettigli|crea|crei|programma|programmagli|fissa|fissagli|segna|segnami|registra|prenota|schedul\w+|pianifica|organizza|aggiungi|inserisci|appunta|prepara)\b/.test(m)) return "future";
   return "present";
 }
 
@@ -704,11 +706,25 @@ async function _extractCondominio(userMessage, parametri, sessionId) {
   let cond = String(parametri.condominio || parametri.cliente || parametri.indirizzo || parametri.dove || parametri.luogo || "").trim();
   if (cond) return { value: cond, source: "parametri" };
 
-  // 2. Pattern espliciti "presso/al/alla/a/da [Cond]"
   const m = String(userMessage || "");
-  const re = /(?:presso|al\b|alla\b|allo\b|a\s+(?!domani|oggi|ieri)|da\s+(?:un\s+)?(?:condominio\s+|cond\.\s+)?)([A-Za-zÀ-ÿ][\w\sÀ-ÿ.,'\-]{2,60}?)(?=\s+(?:urgente|normale|subito|alle?|domani|oggi|per|con|in|entro|mattina|pomerigg|sera|$|[,.!?]))/i;
-  const found = re.exec(m);
-  if (found) return { value: found[1].trim(), source: "messaggio" };
+
+  // 2. Città in whitelist (priorità alta: "ad Alessandria", "a Voghera")
+  const cittaFound = parseCittaIntervento(m);
+  if (cittaFound) {
+    return { value: cittaFound.charAt(0).toUpperCase() + cittaFound.slice(1), source: "messaggio_citta" };
+  }
+
+  // 3. Pattern espliciti "presso/al/alla/al condominio [Cond]" — verbi più specifici.
+  // Non più "a [X]" libero perché matcha "a Federico" (nome tecnico).
+  const reSpec = /(?:presso\s+(?:il\s+|la\s+|lo\s+)?(?:condominio\s+|cond\.\s+)?|al\s+(?:condominio\s+|cond\.\s+)|alla\s+(?:palazzina\s+|villa\s+)?|allo\s+(?:stabile\s+)?|da\s+(?:un\s+)?(?:condominio\s+|cond\.\s+)|nel\s+condominio\s+|in\s+via\s+|in\s+viale\s+|in\s+corso\s+|in\s+piazza\s+)([A-Za-zÀ-ÿ][\w\sÀ-ÿ.,'\-]{2,60}?)(?=\s+(?:urgente|normale|subito|alle?|domani|oggi|per|con|in|entro|mattina|pomerigg|sera|$|[,.!?]))/i;
+  const found = reSpec.exec(m);
+  if (found) {
+    const v = found[1].trim();
+    // Esclude se è solo un nome di tecnico ACG
+    if (!TECNICI_ACG.includes(v.toLowerCase())) {
+      return { value: v, source: "messaggio" };
+    }
+  }
 
   // 3. Pronome "ci/lì" → ultima query ARES nella stessa sessione
   if (sessionId && /\b(ci|l[iì])\s+(?:deve|dovr|va\b)/i.test(m)) {
