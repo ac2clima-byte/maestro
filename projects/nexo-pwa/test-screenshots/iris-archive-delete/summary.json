@@ -1,0 +1,49 @@
+{
+  "steps": [
+    {
+      "name": "CSS .btn-archive presente",
+      "status": "ok",
+      "detail": ".btn-archive, .btn-delete { background: transparent; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-fam"
+    },
+    {
+      "name": "CSS .btn-delete presente",
+      "status": "ok",
+      "detail": ".btn-archive, .btn-delete { background: transparent; border-radius: 8px; padding: 6px 10px; font-size: 0.82rem; font-fam"
+    },
+    {
+      "name": "HTML contiene IRIS_DELETE_URL",
+      "status": "ok",
+      "detail": "IRIS_DELETE_URL nel sorgente PWA"
+    },
+    {
+      "name": "HTML contiene btn-archive markup",
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "name": "HTML contiene btn-delete markup",
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "name": "Bottoni archive+delete renderizzati",
+      "status": "ok",
+      "detail": "{\"hasArchive\":true,\"hasDelete\":true,\"archiveColor\":\"rgb(0, 110, 183)\",\"deleteColor\":\"rgb(220, 38, 38)\"}"
+    },
+    {
+      "name": "Archive bottone blu ACG",
+      "status": "ok",
+      "detail": "rgb(0, 110, 183)"
+    },
+    {
+      "name": "Delete bottone rosso",
+      "status": "ok",
+      "detail": "rgb(220, 38, 38)"
+    },
+    {
+      "name": "Console errors",
+      "status": "ok",
+      "detail": ""
+    }
+  ]
+}

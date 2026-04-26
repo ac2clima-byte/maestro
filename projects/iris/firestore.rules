@@ -283,6 +283,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // iris_delete_queue: coda richieste soft-delete email (mode=soft → EWS
+    // Deleted Items, recoverable). Stesso pattern dell'archive. Admin SDK only.
+    match /iris_delete_queue/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // nexus_audio_transcripts: trascrizioni chiamate + analisi Haiku
     // (upload audio da NEXUS chat). Solo Admin SDK scrive.
     match /nexus_audio_transcripts/{docId} {

@@ -361,6 +361,32 @@ async function loadDigestWidget() {
 }
 
 const IRIS_ARCHIVE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail";
+const IRIS_DELETE_URL  = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail";
+
+// Wrapper riusabili (Promise<{ok, ...}>) usati da swipe/digest e
+// (in futuro) da componenti PWA. La pagina /iris/index.html ha le sue
+// versioni inline perché esegue in iframe con auth separato.
+async function archiveEmail(emailId) {
+  const token = await getAuthIdToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(IRIS_ARCHIVE_URL, {
+    method: "POST", headers, body: JSON.stringify({ emailId }),
+  });
+  if (!resp.ok) throw new Error(`${resp.status}: ${(await resp.text()).slice(0, 150)}`);
+  return resp.json();
+}
+
+async function deleteEmail(emailId) {
+  const token = await getAuthIdToken();
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const resp = await fetch(IRIS_DELETE_URL, {
+    method: "POST", headers, body: JSON.stringify({ emailId }),
+  });
+  if (!resp.ok) throw new Error(`${resp.status}: ${(await resp.text()).slice(0, 150)}`);
+  return resp.json();
+}
 
 // ── Swipe-to-archive (touch + mouse) ──────────────────────────
 const SWIPE_THRESHOLD = 100; // px per triggerare l'azione

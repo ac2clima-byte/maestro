@@ -256,6 +256,49 @@ export async function handleIrisArchiveEmail(parametri) {
   return { ok: true, queueId: queueRef.id, folder, emailId };
 }
 
+// ─── Elimina email (soft-delete) ─────────────────────────────────
+// Soft-delete: NON cancella il doc da iris_emails, lo marca status="deleted"
+// così la PWA può filtrarlo via e Hetzner può eventualmente consumare la
+// coda iris_delete_queue per spostare in EWS Deleted Items.
+// L'email resta in Firestore per audit + possibile undo.
+export async function handleIrisDeleteEmail(parametri) {
+  const emailId = String(parametri.emailId || "").trim();
+  if (!emailId) return { ok: false, error: "missing_emailId" };
+
+  const docRef = db.collection("iris_emails").doc(emailId);
+  const snap = await docRef.get();
+  if (!snap.exists) return { ok: false, error: "email_not_found" };
+
+  const d = snap.data() || {};
+  const raw = d.raw || {};
+  const messageId = raw.message_id || raw.ews_item_id || null;
+
+  // Coda per il consumer Hetzner (se/quando attivato): pattern identico a archive_queue.
+  const queueRef = db.collection("iris_delete_queue").doc();
+  await queueRef.set({
+    id: queueRef.id,
+    emailId,
+    messageId,
+    ewsItemId: raw.ews_item_id || null,
+    sender: raw.sender || "",
+    senderName: raw.sender_name || "",
+    subject: raw.subject || "",
+    mode: "soft",                 // EWS soft_delete = sposta in Deleted Items (recoverable)
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  // Update ottimistico su iris_emails: soft-delete, doc preservato.
+  await docRef.set({
+    status: "deleted",
+    eliminata_il: FieldValue.serverTimestamp(),
+    deleteQueueId: queueRef.id,
+  }, { merge: true });
+
+  return { ok: true, queueId: queueRef.id, emailId };
+}
+
 // ─── "analizza l'ultima mail di X" — intent recognition interattivo ─
 //
 // Se l'email ha già intent+dati_estratti → mostra formattato.

@@ -337,6 +337,46 @@
   }
   .btn-link:hover { border-color: var(--border-strong); color: var(--text); background: var(--surface-soft); }
 
+  /* Bottoni archivia / elimina email — piccoli, coerenti con btn-link */
+  .btn-archive, .btn-delete {
+    background: transparent;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+  }
+  .btn-archive {
+    border: 1px solid #cfe6f7;
+    color: #006eb7;
+  }
+  .btn-archive:hover { border-color: #006eb7; background: #e8f4fd; }
+  .btn-delete {
+    border: 1px solid #fecaca;
+    color: #dc2626;
+  }
+  .btn-delete:hover { border-color: #dc2626; background: #fef2f2; }
+  .btn-archive:disabled, .btn-delete:disabled { opacity: 0.5; cursor: wait; }
+
+  /* Toast IRIS (archivia/elimina) */
+  .iris-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111827;
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    z-index: 1000;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.25);
+    animation: iris-toast-in 0.18s ease-out;
+  }
+  .iris-toast.err { background: #b91c1c; }
+  @keyframes iris-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
   .empty {
     text-align: center;
     color: var(--text-muted);
@@ -1605,6 +1645,93 @@ async function getFirestore() {
   return _firestoreCache;
 }
 
+// ─── Archivia / Elimina email (chiamate Cloud Function) ──────────
+const IRIS_ARCHIVE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail";
+const IRIS_DELETE_URL  = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail";
+
+async function getAuthIdToken() {
+  const u = window.__irisCurrentUser;
+  if (!u) return null;
+  try { return await u.getIdToken(); } catch { return null; }
+}
+
+async function callIrisAction(url, emailId) {
+  const token = await getAuthIdToken();
+  if (!token) throw new Error("Sessione scaduta, rifai login.");
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ emailId }),
+  });
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => "");
+    throw new Error(`HTTP ${resp.status}: ${t.slice(0, 150)}`);
+  }
+  return resp.json();
+}
+
+async function archiveEmail(emailId) {
+  return callIrisAction(IRIS_ARCHIVE_URL, emailId);
+}
+
+async function deleteEmail(emailId) {
+  return callIrisAction(IRIS_DELETE_URL, emailId);
+}
+
+function showIrisToast(text, isError = false) {
+  const t = document.createElement("div");
+  t.className = "iris-toast" + (isError ? " err" : "");
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+function fadeAndRemoveCard(emailId) {
+  // Trova la card singola O la riga thread con questo id e dissolvila
+  const safe = CSS.escape(emailId);
+  const sel = `article.email-card[data-id="${safe}"], .thread-email[data-thread-email-id="${safe}"]`;
+  const nodes = document.querySelectorAll(sel);
+  nodes.forEach(n => {
+    n.style.transition = "opacity 0.25s, transform 0.25s";
+    n.style.opacity = "0.3";
+    n.style.transform = "translateX(20px)";
+    setTimeout(() => n.remove(), 280);
+  });
+}
+
+async function archiveEmailFromCard(emailId, btn) {
+  if (!emailId || !btn) return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    const r = await archiveEmail(emailId);
+    showIrisToast(`Archiviata in "${r.folder || "cartella mittente"}".`);
+    fadeAndRemoveCard(emailId);
+  } catch (err) {
+    showIrisToast("Errore archiviazione: " + (err.message || err), true);
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
+async function deleteEmailFromCard(emailId, btn) {
+  if (!emailId || !btn) return;
+  if (!confirm("Eliminare questa email? Verrà spostata nel cestino (recoverable).")) return;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = "…";
+  try {
+    await deleteEmail(emailId);
+    showIrisToast("Email eliminata.");
+    fadeAndRemoveCard(emailId);
+  } catch (err) {
+    showIrisToast("Errore eliminazione: " + (err.message || err), true);
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
 async function loadEmailsFromFirestore() {
   try {
     const { db, fsMod } = await getFirestore();
@@ -1648,6 +1775,7 @@ async function loadEmailsFromFirestore() {
         attachments: Array.isArray(d.attachments) ? d.attachments : [],
         score: typeof d.score === "number" ? d.score : 0,
         intents: Array.isArray(cls.intents) ? cls.intents : null,
+        status: d.status || "active",
       });
     });
     return emails;
@@ -1957,6 +2085,8 @@ function renderEmailCard(e) {
         <div class="card-actions">
           <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
           <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+          <button class="btn-archive" data-archive="${escapeHtml(e.id)}" title="Archivia in cartella per mittente">📦 Archivia</button>
+          <button class="btn-delete" data-delete="${escapeHtml(e.id)}" title="Sposta nel cestino (soft-delete)">🗑️ Elimina</button>
           <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Apri una richiesta di sviluppo per questo tipo di email">🛠️ Dev</button>
         </div>
       </div>
@@ -1968,6 +2098,8 @@ function applyFilters(emails) {
   const cat = $("#filterCategory").value;
   const q = ($("#filterSearch").value || "").trim().toLowerCase();
   const filtered = emails.filter(e => {
+    // Nasconde email archiviate / eliminate (soft-delete preserva il doc).
+    if (e.status === "archived" || e.status === "deleted") return false;
     if (cat && e.category !== cat) return false;
     if (q) {
       const hay = `${e.sender} ${e.subject} ${e.summary} ${e.bodyText || ""}`.toLowerCase();
@@ -2011,6 +2143,12 @@ function render(emails) {
   });
   $$("[data-correct]", list).forEach(btn => {
     btn.addEventListener("click", () => openCorrectionModal(btn.dataset.correct));
+  });
+  $$("[data-archive]", list).forEach(btn => {
+    btn.addEventListener("click", (ev) => archiveEmailFromCard(btn.dataset.archive, btn, ev));
+  });
+  $$("[data-delete]", list).forEach(btn => {
+    btn.addEventListener("click", (ev) => deleteEmailFromCard(btn.dataset.delete, btn, ev));
   });
   wireFollowupClicks(list);
   wireSenderClicks(list);
@@ -2082,6 +2220,8 @@ function renderThreadCard(t, emailById) {
           <div class="thread-email-actions">
             <button class="btn-link" data-read="${escapeHtml(e.id)}">Leggi</button>
             <button class="btn-link" data-correct="${escapeHtml(e.id)}">Correggi</button>
+            <button class="btn-archive" data-archive="${escapeHtml(e.id)}" title="Archivia in cartella per mittente">📦 Archivia</button>
+            <button class="btn-delete" data-delete="${escapeHtml(e.id)}" title="Sposta nel cestino (soft-delete)">🗑️ Elimina</button>
             <button class="btn-idea" data-idea="${escapeHtml(e.id)}" title="Apri una richiesta di sviluppo per questo tipo di email">🛠️ Dev</button>
           </div>
         </div>
@@ -2131,6 +2271,18 @@ function renderThreads(threads, emails) {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       openCorrectionModal(btn.dataset.correct);
+    });
+  });
+  $$("[data-archive]", list).forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      archiveEmailFromCard(btn.dataset.archive, btn, ev);
+    });
+  });
+  $$("[data-delete]", list).forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      deleteEmailFromCard(btn.dataset.delete, btn, ev);
     });
   });
   wireFollowupClicks(list);
@@ -3023,7 +3175,11 @@ async function bootAuth() {
   }
   const app = firebaseApp.initializeApp(FIREBASE_CONFIG);
   const auth = firebaseAuth.getAuth(app);
+  // Esponi auth + currentUser globalmente per le funzioni di azione email
+  // (archiveEmail/deleteEmail) che hanno bisogno dell'ID Token Firebase.
+  window.__irisAuth = auth;
   firebaseAuth.onAuthStateChanged(auth, (user) => {
+    window.__irisCurrentUser = user || null;
     if (user) showApp(user.email); else showLogin();
   });
   $("#loginForm").addEventListener("submit", async (e) => {
