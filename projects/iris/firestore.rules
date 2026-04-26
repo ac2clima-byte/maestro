@@ -290,6 +290,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // iris_email_outbox: coda email da inviare (preventivi PDF, comunicazioni
+    // ECHO, ecc.). Lo script EWS su WSL/Hetzner consumerà la coda. Read pubblica
+    // per audit/dashboard, write SOLO Admin SDK.
+    match /iris_email_outbox/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
 
     // iris_delete_queue: coda richieste soft-delete email (mode=soft → EWS
     // Deleted Items, recoverable). Stesso pattern dell'archive. Admin SDK only.

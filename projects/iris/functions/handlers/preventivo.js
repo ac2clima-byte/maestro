@@ -827,18 +827,53 @@ export function extractIstruzioniExtra(text) {
 }
 
 // ─── tryInterceptPreventivoSi ──────────────────────────────────
-// Intercept rapido (regex-only) per "sì / ok / procedi / approva" quando
-// pending è in attesa_approvazione. Evita di passare da Haiku per il caso
-// comune "Alberto conferma".
+// Intercept rapido (regex-only) per le frasi che approvano un preventivo
+// in attesa_approvazione. Riconosce TANTI pattern naturali:
+//   conferme brevi: sì, si, ok, vai, fallo, dai, ho approvato, andiamo
+//   verbi azione: procedi, approva, conferma, genera, crea, fai, salva
+//   richieste output: "metti(lo) su doc", "salv(a|alo) su doc",
+//                     "genera (il) pdf", "crea (il) pdf", "fai il pdf"
+//   richieste invio: "manda(mi)? (il)? preventivo", "invia (il)? preventivo",
+//                    "mandalo a ...", "mandami via mail [a indirizzo]"
+// Estrae:
+//   - sendByEmail: true se la frase contiene mail/email/manda/invia
+//   - destinatarioEmail: regex email se presente
+// Procede con approvaEGeneraPdf passando questi flag.
+const APPROVA_PATTERNS = [
+  // Conferme brevi all'inizio (sì / ok / vai / fallo / dai / ho approvato)
+  /^(s[iì]|ok|va\s+bene|vai|fallo|dai|andiamo|approvato|approvo|conferm\w+)(?=$|\s|[,.!?])/i,
+  // Verbi azione singoli o frasi con essi
+  /\b(procedi|approva|approv[oa]l\w*|generaa?|crea(?:lo)?|fai(?:lo)?|salva(?:lo)?|conferm\w+)\b/i,
+  // Richieste output esplicite
+  /\b(metti(?:lo)?|salv\w+)\s+su\s+doc\b/i,
+  /\b(genera|crea|fai|fammi)\s+(?:il\s+|un\s+)?pdf\b/i,
+  /\b(genera|crea|fai|fammi)\s+(?:il\s+)?preventiv/i,
+  // Richieste invio
+  /\b(manda(?:mi|lo|melo|cela)?|invia(?:lo|melo|cela)?|spedisci(?:lo|melo)?)\b/i,
+  // "mandami il pdf" / "mandami il preventivo"
+  /\b(?:mi|me)\s+(?:lo\s+)?(?:mand|invi|spedisc)/i,
+];
+const EMAIL_REGEX = /([\w.+-]+@[\w-]+\.[\w.-]+)/;
+const SEND_KEYWORDS_RE = /\b(mail|email|posta|mandare|inviare|manda(?:mi|lo|melo)?|invia(?:mi|lo|melo)?|spedisc\w*)\b/i;
+
 export async function tryInterceptPreventivoSi({ userMessage, sessionId, userId }) {
   if (!sessionId) return null;
-  const t = String(userMessage || "").trim().toLowerCase();
-  if (!t) return null;
-  // Match approvazione: "sì", "si", "ok", "procedi", "approva", "vai", "manda"
-  // (forme estese tipo "sì manda" o "approva e manda" passeranno comunque al
-  // workflow PDF perché l'invio email è uno step successivo TODO).
-  // NB: \b dopo carattere unicode "ì" non matcha, usiamo (?=$|\s|[,.!?]) come confine.
-  if (!/^(s[iì]|ok|va\s+bene|procedi|approva|approv[oa]l\w*|conferm\w+|vai|manda(?:lo)?)(?=$|\s|[,.!?])/i.test(t)) return null;
+  const raw = String(userMessage || "").trim();
+  if (!raw) return null;
+  const t = raw.toLowerCase();
+
+  // Fast reject: deve matchare almeno UN pattern di approvazione
+  let matched = false;
+  for (const re of APPROVA_PATTERNS) {
+    if (re.test(t)) { matched = true; break; }
+  }
+  if (!matched) return null;
+
+  // Hard exclude: messaggi che contengono "non" o "annulla" o "rifiuta"
+  // come refuso negativo (es. "non mandare", "annulla")
+  if (/\b(non\s+(?:mandare|inviare|approvare|generare|fare|farlo)|annull\w+|rifiut\w+|stop|aspett)/i.test(t)) {
+    return null;
+  }
 
   let pendingDoc, pendingData;
   try {
@@ -849,7 +884,18 @@ export async function tryInterceptPreventivoSi({ userMessage, sessionId, userId 
   } catch {
     return null;
   }
-  return await approvaEGeneraPdf(pendingDoc, pendingData, sessionId);
+
+  // Estrai destinatario email se citato esplicitamente
+  const emailMatch = raw.match(EMAIL_REGEX);
+  const destinatarioEmail = emailMatch ? emailMatch[1].toLowerCase() : null;
+  // Flag "manda via mail" se ci sono parole-chiave di invio (anche senza email)
+  const sendByEmail = SEND_KEYWORDS_RE.test(t) || !!destinatarioEmail;
+
+  return await approvaEGeneraPdf(pendingDoc, pendingData, sessionId, {
+    sendByEmail,
+    destinatarioEmail,
+    rawUserMessage: raw,
+  });
 }
 
 // ─── approvaEGeneraPdf ─────────────────────────────────────────
@@ -914,7 +960,7 @@ function buildGraphDataPreventivo(pendingData) {
   };
 }
 
-async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId) {
+async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId, options = {}) {
   const intest = pendingData.intestatario || {};
   const cond = pendingData.condominio || {};
   const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
@@ -924,6 +970,7 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId) {
       _preventivoHaikuHandled: true,
     };
   }
+  const { sendByEmail = false, destinatarioEmail = null } = options;
 
   const data = buildGraphDataPreventivo(pendingData);
   const docfinPayload = {
@@ -987,13 +1034,27 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId) {
   const docfinId = resp.docfin_id || null;
   const graphDocId = resp.document?.id || null;
 
+  // Determina destinatario email se l'utente ha chiesto invio:
+  // 1. email esplicita nel messaggio
+  // 2. fallback: emailRef nel pending (dall'analizza email originaria) o
+  //    sourceEmailSender (mittente del thread email che ha originato il preventivo)
+  let emailTo = destinatarioEmail;
+  if (sendByEmail && !emailTo) {
+    emailTo = pendingData.threadDestinatario
+      || pendingData.sourceEmailSender
+      || (pendingData.intestatarioEmail || null);
+  }
+
+  // Update pending: stato approvato + dati invio
   try {
     await pendingDoc.ref.set({
-      stato: "approvato",
+      stato: emailTo ? "inviato" : "approvato",
       approvatoAt: FieldValue.serverTimestamp(),
       pdfUrl, numero,
       graphDocumentId: graphDocId,
       docfinId,
+      destinatarioEmail: emailTo || null,
+      sendByEmail: !!sendByEmail,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   } catch {}
@@ -1004,11 +1065,45 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId) {
   const docLine = docfinId
     ? `Lo trovi anche su DOC: https://acg-doc.web.app/?openDoc=${docfinId}`
     : "";
+
+  // Tre scenari di chiusura conversazione:
+  //  A) sendByEmail con destinatario noto → registra in iris_email_outbox
+  //     (ECHO/Hetzner consumerà la coda e manderà la email con allegato).
+  //  B) sendByEmail SENZA destinatario noto → chiedi a chi mandarlo.
+  //  C) niente invio → chiudi proponendo invio opzionale.
+  let trailingLine;
+  if (sendByEmail && emailTo) {
+    try {
+      await db.collection("iris_email_outbox").add({
+        kind: "preventivo",
+        to: emailTo,
+        subject: `Preventivo ${numero} — ${cond.nome || ""}`.trim(),
+        body: `Buongiorno,\n\nin allegato trovi il preventivo ${numero} per ${cond.nome || ""}. Resto a disposizione per qualsiasi chiarimento.\n\nCordiali saluti,\nAlberto Contardi\nACG Clima Service S.r.l.`,
+        attachmentUrl: pdfUrl,
+        attachmentName: `preventivo-${numero}.pdf`,
+        sourceApp: "NEXUS",
+        sourceRef: sessionId,
+        graphDocumentId: graphDocId,
+        docfinId,
+        status: "pending",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      trailingLine = `Ho messo l'invio in coda per ${emailTo}.`;
+    } catch (e) {
+      trailingLine = `Email NON in coda (errore: ${String(e).slice(0, 80)}). Mandalo manualmente a ${emailTo}.`;
+    }
+  } else if (sendByEmail && !emailTo) {
+    trailingLine = `A chi lo mando? Dammi un indirizzo email (es. "manda a davide.torriglia@gruppo3i.it").`;
+  } else {
+    const dest = intest.ragione_sociale ? `a ${intest.ragione_sociale}` : "al destinatario";
+    trailingLine = `Vuoi che lo mandi ${dest}? Dimmi l'indirizzo.`;
+  }
+
   const content = [
     pdfLine,
     docLine,
     "",
-    `Vuoi che lo mandi a ${intest.ragione_sociale ? "Torriglia" : "destinatario"}?`,
+    trailingLine,
   ].filter(Boolean).join("\n");
 
   return {
@@ -1020,6 +1115,8 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId) {
       pdfUrl,
       graphDocumentId: graphDocId,
       docfinId,
+      sendByEmail,
+      destinatarioEmail: emailTo,
       source: "haiku_fallback",
     },
     _preventivoHaikuHandled: true,
@@ -1074,13 +1171,29 @@ Interpreta cosa vuole fare. Rispondi SOLO con un JSON valido (niente code fence,
     // rimuovi_voce:   { descrizione: "..." }    // substring per matchare la voce
     // modifica_voce:  { descrizione: "...", importo: 50 }   // descrizione = match substring, importo = nuovo
     // sconto:         { percentuale: 10 }
-    // approva:        {}
+    // approva:        { sendByEmail?: true, destinatarioEmail?: "user@dominio.it" }
     // annulla:        {}
     // chiarimento:    { domanda: "Vuoi dire...?" }   // formula UNA domanda concisa
   }
 }
 
-REGOLE
+REGOLE PER L'AZIONE "approva"
+Le seguenti frasi (e simili) significano APPROVA:
+  "sì", "ok", "vai", "procedi", "fallo", "dai", "andiamo", "approva",
+  "conferma", "ho approvato", "andiamo avanti",
+  "metti(lo) su doc", "salv(a/alo) su doc",
+  "genera il pdf", "crea il pdf", "fammi il pdf",
+  "manda(mi)? (il)? preventivo", "invia (il)? preventivo",
+  "mandami via mail", "mandami il pdf via mail",
+  "mandalo a <email>", "spedisci(lo)?".
+Se la frase contiene una o più di queste keyword di invio
+(mail/email/manda/invia/spedisci) imposta sendByEmail=true.
+Se nella frase c'è un indirizzo email (regex pattern user@host.tld)
+mettilo in destinatarioEmail.
+Se c'è ambiguità ("mandami via mail" senza email) lascia
+destinatarioEmail null: il sistema chiederà all'utente.
+
+REGOLE GENERALI
 - Non inventare voci o regimi che Alberto non ha menzionato.
 - Se proprio non capisci, usa "chiarimento" con una domanda specifica.
 - Importi: numeri decimali con punto (50.00), niente € o "euro".`;
@@ -1187,8 +1300,12 @@ export async function tryInterceptPreventivoHaikuFallback({ userMessage, session
 
   if (az === "approva") {
     // Genera PDF + scrive docfin_documents tramite GRAPH (acg_suite),
-    // poi marca il pending come approvato e ritorna il link in chat.
-    return await approvaEGeneraPdf(pendingDoc, pendingData, sessionId);
+    // poi marca il pending come approvato e — se Haiku ha riconosciuto
+    // la richiesta di invio — mette in coda l'email a iris_email_outbox.
+    return await approvaEGeneraPdf(pendingDoc, pendingData, sessionId, {
+      sendByEmail: !!params.sendByEmail,
+      destinatarioEmail: params.destinatarioEmail || null,
+    });
   }
 
   if (az === "modifica_iva") {
