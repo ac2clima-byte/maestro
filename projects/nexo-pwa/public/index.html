@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <title>NEXO — Hub dei Colleghi</title>
-<link rel="stylesheet" href="css/main.css?v=v03">
+<link rel="stylesheet" href="css/main.css?v=v04">
 </head>
 <body>
 
@@ -114,6 +114,20 @@
   </div>
 </div>
 
+<!-- NEXUS bug-from-chat modal: cattura ultimi 10 msg + nota opzionale -->
+<div id="nexusBugModal" class="report-bug-modal" role="dialog" aria-modal="true" aria-labelledby="nexusBugTitle" aria-hidden="true">
+  <div class="rb-card">
+    <h2 id="nexusBugTitle">Segnala un bug a Claude Code</h2>
+    <p class="rb-hint">Mando gli ultimi messaggi della conversazione. Aggiungi una nota se vuoi.</p>
+    <textarea id="nexusBugNote" placeholder="Cosa non va? (opzionale)" maxlength="2000" rows="3"></textarea>
+    <div class="rb-error" id="nexusBugError"></div>
+    <div class="rb-actions">
+      <button type="button" class="rb-btn" id="nexusBugCancel">Annulla</button>
+      <button type="button" class="rb-btn rb-btn-primary" id="nexusBugSubmit">Invia</button>
+    </div>
+  </div>
+</div>
+
 <!-- NEXUS chat — FAB + pannello -->
 <button id="nexusFab" class="nexus-fab" aria-label="Apri NEXUS chat" title="Parla con NEXUS">
   <span aria-hidden="true">💬</span>
@@ -131,6 +145,7 @@
     <div class="nexus-header-actions">
       <button class="close" id="nexusStopTtsBtn" aria-label="Ferma voce" title="Ferma la voce" hidden>⏹</button>
       <button class="close" id="nexusTtsToggle" aria-label="Attiva lettura vocale" title="Attiva/disattiva lettura ad alta voce" hidden>🔇</button>
+      <button class="close nexus-bug-btn" id="nexusBugBtn" aria-label="Segnala un bug a Claude Code" title="Segnala un bug a Claude Code">🐛</button>
       <button class="close nexus-fullscreen-btn" id="nexusFullscreenBtn" aria-label="Espandi a tutto schermo" title="Espandi a tutto schermo">⛶</button>
       <button class="close" id="nexusClearBtn" aria-label="Cancella conversazione" title="Cancella la chat">🗑️</button>
       <button class="close" id="nexusClose" aria-label="Chiudi">×</button>
@@ -149,6 +164,6 @@
   </div>
 </div>
 
-<script type="module" src="js/app.js?v=v03"></script>
+<script type="module" src="js/app.js?v=v04"></script>
 </body>
 </html>

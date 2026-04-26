@@ -223,27 +223,56 @@ async function pollDevRequests() {
     const ts = data.createdAt && data.createdAt.toDate
       ? data.createdAt.toDate().toISOString()
       : new Date().toISOString();
+    const isBugFromChat = data.type === 'bug_from_chat' && Array.isArray(data.conversation);
     const richiesta = String(
       data.description || data.request || data.message || JSON.stringify(data)
     ).slice(0, 4000);
-    const contenuto = [
+    const lines = [
       '# Dev Request da NEXUS',
       `Data: ${ts}`,
       `ID Firestore: ${id}`,
       `User: ${data.userId || '(n/a)'}`,
       `Session: ${data.sessionId || '(n/a)'}`,
+      `Type: ${data.type || 'generic'}`,
       '',
-      'Richiesta:',
-      '',
-      '> ' + richiesta.replace(/\n/g, '\n> '),
-      '',
-      '## Cosa fare (Claude Code)',
-      '',
-      '1. Leggi il codice coinvolto (handler, PWA, scripts).',
-      `2. Scrivi analisi in tasks/dev-analysis-${safeId}.md (diagnosi, file/righe, proposta, rischi, effort).`,
-      '3. NON implementare. Solo analisi, poi commit e push.',
-      '',
-    ].join('\n');
+    ];
+    if (isBugFromChat) {
+      const note = (data.note || '').trim();
+      lines.push('## Nota di Alberto');
+      lines.push('');
+      if (note) {
+        lines.push('> ' + note.replace(/\n/g, '\n> '));
+      } else {
+        lines.push('> _(nessuna nota — vedi conversazione qui sotto)_');
+      }
+      lines.push('');
+      lines.push('## Conversazione NEXUS (ultimi messaggi)');
+      lines.push('');
+      const convo = (data.conversation || []).slice(0, 20);
+      for (const m of convo) {
+        const role = m && m.role === 'assistant' ? 'NEXUS' : 'ALBERTO';
+        const collega = m && m.collega ? ` · collega:${m.collega}` : '';
+        const stato = m && m.stato ? ` · stato:${m.stato}` : '';
+        const when  = m && m.timestamp ? ` · ${m.timestamp}` : '';
+        const body  = String(m && m.content || '').slice(0, 2000);
+        lines.push(`### ${role}${collega}${stato}${when}`);
+        lines.push('');
+        lines.push('> ' + body.replace(/\n/g, '\n> '));
+        lines.push('');
+      }
+    } else {
+      lines.push('Richiesta:');
+      lines.push('');
+      lines.push('> ' + richiesta.replace(/\n/g, '\n> '));
+      lines.push('');
+    }
+    lines.push('## Cosa fare (Claude Code)');
+    lines.push('');
+    lines.push('1. Leggi il codice coinvolto (handler, PWA, scripts).');
+    lines.push(`2. Scrivi analisi in tasks/dev-analysis-${safeId}.md (diagnosi, file/righe, proposta, rischi, effort).`);
+    lines.push('3. NON implementare. Solo analisi, poi commit e push.');
+    lines.push('');
+    const contenuto = lines.join('\n');
     try {
       writeFileSync(fullPath, contenuto, 'utf-8');
       created.push(filename);

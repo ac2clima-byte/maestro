@@ -1683,6 +1683,134 @@ function nexusShowTimeout(nexusMessageId) {
   nexusRenderMessages();
 }
 
+// ── NEXUS bug-from-chat: ultimi 10 msg → nexo_dev_requests ────────
+const NEXUS_BUG_COOLDOWN_MS = 30_000;
+let _nexusBugLastSentAt = 0;
+let _nexusBugBusy = false;
+
+function nexusBugCollectConversation() {
+  return NEXUS_MESSAGES
+    .filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .slice(-10)
+    .map(m => ({
+      role: m.role,
+      content: String(m.content),
+      collega: m.collegaCoinvolto || null,
+      stato: m.stato || null,
+      timestamp: (m.timestamp && m.timestamp.toDate) ? m.timestamp.toDate().toISOString()
+        : (m.timestamp instanceof Date ? m.timestamp.toISOString() : null),
+    }));
+}
+
+function nexusBugOpen() {
+  const modal = document.getElementById("nexusBugModal");
+  const note  = document.getElementById("nexusBugNote");
+  const err   = document.getElementById("nexusBugError");
+  if (!modal) return;
+  if (err)  err.textContent = "";
+  if (note) note.value = "";
+  modal.setAttribute("aria-hidden", "false");
+  setTimeout(() => note && note.focus(), 50);
+}
+
+function nexusBugClose() {
+  const modal = document.getElementById("nexusBugModal");
+  const note  = document.getElementById("nexusBugNote");
+  if (!modal) return;
+  modal.setAttribute("aria-hidden", "true");
+  if (note) note.value = "";
+}
+
+function nexusBugAppendConfirmation() {
+  NEXUS_MESSAGES.push({
+    id: "bugok_" + Date.now(),
+    role: "assistant",
+    content: "Bug segnalato. Claude Code lo analizzerà.",
+    stato: "completata",
+    timestamp: new Date(),
+    _local: true,
+  });
+  nexusRenderMessages();
+}
+
+async function nexusBugSubmit() {
+  const note = document.getElementById("nexusBugNote");
+  const err  = document.getElementById("nexusBugError");
+  const btn  = document.getElementById("nexusBugSubmit");
+  if (err) err.textContent = "";
+  if (!CURRENT_USER) {
+    if (err) err.textContent = "Devi essere autenticato.";
+    return;
+  }
+  const now = Date.now();
+  if (now - _nexusBugLastSentAt < NEXUS_BUG_COOLDOWN_MS) {
+    const wait = Math.ceil((NEXUS_BUG_COOLDOWN_MS - (now - _nexusBugLastSentAt)) / 1000);
+    if (err) err.textContent = `Aspetta ${wait}s prima di inviarne un altro.`;
+    return;
+  }
+  const conversation = nexusBugCollectConversation();
+  if (!conversation.length) {
+    if (err) err.textContent = "Niente da segnalare: la chat è vuota.";
+    return;
+  }
+  const noteText = (note && note.value || "").trim().slice(0, 2000);
+
+  if (btn) { btn.disabled = true; btn.textContent = "Invio…"; }
+  try {
+    const { db, fsMod } = await getFirestore();
+    const me = (CURRENT_USER && CURRENT_USER.email) || null;
+    const payload = {
+      type: "bug_from_chat",
+      source: "nexus_chat_bug_btn",
+      note: noteText || null,
+      description: noteText || "(nessuna nota — vedi conversazione)",
+      conversation,
+      sessionId: NEXUS_SESSION_ID,
+      userId: me,
+      status: "pending",
+      createdAt: fsMod.serverTimestamp(),
+    };
+    await fsMod.addDoc(fsMod.collection(db, "nexo_dev_requests"), payload);
+    _nexusBugLastSentAt = Date.now();
+    nexusBugClose();
+    nexusBugAppendConfirmation();
+    // Cooldown visivo sul bottone in header
+    const headerBtn = document.getElementById("nexusBugBtn");
+    if (headerBtn) {
+      headerBtn.classList.add("is-busy");
+      _nexusBugBusy = true;
+      setTimeout(() => { headerBtn.classList.remove("is-busy"); _nexusBugBusy = false; }, NEXUS_BUG_COOLDOWN_MS);
+    }
+  } catch (e) {
+    console.error("[nexus-bug] submit failed:", e);
+    if (err) err.textContent = "Errore: " + (e && e.message || e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Invia"; }
+  }
+}
+
+function nexusBugWire() {
+  const btn    = document.getElementById("nexusBugBtn");
+  const modal  = document.getElementById("nexusBugModal");
+  const submit = document.getElementById("nexusBugSubmit");
+  const cancel = document.getElementById("nexusBugCancel");
+  if (!btn || !modal || !submit) return;
+  if (btn._nexusBugWired) return;
+  btn._nexusBugWired = true;
+
+  btn.addEventListener("click", () => {
+    if (_nexusBugBusy) return;
+    if (!CURRENT_USER) return;
+    nexusBugOpen();
+  });
+  cancel?.addEventListener("click", () => nexusBugClose());
+  modal.addEventListener("click", (ev) => { if (ev.target === modal) nexusBugClose(); });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && modal.getAttribute("aria-hidden") === "false") nexusBugClose();
+  });
+  submit.addEventListener("click", () => { nexusBugSubmit(); });
+}
+
 // ── NEXUS TTS — edge-tts voce Diego (come HERMES) ────────────
 // Usa la Cloud Function /nexusTts che genera audio MP3 via Microsoft Edge
 // Read Aloud (pacchetto msedge-tts server-side). Molto più naturale del
@@ -2393,6 +2521,7 @@ function nexusWire() {
     nexusTtsStop();
   });
   $("#nexusClearBtn")?.addEventListener("click", nexusClear);
+  nexusBugWire();
   $("#nexusSendBtn").addEventListener("click", nexusSend);
   const mic = $("#nexusMicBtn");
   if (mic) {

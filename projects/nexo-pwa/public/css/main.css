@@ -1287,6 +1287,9 @@
     line-height: 1;
   }
   .nexus-header .close:hover { background: #f3f4f6; color: #111827; }
+  .nexus-header .nexus-bug-btn { font-size: 0.95rem; opacity: 0.78; }
+  .nexus-header .nexus-bug-btn:hover { background: #fef2f2; opacity: 1; }
+  .nexus-header .nexus-bug-btn.is-busy { opacity: 0.4; cursor: not-allowed; }
   .nexus-header-actions { display: flex; gap: 2px; align-items: center; }
 
   /* Area messaggi: bianco/grigio chiarissimo, no pattern */
