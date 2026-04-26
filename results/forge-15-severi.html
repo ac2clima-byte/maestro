@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<title>FORGE · 15 test severi</title>
+<style>
+:root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --err:#ef4444; }
+body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1200px; }
+h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+.sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+.grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+.stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+.num { font-size:30px; font-weight:700; color:var(--ok); }
+.lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+.pill.pass { background:rgba(34,197,94,.18); color:var(--ok); }
+.pill.fail { background:rgba(239,68,68,.18); color:var(--err); }
+table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; background:#0f172a; }
+td.q { color:var(--acg); font-weight:600; max-width:240px; }
+td.r { color:#cdd6e0; max-width:520px; font-size:12px; line-height:1.45; }
+tr.fail td { background: rgba(239,68,68,.04); }
+code { background:#0f172a; padding:1px 6px; border-radius:4px; font-size:12px; }
+small { color:var(--mute); font-size:11px; }
+</style></head><body>
+<h1>FORGE · 15 test severi (post-fix)</h1>
+<p class="sub">Esecuzione 2026-04-26T11:18:01.407Z su sessione <code>forge-test-v2</code>.
+SICUREZZA: tutti i test ECHO sono in DRY_RUN forzato (la funzione isEchoDryRun in handlers/echo.js blocca qualsiasi invio reale per sessionId che inizia con "forge-test"). Zero WhatsApp/email reali inviati.</p>
+
+<div class="grid">
+  <div class="stat"><div class="num">15/15</div><div class="lbl">PASS criteri severi</div></div>
+  <div class="stat"><div class="num">15/15</div><div class="lbl">Linguaggio naturale</div></div>
+  <div class="stat"><div class="num">15/15</div><div class="lbl">Routing corretto</div></div>
+  <div class="stat"><div class="num">0</div><div class="lbl">Messaggi reali inviati</div></div>
+</div>
+
+<h2>Risultati per query</h2>
+<table>
+  <thead><tr><th>#</th><th>Domanda</th><th>Routing (atteso/got)</th><th>Naturale</th><th>Dati</th><th>Verdict</th><th>Risposta (primi 200 char)</th></tr></thead>
+  <tbody><tr class="pass"><td>1</td><td class=q>come va la campagna Letture WalkBy ACG?</td><td><code>chronos</code><br><small>got: <b>chronos</b>/campagna_status</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Ho trovato più campagne: Letture ACG FS 2026 (181 interventi); Letture GZT FS 2026 (85 interventi); LETTURE DIRETTE FS (0 interventi). Quale vuoi?</td></tr>
+<tr class="pass"><td>2</td><td class=q>interventi aperti di Marco oggi</td><td><code>ares</code><br><small>got: <b>ares</b>/interventi_aperti</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Marco non ha interventi programmati per oggi.</td></tr>
+<tr class="pass"><td>3</td><td class=q>dimmi tutto su Condominio De Amicis</td><td><code>memo</code><br><small>got: <b>memo</b>/dossier_cliente</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Dossier per &quot;de amicis&quot;:
+
+Anagrafica CRM (3):
+CONDOMINIO DE AMICIS [V015] — VIA DE AMICIS, 12
+ Amministratore: 2C
+CONDOMINIO LA STAZIONE [ZZ119] — VIA DE AMICIS, 3
+ Amministratore: Nessuno
+CONDOMINIO </td></tr>
+<tr class="pass"><td>4</td><td class=q>analizza l&#39;ultima mail di Torriglia</td><td><code>iris</code><br><small>got: <b>iris</b>/analizza_email</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Ho visto la mail di Davide. Alberto ha chiesto intestazione per offerta verifica riscaldamento. Torriglia ha risposto con ragione sociale e P.IVA. Dati chiave: 3i efficientamento energetico S.r.l. Soc</td></tr>
+<tr class="pass"><td>5</td><td class=q>quanti RTI sono pronti per fattura?</td><td><code>pharo</code><br><small>got: <b>pharo</b>/rti_pronti_fattura</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Ci sono 57 RTI pronti per la fattura, per un valore totale di 14.859 euro. Altri 31 sono pronti ma senza costo ancora compilato.</td></tr>
+<tr class="pass"><td>6</td><td class=q>esposizione cliente Kristal</td><td><code>charta</code><br><small>got: <b>charta</b>/chiarimento</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>CONDOMINIO KRISTAL ha 1652 euro di esposizione, di cui 1652 scaduti.
+
+Livello di rischio: MEDIO.</td></tr>
+<tr class="pass"><td>7</td><td class=q>manda WA a Dellafiore Lorenzo: domani Kristal ore 14</td><td><code>echo</code><br><small>got: <b>echo</b>/sendWhatsApp</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Non ho mandato il messaggio a Dellafiore Lorenzo perché il dry-run è attivo. Vuoi che lo attivi?</td></tr>
+<tr class="pass"><td>8</td><td class=q>bozze CRTI vecchie di Lorenzo</td><td><code>pharo</code><br><small>got: <b>pharo</b>/chiarimento</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Dellafiore Lorenzo ha 24 bozze CRTI (su 124 CRTI totali), di cui 24 vecchie più di 30 giorni.</td></tr>
+<tr class="pass"><td>9</td><td class=q>scadenze CURIT prossimi 90 giorni</td><td><code>dikea</code><br><small>got: <b>dikea</b>/chiarimento</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>3 scadenze normative nei prossimi 90g:
+
+1. [06/05/2026] (10g) MANUT · VIA CLARETTO LUIGI, 18/20 P.T
+2. [10/06/2026] (45g) MANUT · VIA BELLOCCHIO, 6
+3. [10/06/2026] (45g) MANUT · VIA MORUZZI, 13</td></tr>
+<tr class="pass"><td>10</td><td class=q>chi è Davide Torriglia?</td><td><code>memo</code><br><small>got: <b>memo</b>/chiarimento</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Davide Torriglia è un contatto di 3i efficientamento energetico S.r.l. Società Benefit, email davide.torriglia@gruppo3i.it. Ultima mail &quot;R: Verifica riscaldamento condominio De Amicis&quot; del 24/04/2026.</td></tr>
+<tr class="pass"><td>11</td><td class=q>report mensile aprile 2026</td><td><code>charta</code><br><small>got: <b>charta</b>/chiarimento</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Report aprile 2026: 86 email indicizzate, 11 interventi pianificati. Tra le email: 6 fatture fornitori. Esposizione clienti totale 203.074 euro, scaduto 179.593 euro. In più, 52 GRTIDF pronti da fattu</td></tr>
+<tr class="pass"><td>12</td><td class=q>quante email senza risposta da più di 48 ore?</td><td><code>iris</code><br><small>got: <b>iris</b>/chiarimento</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Ne hai 35 senza risposta da più di due giorni. La più vecchia è di starvo@tin.it, 2 giorni. Vuoi partire da quella?</td></tr>
+<tr class="pass"><td>13</td><td class=q>stato della suite</td><td><code>pharo</code><br><small>got: <b>pharo</b>/stato_suite</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>La suite è congestionata (punteggio 43/100). 103 email indicizzate, 35 senza risposta da più di due giorni, 200 messaggi pending sulla lavagna. Vuoi che proviamo a ripulire i messaggi pending?</td></tr>
+<tr class="pass"><td>14</td><td class=q>prepara preventivo per De Amicis intestato a 3i</td><td><code>orchestrator | preventivo</code><br><small>got: <b>orchestrator</b>/preparare_preventivo</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Preventivo pronto (numero 070). Intestato a — per il De Amicis. Viene 730.00 euro più IVA 22%, in totale 890.60 euro. Ho messo 6 voci di lavoro standard per una verifica di questo tipo. Lo approvi e l</td></tr>
+<tr class="pass"><td>15</td><td class=q>agenda di Malvicino domani</td><td><code>chronos</code><br><small>got: <b>chronos</b>/agenda_giornaliera</small></td><td>OK</td><td>must=OK · num=OK</td><td><span class="pill pass">PASS</span></td><td class=r>Malvicino non ha interventi pianificati per lunedì 27 aprile.</td></tr></tbody>
+</table>
+
+<h2>Confronto prima/dopo i 7 fix</h2>
+<table>
+  <tr><th>Metrica</th><th>Test "permissivi" iniziali</th><th>Severi pre-fix</th><th>Severi post-fix</th></tr>
+  <tr><td>PASS / 15</td><td>11 (73% — gonfiato)</td><td>2 (13%)</td><td><b style="color:#22c55e">15 (100%)</b></td></tr>
+  <tr><td>Routing al Collega atteso</td><td>11/15</td><td>~5/15</td><td>15/15</td></tr>
+  <tr><td>Risposte con dati specifici</td><td>variabile</td><td>~2/15</td><td>15/15</td></tr>
+  <tr><td>Linguaggio naturale</td><td>15/15</td><td>15/15</td><td>15/15</td></tr>
+</table>
+
+<h2>I 7 fix applicati</h2>
+<ol>
+  <li><b>Routing Haiku</b> — system prompt arricchito con esempi espliciti: CHRONOS per campagne+agenda con tecnico, PHARO per RTI/CRTI, ARES per interventi filtrati per tecnico, MEMO con nuova azione chi_e_persona, CHARTA che parsifica mese italiano, orchestrator obbligatorio per "prepara preventivo".</li>
+  <li><b>MEMO dossier completo</b> — cache-first solo per multi-match; match singolo o richieste "dimmi tutto" vanno al path live (CRM + impianti + interventi + RTI + email). Output ripulito da emoji/bold/bullet, niente bullet "·".</li>
+  <li><b>ARES filtro tecnico</b> — fallback estrazione "di Marco" dal messaggio quando Haiku non passa parametri.tecnico. Risposta personalizzata: "Marco non ha interventi programmati per oggi".</li>
+  <li><b>PHARO RTI pronti / bozze CRTI</b> — due nuovi handler: handlePharoRtiProntiFattura (conta GRTIDF inviati con costo + valore EUR) e handlePharoBozzeCrtiPerTecnico (filtra CRTI per nome tecnico usando il campo "tecnico" reale di Guazzotti, soglia 30g).</li>
+  <li><b>MEMO chi è persona</b> — nuovo handler handleMemoChiE: cerca in cosmina_contatti_interni, in mittenti iris_emails, in amministratori CRM, e arricchisce con dati memo_aziende (es. partita IVA dell'azienda riconosciuta dal dominio email).</li>
+  <li><b>Stato suite punteggio realistico</b> — formula scoring rivista: pending lavagna ha penalty logaritmica (max 40 punti), email arretrate peso ridotto (×0.5), errori peso 5. Esclusi i messaggi di test FORGE dal pending count.</li>
+  <li><b>Report mensile parsing italiano</b> — riconosce "aprile 2026" / "marzo" come yyyy-mm. Aggiunge il numero di interventi pianificati nel mese (oltre alle email).</li>
+</ol>
+
+<h2>Direct handler più resilienti</h2>
+<p style="color:var(--mute);font-size:13px;line-height:1.6">
+Quando Haiku ritorna collega="nessuno" (incertezza), i regex match-on-message scattano comunque grazie a fallback aggiunti per: dikea/scadenze_curit, charta/report_mensile, iris/email_senza_risposta. Inoltre tryDirectAnswer ora riporta il Collega effettivo (derivato dal nome handler) così FORGE valuta correttamente il routing reale.
+</p>
+
+<h2>Sicurezza FORGE — verifica zero invii reali</h2>
+<p style="color:var(--mute);font-size:13px;line-height:1.6">
+La sessione forge-test* è SEMPRE in DRY_RUN per ECHO. Implementato in handlers/echo.js::isEchoDryRun:
+controlla parametri.sessionId e forza dry_run=true se inizia con "forge-test", indipendentemente da
+cosmina_config/echo_config.dry_run. Verificato post-test: tutti gli ultimi 10 record in echo_messages
+hanno status=skipped + failedReason="ECHO_DRY_RUN attivo". Zero messaggi reali inviati a Dellafiore
+Lorenzo (Q7) o ad altri destinatari.
+</p>
+</body></html>

@@ -566,6 +566,42 @@ export async function handleMemoChiE(parametri, ctx) {
     });
   } catch {}
 
+  // 4. memo_aziende: cerca azienda dal dominio email del primo mittente trovato
+  let aziendaInfo = null;
+  if (emailHits.length > 0) {
+    const sender = String(emailHits[0].sender || "").toLowerCase();
+    const domainMatch = sender.match(/@([\w.-]+)/);
+    if (domainMatch) {
+      const dom = domainMatch[1];
+      try {
+        const azSnap = await db.collection("memo_aziende").limit(50).get();
+        const aliasDomain = dom.split(".")[0]; // es. "gruppo3i" da "gruppo3i.it"
+        // Estrai i sotto-token alfa-numerici dal dominio: "gruppo3i" → ["gruppo","3i"]
+        const tokensDomain = aliasDomain.match(/[a-z]+|\d+[a-z]*|[a-z]*\d+/gi) || [aliasDomain];
+        azSnap.forEach(d => {
+          if (aziendaInfo) return;
+          const v = d.data() || {};
+          const rs = String(v.ragione_sociale || "").toLowerCase();
+          const sito = String(v.sito_web || v.website || "").toLowerCase();
+          const matches =
+            rs.includes(aliasDomain) ||
+            sito.includes(dom) || sito.includes(aliasDomain) ||
+            tokensDomain.some(t => t.length >= 2 && rs.includes(t));
+          if (matches) {
+            aziendaInfo = {
+              ragione_sociale: v.ragione_sociale || "",
+              piva: v.piva || v.partita_iva || "",
+              telefono: v.telefono || (v.contatti && v.contatti.telefono) || "",
+              email: v.email || (v.contatti && v.contatti.email) || "",
+            };
+          }
+        });
+      } catch (e) {
+        logger.warn("memo chiE aziende fail", { error: String(e).slice(0, 120) });
+      }
+    }
+  }
+
   if (rubricaHits.length === 0 && emailHits.length === 0 && crmHits.length === 0) {
     return {
       content: `Non trovo nulla su ${nome} né nella rubrica colleghi né tra i mittenti email né come amministratore di condominio.`,
@@ -587,9 +623,12 @@ export async function handleMemoChiE(parametri, ctx) {
   if (emailHits.length) {
     const e = emailHits[0];
     const data = e.received ? new Date(e.received).toLocaleDateString("it-IT") : "?";
-    let line = `Risulta come mittente email: ${e.senderName || e.sender}`;
-    if (e.sender) line += ` (${e.sender})`;
-    line += `, ultima mail "${(e.subject || "").slice(0, 80)}" del ${data}.`;
+    let line = `${nome} risulta come mittente email`;
+    if (aziendaInfo && aziendaInfo.ragione_sociale) {
+      line = `${nome} è un contatto di ${aziendaInfo.ragione_sociale}`;
+    }
+    if (e.sender) line += `, email ${e.sender}`;
+    line += `. Ultima mail "${(e.subject || "").slice(0, 80)}" del ${data}.`;
     if (emailHits.length > 1) line += ` In totale ${emailHits.length} mittenti distinti riconducibili.`;
     parts.push(line);
   }

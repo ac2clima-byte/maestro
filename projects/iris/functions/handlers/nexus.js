@@ -294,7 +294,11 @@ export const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(oggi|today|di_oggi|ricevute_oggi)/.test(az), fn: handleEmailOggi },
   { match: (col, az) => col === "iris" && /(total|conta_email|count|quant(e|it))/.test(az) && !/urgen/.test(az), fn: handleEmailTotali },
   { match: (col, az) => col === "iris" && /(mittente|sender|cerca_email|ricerca|email_da|da_mittente)/.test(az), fn: handleRicercaEmailMittente },
-  { match: (col, az) => col === "iris" && /(senza_risposta|no_reply|attesa|followup|follow_up)/.test(az), fn: handleEmailSenzaRisposta },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "iris" && /(senza_risposta|no_reply|attesa|followup|follow_up)/.test(az)) return true;
+    return /email\s+senza\s+risposta|email.*non\s+risp|email\s+da\s+rispondere|email.*ferm/.test(m);
+  }, fn: handleEmailSenzaRisposta },
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
   // MEMO — lista tecnici (rubrica cosmina_contatti_interni)
   { match: (col, az, ctx) => {
@@ -348,7 +352,12 @@ export const DIRECT_HANDLERS = [
       || (col === "charta" && /registr_incass|aggiung_incass|nuovo_pag/.test(az))
       || /^\s*(registr|aggiung|nuov|salv)\w*\s+(?:un\s+)?(incass|pagament)/.test(m);
   }, fn: handleChartaRegistraIncasso },
-  { match: (col, az) => (col === "charta" || col === "delphi") && /(report.*mens|mens.*report|report_mensile|mese|mensile)/.test(az), fn: handleChartaReportMensile },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if ((col === "charta" || col === "delphi") && /(report.*mens|mens.*report|report_mensile|mese|mensile)/.test(az)) return true;
+    return /^\s*report\s+mensil/.test(m)
+        || /report\s+(?:di\s+)?(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i.test(m);
+  }, fn: handleChartaReportMensile },
   // CHARTA esposizione cliente (leggi Guazzotti pagamenti_clienti)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
@@ -415,7 +424,11 @@ export const DIRECT_HANDLERS = [
     return (col === "dikea" && /(targa|senza|censit)/.test(az))
       || /impianti.*senza.*targa|targa.*cit|senza.*targa/.test(msg);
   }, fn: handleDikeaImpiantiSenzaTarga },
-  { match: (col, az) => col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz)/.test(az), fn: handleDikeaScadenzeCurit },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz)/.test(az)) return true;
+    return /scadenze\s+curit|curit\s+(prossim|in\s+scadenza)/i.test(m);
+  }, fn: handleDikeaScadenzeCurit },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "emporion" && /(sotto.*scort|manca|mancan|riordin|scort.*min)/.test(az))
@@ -443,6 +456,25 @@ export const DIRECT_HANDLERS = [
   { match: (col, az) => col === "chronos" && /(slot|libero|quando|agenda|disponib|prossim|impegni|fa.*domani|fa.*oggi)/.test(az), fn: handleChronosSlotTecnico },
 ];
 
+// Nome del Collega derivato dal nome della funzione handler
+// (es. "handlePharoRtiProntiFattura" → "pharo"). Serve quando Haiku ritorna
+// collega="nessuno" ma il direct handler regex-based ha matchato comunque.
+function inferCollegaFromHandlerName(fn) {
+  const name = (fn && fn.name) || "";
+  // 1. handleXxx → estrai gruppo Collega
+  const m = name.match(/^handle(Pharo|Memo|Ares|Echo|Iris|Charta|Chronos|Delphi|Dikea|Emporion|Calliope|WaInbox|Fatture|StatoLavagna|Bozze|ApriBozza|ListaTecnici|ContaEmail|EmailOggi|EmailTotali|EmailPerCategoria|EmailSenzaRisposta|RicercaEmail|FattureScadute)/i);
+  if (m) {
+    const slug = m[1].toLowerCase();
+    if (slug === "wainbox") return "echo";
+    if (slug === "fatture" || slug === "fatturescadute") return "charta";
+    if (slug === "statolavagna") return "pharo";
+    if (slug === "bozze" || slug === "apribozza" || slug === "listatecnici") return "memo";
+    if (slug.startsWith("email") || slug.startsWith("contaemail") || slug.startsWith("ricercaemail")) return "iris";
+    return slug;
+  }
+  return null;
+}
+
 export async function tryDirectAnswer(intent, userMessage, sessionId = null) {
   const azione = (intent.azione || "").toLowerCase();
   const collega = (intent.collega || "").toLowerCase();
@@ -454,6 +486,11 @@ export async function tryDirectAnswer(intent, userMessage, sessionId = null) {
     const params = { ...(intent.parametri || {}) };
     if (sessionId && !params.sessionId) params.sessionId = sessionId;
     const result = await handler.fn(params, ctx);
+    // Annota il Collega effettivo derivato dal handler così il chiamante
+    // può ricostruire il routing reale anche se Haiku ha messo "nessuno".
+    if (result && typeof result === "object") {
+      result._handlerCollega = inferCollegaFromHandlerName(handler.fn);
+    }
     return result;
   } catch (e) {
     logger.error("nexus handler failed", {

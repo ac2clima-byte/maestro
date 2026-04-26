@@ -33,8 +33,14 @@ export async function handlePharoStatoSuite() {
     });
   } catch { firestoreOk = false; }
 
+  // Scoring: 100 base, scalato per arretrati. Pending lavagna ha peso ridotto
+  // (i Colleghi async possono accumulare lavoro pendente legittimamente);
+  // gli errori pesano molto di più, le email arretrate lo standard.
+  // Pending pesa logaritmicamente per non saturare a 0 con tanti messaggi
+  // operativi pendenti (es. 200 alert PHARO scheduler verso ECHO).
+  const pendingPenalty = pending > 0 ? Math.min(40, 5 * Math.log10(pending + 1) * 4) : 0;
   const punteggio = firestoreOk
-    ? Math.max(0, Math.min(100, 100 - pending * 2 - errori * 5 - emailAttesa))
+    ? Math.max(0, Math.min(100, Math.round(100 - pendingPenalty - errori * 5 - emailAttesa * 0.5)))
     : 0;
 
   // Risposta naturale, discorsiva
@@ -522,16 +528,23 @@ export async function handlePharoBozzeCrtiPerTecnico(parametri = {}, ctx = {}) {
   const soglia30g = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   let totBozze = 0;
   let vecchie = 0;
+  let totalCrtiTecnico = 0; // tutte le CRTI del tecnico (non solo bozze)
   let nomeCompletoTrovato = null;
   snap.forEach(d => {
     const v = d.data() || {};
     const tipo = classifyRtiTipo(v, "rti");
     if (tipo !== "contabilizzazione") return; // CRTI = contabilizzazione
+    // Schema reale Guazzotti: campo `tecnico` (non `techName`).
+    const tech = String(
+      v.tecnico || v.tecnico_intervento || v.techName ||
+      (Array.isArray(v.techNames) ? v.techNames[0] : "") || ""
+    ).toLowerCase();
+    if (!tech.includes(tecnico)) return;
+    totalCrtiTecnico++;
+    if (!nomeCompletoTrovato && tech) nomeCompletoTrovato = tech;
+
     const stato = String(v.stato || "").toLowerCase();
     if (stato !== "bozza") return;
-    const tech = String(v.techName || (Array.isArray(v.techNames) ? v.techNames[0] : "") || "").toLowerCase();
-    if (!tech.includes(tecnico)) return;
-    if (!nomeCompletoTrovato && tech) nomeCompletoTrovato = tech;
     totBozze++;
     const created = parseDocDate(v.createdAt) || parseDocDate(v.data_creazione) || parseDocDate(v.data);
     if (!created || created < soglia30g) vecchie++;
@@ -540,14 +553,20 @@ export async function handlePharoBozzeCrtiPerTecnico(parametri = {}, ctx = {}) {
   const cap = (s) => s.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
   const nomeOut = nomeCompletoTrovato ? cap(nomeCompletoTrovato) : (tecnico.charAt(0).toUpperCase() + tecnico.slice(1));
 
+  if (totalCrtiTecnico === 0) {
+    return {
+      content: `Non trovo CRTI a nome ${nomeOut} su Guazzotti.`,
+      data: { tecnico, totBozze: 0, vecchie: 0, total: 0 },
+    };
+  }
   if (totBozze === 0) {
     return {
-      content: `Non trovo bozze CRTI a nome ${nomeOut}.`,
-      data: { tecnico, totBozze: 0, vecchie: 0 },
+      content: `${nomeOut} ha ${totalCrtiTecnico} CRTI a suo nome ma nessuna è in stato bozza.`,
+      data: { tecnico, nomeMatch: nomeCompletoTrovato, totBozze: 0, vecchie: 0, total: totalCrtiTecnico },
     };
   }
   return {
-    content: `${nomeOut} ha ${totBozze} bozze CRTI in totale, di cui ${vecchie} vecchie più di 30 giorni.`,
-    data: { tecnico, nomeMatch: nomeCompletoTrovato, totBozze, vecchie },
+    content: `${nomeOut} ha ${totBozze} bozze CRTI (su ${totalCrtiTecnico} CRTI totali), di cui ${vecchie} vecchie più di 30 giorni.`,
+    data: { tecnico, nomeMatch: nomeCompletoTrovato, totBozze, vecchie, total: totalCrtiTecnico },
   };
 }

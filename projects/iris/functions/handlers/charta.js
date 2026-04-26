@@ -6,13 +6,22 @@ import {
 
 // Esposizione cliente da Guazzotti TEC pagamenti_clienti
 export async function handleChartaEsposizioneCliente(parametri, ctx) {
-  const query = String(
+  let raw = String(
     parametri.cliente || parametri.condominio || parametri.nome || "",
   ).trim().toLowerCase();
-  if (!query && !ctx?.userMessage) {
+  if (!raw && !ctx?.userMessage) {
     return { content: "Mi serve il nome cliente/condominio." };
   }
-  const q = query || String(ctx?.userMessage || "").toLowerCase();
+  // Pulisci dalla query parole noise tipiche delle frasi tipo
+  // "esposizione cliente kristal" → "kristal".
+  // Stesso clean su userMessage se raw è vuoto.
+  let q = raw || String(ctx?.userMessage || "").toLowerCase();
+  q = q
+    .replace(/\b(esposizione|cliente|condominio|del|della|di|d['’]|sul|sulla|verso|per)\b/g, " ")
+    .replace(/[\?!.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!q) q = raw || String(ctx?.userMessage || "").toLowerCase();
 
   let snap;
   try {

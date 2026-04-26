@@ -24,6 +24,7 @@ import {
   loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
+import { runPreventivoWorkflow } from "./preventivo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -93,6 +94,36 @@ export const nexusTestInternal = onRequest(
       await ensureNexusSession(sessionId, userId, message);
       const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: message });
 
+      // Intercept preventivo workflow per aderenza al routing reale di nexusRouter.
+      // FORGE deve testare anche questo path; il workflow stesso è dry-run safe
+      // se sessionId inizia con "forge-test" (DRY_RUN ECHO + nessun side effect).
+      if (/^\s*(prepara|genera|fai|scriv\w+)\s+(il\s+|un\s+)?preventiv/i.test(message)) {
+        try {
+          const prev = await runPreventivoWorkflow({ userMessage: message, context: {}, userId, sessionId });
+          if (prev) {
+            const cleaned = naturalize(prev.content || "");
+            const nexusMessageId = await writeNexusMessage(sessionId, {
+              role: "assistant", content: cleaned,
+              direct: { data: prev.data || null, failed: false },
+              stato: "completata", modello: "preventivo_workflow",
+            });
+            res.status(200).json({
+              query: message, reply: cleaned,
+              collega: "orchestrator", azione: "preparare_preventivo",
+              stato: "completata", natural: isNatural(cleaned),
+              direct: { ok: true, data: prev.data || null },
+              sessionId, userMsgId, nexusMessageId,
+              modello: "preventivo_workflow",
+              tookMs: Date.now() - startedAt,
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
+        } catch (e) {
+          logger.warn("forge: preventivo workflow failed, fallback Haiku", { error: String(e).slice(0, 150) });
+        }
+      }
+
       // Pipeline: loadContext → haiku intent → parse → tryDirectAnswer
       const sessionContext = await loadConversationContext(sessionId, 5);
       const messages = [...sessionContext, { role: "user", content: message }];
@@ -145,10 +176,17 @@ export const nexusTestInternal = onRequest(
         modello: MODEL, usage: haiku.usage,
       });
 
+      // Se Haiku ha messo "nessuno" ma un direct handler regex-based ha matchato,
+      // il Collega effettivo è quello del handler (più informativo per testing).
+      const effectiveCollega = (direct && direct._handlerCollega)
+        ? direct._handlerCollega
+        : intent.collega;
+
       res.status(200).json({
         query: message,
         reply: cleaned,
-        collega: intent.collega,
+        collega: effectiveCollega,
+        haikuCollega: intent.collega,
         azione: intent.azione,
         confidenza: intent.confidenza,
         stato,
