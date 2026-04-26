@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>FORGE — sistema test interno NEXUS</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+  .stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+  .num { font-size:32px; font-weight:700; color:var(--ok); }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+  th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.55; white-space:pre-wrap; }
+  code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px; }
+  .row-q { color:var(--acg); font-weight:600; }
+  .row-r { color:#cdd6e0; padding-left:12px; }
+</style>
+</head>
+<body>
+  <h1>FORGE — sistema test interno NEXUS</h1>
+  <p class="sub">Cloud Function <code>nexusTestInternal</code> protetta da chiave statica (X-Forge-Key) consente a Claude Code di parlare con NEXUS senza Firebase Auth. Riusa l'identica pipeline di nexusRouter (Haiku → DIRECT_HANDLERS), scrive in <code>nexus_chat</code> con sessionId <code>forge-test</code> visibile in PWA.</p>
+
+  <div class="grid">
+    <div class="stat"><div class="num">8/8</div><div class="lbl">Query PASS</div></div>
+    <div class="stat"><div class="num">7</div><div class="lbl">Colleghi attivati</div></div>
+    <div class="stat"><div class="num">36s</div><div class="lbl">Tempo totale</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">Risposte robotiche</div></div>
+  </div>
+
+  <h2>Esiti per query</h2>
+  <table>
+    <thead><tr><th>Query</th><th>Collega</th><th>Stato</th><th>Took</th><th>Risposta</th></tr></thead>
+    <tbody>
+      <tr><td>ciao</td><td>nessuno</td><td>assegnata</td><td>4534 ms</td><td>Ciao Alberto, sono NEXUS. Come posso aiutarti?</td></tr>
+      <tr><td>quante email ho?</td><td>iris</td><td>completata</td><td>3923 ms</td><td>Ne ho indicizzate 103, l'ultima è arrivata il 24/04, 18:00.</td></tr>
+      <tr><td>stato della suite</td><td>pharo</td><td>completata</td><td>3337 ms</td><td>La suite è congestionata. 103 email indicizzate, 35 senza risposta da più di due giorni, 100 messaggi pending sulla lavagna…</td></tr>
+      <tr><td>interventi aperti</td><td>ares</td><td>completata</td><td>2719 ms</td><td>20 interventi attivi su COSMINA (mostro i primi 20 di 60)…</td></tr>
+      <tr><td>come va la campagna walkby?</td><td>delphi</td><td>completata</td><td>8452 ms</td><td>Negli ultimi 28 giorni: 103 email indicizzate, 4 urgenti, 35 senza risposta…</td></tr>
+      <tr><td>fatture scadute</td><td>charta</td><td>completata</td><td>3326 ms</td><td>Esposizione totale: 203074 euro, di cui 179593 scaduti (76639 oltre i 6 mesi)…</td></tr>
+      <tr><td>manda whatsapp a Alberto: test forge</td><td>echo</td><td>completata</td><td>4156 ms</td><td>Non ho mandato il messaggio a Alberto Contardi perché il dry-run è attivo. Vuoi che lo attivi?</td></tr>
+      <tr><td>quali sono i tecnici di acg?</td><td>memo</td><td>completata</td><td>3484 ms</td><td>I tecnici ACG sono: Troise Antonio, Alberto Contardi, Aime David, Berberi Ergest, Tosca Federico, Albanesi Gianluca, Dellafiore Lorenzo, Marco Piparo e Dellafiore Victor.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Componenti del sistema FORGE</h2>
+  <table>
+    <tr><th>Pezzo</th><th>Path</th><th>Ruolo</th></tr>
+    <tr><td>Cloud Function</td><td><code>projects/iris/functions/handlers/forge.js</code></td><td>Endpoint POST <code>nexusTestInternal</code> con auth via X-Forge-Key. Pipeline identica a nexusRouter (loadConversationContext → callHaikuForIntent → parseAndValidateIntent → tryDirectAnswer → writeNexusMessage)</td></tr>
+    <tr><td>Export</td><td><code>projects/iris/functions/index.js</code></td><td>Re-export di <code>nexusTestInternal</code> per il deploy</td></tr>
+    <tr><td>Secret</td><td>Secret Manager: <code>FORGE_KEY</code></td><td>Valore corrente <code>nexo-forge-2026</code>. Override via env <code>FORGE_KEY=...</code></td></tr>
+    <tr><td>Test runner</td><td><code>scripts/forge-test.sh</code></td><td>Bash: 8 query, parse risposta, check linguaggio naturale, exit code 0 se ≥80% PASS</td></tr>
+    <tr><td>Visibilità</td><td><code>nexus_chat</code> sessionId=<code>forge-test</code></td><td>I messaggi appaiono nella PWA NEXUS, separati dalle sessioni utente</td></tr>
+  </table>
+
+  <h2>Endpoint live</h2>
+  <pre>POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTestInternal
+Content-Type: application/json
+X-Forge-Key: nexo-forge-2026  (oppure body.forgeKey)
+
+Body:
+{
+  "message": "quante email ho?",
+  "forgeKey": "nexo-forge-2026",
+  "sessionId": "forge-test"   // opzionale, default "forge-test"
+}
+
+Response:
+{
+  "query": "...",
+  "reply": "...",
+  "collega": "iris", "azione": "...", "stato": "completata",
+  "natural": true,
+  "tookMs": 3923,
+  "sessionId": "forge-test",
+  "userMsgId": "...", "nexusMessageId": "...",
+  "modello": "claude-haiku-4-5",
+  "usage": { "input_tokens": ..., "output_tokens": ... }
+}</pre>
+
+  <h2>Caveat</h2>
+  <ul>
+    <li>FORGE è <b>sincrono</b>: niente lavagna async. Per intent che richiederebbero un Collega async (ECHO real send, ARES apri intervento) lo stato resta <code>assegnata</code>; FORGE valida solo intent + risposta naturale.</li>
+    <li>Niente intercept di preventivo / email queue / dev request: FORGE testa il routing puro.</li>
+    <li>La sessione <code>forge-test</code> condivide il contesto: query consecutive si influenzano (è un <i>feature</i>, non un bug). Per smoke isolati usa sessionId diversi (es. <code>forge-test-clean-N</code>).</li>
+  </ul>
+</body>
+</html>

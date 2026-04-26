@@ -1,0 +1,168 @@
+// handlers/forge.js — endpoint test interno per il sistema FORGE.
+//
+// FORGE è il sistema con cui Claude Code può testare NEXUS scrivendo
+// messaggi e leggendo le risposte, senza dover passare da Firebase Auth
+// (Claude Code non ha credenziali utente).
+//
+// Sicurezza: protetto da una chiave fissa X-Forge-Key (o body.forgeKey).
+// Default `nexo-forge-2026`, override via secret/env FORGE_KEY.
+//
+// Le richieste/risposte vengono scritte in nexus_chat con sessionId
+// "forge-test" + il timestamp del giorno (così la PWA mostra una sessione
+// FORGE separata da quelle utente reali).
+//
+// Riusa la stessa pipeline di nexusRouter:
+//   loadConversationContext → callHaikuForIntent → parseAndValidateIntent
+//   → tryDirectAnswer → writeNexusMessage.
+// Niente lavagna async (FORGE è sincrono), niente intercept di
+// preventivo/email queue/dev request (non servono al test smoke).
+
+import { onRequest } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
+import { ANTHROPIC_API_KEY, REGION, MODEL, applyCorsOpen, logger, naturalize } from "./shared.js";
+import {
+  loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
+  tryDirectAnswer, writeNexusMessage, ensureNexusSession,
+} from "./nexus.js";
+
+// Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
+export const FORGE_KEY = defineSecret("FORGE_KEY");
+
+const FORGE_SESSION_PREFIX = "forge-test";
+
+// Heuristica "linguaggio naturale": niente bold, niente bullet, niente
+// emoji decorative tipiche del formato robotico. Semplice e veloce — la
+// vera safety net è naturalize() in shared.js, già applicata in
+// writeNexusMessage.
+const ROBOTIC_MARKERS = /(\*\*|^\s*[·•-]\s|📧|📊|🚨|⚠️|✅)/m;
+function isNatural(text) {
+  if (!text) return true;
+  return !ROBOTIC_MARKERS.test(text);
+}
+
+function getExpectedKey() {
+  // Priority: param Secret > env > default.
+  try { return FORGE_KEY.value() || process.env.FORGE_KEY || "nexo-forge-2026"; }
+  catch { return process.env.FORGE_KEY || "nexo-forge-2026"; }
+}
+
+export const nexusTestInternal = onRequest(
+  {
+    region: REGION,
+    cors: true,
+    secrets: [ANTHROPIC_API_KEY, FORGE_KEY],
+    timeoutSeconds: 60,
+    memory: "256MiB",
+    maxInstances: 5,
+  },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
+
+    // Auth FORGE: header X-Forge-Key oppure body.forgeKey
+    const expected = getExpectedKey();
+    const provided = String(
+      req.headers["x-forge-key"] || (req.body && req.body.forgeKey) || ""
+    );
+    if (!provided || provided !== expected) {
+      res.status(403).json({ error: "invalid_forge_key" });
+      return;
+    }
+
+    const body = req.body || {};
+    const message = String(body.message || "").trim();
+    if (!message) { res.status(400).json({ error: "missing_message" }); return; }
+    if (message.length > 2000) { res.status(400).json({ error: "message_too_long" }); return; }
+
+    // SessionId: per default "forge-test" globale, ma un client può
+    // suggerire un suffisso (es. "forge-test-quante-email") per separare
+    // gli scambi di test diversi nella PWA.
+    const requestedSession = String(body.sessionId || "").trim();
+    const sessionId = requestedSession.startsWith(FORGE_SESSION_PREFIX)
+      ? requestedSession.slice(0, 80)
+      : FORGE_SESSION_PREFIX;
+
+    const apiKey = ANTHROPIC_API_KEY.value();
+    if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
+
+    const userId = "forge@nexo.internal";
+    const startedAt = Date.now();
+
+    try {
+      await ensureNexusSession(sessionId, userId, message);
+      const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: message });
+
+      // Pipeline: loadContext → haiku intent → parse → tryDirectAnswer
+      const sessionContext = await loadConversationContext(sessionId, 5);
+      const messages = [...sessionContext, { role: "user", content: message }];
+
+      let haiku;
+      try {
+        haiku = await callHaikuForIntent(apiKey, messages);
+      } catch (e) {
+        const fallback = {
+          collega: "nessuno", azione: "errore", parametri: {},
+          confidenza: 0,
+          rispostaUtente: `Errore interpretazione: ${String(e).slice(0, 120)}`,
+        };
+        const cleaned = naturalize(fallback.rispostaUtente);
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant", content: cleaned, intent: fallback,
+          stato: "errore_modello", modello: MODEL,
+        });
+        res.status(200).json({
+          query: message, reply: cleaned, collega: "nessuno", azione: "errore",
+          stato: "errore_modello", natural: isNatural(cleaned),
+          sessionId, userMsgId, nexusMessageId,
+          tookMs: Date.now() - startedAt,
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const intent = parseAndValidateIntent(haiku.text, message);
+      const direct = await tryDirectAnswer(intent, message);
+
+      let finalContent = intent.rispostaUtente;
+      let stato = "assegnata";
+      if (direct && !direct._failed) {
+        finalContent = direct.content || finalContent;
+        stato = "completata";
+      } else if (direct && direct._failed) {
+        finalContent = direct.content || finalContent;
+        stato = "errore_handler";
+      }
+      // FORGE è sincrono: niente lavagna async. Se l'intent richiederebbe
+      // un Collega async (ECHO whatsapp, ARES apri intervento), lo stato
+      // resta "assegnata" e il test deve solo verificare che intent +
+      // rispostaUtente siano sensate.
+
+      const cleaned = naturalize(finalContent || "");
+      const nexusMessageId = await writeNexusMessage(sessionId, {
+        role: "assistant", content: cleaned, intent, stato,
+        direct: direct ? { data: direct.data || null, failed: !!direct._failed } : null,
+        modello: MODEL, usage: haiku.usage,
+      });
+
+      res.status(200).json({
+        query: message,
+        reply: cleaned,
+        collega: intent.collega,
+        azione: intent.azione,
+        confidenza: intent.confidenza,
+        stato,
+        natural: isNatural(cleaned),
+        direct: direct ? { ok: !direct._failed, data: direct.data || null } : null,
+        sessionId, userMsgId, nexusMessageId,
+        modello: MODEL,
+        usage: haiku.usage,
+        tookMs: Date.now() - startedAt,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (e) {
+      logger.error("nexusTestInternal failed", { error: String(e) });
+      res.status(500).json({ error: "internal_error", detail: String(e).slice(0, 300) });
+    }
+  }
+);

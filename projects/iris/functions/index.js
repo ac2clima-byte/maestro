@@ -1620,6 +1620,12 @@ export const nexoPushSend = onRequest(
   }
 );
 
+// ─── FORGE: endpoint test interno (no auth, X-Forge-Key) ───────
+// Permette a Claude Code (che non ha credenziali Firebase) di testare
+// NEXUS scrivendo messaggi e leggendo risposte. I messaggi finiscono
+// in nexus_chat con sessionId="forge-test", visibili nella PWA.
+export { nexusTestInternal } from "./handlers/forge.js";
+
 // ─── Orchestrator workflow listener ────────────────────────────
 
 export const orchestratorLavagnaListener = onDocumentCreated(
