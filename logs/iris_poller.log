@@ -7176,3 +7176,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #20  FAILED: Expecting ',' delimiter: line 68 column 8 (char 2719)
   #21  FAILED: Expecting ',' delimiter: line 57 column 4 (char 1938)
 [2026-04-26T20:44:41Z] ─── fine ciclo ───
+[2026-04-26T20:49:41Z] ─── inizio ciclo IRIS (limit=50) ───
