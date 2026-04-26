@@ -90,6 +90,25 @@ NEXUS è la chat dove Alberto parla e i Colleghi rispondono.
 - context/memo-cloud-functions.md: lista Cloud Functions
 - context/memo-acg-suite-mappa.md: mappa app Suite
 
+## Tecnici ACG (anagrafica corretta)
+
+I tecnici ACG sono nove. Lista corretta (cognome — nome):
+- Aime David
+- Albanesi Gianluca
+- Contardi Alberto
+- Dellafiore Lorenzo
+- Dellafiore Victor
+- Leshi Ergest      ← NON "Berberi Ergest", quello è dato sporco in COSMINA
+- Piparo Marco
+- Tosca Federico
+- Troise Antonio
+
+NB: in `cosmina_contatti_interni` (garbymobile-f89ac) il doc
+`X2SnZIpQmlPGibcgMzx9` ha `nome: "BERBERI ERGEST"` — è un errore di
+import, da correggere manualmente da console Firebase a "LESHI ERGEST".
+Stiven Berberi è una persona diversa (categoria "ufficio"), non va
+toccato.
+
 ## Regole generali
 - Lingua: italiano
 - Se una collection Firestore non esiste, stampalo e vai avanti
