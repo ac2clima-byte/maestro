@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T17:26:24.995Z
+Ultimo aggiornamento: 2026-04-26T17:36:48.306Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 27478s
-Timestamp Firestore: 2026-04-26T17:26:23.875Z
+Uptime: 28101s
+Timestamp Firestore: 2026-04-26T17:36:47.133Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-26T17:26:23.875Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 27477.700875916,
-  "timestamp": "2026-04-26T17:26:23.875Z"
+  "uptime": 28100.594825147,
+  "timestamp": "2026-04-26T17:36:47.133Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-26T17:26:23.875Z
 Nessuno.
 
 ## Ultimi 5 commit
-- b0d3c48 status update
-- 7a9d0b7 status update
-- 9daa2f4 fix(iris): allegati apribili + polling funzionante
-- 8a65fec status update
-- 8f0594d result: fix-iris-navigazione-email
+- f0925e2 result: fix-storage-permessi-pdf
+- 0927ba0 fix(storage): permessi lettura PDF preventivi
+- 4db3e18 fix(iris): navigazione email completa in chat
+- ada8969 task: fix Storage permessi PDF
+- cd8b742 status update
