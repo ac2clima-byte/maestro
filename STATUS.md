@@ -1,33 +1,17 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T18:04:40.753Z
+Ultimo aggiornamento: 2026-04-26T18:22:19.739Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
-Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 1521s
-Timestamp Firestore: 2026-04-26T18:04:36.230Z
+Errore lettura codeStatus: Command failed: curl -fsS --max-time 8 https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
+curl: (22) The requested URL returned error: 500
 
-<details><summary>Payload JSON</summary>
-
-```json
-{
-  "fase": "idle",
-  "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 1520.851417821,
-  "timestamp": "2026-04-26T18:04:36.230Z"
-}
-```
-
-</details>
 
 ## Task pending
-- dev-request-Tsa4wB0LG6KfM57LKbuI (dev-request)
+Nessuno.
 
 ## Ultimi 5 commit
-- 759ef41 dev-request da NEXUS (1)
-- 9b30c67 analysis: J9tIBTJnMp6GhkQvGi7J
-- 4d8f273 status update
-- e6f9923 dev-request da NEXUS (1)
-- b5bf42b result: test-bottone-bug-chat
+- ac48d15 result: fix-ares-filtro-data-citta
+- fa8f5d5 result: implement-handler-preventivi-emessi
+- de09c5c task: ARES filtri data e città (approvato)
+- d1b9082 analysis: Tsa4wB0LG6KfM57LKbuI
+- c4d5cc5 status update
