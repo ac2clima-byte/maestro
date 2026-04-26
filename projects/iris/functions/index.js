@@ -24,7 +24,7 @@ import {
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoApproval } from "./handlers/preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci } from "./handlers/preventivo.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -227,6 +227,30 @@ export const nexusRouter = onRequest(
 
     await ensureNexusSession(sessionId, userId, userMessage);
     const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage });
+
+    // Preventivo voci: se la sessione ha un nexo_preventivi_pending in stato
+    // attesa_voci, parsa il messaggio per estrarre voci+importi.
+    try {
+      const prevVoci = await tryInterceptPreventivoVoci({ userMessage, sessionId, userId });
+      if (prevVoci && (prevVoci._preventivoVociHandled || prevVoci._preventivoVociFailed)) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: prevVoci.content,
+          direct: { data: prevVoci.data || null, failed: !!prevVoci._preventivoVociFailed },
+          stato: prevVoci._preventivoVociHandled ? "completata" : "errore_handler",
+          modello: "preventivo_voci",
+        });
+        res.status(200).json({
+          intent: { collega: "orchestrator", azione: "preventivo_voci", parametri: {}, rispostaUtente: prevVoci.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: prevVoci._preventivoVociHandled ? "completata" : "errore_handler",
+          direct: { data: prevVoci.data || null, failed: !!prevVoci._preventivoVociFailed },
+          modello: "preventivo_voci", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("preventivo voci intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
 
     // Preventivo approval: intercetta "approva"/"modifica"/"rifiuta" dopo una bozza pendente
     try {

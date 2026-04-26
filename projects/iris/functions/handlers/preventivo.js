@@ -52,7 +52,7 @@ export function parsePreventivoInput(userMessage, context = {}) {
   const perM = /\bper\s+(?:il\s+|la\s+|lo\s+)?(?:condominio\s+)?([a-zà-ÿ][\wà-ÿ.'\s]{2,40}?)(?=\s+(?:intest|committ|con\s+p\.?iva|oggetto|per\s+la\s+verifica|$))/i.exec(userMessage);
   if (perM && !out.condominio) out.condominio = perM[1].trim();
 
-  const intestM = /\b(?:intestato\s+a|committente|per\s+conto\s+di|intestazione)\s+([a-zà-ÿ0-9][\wà-ÿ.&'\s]{2,60}?)(?=\s+(?:con\s+p\.?iva|p\.?iva|oggetto|$))/i.exec(userMessage);
+  const intestM = /\b(?:intestato\s+a|committente|per\s+conto\s+di|intestazione)\s+([a-zà-ÿ0-9][\wà-ÿ.&'\s]{1,60}?)(?=\s+(?:con\s+p\.?iva|p\.?iva|oggetto)|\s*[\.,;!?]|$)/i.exec(userMessage);
   if (intestM && !out.committente) out.committente = intestM[1].trim();
 
   const pivaM = /\bp\.?iva\s*[:= ]*(\d{11})\b/i.exec(userMessage);
@@ -423,68 +423,71 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
     condominioData = { nome: input.condominio };
   }
 
-  // Step 3: CALLIOPE genera preventivo JSON
+  // Step 3: NON generare voci con Sonnet. I prezzi li decide SOLO Alberto.
+  // Salviamo lo stato "attesa_voci" in nexo_preventivi_pending. Al prossimo
+  // messaggio dell'utente, tryInterceptPreventivoVoci parsa le voci e calcola
+  // imponibile + IVA + totale.
   const t3 = Date.now();
-  let preventivo = null;
-  try {
-    preventivo = await generaPreventivoJson(apiKey, intestatarioData, condominioData, input.oggetto);
-    steps.push({ step: 3, name: "calliope_preventivo_json", ok: true, ms: Date.now() - t3, data: { numero: preventivo.numero, totale: preventivo.totale } });
-  } catch (e) {
-    steps.push({ step: 3, name: "calliope_preventivo_json", ok: false, error: String(e).slice(0, 200) });
-    return { content: `Errore generazione preventivo: ${String(e).slice(0, 200)}` };
-  }
+  const ragioneSociale = intestatarioData?.ragione_sociale || input.committente || "—";
+  const piva = intestatarioData?.piva || input.piva || "non disponibile";
+  const indirizzoAzienda = intestatarioData?.sede_legale?.indirizzo
+    || intestatarioData?.indirizzo
+    || (intestatarioData?.sede_legale ? [intestatarioData.sede_legale.indirizzo, intestatarioData.sede_legale.citta].filter(Boolean).join(", ") : null)
+    || "indirizzo non disponibile";
+  const nomeCondominio = condominioData?.nome || condominioData?.codice || input.condominio;
+  const indirizzoCondominio = [condominioData?.indirizzo, condominioData?.citta || condominioData?.comune]
+    .filter(Boolean).join(", ") || "indirizzo non disponibile";
 
-  // Step 4: salva in calliope_bozze + charta_preventivi
-  const t4 = Date.now();
-  let bozzaId = null;
+  let pendingId = null;
   try {
-    const bozzaRef = db.collection("calliope_bozze").doc();
-    bozzaId = bozzaRef.id;
-    await bozzaRef.set({
-      id: bozzaId,
-      tipo: "preventivo",
-      preventivo, // full JSON
-      intestatario: intestatarioData,
-      condominio: condominioData,
-      sourceEmailId: input.sourceEmailId,
+    const ref = db.collection("nexo_preventivi_pending").doc(sessionId || ("auto_" + Date.now()));
+    pendingId = ref.id;
+    await ref.set({
+      id: ref.id,
       sessionId: sessionId || null,
       userId: userId || null,
-      status: "da_approvare",
+      stato: "attesa_voci",
+      intestatario: {
+        ragione_sociale: ragioneSociale,
+        piva,
+        indirizzo: indirizzoAzienda,
+        raw: intestatarioData,
+      },
+      condominio: {
+        nome: nomeCondominio,
+        indirizzo: indirizzoCondominio,
+        raw: condominioData,
+      },
+      oggetto: input.oggetto || null,
+      sourceEmailId: input.sourceEmailId || null,
+      threadPartecipanti: context.threadPartecipanti || [],
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-
-    const prevRef = db.collection("charta_preventivi").doc();
-    await prevRef.set({
-      id: prevRef.id,
-      numero: preventivo.numero,
-      data: preventivo.data,
-      intestatario: intestatarioData,
-      oggetto: preventivo.oggetto,
-      importo_imponibile: preventivo.totale_imponibile || 0,
-      importo_totale: preventivo.totale || 0,
-      stato: "da_approvare",
-      bozzaId,
-      sourceEmailId: input.sourceEmailId,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    steps.push({ step: 4, name: "salva_bozza", ok: true, ms: Date.now() - t4, data: { bozzaId } });
+    steps.push({ step: 3, name: "salva_pending", ok: true, ms: Date.now() - t3, data: { pendingId } });
   } catch (e) {
-    steps.push({ step: 4, name: "salva_bozza", ok: false, error: String(e).slice(0, 200) });
+    steps.push({ step: 3, name: "salva_pending", ok: false, error: String(e).slice(0, 200) });
   }
 
-  // Step 5: formatta risposta chat
-  const content = formatPreventivoChat(preventivo);
+  const lines = [
+    `Ho i dati per il preventivo:`,
+    `Intestatario ${ragioneSociale}, P.IVA ${piva}, ${indirizzoAzienda}.`,
+    `Condominio ${nomeCondominio}, ${indirizzoCondominio}.`,
+    ``,
+    `Dimmi le voci e gli importi che vuoi inserire. Esempio: "sopralluogo 200, relazione tecnica 150, verifica impianto 300".`,
+  ];
 
   return {
-    content,
+    content: lines.join("\n"),
     data: {
-      bozzaId,
-      preventivo,
-      pendingApproval: {
-        kind: "preventivo_approvazione",
-        bozzaId,
+      pendingId,
+      stato: "attesa_voci",
+      intestatario: { ragione_sociale: ragioneSociale, piva, indirizzo: indirizzoAzienda },
+      condominio: { nome: nomeCondominio, indirizzo: indirizzoCondominio },
+      oggetto: input.oggetto || null,
+      pendingPrev: {
+        kind: "preventivo_voci",
+        pendingId,
         destinatario: context.sourceEmailSender || null,
         cc: context.threadPartecipanti || [],
       },
@@ -492,6 +495,105 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
     },
     _preventivoReady: true,
   };
+}
+
+// ─── tryInterceptPreventivoVoci ────────────────────────────────
+// Quando esiste un nexo_preventivi_pending in stato "attesa_voci" per la
+// sessione corrente, parsa il messaggio dell'utente per estrarre voci e
+// calcolare imponibile + IVA. Il messaggio atteso è del tipo:
+//   "sopralluogo 200, relazione tecnica 150, verifica impianto 300"
+//   "sopralluogo: 200\nrelazione tecnica: 150\nverifica impianto: 300"
+// Importo: numero (con virgola decimale o punto) opzionalmente seguito
+// da "€" o "euro".
+export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+  // Quickcheck: deve contenere almeno una cifra
+  if (!/\d/.test(t)) return null;
+
+  // Cerca pending attesa_voci per questa sessione
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_preventivi_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (pendingData.stato !== "attesa_voci") return null;
+  } catch {
+    return null;
+  }
+
+  const voci = parseVociPreventivo(t);
+  if (!voci.length) {
+    return {
+      content: `Non ho trovato voci nel formato "descrizione importo". Esempio valido: "sopralluogo 200, relazione tecnica 150, verifica impianto 300".`,
+      _preventivoVociFailed: true,
+    };
+  }
+
+  const totaleImponibile = voci.reduce((s, v) => s + v.importo, 0);
+  const ivaImporto = Math.round(totaleImponibile * 0.22 * 100) / 100;
+  const totale = Math.round((totaleImponibile + ivaImporto) * 100) / 100;
+
+  // Aggiorna stato pending → attesa_approvazione
+  try {
+    await pendingDoc.ref.set({
+      voci,
+      totale_imponibile: totaleImponibile,
+      iva_importo: ivaImporto,
+      totale,
+      stato: "attesa_approvazione",
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    return { content: `Errore salvataggio voci: ${String(e).slice(0, 150)}`, _preventivoVociFailed: true };
+  }
+
+  const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const elenco = voci.map((v, i) => `${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`).join("\n");
+  const content = [
+    `Riepilogo preventivo per ${pendingData.condominio?.nome || "—"}:`,
+    elenco,
+    ``,
+    `Imponibile ${fmtEur(totaleImponibile)} €, IVA 22% ${fmtEur(ivaImporto)} €, totale ${fmtEur(totale)} €.`,
+    ``,
+    `Lo genero in PDF? Rispondi "sì" per procedere, "modifica" per cambiare le voci, "annulla" per scartare.`,
+  ].join("\n");
+
+  return {
+    content,
+    data: {
+      pendingId: sessionId,
+      voci,
+      totale_imponibile: totaleImponibile,
+      iva_importo: ivaImporto,
+      totale,
+      pendingPrev: { kind: "preventivo_approvazione_voci", pendingId: sessionId },
+    },
+    _preventivoVociHandled: true,
+  };
+}
+
+// Parser robusto delle voci: accetta separatori "," ";" newline.
+// Ogni voce ha forma "descrizione [: ]? importo (€|euro)?"
+// Importo: cifre con eventuale "," o "." come decimale.
+export function parseVociPreventivo(text) {
+  const out = [];
+  if (!text) return out;
+  // Split su virgola, punto-e-virgola o newline
+  const items = String(text).split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+  for (const raw of items) {
+    // Rimuovi prefissi numerici "1." / "1)"
+    const noPrefix = raw.replace(/^\d+[\.\)]\s*/, "");
+    // Match: "<descrizione> <importo>"
+    const m = noPrefix.match(/^(.+?)[\s:]+([\d]+(?:[.,]\d+)?)\s*(?:€|eur|euro)?\s*$/i);
+    if (!m) continue;
+    const desc = m[1].trim().replace(/[:\-—]\s*$/, "").trim();
+    const importo = Number(m[2].replace(",", "."));
+    if (!desc || !Number.isFinite(importo) || importo <= 0) continue;
+    out.push({ descrizione: desc, importo: Math.round(importo * 100) / 100 });
+  }
+  return out;
 }
 
 /**

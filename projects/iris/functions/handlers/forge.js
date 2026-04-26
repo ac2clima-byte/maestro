@@ -24,7 +24,7 @@ import {
   loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
-import { runPreventivoWorkflow } from "./preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoVoci } from "./preventivo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -93,6 +93,35 @@ export const nexusTestInternal = onRequest(
     try {
       await ensureNexusSession(sessionId, userId, message);
       const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: message });
+
+      // Intercept preventivo voci: se la sessione ha un pending in attesa_voci
+      // parsa il messaggio (es. "sopralluogo 200, relazione tecnica 150").
+      try {
+        const prevVoci = await tryInterceptPreventivoVoci({ userMessage: message, sessionId, userId });
+        if (prevVoci && (prevVoci._preventivoVociHandled || prevVoci._preventivoVociFailed)) {
+          const cleaned = naturalize(prevVoci.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: prevVoci.data || null, failed: !!prevVoci._preventivoVociFailed },
+            stato: prevVoci._preventivoVociHandled ? "completata" : "errore_handler",
+            modello: "preventivo_voci",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "orchestrator", azione: "preventivo_voci",
+            stato: prevVoci._preventivoVociHandled ? "completata" : "errore_handler",
+            natural: isNatural(cleaned),
+            direct: { ok: !!prevVoci._preventivoVociHandled, data: prevVoci.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "preventivo_voci",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: preventivo voci intercept failed", { error: String(e).slice(0, 150) });
+      }
 
       // Intercept preventivo workflow per aderenza al routing reale di nexusRouter.
       // FORGE deve testare anche questo path; il workflow stesso è dry-run safe

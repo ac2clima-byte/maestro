@@ -182,6 +182,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    // Preventivi pending: stato conversazionale del workflow (attesa_voci /
+    // attesa_approvazione). Admin SDK only — la PWA non ha bisogno di
+    // scrivere direttamente. Read pubblica per debug/dashboard future.
+    match /nexo_preventivi_pending/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
     match /calliope_template/{docId} {
       allow read: if true;
       allow write: if false;
