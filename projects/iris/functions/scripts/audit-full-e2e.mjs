@@ -6,38 +6,24 @@
 // Uso: node projects/nexo-pwa/test-audit-full-e2e.mjs
 
 import { chromium } from "/home/albertocontardi/node_modules/playwright/index.mjs";
-import { initializeApp, applicationDefault } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(__dirname, "..", "..");
+// scripts/ → functions/ → iris/ → projects/ → repo-root
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 const SHOTS = path.join(REPO_ROOT, "results", "audit", "screenshots", "e2e");
 fs.mkdirSync(SHOTS, { recursive: true });
 const PWA = "https://nexo-hub-15f2d.web.app";
 
-const TARGET_EMAIL = "al227@live.com";
-
-// Init Admin SDK su garbymobile-f89ac (Auth ACG)
-const app = initializeApp({
-  projectId: "garbymobile-f89ac",
-  credential: applicationDefault(),
-}, "audit-acg-auth");
-const auth = getAuth(app);
-
-console.log("→ Genero custom token per", TARGET_EMAIL);
-let user;
-try {
-  user = await auth.getUserByEmail(TARGET_EMAIL);
-  console.log(`  uid=${user.uid} email=${user.email}`);
-} catch (e) {
-  console.error("❌ Impossibile trovare utente:", e.message);
+const TARGET_EMAIL = process.env.NEXO_TEST_EMAIL || "alberto.contardi@acgclimaservice.com";
+const TARGET_PASSWORD = process.env.NEXO_TEST_PASSWORD || "";
+if (!TARGET_PASSWORD) {
+  console.error("❌ NEXO_TEST_PASSWORD non impostata. Abort.");
   process.exit(1);
 }
-const customToken = await auth.createCustomToken(user.uid);
-console.log("  custom token generato (", customToken.length, "chars )");
+console.log("→ Email:", TARGET_EMAIL);
 
 // ─── 12 funzionalità UI da auditare ─────────────────────────
 const FEATURE_TESTS = [
@@ -106,11 +92,21 @@ function looksMeaningful(text) {
     consoleErrors: consoleErrs,
   };
 
-  // ─── STEP 1: Login SSO ───────────────────────────────────────
-  console.log("\n═══ STEP 1: Login SSO custom token ═══");
-  const ssoUrl = `${PWA}/?authToken=${encodeURIComponent(customToken)}`;
-  await page.goto(ssoUrl, { waitUntil: "networkidle", timeout: 30000 });
-  await page.waitForTimeout(3000);
+  // ─── STEP 1: Login form email+password ───────────────────────
+  console.log("\n═══ STEP 1: Login form ═══");
+  await page.goto(PWA, { waitUntil: "networkidle", timeout: 30000 });
+  await page.waitForSelector("#authEmail", { timeout: 15000 });
+  await page.fill("#authEmail", TARGET_EMAIL);
+  await page.fill("#authPassword", TARGET_PASSWORD);
+  await page.click("#authBtn");
+  try {
+    await page.waitForFunction(() => {
+      const gate = document.getElementById("authGate");
+      const root = document.getElementById("appRoot");
+      return gate && gate.hidden && root && !root.hidden;
+    }, { timeout: 30000 });
+  } catch {}
+  await page.waitForTimeout(2000);
 
   const loginState = await page.evaluate(() => {
     const gate = document.querySelector("#authGate");
@@ -119,6 +115,7 @@ function looksMeaningful(text) {
       gateHidden: gate ? gate.hasAttribute("hidden") : null,
       rootVisible: root ? !root.hasAttribute("hidden") : null,
       footerUser: document.querySelector("#footerUser")?.textContent || "",
+      authError: document.querySelector("#authError")?.textContent || "",
     };
   });
   const loginOk = loginState.gateHidden && loginState.rootVisible;
