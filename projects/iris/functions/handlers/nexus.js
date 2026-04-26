@@ -13,7 +13,7 @@ import {
 } from "./iris.js";
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleBozzePendenti, handleApriBozza } from "./preventivo.js";
-import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo } from "./memo.js";
+import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
@@ -95,7 +95,9 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
 - ares       → interventi: interventi_aperti, apri_intervento, assegna_tecnico
 - chronos    → pianificazione:
     azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera
-- memo       → dossier_cliente, storico_impianto
+- memo       → dossier_cliente, storico_impianto, lista_tecnici (rubrica
+    interna ACG/Guazzotti). "tecnici", "lista tecnici", "chi sono i tecnici",
+    "tecnici acg", "tecnici guazzotti" → azione lista_tecnici.
 - charta     → amministrativo:
     azioni: fatture_scadute, incassi_oggi, report_mensile
 - emporion   → magazzino:
@@ -122,12 +124,27 @@ layout", ecc.), NON RIFIUTARE. Queste sono gestite da un intercept dedicato PRIM
 del routing NEXUS che le salva in nexo_dev_requests. Se arrivano a questo punto,
 rispondi con collega="nessuno" e riconferma che sono state prese in carico.
 
+USO DEL CONTESTO CONVERSAZIONALE — FONDAMENTALE:
+Nei messages[] ricevi gli ultimi scambi della sessione. Usali SEMPRE per
+disambiguare. Esempi:
+- Alberto: "quali sono i tecnici di ACG?" → tu: routing memo/lista_tecnici
+- (handler fallisce o tu sbagli routing)
+- Alberto: "dovresti vederli su firestore"
+  → "li" si riferisce ai tecnici della domanda precedente. NON chiedere
+    "non ho capito, riformula". Riprova il routing memo/lista_tecnici e basta.
+Pronomi e riferimenti ("lui", "loro", "li", "quel cliente", "la stessa cosa",
+"riprovaci", "vedili su firestore", "controlla meglio") = SEMPRE riferiti
+all'ultimo argomento di conversazione. Mai chiedere di riformulare se puoi
+DEDURRE l'intenzione dal contesto. Fai un secondo tentativo prima di
+arrenderti.
+
 REGOLE:
 - Rispondi SOLO con un oggetto JSON valido. Niente code fence, niente testo extra.
-- Non inventare clienti, importi, condomini, date: chiedi chiarimento SOLO se ambiguo.
+- Non inventare clienti, importi, condomini, date: chiedi chiarimento SOLO se davvero ambiguo E il contesto non aiuta.
 - Se la richiesta matcha un'azione standard sopra, USA ESATTAMENTE quella stringa.
 - Azione in snake_case (es. "cerca_email_urgenti", "scadenze_curit").
 - rispostaUtente: vedi sezione TONO sopra. 1-2 frasi max. Colloquiale, diretto, naturale. Non dire mai "ti mostro" o "sto cercando" — il sistema risponde da solo, tu solo inoltri la richiesta.
+- VIETATO rispondere "non ho capito, puoi riformulare?" se nei messages[] precedenti c'è un argomento a cui il messaggio attuale si riferisce. In quel caso ripeti il routing dell'argomento precedente.
 
 FORMATO OUTPUT:
 {
@@ -239,6 +256,19 @@ export const DIRECT_HANDLERS = [
   { match: (col, az) => col === "iris" && /(mittente|sender|cerca_email|ricerca|email_da|da_mittente)/.test(az), fn: handleRicercaEmailMittente },
   { match: (col, az) => col === "iris" && /(senza_risposta|no_reply|attesa|followup|follow_up)/.test(az), fn: handleEmailSenzaRisposta },
   { match: (col, az) => col === "iris" && /(categoria|per_categoria|breakdown)/.test(az), fn: handleEmailPerCategoria },
+  // MEMO — lista tecnici (rubrica cosmina_contatti_interni)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "memo" && /lista_tecnic|tecnici_acg|tecnici_guazz|chi_sono_i_tecnic/.test(az)) return true;
+    // Match diretto sul messaggio: "tecnici", "lista tecnici", "chi sono i tecnici"
+    // Evita match su "tecnico assegnato", "slot tecnico" (CHRONOS) — quelli hanno verbi diversi
+    if (/\b(?:lista|elenco|nomi)\s+(?:dei\s+|de\s+i\s+|i\s+)?tecnic[io]\b/i.test(m)) return true;
+    if (/\bchi\s+sono\s+i\s+tecnic[io]\b/i.test(m)) return true;
+    if (/\bquali\s+sono\s+i\s+tecnic[io]\b/i.test(m)) return true;
+    if (/\btecnici\s+(?:di\s+)?(?:acg|guazzotti|clima|service|energia)/i.test(m)) return true;
+    if (/^\s*tecnic[io]\s*\??\s*$/i.test(m)) return true;
+    return false;
+  }, fn: handleListaTecnici },
   // MEMO — totali (quanti clienti abbiamo)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();

@@ -406,3 +406,94 @@ export async function handleMemoRicercaIndirizzo(parametri, ctx) {
   return { content: parts.join("\n\n"), data: { matches: matches.length } };
 }
 
+// ─── Rubrica tecnici (cosmina_contatti_interni su garbymobile-f89ac) ─
+//
+// "tecnici", "lista tecnici", "chi sono i tecnici", "tecnici ACG", "tecnici Guazzotti"
+// Filtra categoria === "tecnico" e separa per azienda.
+function joinNatural(items) {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} e ${items[1]}`;
+  return items.slice(0, -1).join(", ") + " e " + items[items.length - 1];
+}
+
+function fullName(v) {
+  const nome = String(v.nome || "").trim();
+  const cognome = String(v.cognome || "").trim();
+  return [nome, cognome].filter(Boolean).join(" ").trim();
+}
+
+function aziendaSlug(azienda) {
+  const a = String(azienda || "").toLowerCase();
+  if (a.includes("acg")) return "acg";
+  if (a.includes("guazzotti")) return "guazzotti";
+  return "altri";
+}
+
+export async function handleListaTecnici(parametri, ctx) {
+  const cosm = getCosminaDb();
+  const msg = String(ctx?.userMessage || "").toLowerCase();
+  const wantsAcg = /\bacg\b|acg\s*clima|clima\s*service/.test(msg);
+  const wantsGuaz = /guazzotti/.test(msg);
+  const explicitFilter = wantsAcg || wantsGuaz;
+
+  let snap;
+  try {
+    snap = await cosm.collection("cosmina_contatti_interni").limit(500).get();
+  } catch (e) {
+    logger.warn("handleListaTecnici: read failed", { error: String(e) });
+    return { content: "Non sono riuscito a leggere la rubrica COSMINA. Riprova tra un attimo." };
+  }
+
+  const groups = { acg: [], guazzotti: [], altri: [] };
+  snap.forEach(d => {
+    const v = d.data() || {};
+    const cat = String(v.categoria || "").toLowerCase().trim();
+    if (cat !== "tecnico") return;
+    const name = fullName(v);
+    if (!name) return;
+    const slug = aziendaSlug(v.azienda);
+    groups[slug].push(name);
+  });
+
+  // Ordina alfabeticamente per cognome
+  for (const k of Object.keys(groups)) {
+    groups[k].sort((a, b) => {
+      const ac = a.split(" ").slice(-1)[0] || a;
+      const bc = b.split(" ").slice(-1)[0] || b;
+      return ac.localeCompare(bc, "it");
+    });
+  }
+
+  const total = groups.acg.length + groups.guazzotti.length + groups.altri.length;
+  if (total === 0) {
+    return { content: "Nella rubrica COSMINA non ho trovato contatti con categoria 'tecnico'. Forse la rubrica non è popolata o usa un'altra etichetta." };
+  }
+
+  // Modalità filtro esplicito
+  if (wantsAcg && !wantsGuaz) {
+    if (groups.acg.length === 0) return { content: "Non ho tecnici ACG in rubrica al momento." };
+    return {
+      content: `I tecnici ACG sono: ${joinNatural(groups.acg)}.`,
+      data: { acg: groups.acg, count: groups.acg.length },
+    };
+  }
+  if (wantsGuaz && !wantsAcg) {
+    if (groups.guazzotti.length === 0) return { content: "Non ho tecnici Guazzotti in rubrica al momento." };
+    return {
+      content: `I tecnici di Guazzotti sono: ${joinNatural(groups.guazzotti)}.`,
+      data: { guazzotti: groups.guazzotti, count: groups.guazzotti.length },
+    };
+  }
+
+  // Default: tutti, separati per azienda
+  const parts = [];
+  if (groups.acg.length) parts.push(`I tecnici ACG sono: ${joinNatural(groups.acg)}.`);
+  if (groups.guazzotti.length) parts.push(`Quelli di Guazzotti sono: ${joinNatural(groups.guazzotti)}.`);
+  if (groups.altri.length) parts.push(`Altri: ${joinNatural(groups.altri)}.`);
+  return {
+    content: parts.join(" "),
+    data: { acg: groups.acg, guazzotti: groups.guazzotti, altri: groups.altri, total },
+  };
+}
+
