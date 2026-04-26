@@ -826,6 +826,203 @@ export function extractIstruzioniExtra(text) {
   return out;
 }
 
+// ─── tryInterceptPreventivoSi ──────────────────────────────────
+// Intercept rapido (regex-only) per "sì / ok / procedi / approva" quando
+// pending è in attesa_approvazione. Evita di passare da Haiku per il caso
+// comune "Alberto conferma".
+export async function tryInterceptPreventivoSi({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim().toLowerCase();
+  if (!t) return null;
+  // Match approvazione: "sì", "si", "ok", "procedi", "approva", "vai", "manda"
+  // (forme estese tipo "sì manda" o "approva e manda" passeranno comunque al
+  // workflow PDF perché l'invio email è uno step successivo TODO).
+  // NB: \b dopo carattere unicode "ì" non matcha, usiamo (?=$|\s|[,.!?]) come confine.
+  if (!/^(s[iì]|ok|va\s+bene|procedi|approva|approv[oa]l\w*|conferm\w+|vai|manda(?:lo)?)(?=$|\s|[,.!?])/i.test(t)) return null;
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_preventivi_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (pendingData.stato !== "attesa_approvazione") return null;
+  } catch {
+    return null;
+  }
+  return await approvaEGeneraPdf(pendingDoc, pendingData, sessionId);
+}
+
+// ─── approvaEGeneraPdf ─────────────────────────────────────────
+// Quando il preventivo è in attesa_approvazione e Alberto dice "sì",
+// chiamiamo GRAPH (graphApi/api/v1/generate) con template "preventivo-doc".
+// GRAPH genera il PDF, lo salva su Firebase Storage e — grazie al campo
+// `docfin` nel body — scrive automaticamente anche un record su
+// docfin_documents (visibile su acg-doc.web.app). Il link viene salvato
+// nel pending e mostrato all'utente in chat.
+const GRAPH_API_URL = "https://europe-west1-garbymobile-f89ac.cloudfunctions.net/graphApi/api/v1/generate";
+const GRAPH_API_KEY = "graph-acg-suite-2026"; // valore default GRAPH (env GRAPH_API_KEY)
+const GRAPH_APP_ID = "GRAPH";
+const GRAPH_TEMPLATE_ID = "preventivo-doc";
+
+function buildGraphDataPreventivo(pendingData) {
+  const intest = pendingData.intestatario || {};
+  const cond = pendingData.condominio || {};
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  const aliquota = pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22;
+  // GRAPH "righe" è un array di oggetti FIC-style (codice, descrizione, qta,
+  // prezzo_unitario, iva, importo, sconto, prezzo_pre_sconto, udm).
+  const righe = voci.map((v, i) => ({
+    codice: String(i + 1),
+    descrizione: v.descrizione,
+    qta: 1,
+    prezzo_unitario: v.importo,
+    iva: aliquota,
+    importo: v.importo,
+    sconto: 0,
+    prezzo_pre_sconto: v.importo,
+    udm: "n.",
+  }));
+  // Riepilogo IVA: una sola fascia (l'aliquota corrente sull'imponibile)
+  const totaleImponibile = Number(pendingData.totale_imponibile || 0);
+  const ivaImporto = Number(pendingData.iva_importo || 0);
+  const totale = Number(pendingData.totale || 0);
+
+  const indirizzoCond = cond.indirizzo || "";
+  const note = pendingData.iva_nota || "";
+  return {
+    cliente: intest.ragione_sociale || "",
+    condominio: cond.nome || "",
+    indirizzo: indirizzoCond,
+    descrizione: `Preventivo per ${cond.nome || "intervento"}`,
+    data_documento: new Date().toISOString().slice(0, 10),
+    righe,
+    riepilogo_iva: [{
+      aliquota,
+      imponibile: totaleImponibile,
+      imposta: ivaImporto,
+    }],
+    imponibile: totaleImponibile,
+    importo_iva: ivaImporto,
+    totale,
+    note,
+    // Campi extra utili al template
+    piva_cliente: intest.piva || "",
+    condizioni_pagamento: "Pagamento a 30 gg DFFM",
+  };
+}
+
+async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId) {
+  const intest = pendingData.intestatario || {};
+  const cond = pendingData.condominio || {};
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  if (!voci.length) {
+    return {
+      content: `Non posso approvare: il preventivo non ha voci. Aggiungi almeno una voce (es. "verifica impianto 200").`,
+      _preventivoHaikuHandled: true,
+    };
+  }
+
+  const data = buildGraphDataPreventivo(pendingData);
+  const docfinPayload = {
+    type: "PRV",
+    clientName: intest.ragione_sociale || "",
+    condominioName: cond.nome || "",
+    items: voci.map((v, i) => ({
+      code: String(i + 1),
+      description: v.descrizione,
+      quantity: 1,
+      unitPrice: v.importo,
+      ivaRate: pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22,
+      totalRow: v.importo,
+    })),
+    totals: {
+      imponibile: Number(pendingData.totale_imponibile || 0),
+      iva: Number(pendingData.iva_importo || 0),
+      totale: Number(pendingData.totale || 0),
+    },
+    description: data.descrizione,
+    notes: pendingData.iva_nota || "",
+    naturaIva: pendingData.iva_regime || "ordinario",
+    sourceApp: "NEXUS",
+    sourceRef: sessionId,
+    status: "emesso",
+  };
+
+  let resp;
+  try {
+    const r = await fetch(GRAPH_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-App-Id": GRAPH_APP_ID,
+        "X-Api-Key": GRAPH_API_KEY,
+      },
+      body: JSON.stringify({
+        template_id: GRAPH_TEMPLATE_ID,
+        company_id: "acg",
+        auto_number: true,
+        data,
+        docfin: docfinPayload,
+      }),
+    });
+    resp = await r.json();
+    if (!r.ok || !resp.success) {
+      return {
+        content: `Errore generazione PDF GRAPH: ${resp?.message || resp?.error || "unknown"}.`,
+        _preventivoHaikuHandled: true,
+      };
+    }
+  } catch (e) {
+    return {
+      content: `Errore connessione a GRAPH: ${String(e).slice(0, 150)}.`,
+      _preventivoHaikuHandled: true,
+    };
+  }
+
+  const pdfUrl = resp.document?.pdf_url || null;
+  const numero = resp.document?.number || "—";
+  const docfinId = resp.docfin_id || null;
+  const graphDocId = resp.document?.id || null;
+
+  try {
+    await pendingDoc.ref.set({
+      stato: "approvato",
+      approvatoAt: FieldValue.serverTimestamp(),
+      pdfUrl, numero,
+      graphDocumentId: graphDocId,
+      docfinId,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch {}
+
+  const pdfLine = pdfUrl
+    ? `Preventivo PREV-${numero} pronto. Scaricalo qui: ${pdfUrl}`
+    : `Preventivo PREV-${numero} approvato (PDF in fase di generazione).`;
+  const docLine = docfinId
+    ? `Lo trovi anche su DOC: https://acg-doc.web.app/?openDoc=${docfinId}`
+    : "";
+  const content = [
+    pdfLine,
+    docLine,
+    "",
+    `Vuoi che lo mandi a ${intest.ragione_sociale ? "Torriglia" : "destinatario"}?`,
+  ].filter(Boolean).join("\n");
+
+  return {
+    content,
+    data: {
+      intent: "approva",
+      pendingId: sessionId,
+      numero,
+      pdfUrl,
+      graphDocumentId: graphDocId,
+      docfinId,
+      source: "haiku_fallback",
+    },
+    _preventivoHaikuHandled: true,
+  };
+}
+
 // ─── tryInterceptPreventivoHaikuFallback ────────────────────────
 // Fallback intelligente: se per la sessione esiste un nexo_preventivi_pending
 // ma nessuno dei parser regex (voci/iva/approval) ha intercettato il
@@ -986,14 +1183,9 @@ export async function tryInterceptPreventivoHaikuFallback({ userMessage, session
   }
 
   if (az === "approva") {
-    try {
-      await pendingDoc.ref.set({ stato: "approvato", approvatoAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    } catch {}
-    return {
-      content: `Approvazione registrata. La generazione PDF e l'invio mail verranno gestiti dallo step successivo (TODO).`,
-      data: { intent: "approva", source: "haiku_fallback" },
-      _preventivoHaikuHandled: true,
-    };
+    // Genera PDF + scrive docfin_documents tramite GRAPH (acg_suite),
+    // poi marca il pending come approvato e ritorna il link in chat.
+    return await approvaEGeneraPdf(pendingDoc, pendingData, sessionId);
   }
 
   if (az === "modifica_iva") {

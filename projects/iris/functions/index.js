@@ -24,7 +24,7 @@ import {
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback } from "./handlers/preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi } from "./handlers/preventivo.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -300,8 +300,33 @@ export const nexusRouter = onRequest(
       logger.warn("preventivo approval intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
+    // Preventivo "sì": intercept rapido regex-only per approvazione veloce
+    // (sì/ok/procedi/approva). Se attesa_approvazione → genera PDF via GRAPH
+    // + scrive docfin_documents.
+    try {
+      const prevSi = await tryInterceptPreventivoSi({ userMessage, sessionId, userId });
+      if (prevSi && prevSi._preventivoHaikuHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: prevSi.content,
+          direct: { data: prevSi.data || null, failed: false },
+          stato: "completata",
+          modello: "preventivo_approva_pdf",
+        });
+        res.status(200).json({
+          intent: { collega: "orchestrator", azione: "preventivo_approva_pdf", parametri: {}, rispostaUtente: prevSi.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: prevSi.data || null, failed: false },
+          modello: "preventivo_approva_pdf", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("preventivo si intercept failed", { error: String(e).slice(0, 200) });
+    }
+
     // Preventivo Haiku fallback: SOLO se esiste un pending per la sessione e
-    // nessun parser regex (voci/iva/approval) ha matchato. Haiku interpreta
+    // nessun parser regex (voci/iva/approval/sì) ha matchato. Haiku interpreta
     // il messaggio (aggiungi/rimuovi/modifica voce, sconto, modifica iva,
     // chiarimento) e ricalcola.
     try {
