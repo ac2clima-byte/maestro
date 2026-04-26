@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T16:11:25.643Z
+Ultimo aggiornamento: 2026-04-26T16:13:45.132Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 22978s
-Timestamp Firestore: 2026-04-26T16:11:24.275Z
+Uptime: 23118s
+Timestamp Firestore: 2026-04-26T16:13:43.852Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-26T16:11:24.275Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 22978.180329338,
-  "timestamp": "2026-04-26T16:11:24.275Z"
+  "uptime": 23117.757912531,
+  "timestamp": "2026-04-26T16:13:43.852Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-26T16:11:24.275Z
 Nessuno.
 
 ## Ultimi 5 commit
+- 5316f32 status update
 - 7cabe26 status update
 - 0376b9b status update
 - c3ce74e status update
 - e1ca96c analysis: zYNnGZA2qKiHgEo5ZrsV
-- 082e9b9 feat(preventivo): documento su DOC + PDF via GRAPH
