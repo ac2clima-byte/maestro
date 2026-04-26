@@ -25,6 +25,7 @@ import {
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
+import { tryInterceptAresConfermaIntervento } from "./ares.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -229,6 +230,35 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: preventivo haiku fallback failed", { error: String(e).slice(0, 150) });
+      }
+
+      // ARES conferma intervento: scrive su bacheca_cards (DRY_RUN automatico
+      // per le sessioni forge-test, vedi _isForgeSession in ares.js).
+      try {
+        const aresOk = await tryInterceptAresConfermaIntervento({ userMessage: message, sessionId, userId });
+        if (aresOk && aresOk._aresConfermaHandled) {
+          const cleaned = naturalize(aresOk.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: aresOk.data || null, failed: !!aresOk._failed },
+            stato: aresOk._failed ? "errore_handler" : "completata",
+            modello: "ares_conferma",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "ares", azione: "conferma_intervento",
+            stato: aresOk._failed ? "errore_handler" : "completata",
+            natural: isNatural(cleaned),
+            direct: { ok: !aresOk._failed, data: aresOk.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "ares_conferma",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: ares conferma intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // Intercept preventivo workflow per aderenza al routing reale di nexusRouter.

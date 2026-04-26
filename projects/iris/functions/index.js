@@ -25,6 +25,7 @@ import {
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./handlers/preventivo.js";
+import { tryInterceptAresConfermaIntervento } from "./handlers/ares.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -374,6 +375,32 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("preventivo haiku fallback failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ARES conferma intervento: se per la sessione c'è un pending in
+    // nexo_ares_pending e l'utente dice sì/conferma/ok/annulla → scrive
+    // su bacheca_cards (o annulla).
+    try {
+      const aresOk = await tryInterceptAresConfermaIntervento({ userMessage, sessionId, userId });
+      if (aresOk && aresOk._aresConfermaHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: aresOk.content,
+          direct: { data: aresOk.data || null, failed: !!aresOk._failed },
+          stato: aresOk._failed ? "errore_handler" : "completata",
+          modello: "ares_conferma",
+        });
+        res.status(200).json({
+          intent: { collega: "ares", azione: "conferma_intervento", parametri: {}, rispostaUtente: aresOk.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: aresOk._failed ? "errore_handler" : "completata",
+          direct: { data: aresOk.data || null, failed: !!aresOk._failed },
+          modello: "ares_conferma", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("ares conferma intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // Preventivo generation: intercetta "prepara preventivo ..."

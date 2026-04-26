@@ -610,3 +610,327 @@ export async function handleAresApriIntervento(parametri, ctx) {
     return { content: `❌ ARES: scrittura fallita. ${errMsg}` };
   }
 }
+
+// ─── handleAresCreaIntervento ──────────────────────────────────
+// Comando di CREAZIONE intervento sulla bacheca COSMINA.
+// Trigger: "metti/crea/programma/fissa/aggiungi intervento", "mettigli intervento".
+// Flow: parse parametri → preview con riepilogo → pending in
+// nexo_ares_pending/{sessionId} → conferma utente → scrittura su
+// bacheca_cards (techName/techNames/due/boardName/listName=INTERVENTI DA ESEGUIRE/createdBy=NEXUS).
+// In FORGE/dry-run: simula, non scrive davvero.
+
+const TECNICI_ACG_UPPER = TECNICI_ACG.map(t => t.toUpperCase());
+
+// Estrae array di nomi tecnici da messaggio. Gestisce "con A e B", "A e B",
+// "Federico, David". Ritorna array uppercase senza duplicati, già nella
+// whitelist 9 tecnici.
+function _extractTecniciCrea(userMessage, parametri) {
+  const out = new Set();
+  const add = (raw) => {
+    const t = String(raw || "").trim().toLowerCase();
+    if (!t) return;
+    for (const nome of TECNICI_ACG) {
+      if (t.includes(nome)) out.add(nome.toUpperCase());
+    }
+  };
+
+  // 1. Da parametri (Haiku)
+  if (Array.isArray(parametri.tecnici)) for (const t of parametri.tecnici) add(t);
+  if (parametri.tecnico) add(parametri.tecnico);
+  if (parametri.nome) add(parametri.nome);
+
+  // 2. Pattern "con [tecnico]" / "con [A] e [B]"
+  const m = String(userMessage || "").toLowerCase();
+  const conM = m.match(/\bcon\s+([a-zà-ÿ\s,e]+?)(?:\s*(?:domani|oggi|ieri|stamani|stamattina|alle|al\b|alla\b|allo\b|in\b|presso\b|per\b|a\s|$|[,.\?!]))/i);
+  if (conM) {
+    for (const part of conM[1].split(/\s+e\s+|\s*,\s*/)) add(part);
+  }
+  // 3. Pattern "tecnico [Nome]" / "tecnici [A] e [B]"
+  const tecM = m.match(/\btecnic[oi]\s+([a-zà-ÿ\s,e]+?)(?:\s*(?:domani|oggi|alle|al\b|in\b|per\b|a\s|$|[,.\?!]))/i);
+  if (tecM) for (const part of tecM[1].split(/\s+e\s+|\s*,\s*/)) add(part);
+  // 4. Tecnici menzionati ovunque nel messaggio (whitelist)
+  for (const nome of TECNICI_ACG) {
+    if (new RegExp(`\\b${nome}\\b`, "i").test(m)) out.add(nome.toUpperCase());
+  }
+  return [...out];
+}
+
+// Parse data + ora colloquiale. Ritorna Date oppure null.
+// Riusa parseRangeDataInterventi per la data, poi imposta l'ora.
+function _parseDataOra(userMessage, parametri) {
+  const m = String(userMessage || "").toLowerCase();
+  // Data: priorità a parametri.data, poi userMessage
+  let baseDate = null;
+  if (parametri.data) {
+    const r = parseRangeDataInterventi(String(parametri.data));
+    if (r) baseDate = new Date(r.from);
+  }
+  if (!baseDate) {
+    const r = parseRangeDataInterventi(m);
+    if (r) baseDate = new Date(r.from);
+  }
+  if (!baseDate) return null;
+
+  // Ora: "mattina"=09:00, "pomeriggio"=14:00, "sera"=18:00,
+  //       "alle 9", "alle 14:30", "alle 9 e mezza"
+  let h = null, mi = 0;
+  if (parametri.ora) {
+    const oraM = String(parametri.ora).match(/(\d{1,2})(?::?(\d{2}))?/);
+    if (oraM) { h = Number(oraM[1]); mi = Number(oraM[2] || 0); }
+  }
+  if (h == null) {
+    const oraExpl = m.match(/\balle?\s+(\d{1,2})(?:[:.]\s*(\d{2}))?(?:\s+e\s+(mezza|quarto|tre[\s-]quarti))?/i);
+    if (oraExpl) {
+      h = Number(oraExpl[1]); mi = Number(oraExpl[2] || 0);
+      if (oraExpl[3]) {
+        if (/mezza/i.test(oraExpl[3])) mi = 30;
+        else if (/quarto/i.test(oraExpl[3])) mi = 15;
+        else if (/tre/i.test(oraExpl[3])) mi = 45;
+      }
+    } else if (/\b(stamattina|stamani|mattina(?:ta)?\s+presto|in\s+mattinata|prima\s+mattina)\b/i.test(m)) h = 8;
+    else if (/\bmattin/i.test(m)) h = 9;
+    else if (/\bprimo\s+pomeriggio|primissimo\s+pomeriggio\b/i.test(m)) h = 13;
+    else if (/\bpomerigg/i.test(m)) h = 14;
+    else if (/\b(sera(?:le|ta)?|tardo\s+pomeriggio)\b/i.test(m)) h = 18;
+  }
+  if (h == null) h = 9; // default mattina
+  baseDate.setHours(h, mi, 0, 0);
+  return baseDate;
+}
+
+// Estrae condominio/indirizzo dal messaggio o dal contesto precedente.
+async function _extractCondominio(userMessage, parametri, sessionId) {
+  // 1. Da parametri (Haiku)
+  let cond = String(parametri.condominio || parametri.cliente || parametri.indirizzo || parametri.dove || parametri.luogo || "").trim();
+  if (cond) return { value: cond, source: "parametri" };
+
+  // 2. Pattern espliciti "presso/al/alla/a/da [Cond]"
+  const m = String(userMessage || "");
+  const re = /(?:presso|al\b|alla\b|allo\b|a\s+(?!domani|oggi|ieri)|da\s+(?:un\s+)?(?:condominio\s+|cond\.\s+)?)([A-Za-zÀ-ÿ][\w\sÀ-ÿ.,'\-]{2,60}?)(?=\s+(?:urgente|normale|subito|alle?|domani|oggi|per|con|in|entro|mattina|pomerigg|sera|$|[,.!?]))/i;
+  const found = re.exec(m);
+  if (found) return { value: found[1].trim(), source: "messaggio" };
+
+  // 3. Pronome "ci/lì" → ultima query ARES nella stessa sessione
+  if (sessionId && /\b(ci|l[iì])\s+(?:deve|dovr|va\b)/i.test(m)) {
+    try {
+      const snap = await db.collection("nexus_chat")
+        .where("sessionId", "==", sessionId)
+        .orderBy("createdAt", "desc")
+        .limit(20).get();
+      // Cerca l'ultimo messaggio assistant con direct.data.items[]
+      const docs = [];
+      snap.forEach(d => docs.push(d));
+      // Già ordinati desc, prendo il più recente con boardName valido
+      for (const d of docs) {
+        const v = d.data() || {};
+        if (v.role !== "assistant") continue;
+        const items = v.direct?.data?.items;
+        if (Array.isArray(items) && items.length) {
+          const it = items[0];
+          const board = it.condominio || it.boardName || it.name;
+          if (board && board !== "?") return { value: String(board).trim(), source: "contesto_chat" };
+        }
+      }
+    } catch (e) {
+      logger.warn("ares contesto failed", { error: String(e).slice(0, 120) });
+    }
+  }
+  return { value: "", source: null };
+}
+
+// Estrae descrizione dal messaggio (dopo "per" o intera frase pulita).
+function _extractDescrizione(userMessage, parametri) {
+  const fromParam = String(parametri.descrizione || parametri.note || parametri.problema || parametri.testo || parametri.lavoro || "").trim();
+  if (fromParam) return fromParam.slice(0, 120);
+  const m = String(userMessage || "");
+  // "per [descrizione]"
+  const perM = m.match(/\bper\s+([a-zà-ÿ\s\d.,'\-]{4,80}?)(?:\s*(?:domani|oggi|alle|con\s|presso|in\b|al\b|alla\b|$|[,.!?]))/i);
+  if (perM) return perM[1].trim();
+  return "";
+}
+
+const VERBO_CREA_RE = /\b(?:crea|crei|cre[oi]|metti|mettigli|mettilo|metterli|metterai|programma|programmagli|fissa|fissagli|segna|segnami|registra|prenota|schedul\w+|pianifica|organizza|aggiungi|inserisci|appunta|nota)\s+(?:un\s+|gli\s+|loro\s+|il\s+|l['’]\s*)?(?:intervento|appuntamento|lavoro|visita)/i;
+
+// True se la frase è un comando di creazione intervento.
+export function isCreaInterventoCommand(userMessage) {
+  const m = String(userMessage || "");
+  return VERBO_CREA_RE.test(m);
+}
+
+// Forza DRY_RUN per sessioni FORGE (evita scrittura accidentale durante test).
+function _isForgeSession(sessionId) {
+  return String(sessionId || "").startsWith("forge-test");
+}
+
+// Costruisce il riepilogo discorsivo del pending (riusato per preview e conferma).
+function _riepilogoCrea(p) {
+  const tecLabel = p.tecnici && p.tecnici.length
+    ? (p.tecnici.length === 1 ? p.tecnici[0] : p.tecnici.slice(0, -1).join(", ") + " e " + p.tecnici[p.tecnici.length - 1])
+    : "(nessun tecnico)";
+  const dataLabel = p.due
+    ? new Date(p.due).toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
+        + " alle " + new Date(p.due).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+    : "(data non specificata)";
+  const luogoLabel = p.condominio || "(luogo non specificato)";
+  const descLabel = p.descrizione || "manutenzione";
+  return `${tecLabel}, ${dataLabel}, presso ${luogoLabel}: ${descLabel}`;
+}
+
+export async function handleAresCreaIntervento(parametri = {}, ctx = {}) {
+  const userMessage = String(ctx.userMessage || "");
+  const sessionId = ctx.sessionId || parametri.sessionId || null;
+
+  const tecnici = _extractTecniciCrea(userMessage, parametri);
+  const due = _parseDataOra(userMessage, parametri);
+  const cond = await _extractCondominio(userMessage, parametri, sessionId);
+  const descrizione = _extractDescrizione(userMessage, parametri);
+
+  const pending = {
+    kind: "ares_crea_intervento",
+    tecnici,
+    due: due ? due.toISOString() : null,
+    condominio: cond.value || "",
+    condominioSource: cond.source || null,
+    descrizione,
+    sessionId,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+
+  // Validazione minima: almeno tecnici + data + condominio
+  const missing = [];
+  if (!tecnici.length) missing.push("tecnico");
+  if (!due) missing.push("data");
+  if (!cond.value) missing.push("condominio o indirizzo");
+  if (missing.length) {
+    return {
+      content: `Per aprire un intervento mi serve ancora: ${missing.join(", ")}. Esempio: "metti intervento a Federico domani mattina al condominio Kristal per controllo caldaia".`,
+      data: { pending, missing },
+    };
+  }
+
+  // Salva pending per conferma (anche su FORGE per test E2E)
+  if (sessionId) {
+    try {
+      await db.collection("nexo_ares_pending").doc(sessionId).set(pending, { merge: true });
+    } catch (e) {
+      logger.warn("ares pending save failed", { error: String(e).slice(0, 120) });
+    }
+  }
+
+  // Riepilogo + richiesta conferma
+  const dryNote = (await isAresDryRun() || _isForgeSession(sessionId))
+    ? "\n\n(Modalità test: scrivo solo dopo la tua conferma e in modalità DRY_RUN.)"
+    : "\n\nConfermi? Scrivi sì per pubblicare in bacheca COSMINA, oppure cambia/annulla.";
+  return {
+    content: `Creo un intervento per ${_riepilogoCrea(pending)}.${dryNote}`,
+    data: {
+      pendingApproval: { kind: "ares_crea_intervento", sessionId },
+      pending,
+    },
+  };
+}
+
+// Intercept di conferma: cerca pending in nexo_ares_pending/{sessionId}.
+// Se l'utente dice sì/conferma/ok/procedi/manda → scrive su bacheca_cards.
+// Se dice annulla/no → cancella il pending.
+// Altrimenti ritorna null (lascia passare al routing standard).
+export async function tryInterceptAresConfermaIntervento({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+
+  // Quick check: deve sembrare conferma o annullamento.
+  // NOTA: \b non funziona dopo "ì" (non-ASCII), uso lookahead esplicito.
+  if (!/^\s*(s[iì](?:\s|$|[,.!?])|ok|va\s+bene|conferm|procedi|manda|invia|fallo|crealo|fai\s|fai$|pubblica|annull|no(?:\s|$|[,.!?])|cancell|stop|basta)/i.test(t)) {
+    return null;
+  }
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_ares_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (pendingData.kind !== "ares_crea_intervento") return null;
+  } catch {
+    return null;
+  }
+
+  // Annullamento
+  if (/^\s*(annull|no\b|cancell|stop|basta)/i.test(t)) {
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: "Annullato. Non scrivo nulla in bacheca.",
+      data: { kind: "ares_annullato" },
+      _aresConfermaHandled: true,
+    };
+  }
+
+  // Conferma → scrittura
+  const dryRun = (await isAresDryRun()) || _isForgeSession(sessionId);
+  const cardId = aresIntId();
+  const dueIso = pendingData.due || null;
+  const tecnici = Array.isArray(pendingData.tecnici) ? pendingData.tecnici : [];
+  const cardData = {
+    name: (pendingData.descrizione || "intervento da NEXUS").slice(0, 120),
+    boardName: pendingData.condominio || "",
+    desc: pendingData.descrizione || "",
+    workDescription: pendingData.descrizione || "",
+    listName: "INTERVENTI DA ESEGUIRE",
+    inBacheca: true,
+    archiviato: false,
+    stato: "aperto",
+    labels: ["source:nexus", "tipo:manutenzione"],
+    source: "nexus_ares",
+    techName: tecnici[0] || null,
+    techNames: tecnici.length ? tecnici : null,
+    due: dueIso,
+    createdBy: "NEXUS",
+    created_at: FieldValue.serverTimestamp(),
+    updated_at: FieldValue.serverTimestamp(),
+  };
+
+  if (dryRun) {
+    // DRY_RUN: scrive specchio su nexo collection, non tocca bacheca COSMINA
+    try {
+      await db.collection("ares_interventi").doc(cardId).set({
+        id: cardId, ...cardData,
+        _dryRun: true,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn("ares dry mirror failed", { error: String(e).slice(0, 120) });
+    }
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: `Simulato (DRY_RUN): ${_riepilogoCrea(pendingData)}. ID locale ${cardId}. Per scrivere davvero su COSMINA imposta cosmina_config/ares_config.dry_run=false.`,
+      data: { id: cardId, dryRun: true, ...pendingData },
+      _aresConfermaHandled: true,
+    };
+  }
+
+  // Scrittura reale su bacheca COSMINA
+  try {
+    const cosm = getCosminaDb();
+    const ref = cosm.collection("bacheca_cards").doc();
+    await ref.set(cardData);
+    try {
+      await db.collection("ares_interventi").doc(ref.id).set({
+        id: ref.id, cosmina_doc_id: ref.id, ...cardData,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch {}
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: `Fatto. Ho scritto in bacheca COSMINA: ${_riepilogoCrea(pendingData)}. ID ${ref.id}.`,
+      data: { id: ref.id, dryRun: false, ...pendingData },
+      _aresConfermaHandled: true,
+    };
+  } catch (e) {
+    const msg = String(e && e.message || e).slice(0, 200);
+    return {
+      content: `Non sono riuscito a scrivere in bacheca COSMINA: ${msg}.`,
+      _aresConfermaHandled: true,
+      _failed: true,
+    };
+  }
+}

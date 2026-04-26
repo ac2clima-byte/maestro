@@ -15,7 +15,7 @@ import {
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleBozzePendenti, handleApriBozza, handlePreventiviEmessi } from "./preventivo.js";
 import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE } from "./memo.js";
-import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
+import { handleAresInterventiAperti, handleAresApriIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
 import {
@@ -103,18 +103,40 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
             wa_inbox (lista messaggi WA ricevuti, "messaggi WA in arrivo"),
             wa_analizza_ultimo (analizza ultimo WA ricevuto)
 - ares       → interventi (bacheca COSMINA):
-    azioni: interventi_aperti (parametri opzionali: {tecnico, data, citta}),
-            apri_intervento, assegna_tecnico
-    IMPORTANTE: "interventi aperti di [tecnico]" / "interventi di [tecnico] oggi"
-      → SEMPRE collega="ares" + azione="interventi_aperti" con
-      parametri.tecnico = nome (es. Marco, Lorenzo, David, Federico,
-      Antonio, Ergest).
-    parametri.data: "oggi", "ieri", "domani", "lunedì"…"domenica"
-      (eventualmente con "scorso/prossimo"), "la settimana scorsa",
-      "23 aprile", "23/04/2026". L'handler interpreta il tense ("aveva
-      venerdì" → venerdì passato; "avrà lunedì" → lunedì futuro).
-    parametri.citta: nome città citato dall'utente ("ad Alessandria",
-      "a Voghera", "a Tortona"). Lascia vuoto se non c'è.
+    azioni: interventi_aperti (LISTA), crea_intervento (CREAZIONE),
+            apri_intervento (creazione legacy), assegna_tecnico
+
+    DISTINZIONE QUERY vs CREAZIONE — FONDAMENTALE:
+    · QUERY (interventi_aperti): verbi "aveva, ha, ha avuto, avrà, c'è,
+      ci sono, quali, che, mostra, dimmi, fammi vedere, cerca".
+      Esempi: "che interventi aveva Federico ieri", "interventi di Marco oggi".
+    · CREAZIONE (crea_intervento): verbi "metti, mettigli, crea, programma,
+      programmagli, fissa, segna, registra, prenota, schedula, pianifica,
+      organizza, aggiungi, inserisci, appunta".
+      Esempi: "metti intervento a Federico domani", "programma Marco lunedì
+      al Kristal", "fissa appuntamento al Sara giovedì 14:00".
+
+    interventi_aperti — parametri opzionali: {tecnico, data, citta}
+      tecnico: nome (Marco, Lorenzo, David, Federico, Antonio, Ergest, ...)
+      data: "oggi/ieri/domani/lunedì.../scorso/prossimo/settimana scorsa/23
+        aprile/23/04/2026". Tense in handler ("aveva venerdì" = venerdì passato).
+      citta: "ad Alessandria", "a Voghera", "a Tortona", ecc.
+
+    crea_intervento — parametri: {tecnici[], data, ora, condominio, descrizione}
+      tecnici: ARRAY di nomi tecnici uppercase (es. ["FEDERICO","DAVID"]).
+        Estrai da "con [tecnico]", "[tecnico] e [tecnico]", "tecnico [Nome]".
+      data: stessa sintassi di interventi_aperti.
+      ora: "mattina"/"pomeriggio"/"sera"/"alle 9"/"alle 14:30"/"alle 9 e mezza".
+        Default mattina (09:00) se assente.
+      condominio: nome del condominio o indirizzo. Cerca "presso/al/alla/a [Cond]".
+        Se l'utente dice "ci"/"lì" pronominale, eredita dal condominio della
+        query precedente (l'handler legge dal contesto chat).
+      descrizione: lavoro da fare ("dare il bianco", "verifica caldaia",
+        "controllo impianto").
+
+    IMPORTANTE: l'handler crea_intervento mostra SEMPRE un riepilogo e
+      chiede conferma prima di scrivere su COSMINA. Non scrive subito.
+
     NON confondere con PHARO: PHARO è per RTI/RTIDF Guazzotti, ARES è
       per gli INTERVENTI in bacheca COSMINA. "interventi" = ARES, sempre.
 - chronos    → pianificazione + campagne:
@@ -440,13 +462,26 @@ export const DIRECT_HANDLERS = [
   }, fn: handleChartaEsposizioneCliente },
   { match: (col, az) => col === "charta" && /(incass|pagament|accredit|bonifico)/.test(az) && /(oggi|today)/.test(az), fn: handleChartaIncassiOggi },
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
+  // ARES crea_intervento — DEVE venire prima di apri_intervento e di
+  // interventi_aperti, perché matchando per primo intercetta i comandi di
+  // creazione ("metti/programma/fissa intervento") che altrimenti
+  // cadrebbero su interventi_aperti (che è una query).
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
-    return (col === "ares" && /(apri_intervent|crea_intervent|nuovo_intervent|open_intervent)/.test(az))
-      || /^\s*(apri|crea|nuovo|aggiungi)\s+(un\s+)?intervent/.test(m);
+    if (col === "ares" && /(crea_intervent|metti_intervent|programma_intervent|fissa_intervent)/.test(az)) return true;
+    return isCreaInterventoCommand(m);
+  }, fn: handleAresCreaIntervento },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    // Se è già un comando di creazione, NON cadere su apri_intervento legacy
+    if (isCreaInterventoCommand(m)) return false;
+    return (col === "ares" && /(apri_intervent|nuovo_intervent|open_intervent)/.test(az))
+      || /^\s*(apri|nuovo)\s+(un\s+)?intervent/.test(m);
   }, fn: handleAresApriIntervento },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
+    // Guard: se è un comando di creazione, NON è una query
+    if (isCreaInterventoCommand(m)) return false;
     if (col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az)) return true;
     // Match diretto: "interventi (aperti) di [nome]" / "interventi di [nome] oggi/domani"
     if (/\bintervent[io]\s+(?:apert[io]\s+)?(?:di|del|per)\s+[a-zà-ÿ]/i.test(m)) return true;
