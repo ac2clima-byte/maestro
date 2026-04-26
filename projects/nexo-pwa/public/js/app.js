@@ -1794,13 +1794,21 @@ function nexusBugWire() {
   const modal  = document.getElementById("nexusBugModal");
   const submit = document.getElementById("nexusBugSubmit");
   const cancel = document.getElementById("nexusBugCancel");
-  if (!btn || !modal || !submit) return;
+  if (!btn || !modal || !submit) {
+    console.warn("[nexus-bug] wiring saltato: btn/modal/submit assenti", { btn: !!btn, modal: !!modal, submit: !!submit });
+    return;
+  }
   if (btn._nexusBugWired) return;
   btn._nexusBugWired = true;
 
-  btn.addEventListener("click", () => {
-    if (_nexusBugBusy) return;
-    if (!CURRENT_USER) return;
+  btn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    console.log("[nexus-bug] click su bottone bug — apro modal");
+    if (_nexusBugBusy) {
+      console.log("[nexus-bug] cooldown attivo, ignoro click");
+      return;
+    }
     nexusBugOpen();
   });
   cancel?.addEventListener("click", () => nexusBugClose());
@@ -1810,6 +1818,18 @@ function nexusBugWire() {
   });
   submit.addEventListener("click", () => { nexusBugSubmit(); });
 }
+
+// Wiring globale al load del DOM, indipendente da init() / auth.
+// Il bottone è statico in index.html quindi può essere wirato subito; il
+// check su CURRENT_USER avviene al submit, non al click.
+function nexusBugWireWhenReady() {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", nexusBugWire, { once: true });
+  } else {
+    nexusBugWire();
+  }
+}
+nexusBugWireWhenReady();
 
 // ── NEXUS TTS — edge-tts voce Diego (come HERMES) ────────────
 // Usa la Cloud Function /nexusTts che genera audio MP3 via Microsoft Edge

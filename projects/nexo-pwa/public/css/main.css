@@ -1061,7 +1061,7 @@
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, 0.55);
-    z-index: 200;
+    z-index: 250; /* sopra al pannello NEXUS in fullscreen (z-index 200) */
     display: none;
     align-items: center;
     justify-content: center;
