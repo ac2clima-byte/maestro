@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>STATUS.md auto-aggiornato ogni 2 minuti</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+  .num { font-size:32px; font-weight:700; color:var(--ok); }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+  th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.55; }
+  code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+  <h1>STATUS.md auto-aggiornato ogni 2 minuti</h1>
+  <p class="sub">MAESTRO scrive un report ricco in STATUS.md alla fine di ogni ciclo, ma pusha solo ogni 8 cicli (~120 secondi). Claude Chat può fare <code>git pull && cat STATUS.md</code> e capire al volo cosa sta succedendo.</p>
+
+  <div class="grid">
+    <div class="stat"><div class="num">~30</div><div class="lbl">push/ora (idle o attivo)</div></div>
+    <div class="stat"><div class="num">2 min</div><div class="lbl">freschezza minima</div></div>
+    <div class="stat"><div class="num">3</div><div class="lbl">sezioni nel report</div></div>
+  </div>
+
+  <h2>Cosa contiene STATUS.md</h2>
+  <table>
+    <tr><th>Sezione</th><th>Fonte</th></tr>
+    <tr><td>Stato MAESTRO + Claude Code</td><td>curl <code>https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus</code> (Cloud Function letta da Firestore)</td></tr>
+    <tr><td>Task pending</td><td>scan locale di <code>tasks/*.md</code> filtrando i file con result corrispondente; dev-request escluse se hanno già la dev-analysis</td></tr>
+    <tr><td>Ultimi 5 commit</td><td><code>git log --oneline -5</code></td></tr>
+  </table>
+
+  <h2>Logica del contatore</h2>
+  <pre>const STATUS_REPORT_EVERY = 8;            // 8 cicli × 15s = 120s
+let ciclo = 0;
+writeAndPushStatusReport();               // primo report allo startup
+while (true) {
+  await pull();
+  ...processa task...
+  ciclo++;
+  if (ciclo % STATUS_REPORT_EVERY === 0) {
+    writeAndPushStatusReport();           // ~ogni 2 minuti
+  }
+  await sleep(POLL_INTERVAL);
+}</pre>
+
+  <h2>Esempio di output</h2>
+  <pre># NEXO Code Status
+Ultimo aggiornamento: 2026-04-26T09:33:30.000Z
+
+## Stato MAESTRO + Claude Code
+Fase: waiting_result
+Task: maestro-status-file
+Dettagli: Claude Code sta lavorando
+Uptime: 1843s
+Timestamp Firestore: 2026-04-26T09:32:57.379Z
+
+## Task pending
+- maestro-status-file
+
+## Ultimi 5 commit
+- dafcb44 result: code-status-github
+- 40cba93 feat(maestro): STATUS.md su GitHub per monitoring Claude Chat
+- c2b0132 result: rileggi-claude-md
+- 798af26 test(nexus): audit E2E con credenziali
+- c19e3c7 task: STATUS.md su GitHub</pre>
+
+  <h2>Cambio rispetto al commit precedente (40cba93)</h2>
+  <p>Nel commit precedente STATUS.md veniva scritto al cambio fase, con dedup per fasi noisy. Questo task chiede una soluzione diversa, più semplice:</p>
+  <ul>
+    <li>Niente dedup per fase: il push avviene sempre ogni 8 cicli del main loop.</li>
+    <li>Aggiungo task pending + ultimi 5 commit (utile per Claude Chat senza altri tool).</li>
+    <li>Lo stato viene letto via curl dalla stessa Cloud Function della dashboard, così STATUS.md e dashboard restano coerenti.</li>
+  </ul>
+  <p><span class="pill warn">Restart MAESTRO necessario per attivare la nuova logica</span> (PID corrente ha ancora il codice precedente)</p>
+</body>
+</html>

@@ -29,51 +29,9 @@ function getDb() {
   return _db;
 }
 
-// Tiene traccia dell'ultima fase scritta per deduplicare i write/push.
-// Firestore: scriviamo sempre (timestamp/uptime servono per il liveness).
-// STATUS.md su GitHub: pushiamo solo al CAMBIO di fase, e mai per
-// transizioni "noisy" che si ripeterebbero ad ogni ciclo (idle→idle,
-// polling→polling) — altrimenti è uno commit ogni 15 secondi.
-let lastFase = '';
-let lastTask = '';
-const STATUS_FILE = join(REPO_DIR, 'STATUS.md');
-const NOISY_FASI = new Set(['idle', 'polling']);
-
-function writeStatusFile(fase, dettagli) {
-  const lines = [
-    '# Claude Code Status',
-    `Fase: ${fase}`,
-    `Task: ${dettagli.task || 'nessuno'}`,
-    `Dettagli: ${dettagli.msg || ''}`,
-    `Timestamp: ${new Date().toISOString()}`,
-    `Uptime: ${Math.round(process.uptime())}s`,
-    '',
-  ];
-  writeFileSync(STATUS_FILE, lines.join('\n'), 'utf-8');
-}
-
-function commitAndPushStatus(fase) {
-  // Commit mirato solo a STATUS.md per non trascinare altre modifiche
-  // pendenti (results/*, tasks/*) che hanno il loro commit dedicato.
-  try {
-    execSync('git add STATUS.md', { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
-    execSync(`git commit STATUS.md -m "status: ${fase}" --allow-empty`, {
-      cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000,
-    });
-    // pull --rebase per evitare conflitti col poller / Claude Code
-    try { execSync('git pull --rebase origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 }); } catch {}
-    execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
-  } catch (e) {
-    // Non bloccare il loop MAESTRO se git push fallisce: stampiamo e via.
-    const msg = (e.stderr || e.message || '').toString().slice(0, 200);
-    if (!msg.includes('nothing to commit')) {
-      console.error(`[STATUS PUSH ERROR] ${msg}`);
-    }
-  }
-}
-
+// Firestore: write su nexo_code_status/current ad ogni cambio fase (cheap).
+// STATUS.md: write+push periodico ogni N cicli (vedi STATUS_REPORT_EVERY).
 async function updateStatus(fase, dettagli = {}) {
-  // Firestore: write sempre (cheap + utile per liveness/uptime in dashboard)
   try {
     const db = getDb();
     await db.collection(STATUS_COLLECTION).doc(STATUS_DOC).set({
@@ -86,24 +44,128 @@ async function updateStatus(fase, dettagli = {}) {
   } catch (e) {
     console.error(`[STATUS ERROR] ${e.message}`);
   }
+}
 
-  // STATUS.md + git push: SOLO al cambio di fase, e SOLO se la transizione
-  // "porta informazione". Una transizione idle↔polling è puro rumore di loop
-  // (avviene ogni 15s quando non ci sono task) e va saltata, altrimenti
-  // genereremmo un push ogni 15 secondi a vuoto. Si pusha quindi quando:
-  //   - cambio di fase E almeno una delle due fasi NON è in NOISY_FASI
-  //   - oppure cambio di task (entriamo in un nuovo lavoro)
-  const taskNow = dettagli.task || '';
-  const sameFase = fase === lastFase;
-  const sameTask = taskNow === lastTask;
-  const noisyTransition = NOISY_FASI.has(fase) && NOISY_FASI.has(lastFase);
-  const skip = sameFase ? (NOISY_FASI.has(fase) || sameTask) : noisyTransition;
-  if (skip) return;
+// === STATUS.md REPORT (ogni 2 minuti) ===
+// Aggregato leggibile da Claude Chat via `git pull && cat STATUS.md`:
+//   - codeStatus letto dalla Cloud Function (stessa fonte della dashboard)
+//   - lista task pendenti dalla cartella tasks/
+//   - ultimi 5 commit del repo
+const STATUS_FILE = join(REPO_DIR, 'STATUS.md');
+const CODE_STATUS_URL = 'https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus';
+// Ogni 8 cicli × POLL_INTERVAL (15s) = ~2 minuti
+const STATUS_REPORT_EVERY = 8;
 
-  lastFase = fase;
-  lastTask = taskNow;
-  try { writeStatusFile(fase, dettagli); } catch (e) { console.error(`[STATUS FILE ERROR] ${e.message}`); }
-  commitAndPushStatus(fase);
+function fetchCodeStatus() {
+  try {
+    const out = execSync(`curl -fsS --max-time 8 ${CODE_STATUS_URL}`, {
+      encoding: 'utf-8', timeout: 10_000, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return JSON.parse(out);
+  } catch (e) {
+    return { error: 'fetch_failed', detail: String(e.message || e).slice(0, 200) };
+  }
+}
+
+function listPendingTasksForReport() {
+  if (!existsSync(TASKS_DIR)) return [];
+  const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.md'));
+  const out = [];
+  for (const f of files) {
+    const id = f.replace('.md', '');
+    if (id.startsWith('dev-analysis-')) continue;
+    if (id.startsWith('dev-request-')) {
+      const devId = id.replace(/^dev-request-/, '');
+      if (existsSync(join(TASKS_DIR, `dev-analysis-${devId}.md`))) continue;
+      out.push(`${id} (dev-request)`);
+      continue;
+    }
+    if (existsSync(join(RESULTS_DIR, `${id}.md`))) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+function lastCommits(n = 5) {
+  try {
+    return execSync(`git log --oneline -${n}`, { cwd: REPO_DIR, encoding: 'utf-8', timeout: 5_000 }).trim().split('\n');
+  } catch {
+    return [];
+  }
+}
+
+function formatStatusMd(codeStatus, pending, commits) {
+  const isErr = codeStatus && codeStatus.error;
+  const lines = [
+    '# NEXO Code Status',
+    `Ultimo aggiornamento: ${new Date().toISOString()}`,
+    '',
+    '## Stato MAESTRO + Claude Code',
+  ];
+  if (isErr) {
+    lines.push(`Errore lettura codeStatus: ${codeStatus.detail}`);
+  } else {
+    lines.push(
+      `Fase: ${codeStatus.fase || 'unknown'}`,
+      `Task: ${codeStatus.task || 'nessuno'}`,
+      `Dettagli: ${codeStatus.dettagli || codeStatus.msg || ''}`,
+      `Uptime: ${codeStatus.uptime != null ? Math.round(codeStatus.uptime) + 's' : 'n/a'}`,
+      `Timestamp Firestore: ${codeStatus.timestamp || 'n/a'}`,
+      '',
+      '<details><summary>Payload JSON</summary>',
+      '',
+      '```json',
+      JSON.stringify(codeStatus, null, 2),
+      '```',
+      '',
+      '</details>',
+    );
+  }
+  lines.push(
+    '',
+    '## Task pending',
+  );
+  if (pending.length === 0) {
+    lines.push('Nessuno.');
+  } else {
+    for (const id of pending) lines.push(`- ${id}`);
+  }
+  lines.push(
+    '',
+    '## Ultimi 5 commit',
+  );
+  if (commits.length === 0) {
+    lines.push('(nessun commit leggibile)');
+  } else {
+    for (const c of commits) lines.push(`- ${c}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function writeAndPushStatusReport() {
+  try {
+    const codeStatus = fetchCodeStatus();
+    const pending = listPendingTasksForReport();
+    const commits = lastCommits(5);
+    writeFileSync(STATUS_FILE, formatStatusMd(codeStatus, pending, commits), 'utf-8');
+  } catch (e) {
+    console.error(`[STATUS FILE ERROR] ${e.message}`);
+    return;
+  }
+  // Commit mirato a STATUS.md (non trascina result/task pendenti).
+  try {
+    execSync('git add STATUS.md', { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
+    execSync('git commit STATUS.md -m "status update"', { cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000 });
+    try { execSync('git pull --rebase origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 }); } catch {}
+    execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
+    console.log('[STATUS] STATUS.md aggiornato e pushato');
+  } catch (e) {
+    const msg = (e.stderr || e.message || '').toString().slice(0, 200);
+    if (!msg.includes('nothing to commit')) {
+      console.error(`[STATUS PUSH ERROR] ${msg}`);
+    }
+  }
 }
 
 // === GIT HELPERS ===
@@ -342,8 +404,12 @@ async function main() {
 
   console.log(`Sessione tmux: ${TMUX_SESSION} ✓`);
   console.log(`Repo: ${REPO_DIR}`);
-  console.log(`Poll: ogni ${POLL_INTERVAL/1000}s\n`);
+  console.log(`Poll: ogni ${POLL_INTERVAL/1000}s · STATUS.md ogni ${STATUS_REPORT_EVERY * POLL_INTERVAL / 1000}s\n`);
 
+  // Primo report subito allo startup (utile per Claude Chat).
+  writeAndPushStatusReport();
+
+  let ciclo = 0;
   while (true) {
     await pull();
 
@@ -355,6 +421,11 @@ async function main() {
       }
     } else {
       await updateStatus('idle', { msg: 'nessun task in coda' });
+    }
+
+    ciclo++;
+    if (ciclo % STATUS_REPORT_EVERY === 0) {
+      writeAndPushStatusReport();
     }
 
     await new Promise(r => setTimeout(r, POLL_INTERVAL));
