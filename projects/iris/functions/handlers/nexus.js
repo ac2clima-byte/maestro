@@ -882,17 +882,44 @@ function isDevRequest(userMessage) {
 }
 
 /**
- * Salva una dev request in nexo_dev_requests e ritorna una risposta conversazionale.
+ * Genera un ID leggibile DEV-NNN incrementando atomicamente un counter
+ * in nexo_config/nexo_counters. Fallback su DEV-{epochMs} se il counter fallisce.
+ */
+async function nextDevRequestId() {
+  try {
+    const ref = db.collection("nexo_config").doc("nexo_counters");
+    const next = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const cur = snap.exists ? (snap.data().devRequest || 0) : 0;
+      const n = cur + 1;
+      tx.set(ref, { devRequest: n, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      return n;
+    });
+    return `DEV-${String(next).padStart(3, "0")}`;
+  } catch (e) {
+    logger.warn("dev_request counter failed, fallback timestamp", { error: String(e).slice(0, 200) });
+    return `DEV-${Date.now()}`;
+  }
+}
+
+/**
+ * Salva una dev request in nexo_dev_requests + nexo_dev_requests_queue
+ * (letta dal poller locale dev_request_poller.js che la trasforma in
+ * tasks/dev-request-{DEV-NNN}.md e la pusha su GitHub).
+ * Ritorna una risposta conversazionale con l'ID DEV-NNN.
  */
 export async function tryInterceptDevRequest({ userMessage, userId, sessionId }) {
   if (!isDevRequest(userMessage)) return null;
 
   const description = String(userMessage || "").trim().slice(0, 3000);
+  const humanId = await nextDevRequestId();
+
   let docId = null;
   try {
-    const ref = db.collection("nexo_dev_requests").doc();
+    // Doc primario in nexo_dev_requests (storia completa + stato analisi)
+    const ref = db.collection("nexo_dev_requests").doc(humanId);
     await ref.set({
-      id: ref.id,
+      id: humanId,
       description,
       status: "pending",
       source: "nexus_chat",
@@ -901,15 +928,27 @@ export async function tryInterceptDevRequest({ userMessage, userId, sessionId })
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    docId = ref.id;
+    docId = humanId;
+
+    // Coda per il poller locale: il poller legge i doc con queueStatus=pending,
+    // crea il file md, pusha, e marca queueStatus=pushed.
+    await db.collection("nexo_dev_requests_queue").doc(humanId).set({
+      id: humanId,
+      description,
+      queueStatus: "pending",
+      userId: userId || null,
+      sessionId: sessionId || null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   } catch (e) {
     logger.warn("dev_request save failed", { error: String(e).slice(0, 200) });
   }
 
   const preview = description.length > 100 ? description.slice(0, 97) + "…" : description;
   return {
-    content: `Segnata la richiesta: "${preview}". La vedo nella coda sviluppo quando apro. Vuoi aggiungere priorità o dettagli?`,
-    data: { devRequestId: docId, description: preview },
+    content: `Ho registrato la richiesta ${humanId}: "${preview}". Claude Code la sta analizzando, ti aggiorno quando l'analisi è pronta.`,
+    data: { devRequestId: docId, humanId, description: preview },
     _devRequestHandled: true,
   };
 }

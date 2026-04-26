@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>NEXO · Fase 0 — Loop Dev Requests</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --acc:#7c5cff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 16px; flex:1 1 220px; }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .val { font-family:'JetBrains Mono', monospace; font-size:14px; margin-top:4px; word-break:break-all; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  td { padding:8px 10px; border-bottom:1px solid #1f2a3d; vertical-align:top; }
+  td:first-child { color:var(--mute); width:200px; }
+  code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.5; }
+  .flow { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:14px 0; }
+  .step { background:#111827; border:1px solid #1f2a3d; border-radius:8px; padding:8px 12px; font-size:13px; }
+  .step b { color:var(--acc); }
+  .arrow { color:var(--mute); font-size:18px; }
+</style>
+</head>
+<body>
+  <h1>Fase 0 — Loop Dev Requests NEXUS → Code → Chat</h1>
+  <p class="sub">Quando Alberto scrive in NEXUS Chat un pattern dev (bug/aggiungi/modifica), la richiesta arriva sia a Claude Code che a Claude Chat tramite Firestore + un poller locale che pusha su GitHub.</p>
+
+  <div class="flow">
+    <div class="step">1. <b>NEXUS</b> chat</div><span class="arrow">→</span>
+    <div class="step">2. <b>nexusRouter</b> Cloud Function</div><span class="arrow">→</span>
+    <div class="step">3. <b>Firestore</b><br><code>nexo_dev_requests_queue</code></div><span class="arrow">→</span>
+    <div class="step">4. <b>poller WSL</b><br>(15s)</div><span class="arrow">→</span>
+    <div class="step">5. <b>GitHub</b><br><code>tasks/dev-request-DEV-NNN.md</code></div><span class="arrow">→</span>
+    <div class="step">6. <b>MAESTRO</b> + Claude Code analisi</div><span class="arrow">→</span>
+    <div class="step">7. <code>tasks/dev-analysis-DEV-NNN.md</code></div>
+  </div>
+
+  <h2>Stato deploy</h2>
+  <div class="row">
+    <div class="card">
+      <div class="lbl">Cloud Function</div>
+      <div class="val">nexusRouter (europe-west1)</div>
+      <div style="margin-top:8px"><span class="pill ok">deployed · DEV-NNN counter</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">Firestore rules</div>
+      <div class="val">nexo_dev_requests_queue read=true write=false (Admin SDK only)</div>
+      <div style="margin-top:8px"><span class="pill ok">deployed</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">Poller locale</div>
+      <div class="val">scripts/dev_request_poller.mjs</div>
+      <div style="margin-top:8px"><span class="pill warn">richiede restart MAESTRO</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">MAESTRO</div>
+      <div class="val">maestro.mjs (riconosce dev-request-*)</div>
+      <div style="margin-top:8px"><span class="pill warn">richiede restart MAESTRO</span></div>
+    </div>
+  </div>
+
+  <h2>Componenti modificati</h2>
+  <table>
+    <tr><td>handlers/nexus.js</td><td>Counter atomico DEV-NNN su <code>nexo_config/nexo_counters.devRequest</code>; doc primario su <code>nexo_dev_requests/{DEV-NNN}</code>; coda su <code>nexo_dev_requests_queue/{DEV-NNN}</code> con <code>queueStatus=pending</code>; risposta naturale "Ho registrato la richiesta DEV-NNN: «...». Claude Code la sta analizzando, ti aggiorno quando l'analisi è pronta."</td></tr>
+    <tr><td>scripts/dev_request_poller.mjs</td><td>Loop 15s: legge queue pending, scrive <code>tasks/dev-request-DEV-NNN.md</code>, fa commit/pull --rebase/push, marca <code>queueStatus=pushed</code> e aggiorna <code>nexo_dev_requests.status=analyzing</code>.</td></tr>
+    <tr><td>maestro.mjs</td><td><code>getPendingTasks()</code> ora ritorna oggetti <code>{id, kind, devId}</code>. I file <code>dev-request-*.md</code> sono trattati come kind=dev-request: prompt speciale che impone analisi (no implementazione) e output in <code>tasks/dev-analysis-DEV-NNN.md</code>. Il task è "completo" quando il file analisi esiste in repo.</td></tr>
+    <tr><td>start-maestro.sh / stop-maestro.sh</td><td>Avviano/fermano anche <code>dev_request_poller.mjs</code>. Log in <code>logs/dev-poller.log</code>.</td></tr>
+    <tr><td>firestore.rules</td><td>Aggiunta regola per <code>nexo_dev_requests_queue</code> (read pubblica, write Admin only).</td></tr>
+  </table>
+
+  <h2>Pattern dev riconosciuti (handlers/nexus.js)</h2>
+  <pre>aggiungi · modifica · cambia · rimuovi · implementa · fix · risolvi · sistema · aggiorna
+feature · bug · errore · bottone · pagina · card · widget · menu · layout · design · stile
+vorrei · puoi fare · puoi aggiungere · serve che · mi serve · fammi · crea
+non funziona · non va · non parte · non carica</pre>
+
+  <h2>Test end-to-end (quando MAESTRO è riavviato)</h2>
+  <ol>
+    <li>./stop-maestro.sh && ./start-maestro.sh</li>
+    <li>Apri <code>https://nexo-hub-15f2d.web.app</code> e in NEXUS Chat scrivi: <b>"il report mensile non parsa i mesi in italiano, vorrei che li mostri"</b></li>
+    <li>Risposta NEXUS: "Ho registrato la richiesta <b>DEV-001</b>: «...». Claude Code la sta analizzando, ti aggiorno quando l'analisi è pronta."</li>
+    <li>Entro 30s: il file <code>tasks/dev-request-DEV-001.md</code> appare su GitHub.</li>
+    <li>MAESTRO lo intercetta, manda a Claude Code con prompt <b>analisi (no implementazione)</b>.</li>
+    <li>Claude Code scrive <code>tasks/dev-analysis-DEV-001.md</code> e pusha.</li>
+    <li>Claude Chat (sessione successiva) fa <code>git pull && ls tasks/dev-*</code> e discute con Alberto.</li>
+  </ol>
+
+  <h2>Endpoint correlati</h2>
+  <pre>GET  https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus   (stato MAESTRO live)
+POST https://nexusrouter-pfvwdew6fq-ew.a.run.app                         (chat NEXUS)</pre>
+</body>
+</html>

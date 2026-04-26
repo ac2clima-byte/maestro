@@ -159,27 +159,70 @@ async function waitForCompletion() {
 }
 
 // === TASK PROCESSING ===
-// I task con prefisso "dev-request-" sono segnalazioni Claude Chat in arrivo
-// da NEXUS: NON vanno eseguite come task normali (MAESTRO le SKIPPA).
-// Sono lette da Claude Chat all'inizio delle sessioni per revisione con Alberto.
+// Due tipi di task in tasks/:
+//   1. dev-request-*.md → richieste NEXUS da analizzare (NON eseguire).
+//      MAESTRO le manda a Claude Code con prompt di SOLA ANALISI:
+//      Claude Code scrive l'analisi in tasks/dev-analysis-{id}.md e la pusha.
+//      Il "result" finale è il file dev-analysis, non un result-*.md normale.
+//   2. tutti gli altri .md → task di esecuzione standard.
+//      Claude Code esegue, MAESTRO scrive results/{taskId}.md.
 function getPendingTasks() {
   if (!existsSync(TASKS_DIR)) return [];
-  return readdirSync(TASKS_DIR)
-    .filter(f => f.endsWith('.md'))
-    .filter(f => !f.startsWith('dev-request-'))
-    .map(f => f.replace('.md', ''))
-    .filter(id => !existsSync(join(RESULTS_DIR, `${id}.md`)));
+  const files = readdirSync(TASKS_DIR).filter(f => f.endsWith('.md'));
+
+  const pending = [];
+  for (const f of files) {
+    const id = f.replace('.md', '');
+    if (id.startsWith('dev-analysis-')) continue; // output di Claude Code, non task
+    if (id.startsWith('dev-request-')) {
+      // Richiesta analizzata? Se esiste tasks/dev-analysis-<DEV-ID>.md → fatta.
+      const devId = id.replace(/^dev-request-/, '');
+      const analysisPath = join(TASKS_DIR, `dev-analysis-${devId}.md`);
+      if (existsSync(analysisPath)) continue;
+      pending.push({ id, kind: 'dev-request', devId });
+      continue;
+    }
+    if (existsSync(join(RESULTS_DIR, `${id}.md`))) continue;
+    pending.push({ id, kind: 'task' });
+  }
+  return pending;
 }
 
-async function processTask(taskId) {
+function buildDevRequestPrompt(taskId, devId, originalContent) {
+  return [
+    `Hai ricevuto una dev request da NEXUS (utente Alberto). NON IMPLEMENTARE.`,
+    `Devi solo analizzare e proporre.`,
+    ``,
+    `Step:`,
+    `1. Leggi il file: tasks/${taskId}.md`,
+    `2. Studia il codice coinvolto (handlers/, projects/nexo-pwa/, scripts/, ecc.).`,
+    `3. Scrivi la tua analisi in: tasks/dev-analysis-${devId}.md`,
+    `   Struttura:`,
+    `   - Diagnosi: cosa succede oggi e perché`,
+    `   - File coinvolti: percorsi e righe specifiche`,
+    `   - Proposta: cosa cambiare, in che ordine, perché`,
+    `   - Rischi e alternative`,
+    `   - Effort stimato (S/M/L)`,
+    `4. Committa e pusha su main: git add tasks/dev-analysis-${devId}.md && git commit -m "analysis: ${devId}" && git push origin main`,
+    ``,
+    `IMPORTANTE: NON modificare codice di produzione, solo scrivere il file di analisi.`,
+    `Quando hai finito, torna al prompt.`,
+    ``,
+    `--- contenuto richiesta ---`,
+    originalContent,
+  ].join('\n');
+}
+
+async function processTask(task) {
+  const { id: taskId, kind, devId } = task;
   const taskFile = join(TASKS_DIR, `${taskId}.md`);
-  const content = readFileSync(taskFile, 'utf-8');
+  const originalContent = readFileSync(taskFile, 'utf-8');
 
   console.log(`\n${'='.repeat(60)}`);
-  console.log(`[TASK] ${taskId}`);
+  console.log(`[${kind === 'dev-request' ? 'DEV-REQ' : 'TASK'}] ${taskId}`);
   console.log('='.repeat(60));
 
-  await updateStatus('found_task', { task: taskId, msg: 'task trovato' });
+  await updateStatus('found_task', { task: taskId, msg: kind === 'dev-request' ? 'dev request trovata' : 'task trovato' });
 
   const ready = await waitForPrompt();
   if (!ready) {
@@ -187,12 +230,28 @@ async function processTask(taskId) {
     return;
   }
 
+  const promptText = kind === 'dev-request'
+    ? buildDevRequestPrompt(taskId, devId, originalContent)
+    : originalContent;
+
   console.log(`[INVIO] Mando a Claude Code via tmux...`);
   await updateStatus('sending_to_code', { task: taskId, msg: 'invio a Claude Code' });
-  sendToTmux(content);
+  sendToTmux(promptText);
 
   await updateStatus('waiting_result', { task: taskId, msg: 'Claude Code sta lavorando' });
   const completed = await waitForCompletion();
+
+  if (kind === 'dev-request') {
+    // L'output è tasks/dev-analysis-{devId}.md, scritto e pushato da Claude Code.
+    // MAESTRO non scrive un result-*.md (così il task non sparisce dalla coda
+    // finché l'analisi non è pushata davvero). Tenta un pull per vederla.
+    await updateStatus('pushing_result', { task: taskId, msg: 'pull analisi da Claude Code' });
+    try { git('pull --rebase origin main'); } catch {}
+    const analysisPath = join(TASKS_DIR, `dev-analysis-${devId}.md`);
+    const ok = existsSync(analysisPath);
+    console.log(`[DONE] Dev request ${taskId} → analisi ${ok ? 'presente' : 'NON trovata'} (completed=${completed})`);
+    return;
+  }
 
   const resultContent = [
     `# Risultato: ${taskId}`,
@@ -229,8 +288,8 @@ async function main() {
     const pending = getPendingTasks();
     if (pending.length > 0) {
       console.log(`[FOUND] ${pending.length} task in attesa`);
-      for (const taskId of pending) {
-        await processTask(taskId);
+      for (const task of pending) {
+        await processTask(task);
       }
     } else {
       await updateStatus('idle', { msg: 'nessun task in coda' });

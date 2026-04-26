@@ -318,6 +318,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // nexo_dev_requests_queue: coda letta dal poller locale dev_request_poller.mjs
+    // (gira in WSL accanto a MAESTRO). Scritta dalla Cloud Function nexusRouter
+    // via Admin SDK. Read pubblica per debug, write riservata al backend.
+    match /nexo_dev_requests_queue/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // nexo_code_status: stato in tempo reale di MAESTRO + Claude Code,
     // letto da Claude Chat per sapere cosa sta succedendo in remoto.
     // Read pubblico (no auth) e write pubblica perché MAESTRO gira in WSL
