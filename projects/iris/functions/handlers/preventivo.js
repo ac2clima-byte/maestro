@@ -1943,3 +1943,314 @@ SOLO JSON valido, niente testo extra.`;
 
   return null; // non è una conferma preventivo, lascia passare
 }
+
+// ─── handlePreventiviEmessi ────────────────────────────────────
+// Lista i preventivi emessi (collection docfin_documents, type=PRV) sul
+// progetto garbymobile-f89ac, con filtro opzionale per data (oggi / questa
+// settimana / [mese] / [anno] / DD/MM[/YYYY]) e per cliente.
+//
+// Trigger NEXUS:
+//   "abbiamo preventivi oggi su DOC?"
+//   "lista preventivi"
+//   "preventivi di aprile"
+//   "preventivo De Amicis"
+//   "preventivi emessi"
+//
+// Schema docfin_documents (campi rilevanti): type, year, dateIssued (string
+// "YYYY-MM-DD"), number (int oppure stringa "PRE-001/2026"), clientName,
+// condominioName, totals.totale, status, sourceApp, pdfUrl.
+
+const DOC_PUBLIC_BASE = "https://acg-doc.web.app";
+
+const MESI_ITA = {
+  gennaio: 1, febbraio: 2, marzo: 3, aprile: 4, maggio: 5, giugno: 6,
+  luglio: 7, agosto: 8, settembre: 9, ottobre: 10, novembre: 11, dicembre: 12,
+};
+
+function _padDate(y, m, d) {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+function _addDaysIso(iso, days) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return _padDate(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+}
+function _startOfWeekIso(iso) {
+  // settimana inizia lunedì
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = dt.getUTCDay(); // 0=domenica, 1=lunedì, ...
+  const offset = (dow + 6) % 7; // lunedì → 0
+  dt.setUTCDate(dt.getUTCDate() - offset);
+  return _padDate(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+}
+
+// Parse del range data dal messaggio. Ritorna { from, to, label, year? } in
+// formato YYYY-MM-DD inclusive su entrambi gli estremi (from <= dateIssued <= to),
+// oppure null se non c'è filtro temporale.
+export function parseRangeDataPreventivi(text) {
+  const m = String(text || "").toLowerCase().trim();
+  if (!m) return null;
+  const today = new Date();
+  const oggiIso = _padDate(today.getFullYear(), today.getMonth() + 1, today.getDate());
+
+  if (/\boggi\b|\bodierni\b|\bodierno\b|\bodierna\b/.test(m)) {
+    return { from: oggiIso, to: oggiIso, label: "oggi", year: today.getFullYear() };
+  }
+  if (/\bieri\b/.test(m)) {
+    const ieri = _addDaysIso(oggiIso, -1);
+    return { from: ieri, to: ieri, label: "ieri", year: Number(ieri.slice(0, 4)) };
+  }
+  if (/\bquesta\s+settimana\b|\bsettimana\s+corrent/.test(m)) {
+    const lun = _startOfWeekIso(oggiIso);
+    const dom = _addDaysIso(lun, 6);
+    return { from: lun, to: dom, label: "questa settimana", year: today.getFullYear() };
+  }
+  if (/\bsettimana\s+scors|\bla\s+scorsa\s+settimana/.test(m)) {
+    const lunQ = _startOfWeekIso(oggiIso);
+    const lunS = _addDaysIso(lunQ, -7);
+    const domS = _addDaysIso(lunS, 6);
+    return { from: lunS, to: domS, label: "settimana scorsa", year: Number(lunS.slice(0, 4)) };
+  }
+  // Mese italiano (eventualmente "[mese] [anno]"): "aprile", "marzo 2025"
+  const meseM = m.match(/\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+(\d{4}))?\b/);
+  if (meseM) {
+    const meseN = MESI_ITA[meseM[1]];
+    const anno = meseM[2] ? Number(meseM[2]) : today.getFullYear();
+    const from = _padDate(anno, meseN, 1);
+    const lastDay = new Date(anno, meseN, 0).getDate();
+    const to = _padDate(anno, meseN, lastDay);
+    return { from, to, label: `${meseM[1]}${meseM[2] ? " " + meseM[2] : ""}`, year: anno };
+  }
+  // "questo mese" / "del mese"
+  if (/\bquesto\s+mese\b|\bmese\s+corrent/.test(m)) {
+    const y = today.getFullYear(), mo = today.getMonth() + 1;
+    const lastDay = new Date(y, mo, 0).getDate();
+    return { from: _padDate(y, mo, 1), to: _padDate(y, mo, lastDay), label: "questo mese", year: y };
+  }
+  // "mese scorso"
+  if (/\bmese\s+scors|\bscorso\s+mese\b/.test(m)) {
+    const y = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
+    const mo = today.getMonth() === 0 ? 12 : today.getMonth();
+    const lastDay = new Date(y, mo, 0).getDate();
+    return { from: _padDate(y, mo, 1), to: _padDate(y, mo, lastDay), label: "mese scorso", year: y };
+  }
+  // "questo anno" / "quest'anno" / "del 2025"
+  if (/\bquest['']?\s*anno\b|\banno\s+corrent|\bdi\s+quest['']?\s*anno\b/.test(m)) {
+    const y = today.getFullYear();
+    return { from: `${y}-01-01`, to: `${y}-12-31`, label: `quest'anno`, year: y };
+  }
+  const annoM = m.match(/\bdel\s+(20\d{2})\b|\bnel\s+(20\d{2})\b|\b(20\d{2})\b/);
+  if (annoM) {
+    const y = Number(annoM[1] || annoM[2] || annoM[3]);
+    return { from: `${y}-01-01`, to: `${y}-12-31`, label: String(y), year: y };
+  }
+  // Data assoluta DD/MM[/YYYY]
+  const dataM = m.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+  if (dataM) {
+    const dd = Number(dataM[1]), mm = Number(dataM[2]);
+    let yy = dataM[3] ? Number(dataM[3]) : today.getFullYear();
+    if (yy < 100) yy += 2000;
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+      const iso = _padDate(yy, mm, dd);
+      return { from: iso, to: iso, label: `${dd}/${String(mm).padStart(2,"0")}/${yy}`, year: yy };
+    }
+  }
+  return null;
+}
+
+// Estrae il filtro cliente dal messaggio. Cerca "preventivo (per|di|a) X"
+// oppure "preventivi (di|per|a) X". Ritorna stringa lowercase, o null.
+export function parseClienteFiltro(text) {
+  const raw = String(text || "").toLowerCase();
+
+  // Preferisci pattern esplicito "per X" / "di X" che spesso compare DOPO "su doc"
+  // ("preventivi su doc per De Amicis"). Match flessibile.
+  let cand = null;
+  const rPer = raw.match(/\b(?:per|di|a)\s+([a-zà-ÿ][\w\sà-ÿ&']{1,40}?)\s*(?:\?|!|\.|$)/);
+  if (rPer && rPer[1] && /\bpreventiv/.test(raw)) {
+    cand = rPer[1].trim();
+  }
+  // Fallback: "preventivo De Amicis" senza preposizione
+  if (!cand) {
+    const r1 = raw.match(/\bpreventiv[oi]\b\s+(?:per\s+|di\s+|a\s+)?([a-zà-ÿ][\w\sà-ÿ&']{1,40}?)\s*(?:\?|!|\.|$)/);
+    if (r1 && r1[1]) cand = r1[1].trim();
+  }
+  if (!cand) return null;
+
+  // 1) Se la frase contiene un range temporale, NON cercare cliente: range vince.
+  if (parseRangeDataPreventivi(raw)) return null;
+
+  // 2) Sequenza di parole-stop note (qualifier temporali, posizione, prepositions)
+  const STOP_PREFIX_RE = /^(?:oggi|ieri|emess(?:i|o|a)?|fatt(?:i|e|o)?|registr|approva[t]?[oi]?|questo|questa|quest[''`]?|del|dal|dalla|nel|nella|in|su|a|al|alla|allo|aprile|marzo|febbraio|gennaio|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|settimana|mese|anno|scors|corrent|nuovi|recent|tutt[ie]|datat|datati|datato|datata)\b/;
+  if (STOP_PREFIX_RE.test(cand)) return null;
+
+  // 3) Solo numeri o troppo corto
+  if (/^\d+$/.test(cand)) return null;
+  if (cand.length < 2) return null;
+
+  // 4) Se contiene "su doc" o "in doc" alla fine, taglialo
+  cand = cand.replace(/\s+(?:su|in)\s+doc\s*$/i, "").trim();
+  if (!cand) return null;
+
+  return cand;
+}
+
+function _formatNumeroPreventivo(rawNumber, year) {
+  const s = String(rawNumber || "").trim();
+  if (!s) return year ? `PRE-?/${year}` : "PRE-?";
+  // Già formattato (es. "PRE-006/2026" o "PRE-PRE-001/2026")
+  if (/PRE-/i.test(s)) {
+    // Pulisce eventuali doppi prefissi "PRE-PRE-"
+    return s.replace(/^PRE-PRE-/i, "PRE-").replace(/\/\d{4}\/\d{4}$/, m => m.split("/")[1] ? "/" + m.split("/")[1] : m);
+  }
+  // È un numero puro
+  const n = Number(s);
+  if (Number.isFinite(n)) {
+    return year ? `PRE-${String(n).padStart(3, "0")}/${year}` : `PRE-${String(n).padStart(3, "0")}`;
+  }
+  return s;
+}
+
+function _formatImporto(n) {
+  const v = Number(n || 0);
+  if (!Number.isFinite(v) || v === 0) return "—";
+  const fmt = v.toLocaleString("it-IT", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  return `${fmt} euro`;
+}
+
+function _shortClientName(s) {
+  return String(s || "")
+    .replace(/^\d+\s*-\s*/, "") // rimuove prefissi numerici "180 - GUAZZOTTI"
+    .replace(/\s+S\.?r\.?l\.?(\s+Soc\.?\s*Ben\.?)?$/i, "")
+    .replace(/\s+S\.?p\.?A\.?$/i, "")
+    .replace(/\s+S\.?n\.?c\.?$/i, "")
+    .trim();
+}
+
+export async function handlePreventiviEmessi(parametri = {}, ctx = {}) {
+  const userMessage = String((ctx && ctx.userMessage) || "");
+  const range = parseRangeDataPreventivi(userMessage);
+  let cliente = String(parametri.cliente || parametri.intestatario || "").toLowerCase().trim() || null;
+  if (!cliente) cliente = parseClienteFiltro(userMessage);
+  const limit = Math.min(Number(parametri.limit) || 10, 30);
+
+  const cosm = getCosminaDb();
+
+  // Strategia query: se c'è range con anno, filtra type+year (no compound
+  // index richiesto, già verificato). Altrimenti type=PRV con limit alto.
+  let q = cosm.collection("docfin_documents").where("type", "==", "PRV");
+  if (range && range.year) {
+    try {
+      q = q.where("year", "==", range.year);
+    } catch {}
+  }
+  q = q.limit(500);
+
+  let snap;
+  try {
+    snap = await q.get();
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (/permission|denied|UNAUTHENTICATED|403/i.test(msg)) {
+      return {
+        content:
+          `Non riesco a leggere DOC: il Service Account NEXO non ha i permessi ` +
+          `cross-progetto su garbymobile-f89ac. Verifica il binding datastore.user.`,
+      };
+    }
+    logger.warn("handlePreventiviEmessi query failed", { error: msg.slice(0, 200) });
+    return { content: `Non riesco a leggere i preventivi su DOC: ${msg.slice(0, 120)}.` };
+  }
+
+  // Filtra in memoria per range + cliente
+  const items = [];
+  snap.forEach(d => {
+    const x = d.data() || {};
+    const di = String(x.dateIssued || "");
+    if (range && (di < range.from || di > range.to)) return;
+    if (cliente) {
+      const hay = `${x.clientName || ""} ${x.condominioName || ""}`.toLowerCase();
+      if (!hay.includes(cliente)) return;
+    }
+    items.push({
+      id: d.id,
+      number: _formatNumeroPreventivo(x.number, x.year),
+      dateIssued: di,
+      year: x.year,
+      clientName: _shortClientName(x.clientName || ""),
+      condominioName: x.condominioName || null,
+      totale: (x.totals || {}).totale || 0,
+      status: x.status || "emesso",
+      sourceApp: x.sourceApp || null,
+      pdfUrl: x.pdfUrl || null,
+    });
+  });
+
+  items.sort((a, b) => String(b.dateIssued).localeCompare(String(a.dateIssued)));
+  const top = items.slice(0, limit);
+
+  // Etichette discorsive con preposizione naturale
+  let dataLabel = null;
+  if (range) {
+    const lbl = range.label;
+    // Mesi → "ad aprile" / "a marzo"; anni → "nel 2025"; "questa settimana" già ok
+    if (/^(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(\s+\d{4})?$/.test(lbl)) {
+      const prep = /^[ao]/i.test(lbl) ? "ad" : "a";
+      dataLabel = `${prep} ${lbl}`;
+    } else if (/^\d{4}$/.test(lbl)) {
+      dataLabel = `nel ${lbl}`;
+    } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(lbl)) {
+      dataLabel = `del ${lbl}`;
+    } else {
+      dataLabel = lbl; // "oggi" / "ieri" / "questa settimana" / "questo mese" / "quest'anno"
+    }
+  }
+  const clienteLabel = cliente ? cliente : null;
+
+  if (top.length === 0) {
+    if (dataLabel && clienteLabel) {
+      return { content: `Su DOC ${dataLabel} non risultano preventivi per ${clienteLabel}.`, data: { count: 0, range, cliente } };
+    }
+    if (dataLabel) {
+      return { content: `Su DOC ${dataLabel} non risultano preventivi emessi.`, data: { count: 0, range } };
+    }
+    if (clienteLabel) {
+      return { content: `Su DOC non trovo preventivi per ${clienteLabel}.`, data: { count: 0, cliente } };
+    }
+    return { content: `Su DOC non risultano preventivi emessi.`, data: { count: 0 } };
+  }
+
+  // Una sola riga: frase singola
+  if (top.length === 1) {
+    const p = top[0];
+    const link = p.pdfUrl || `${DOC_PUBLIC_BASE}/?openDoc=${p.id}`;
+    const dest = p.condominioName ? `${p.clientName} per ${p.condominioName}` : p.clientName;
+    const quando = p.dateIssued ? ` del ${p.dateIssued.split("-").reverse().join("/")}` : "";
+    return {
+      content: `Su DOC c'è un preventivo${dataLabel ? " " + dataLabel : ""}${clienteLabel ? " per " + clienteLabel : ""}: ${p.number}${quando} a ${dest}, ${_formatImporto(p.totale)}. Lo trovi qui: ${link}`,
+      data: { count: 1, range, cliente, items: top },
+    };
+  }
+
+  // Più righe: introduzione + elenco compatto in prosa con righe per leggibilità
+  const intro = dataLabel
+    ? `Su DOC ${dataLabel} ci sono ${top.length} preventivi${clienteLabel ? " per " + clienteLabel : ""}.`
+    : (clienteLabel
+        ? `Su DOC ho trovato ${top.length} preventivi per ${clienteLabel}.`
+        : `Su DOC gli ultimi ${top.length} preventivi emessi.`);
+
+  const righe = top.map(p => {
+    const link = p.pdfUrl || `${DOC_PUBLIC_BASE}/?openDoc=${p.id}`;
+    const data = p.dateIssued ? p.dateIssued.split("-").reverse().join("/") : "—";
+    const dest = p.condominioName ? `${p.clientName} per ${p.condominioName}` : p.clientName;
+    return `${p.number} del ${data}, ${dest}, ${_formatImporto(p.totale)}. Link: ${link}`;
+  });
+
+  const more = items.length > top.length ? `\n\nE altri ${items.length - top.length} più indietro.` : "";
+  return {
+    content: `${intro}\n\n${righe.join("\n")}${more}`,
+    data: { count: top.length, totalMatched: items.length, range, cliente, items: top },
+  };
+}

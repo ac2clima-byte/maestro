@@ -13,7 +13,7 @@ import {
   handleStatoLavagna, handleIrisAnalizzaEmail,
 } from "./iris.js";
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
-import { handleBozzePendenti, handleApriBozza } from "./preventivo.js";
+import { handleBozzePendenti, handleApriBozza, handlePreventiviEmessi } from "./preventivo.js";
 import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
@@ -155,8 +155,17 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
       = PHARO. Esempi: "RTI pronti per fattura" → rti_pronti_fattura,
       "bozze CRTI di [tecnico]" / "bozze CRTI vecchie di [tecnico]" →
       bozze_crti_per_tecnico (parametri.tecnico = nome). NON memo, NON charta.
-- calliope   → content:
-    azioni: bozza_risposta (parametri: {emailId, tono}), sollecito_pagamento
+- calliope   → content + preventivi emessi:
+    azioni: bozza_risposta (parametri: {emailId, tono}), sollecito_pagamento,
+            bozze_pendenti (preventivi NON ancora approvati in calliope_bozze),
+            preventivi_emessi (preventivi GIA' emessi su DOC, parametri opzionali:
+              {data, cliente}). Trigger: "abbiamo preventivi oggi su DOC?",
+              "lista preventivi", "preventivi di aprile", "preventivi di
+              quest'anno", "preventivo De Amicis", "preventivi emessi",
+              "preventivo per Rossi", "fatti questa settimana".
+              IMPORTANTE: distinzione netta:
+                - bozze_pendenti = pre-approvazione (calliope_bozze, status=da_approvare)
+                - preventivi_emessi = post-approvazione, finiti su DOC (docfin_documents, type=PRV)
 - orchestrator → workflow multi-step (attiva con azione "preparare_preventivo",
     parametri: {condominio, committente, piva, oggetto, destinatario}).
     Trigger: "prepara preventivo per X", "fai un'offerta a Y per Z",
@@ -287,6 +296,25 @@ export const DIRECT_HANDLERS = [
     return (col === "echo" && /(wa.*analizz.*ultim|analizz.*ultim.*wa|ultimo.*whats)/.test(az))
       || /analizz(?:a|mi)?\s+(?:l[''])?ultim[oa]\s+(wa|whatsapp|messaggio.*wa)/.test(m);
   }, fn: handleWaInboxAnalyzeLast },
+  // Preventivi EMESSI su DOC (docfin_documents, type=PRV).
+  // Va prima di handleBozzePendenti perché "preventivi su doc / emessi / oggi /
+  // questa settimana / di aprile / per Rossi" sono tutti casi "post-approvazione".
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase().trim();
+    // Esclude esplicitamente le bozze (handler successivo)
+    if (/preventivi\s+(in\s+)?(attesa|sospeso|pendent)/i.test(m)) return false;
+    if (/bozz\w*\s+da\s+approv/i.test(m)) return false;
+    if (col === "calliope" && /preventiv.*emess|preventivi_emessi|preventivi.*doc|preventivi.*oggi|preventivi.*settiman|preventivi.*mese|preventivi.*aprile|preventivi.*marzo/.test(az)) return true;
+    // Pattern user-message: "preventivo/preventivi" + qualifier temporale o "su doc" o "emess"
+    if (/\bpreventiv[oi]\b.*\b(emess|fatt|fatti|registr|su\s+doc|in\s+doc|approva[t]?[oi]?)\b/i.test(m)) return true;
+    if (/\bpreventiv[oi]\b.*\b(oggi|ieri|questa\s+settimana|settimana\s+scors|questo\s+mese|mese\s+scors|quest['']?\s*anno|aprile|marzo|febbraio|gennaio|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre|20\d{2})\b/i.test(m)) return true;
+    if (/\bdoc\b.*\bpreventiv/i.test(m)) return true;
+    if (/^\s*(?:lista|elenco|ultimi|recenti)\s+preventiv/i.test(m)) return true;
+    if (/\babbiamo\s+(?:un\s+)?preventiv|\bc'?è\s+(?:un\s+)?preventiv|\bci\s+sono\s+preventiv/i.test(m)) return true;
+    // "preventivo per X" / "preventivo di X" / "preventivi per X" — search per cliente
+    if (/\bpreventiv[oi]\b\s+(?:per|di|a)\s+[a-zà-ÿ]/i.test(m)) return true;
+    return false;
+  }, fn: handlePreventiviEmessi },
   // Bozze preventivo pendenti (match robusto su messaggio utente)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase().trim();
