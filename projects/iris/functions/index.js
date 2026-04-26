@@ -161,6 +161,44 @@ export const suggestReply = onRequest(
   }
 );
 
+// ─── codeStatus (stato Claude Code in tempo reale) ─────────────
+// Endpoint pubblico (no auth) — letto da Claude Chat per sapere
+// cosa sta facendo MAESTRO + Claude Code in remoto.
+// MAESTRO scrive su nexo_code_status/current ad ogni fase del ciclo.
+
+export const codeStatus = onRequest(
+  { region: REGION, cors: true, timeoutSeconds: 10, memory: "128MiB", maxInstances: 5 },
+  async (req, res) => {
+    applyCorsOpen(req, res);
+    if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+    if (req.method !== "GET") { res.status(405).json({ error: "method_not_allowed" }); return; }
+
+    try {
+      const snap = await db.collection("nexo_code_status").doc("current").get();
+      if (!snap.exists) {
+        res.status(200).json({ fase: "unknown", msg: "nessuno stato disponibile" });
+        return;
+      }
+      const data = snap.data() || {};
+      // Serializza il timestamp Firestore in ISO string per il client.
+      let timestampIso = null;
+      if (data.timestamp && typeof data.timestamp.toDate === "function") {
+        try { timestampIso = data.timestamp.toDate().toISOString(); } catch {}
+      }
+      res.status(200).json({
+        fase: data.fase || "unknown",
+        task: data.task || null,
+        dettagli: data.dettagli || null,
+        uptime: data.uptime || null,
+        timestamp: timestampIso,
+      });
+    } catch (e) {
+      logger.error("codeStatus read failed", { error: String(e) });
+      res.status(500).json({ error: "firestore_read_failed", detail: String(e).slice(0, 200) });
+    }
+  }
+);
+
 // ─── nexusRouter (intent parsing + dispatch) ───────────────────
 
 export const nexusRouter = onRequest(

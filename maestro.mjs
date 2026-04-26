@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import admin from 'firebase-admin';
 
 // === CONFIG ===
 const POLL_INTERVAL = 15_000;
@@ -10,16 +11,46 @@ const RESULTS_DIR = join(REPO_DIR, 'results');
 const TMUX_SESSION = 'claude-code';
 const PROMPT_TIMEOUT = 600_000;
 const RESULT_TIMEOUT = 600_000;
+const FIREBASE_PROJECT = 'nexo-hub-15f2d';
+const STATUS_COLLECTION = 'nexo_code_status';
+const STATUS_DOC = 'current';
 
 // === ENSURE DIRS ===
 [TASKS_DIR, RESULTS_DIR].forEach(d => { if (!existsSync(d)) mkdirSync(d, { recursive: true }); });
+
+// === FIRESTORE STATUS ===
+let _db = null;
+function getDb() {
+  if (_db) return _db;
+  if (!admin.apps.length) {
+    admin.initializeApp({ projectId: FIREBASE_PROJECT });
+  }
+  _db = admin.firestore();
+  return _db;
+}
+
+async function updateStatus(fase, dettagli = {}) {
+  try {
+    const db = getDb();
+    await db.collection(STATUS_COLLECTION).doc(STATUS_DOC).set({
+      fase,
+      task: dettagli.task || null,
+      dettagli: dettagli.msg || null,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      uptime: process.uptime(),
+    }, { merge: true });
+  } catch (e) {
+    console.error(`[STATUS ERROR] ${e.message}`);
+  }
+}
 
 // === GIT HELPERS ===
 function git(cmd) {
   return execSync(`git ${cmd}`, { cwd: REPO_DIR, encoding: 'utf-8', timeout: 30_000 }).trim();
 }
 
-function pull() {
+async function pull() {
+  await updateStatus('polling', { msg: 'git pull in corso' });
   try {
     const out = git('pull --rebase origin main');
     if (out.includes('Already up to date')) return false;
@@ -148,6 +179,8 @@ async function processTask(taskId) {
   console.log(`[TASK] ${taskId}`);
   console.log('='.repeat(60));
 
+  await updateStatus('found_task', { task: taskId, msg: 'task trovato' });
+
   const ready = await waitForPrompt();
   if (!ready) {
     console.log(`[SKIP] Claude Code non è al prompt, riprovo al prossimo ciclo`);
@@ -155,8 +188,10 @@ async function processTask(taskId) {
   }
 
   console.log(`[INVIO] Mando a Claude Code via tmux...`);
+  await updateStatus('sending_to_code', { task: taskId, msg: 'invio a Claude Code' });
   sendToTmux(content);
 
+  await updateStatus('waiting_result', { task: taskId, msg: 'Claude Code sta lavorando' });
   const completed = await waitForCompletion();
 
   const resultContent = [
@@ -166,6 +201,7 @@ async function processTask(taskId) {
   ].join('\n');
 
   writeFileSync(join(RESULTS_DIR, `${taskId}.md`), resultContent, 'utf-8');
+  await updateStatus('pushing_result', { task: taskId, msg: 'push risultato' });
   pushFile(`result: ${taskId}`);
   console.log(`[DONE] Task ${taskId} ${completed ? 'completato' : 'timeout'}`);
 }
@@ -188,16 +224,18 @@ async function main() {
   console.log(`Poll: ogni ${POLL_INTERVAL/1000}s\n`);
 
   while (true) {
-    pull();
-    
+    await pull();
+
     const pending = getPendingTasks();
     if (pending.length > 0) {
       console.log(`[FOUND] ${pending.length} task in attesa`);
       for (const taskId of pending) {
         await processTask(taskId);
       }
+    } else {
+      await updateStatus('idle', { msg: 'nessun task in coda' });
     }
-    
+
     await new Promise(r => setTimeout(r, POLL_INTERVAL));
   }
 }

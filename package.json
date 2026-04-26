@@ -1,0 +1,14 @@
+{
+  "name": "maestro-bridge",
+  "version": "0.1.0",
+  "description": "MAESTRO — ponte Claude Chat ↔ Claude Code via tmux + GitHub",
+  "private": true,
+  "type": "module",
+  "main": "maestro.mjs",
+  "scripts": {
+    "start": "node maestro.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.8.0"
+  }
+}
