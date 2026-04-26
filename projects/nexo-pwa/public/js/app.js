@@ -1790,6 +1790,30 @@ async function nexusBugSubmit() {
   }
 }
 
+// Helper per attaccare un handler tap-friendly che funziona su mobile
+// (touchend + click) senza doppi-fire. iOS Safari a volte ingoia il click
+// successivo a uno scroll → con anche touchend abbiamo doppia copertura.
+// Il flag _nexusTouchFired evita di processare due volte lo stesso tap.
+function _attachTapHandler(el, handler) {
+  let touched = false;
+  let touchTimer = null;
+  el.addEventListener("touchend", (ev) => {
+    if (touched) return;
+    touched = true;
+    if (touchTimer) clearTimeout(touchTimer);
+    touchTimer = setTimeout(() => { touched = false; }, 600);
+    ev.preventDefault();
+    ev.stopPropagation();
+    handler(ev);
+  }, { passive: false });
+  el.addEventListener("click", (ev) => {
+    if (touched) { ev.preventDefault(); return; } // già gestito da touchend
+    ev.preventDefault();
+    ev.stopPropagation();
+    handler(ev);
+  });
+}
+
 function nexusBugWire() {
   const btn    = document.getElementById("nexusBugBtn");
   const modal  = document.getElementById("nexusBugModal");
@@ -1802,22 +1826,36 @@ function nexusBugWire() {
   if (btn._nexusBugWired) return;
   btn._nexusBugWired = true;
 
-  btn.addEventListener("click", (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    console.log("[nexus-bug] click su bottone bug — apro modal");
+  _attachTapHandler(btn, (ev) => {
+    console.log("[nexus-bug] tap/click su bottone bug — apro modal", { type: ev?.type, ts: Date.now() });
     if (_nexusBugBusy) {
-      console.log("[nexus-bug] cooldown attivo, ignoro click");
+      console.log("[nexus-bug] cooldown attivo, ignoro tap");
       return;
     }
     nexusBugOpen();
   });
-  cancel?.addEventListener("click", () => nexusBugClose());
+
+  if (cancel) _attachTapHandler(cancel, () => nexusBugClose());
   modal.addEventListener("click", (ev) => { if (ev.target === modal) nexusBugClose(); });
   document.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape" && modal.getAttribute("aria-hidden") === "false") nexusBugClose();
   });
-  submit.addEventListener("click", () => { nexusBugSubmit(); });
+  _attachTapHandler(submit, () => {
+    console.log("[nexus-bug] tap/click su submit");
+    nexusBugSubmit().catch(e => {
+      console.error("[nexus-bug] submit error:", e && (e.message || e));
+      const errEl = document.getElementById("nexusBugError");
+      if (errEl) errEl.textContent = "Errore: " + (e && e.message || e);
+    });
+  });
+
+  // Diagnostic: log unhandled rejections solo se collegate al flusso bug
+  window.addEventListener("unhandledrejection", (ev) => {
+    const reason = String(ev?.reason?.message || ev?.reason || "");
+    if (/firestore|nexus.*bug|permission/i.test(reason)) {
+      console.error("[nexus-bug] unhandled rejection:", reason.slice(0, 250));
+    }
+  });
 }
 
 // Wiring globale al load del DOM, indipendente da init() / auth.

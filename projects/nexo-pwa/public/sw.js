@@ -8,7 +8,7 @@
 // NON gestisce FCM background (quello resta in firebase-messaging-sw.js,
 // che è registrato separatamente con scope diverso quando FCM sarà attivo).
 
-const CACHE_NAME = "nexo-shell-v3";
+const CACHE_NAME = "nexo-shell-v4";
 const SHARE_CACHE_NAME = "nexo-share-v1";
 const PRECACHE = ["/", "/index.html", "/manifest.json"];
 
@@ -52,11 +52,33 @@ self.addEventListener("fetch", (event) => {
       url.pathname.startsWith("/api/") ||
       url.pathname.startsWith("/nexo-shared-file/")) return;
 
-  // Cache-first con fallback network
+  // Strategia per tipo di risorsa:
+  // - HTML / JS / CSS / manifest: NETWORK-FIRST con fallback offline
+  //   (così i fix arrivano subito, niente stale code dopo deploy)
+  // - Tutto il resto (immagini, font): CACHE-FIRST con refresh in background
+  const isAppCode = /\.(html|js|css|json)$/i.test(url.pathname) ||
+                    url.pathname === "/" ||
+                    url.pathname === "/index.html";
+
+  if (isAppCode) {
+    event.respondWith(
+      fetch(event.request)
+        .then(resp => {
+          if (resp.ok && resp.status === 200) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone)).catch(() => {});
+          }
+          return resp;
+        })
+        .catch(() => caches.match(event.request).then(cached => cached || new Response("Offline", { status: 503 })))
+    );
+    return;
+  }
+
+  // Cache-first per immagini/font/altri asset (refresh in background)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) {
-        // Refresh in background
         fetch(event.request).then(resp => {
           if (resp.ok && resp.status === 200) {
             caches.open(CACHE_NAME).then(c => c.put(event.request, resp.clone())).catch(() => {});
