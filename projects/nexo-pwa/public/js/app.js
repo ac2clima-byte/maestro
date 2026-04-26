@@ -1994,6 +1994,24 @@ function nexusBubbleTime(ts) {
   } catch { return ""; }
 }
 
+// Escape HTML + autolink degli URL: trasforma "https://..." in <a href>
+// cliccabili nel pannello chat. Sicuro: l'URL stesso passa per escapeHtml
+// (no XSS) prima di essere usato come href + label.
+function escapeHtmlAndAutolink(text) {
+  if (text == null) return "";
+  // 1. Escape HTML una sola volta
+  const esc = escapeHtml(String(text));
+  // 2. Sostituisci gli URL trovati nella stringa già escapata. La regex
+  //    funziona ancora perché ":/." non vengono toccati da escapeHtml.
+  //    Pattern URL: http(s):// + qualsiasi non-spazio fino a una punteggiatura
+  //    finale comune. Esclude "<>"' che non possono comparire in un href
+  //    sicuro perché sono già stati escapati.
+  return esc.replace(
+    /(https?:\/\/[^\s<>"']+?)(?=[.,;:!?)\]]?(?:\s|$))/g,
+    (url) => `<a href="${url}" target="_blank" rel="noopener" style="color:#006eb7;word-break:break-all;text-decoration:underline;">${url}</a>`
+  );
+}
+
 function nexusRenderBubble(m, consecutive) {
   const meta = [];
   if (m.collegaCoinvolto && m.collegaCoinvolto !== "nessuno" && m.collegaCoinvolto !== "multi") {
@@ -2019,7 +2037,7 @@ function nexusRenderBubble(m, consecutive) {
   const timeHtml = m.timestamp ? `<span class="time">${escapeHtml(nexusBubbleTime(m.timestamp))}</span>` : "";
   return `
     <div class="nexus-bubble ${escapeHtml(m.role)} ${consecutive ? "consecutive" : ""} ${isSpeaking ? "is-speaking" : ""}" data-bubble-id="${escapeHtml(m.id || "")}">
-      ${escapeHtml(m.content)}${timeHtml}
+      ${escapeHtmlAndAutolink(m.content)}${timeHtml}
       ${waveIndicator}
       ${(meta.length || speakBtn) ? `<div class="nexus-bubble-meta">${meta.join("")}${speakBtn}</div>` : ""}
     </div>

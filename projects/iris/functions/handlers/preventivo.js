@@ -468,6 +468,16 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
   const indirizzoCondominio = [condominioData?.indirizzo, condominioData?.citta || condominioData?.comune]
     .filter(Boolean).join(", ") || "indirizzo non disponibile";
 
+  // IVA default: se l'intestatario ha P.IVA valida (cliente B2B) → reverse
+  // charge ex art. 17 c.6 DPR 633/72 (default ACG per aziende). Altrimenti
+  // (privati / condomini senza P.IVA) → IVA 22% ordinaria. Alberto può
+  // sempre cambiare con "iva 22%" / "iva 10%" / "split payment" ecc.
+  const pivaPulita = String(piva || "").replace(/\D/g, "");
+  const hasPiva = /^\d{11}$/.test(pivaPulita);
+  const ivaDefault = hasPiva
+    ? { aliquota: 0, regime: "reverse_charge", nota: "Operazione soggetta a reverse charge ex art. 17 c.6 DPR 633/72." }
+    : { aliquota: 22, regime: "ordinario", nota: null };
+
   let pendingId = null;
   try {
     const ref = db.collection("nexo_preventivi_pending").doc(sessionId || ("auto_" + Date.now()));
@@ -491,18 +501,26 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
       oggetto: input.oggetto || null,
       sourceEmailId: input.sourceEmailId || null,
       threadPartecipanti: context.threadPartecipanti || [],
+      // IVA default: già impostata. Le voci useranno questo regime quando
+      // tryInterceptPreventivoVoci calcolerà il totale.
+      iva_aliquota: ivaDefault.aliquota,
+      iva_regime: ivaDefault.regime,
+      iva_nota: ivaDefault.nota,
+      iva_split_payment: false,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    steps.push({ step: 3, name: "salva_pending", ok: true, ms: Date.now() - t3, data: { pendingId } });
+    steps.push({ step: 3, name: "salva_pending", ok: true, ms: Date.now() - t3, data: { pendingId, ivaDefault: ivaDefault.regime } });
   } catch (e) {
     steps.push({ step: 3, name: "salva_pending", ok: false, error: String(e).slice(0, 200) });
   }
 
+  const ivaLabel = hasPiva ? `IVA 0% (reverse charge, art. 17 c.6 DPR 633/72)` : `IVA 22% ordinaria`;
   const lines = [
     `Ho i dati per il preventivo:`,
     `Intestatario ${ragioneSociale}, P.IVA ${piva}, ${indirizzoAzienda}.`,
     `Condominio ${nomeCondominio}, ${indirizzoCondominio}.`,
+    `Regime IVA di default: ${ivaLabel}. Cambia con "iva 22%" o "iva 10%" se necessario.`,
     ``,
     `Dimmi le voci e gli importi che vuoi inserire. Esempio: "sopralluogo 200, relazione tecnica 150, verifica impianto 300".`,
   ];
@@ -562,8 +580,16 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
     };
   }
 
+  // Usa l'aliquota di default già salvata nel pending (impostata da
+  // runPreventivoWorkflow in base alla presenza di P.IVA dell'intestatario).
+  // Fallback 22% se non presente per qualche motivo.
+  const aliquotaDefault = Number.isFinite(Number(pendingData.iva_aliquota))
+    ? Number(pendingData.iva_aliquota) : 22;
+  const regimeDefault = pendingData.iva_regime || "ordinario";
+  const notaDefault = pendingData.iva_nota || null;
+
   const totaleImponibile = voci.reduce((s, v) => s + v.importo, 0);
-  const ivaImporto = Math.round(totaleImponibile * 0.22 * 100) / 100;
+  const ivaImporto = Math.round(totaleImponibile * (aliquotaDefault / 100) * 100) / 100;
   const totale = Math.round((totaleImponibile + ivaImporto) * 100) / 100;
 
   // Aggiorna stato pending → attesa_approvazione
@@ -572,6 +598,9 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
       voci,
       totale_imponibile: totaleImponibile,
       iva_importo: ivaImporto,
+      iva_aliquota: aliquotaDefault,
+      iva_regime: regimeDefault,
+      iva_nota: notaDefault,
       totale,
       istruzioni_extra: istruzioniExtra,
       stato: "attesa_approvazione",
@@ -583,12 +612,22 @@ export async function tryInterceptPreventivoVoci({ userMessage, sessionId, userI
 
   const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const elenco = voci.map((v, i) => `${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`).join("\n");
+  // Etichetta IVA coerente con il regime di default
+  let ivaLabel;
+  if (regimeDefault === "reverse_charge") ivaLabel = `IVA 0% (reverse charge)`;
+  else if (regimeDefault === "split_payment") ivaLabel = `IVA ${aliquotaDefault}% (split payment, non incassata)`;
+  else if (aliquotaDefault === 0) ivaLabel = `IVA 0% (esente)`;
+  else ivaLabel = `IVA ${aliquotaDefault}% ${fmtEur(ivaImporto)} €`;
   const blocchi = [
     `Riepilogo preventivo per ${pendingData.condominio?.nome || "—"}:`,
     elenco,
     ``,
-    `Imponibile ${fmtEur(totaleImponibile)} €, IVA 22% ${fmtEur(ivaImporto)} €, totale ${fmtEur(totale)} €.`,
+    `Imponibile ${fmtEur(totaleImponibile)} €, ${ivaLabel}, totale ${fmtEur(totale)} €.`,
   ];
+  if (notaDefault) {
+    blocchi.push("");
+    blocchi.push(`Nota fiscale: ${notaDefault}`);
+  }
   if (istruzioniExtra.length) {
     blocchi.push("");
     blocchi.push(`Istruzioni extra ricevute: ${istruzioniExtra.join("; ")}.`);
@@ -910,13 +949,61 @@ const GRAPH_API_KEY = "graph-acg-suite-2026"; // valore default GRAPH (env GRAPH
 const GRAPH_APP_ID = "GRAPH";
 const GRAPH_TEMPLATE_ID = "preventivo-doc";
 
+// Estrae componenti dell'indirizzo azienda (raw da memo_aziende sede_legale
+// se disponibile, altrimenti dalla stringa libera intestatario.indirizzo).
+function splitIndirizzoAzienda(intest) {
+  const raw = intest.raw || {};
+  const sede = raw.sede_legale || {};
+  // Caso A: sede_legale strutturata in memo_aziende
+  if (sede.indirizzo || sede.citta) {
+    return {
+      indirizzo: sede.indirizzo || "",
+      cap: sede.cap || "",
+      citta: sede.citta || "",
+      provincia: sede.provincia || "",
+    };
+  }
+  // Caso B: stringa libera "Via X 33, 20154 Milano"
+  const flat = String(intest.indirizzo || "").trim();
+  if (!flat) return { indirizzo: "", cap: "", citta: "", provincia: "" };
+  // Split su virgola: prima virgola = indirizzo, resto = cap+città
+  const parts = flat.split(",").map(p => p.trim()).filter(Boolean);
+  if (parts.length === 1) return { indirizzo: parts[0], cap: "", citta: "", provincia: "" };
+  // Cerca cap (5 cifre) nella seconda parte
+  const second = parts.slice(1).join(", ");
+  const capMatch = second.match(/\b(\d{5})\b/);
+  const cap = capMatch ? capMatch[1] : "";
+  const citta = second.replace(/\b\d{5}\b/, "").trim().replace(/^[,\s-]+|[,\s-]+$/g, "");
+  return { indirizzo: parts[0], cap, citta, provincia: "" };
+}
+
+// Costruisce un oggetto descrittivo "Offerta per [voci] — [Condominio], [indirizzo]"
+function buildOggettoPreventivo(voci, cond) {
+  const condNome = (cond.nome || "").replace(/^CONDOMINIO\s+/i, "Condominio ").trim() || "intervento";
+  const condIndirizzo = (cond.indirizzo || "").trim();
+  let descrizione;
+  if (voci.length === 0) {
+    descrizione = "intervento";
+  } else if (voci.length === 1) {
+    descrizione = String(voci[0].descrizione || "intervento").toLowerCase();
+  } else {
+    // Più voci: prendi le 2 voci principali, fallback "verifica e manutenzione"
+    descrizione = voci.slice(0, 2).map(v => String(v.descrizione || "").toLowerCase()).filter(Boolean).join(" e ");
+    if (!descrizione) descrizione = "intervento";
+  }
+  // Capitalizza la prima lettera
+  descrizione = descrizione.charAt(0).toUpperCase() + descrizione.slice(1);
+  // Componi
+  const tail = condIndirizzo ? `${condNome}, ${condIndirizzo}` : condNome;
+  return `Offerta per ${descrizione} — ${tail}`;
+}
+
 function buildGraphDataPreventivo(pendingData) {
   const intest = pendingData.intestatario || {};
   const cond = pendingData.condominio || {};
   const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
   const aliquota = pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22;
-  // GRAPH "righe" è un array di oggetti FIC-style (codice, descrizione, qta,
-  // prezzo_unitario, iva, importo, sconto, prezzo_pre_sconto, udm).
+  // GRAPH "righe" è un array di oggetti FIC-style.
   const righe = voci.map((v, i) => ({
     codice: String(i + 1),
     descrizione: v.descrizione,
@@ -928,22 +1015,34 @@ function buildGraphDataPreventivo(pendingData) {
     prezzo_pre_sconto: v.importo,
     udm: "n.",
   }));
-  // Riepilogo IVA: una sola fascia (l'aliquota corrente sull'imponibile)
   const totaleImponibile = Number(pendingData.totale_imponibile || 0);
   const ivaImporto = Number(pendingData.iva_importo || 0);
   const totale = Number(pendingData.totale || 0);
-
-  const indirizzoCond = cond.indirizzo || "";
   const note = pendingData.iva_nota || "";
+
+  // BUG-3 FIX: il DESTINATARIO (campo indirizzo / comune / provincia del PDF)
+  // deve essere l'indirizzo dell'AZIENDA intestataria, non del condominio.
+  // Il condominio va nell'OGGETTO come luogo dell'intervento.
+  const sede = splitIndirizzoAzienda(intest);
+  const oggetto = buildOggettoPreventivo(voci, cond);
+
   // Template "preventivo-doc" (config locale GRAPH) usa nomi camelCase:
   // clientName (REQ), condominioName, indirizzo, comune, provincia, ecc.
+  // - clientName + indirizzo + comune + provincia → indirizzo azienda
+  // - condominioName → solo nome (non indirizzo, va nell'oggetto)
+  // - descrizione → oggetto del preventivo (lavoro + condominio + via)
   return {
     clientName: intest.ragione_sociale || "",
+    indirizzo: sede.indirizzo,
+    comune: sede.citta,
+    provincia: sede.provincia,
+    cap: sede.cap,
+    piva_cliente: intest.piva || "",
+    // Nel PDF questo è solo il NOME del condominio (luogo intervento). Lo
+    // ripeteremo nell'oggetto col suo indirizzo.
     condominioName: cond.nome || "",
-    indirizzo: indirizzoCond,
-    comune: "",
-    provincia: "",
-    descrizione: `Preventivo per ${cond.nome || "intervento"}`,
+    // Oggetto del preventivo
+    descrizione: oggetto,
     righe,
     riepilogo_iva: [{
       aliquota,
@@ -954,7 +1053,6 @@ function buildGraphDataPreventivo(pendingData) {
     importo_iva: ivaImporto,
     totale,
     note,
-    piva_cliente: intest.piva || "",
     condizioni_pagamento: "Pagamento a 30 gg DFFM",
     validita_offerta: "30 giorni",
   };
