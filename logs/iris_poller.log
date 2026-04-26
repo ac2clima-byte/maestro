@@ -6936,3 +6936,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #17  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → ARCHIVIA
   #18  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
 [2026-04-26T19:32:40Z] ─── fine ciclo ───
+[2026-04-26T19:37:40Z] ─── inizio ciclo IRIS (limit=50) ───

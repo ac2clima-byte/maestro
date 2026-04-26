@@ -412,32 +412,30 @@ export async function handleAresInterventiAperti(parametri, ctx) {
     return { content: "Non ho trovato interventi nella bacheca COSMINA.", data: { count: 0, stats } };
   }
 
-  // Render righe in prosa. Se boardName è generico (ZZ000 / CLIENTI PRIVATI),
-  // usa il `name` o `workDescription` come fallback.
+  // Render righe in prosa. Se boardName è generico (ZZ000 / CLIENTI PRIVATI)
+  // o vuoto/"?", usa il `name` o `workDescription` come fallback.
   const renderLine = (i) => {
     const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
-    const board = String(i.condominio || "");
+    const board = String(i.condominio || "").trim();
     let cond;
-    if (/^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
-      // Pulisce suffissi tipo "- Intervento concluso DA X IL Y ALLE ORE Z"
-      cond = String(i.name || i.workDescription || "intervento privato")
+    if (!board || board === "?" || /^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
+      const fb = String(i.name || i.workDescription || "")
         .replace(/\s*-?\s*Intervento\s+concluso\s+DA\s+.+$/i, "")
         .replace(/\s*-?\s*Intervento\s+concluso\s*$/i, "")
-        .trim()
-        .slice(0, 80);
+        .trim();
+      cond = fb ? fb.slice(0, 80) : "intervento privato";
     } else {
       cond = board.replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 70);
     }
     const stato = i.stato || "aperto";
+    // techs: dedup case-insensitive (i.tecnico è già "A + B + C" ma può
+    // contenere duplicati derivati dal merge tra techName e techNames[])
+    const techsArr = String(i.tecnico || "").split(" + ").map(t => t.trim()).filter(Boolean);
+    const techsDedup = [...new Map(techsArr.map(t => [t.toLowerCase(), t])).values()];
     let tag;
-    if (i.techCount > 1) {
-      // Co-assegnato: evidenzia
-      tag = `tecnici ${i.tecnico}`;
-    } else if (i.tecnico && i.tecnico !== "-") {
-      tag = `tecnico ${i.tecnico}`;
-    } else {
-      tag = "non assegnato";
-    }
+    if (techsDedup.length > 1) tag = `tecnici ${techsDedup.join(" + ")}`;
+    else if (techsDedup.length === 1 && techsDedup[0] !== "-") tag = `tecnico ${techsDedup[0]}`;
+    else tag = "non assegnato";
     return `${data}, ${cond}, stato ${stato}, ${tag}`;
   };
 
