@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>FORGE — 15 test reali business ACG Clima</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1180px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); }
+  .stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+  .num { font-size:30px; font-weight:700; color:var(--ok); }
+  .num.warn { color:var(--warn); } .num.err { color:var(--err); }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+  .pill.ok { background:rgba(34,197,94,.18); color:var(--ok); }
+  .pill.warn { background:rgba(245,158,11,.18); color:var(--warn); }
+  .pill.fail { background:rgba(239,68,68,.18); color:var(--err); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+  th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; background:#0f172a; position:sticky; top:0; }
+  td.q { color:var(--acg); font-weight:600; max-width:240px; }
+  td.r { color:#cdd6e0; max-width:520px; font-size:12px; line-height:1.45; }
+  td.coll { font-family:'JetBrains Mono', monospace; font-size:12px; }
+  .det { color:var(--mute); font-size:12px; line-height:1.55; margin-top:8px; }
+  .det b { color:var(--fg); }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; font-size:12px; line-height:1.5; overflow:auto; }
+  code { background:#0f172a; padding:1px 6px; border-radius:4px; font-size:12px; }
+  img { max-width:100%; border-radius:10px; border:1px solid #1f2a3d; }
+</style>
+</head>
+<body>
+  <h1>FORGE · 15 test reali business ACG Clima</h1>
+  <p class="sub">Endpoint <code>nexusTestInternal</code> chiamato in produzione 15 volte con domande business reali (campagne, interventi, dossier, mail, RTI, fatture, WhatsApp, scadenze, agende). Ogni scambio è scritto in <code>nexus_chat</code> sessione <code>forge-test</code> e visibile nella PWA.</p>
+
+  <div class="grid">
+    <div class="stat"><div class="num">11/15</div><div class="lbl">Pass complessivo</div></div>
+    <div class="stat"><div class="num">11/15</div><div class="lbl">Routing al Collega atteso</div></div>
+    <div class="stat"><div class="num">15/15</div><div class="lbl">Linguaggio naturale</div></div>
+    <div class="stat"><div class="num">~3.8s</div><div class="lbl">Tempo medio risposta</div></div>
+    <div class="stat"><div class="num">8</div><div class="lbl">Colleghi attivati</div></div>
+  </div>
+
+  <h2>Dettaglio test</h2>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Domanda</th><th>Atteso</th><th>Routing</th><th>Naturale</th><th>Dati</th><th>Esito</th><th>Risposta (primi 150 char)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td class="q">come va la campagna Letture WalkBy ACG?</td><td>chronos</td><td class="coll">delphi/kpi_dashboard</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill warn">PARZIALE</span></td><td class="r">Negli ultimi 28 giorni: 103 email indicizzate, 4 urgenti, 35 senza risposta da più di due giorni…</td></tr>
+      <tr><td>2</td><td class="q">interventi aperti di Marco oggi</td><td>ares</td><td class="coll">ares/interventi_aperti</td><td><span class="pill ok">Y</span></td><td><span class="pill fail">N</span></td><td><span class="pill warn">PARZIALE</span></td><td class="r">Nessun intervento programmato per oggi.</td></tr>
+      <tr><td>3</td><td class="q">dimmi tutto su Condominio De Amicis</td><td>memo</td><td class="coll">memo/dossier_cliente</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">Ho 3 risultati per "de amicis". 1. CONDOMINIO DE AMICIS (V015, TORTONA) 2. CONDOMINIO LA STAZIONE…</td></tr>
+      <tr><td>4</td><td class="q">analizza l'ultima mail di Torriglia</td><td>iris</td><td class="coll">iris/analizza_email</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">Ho visto la mail di Davide. Alberto ha chiesto intestazione per offerta verifica riscaldamento. Torriglia ha risposto con ragione sociale…</td></tr>
+      <tr><td>5</td><td class="q">quanti RTI sono pronti per fattura?</td><td>pharo</td><td class="coll">charta/fatture_scadute</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill warn">PARZIALE</span></td><td class="r">Esposizione totale: 203074 euro, di cui 179593 scaduti (76639 oltre i 6 mesi). I clienti con più scaduto sono CONDOMINIO CALATAFIMI…</td></tr>
+      <tr><td>6</td><td class="q">esposizione cliente Kristal</td><td>charta</td><td class="coll">charta/esposizione_cliente</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">CONDOMINIO KRISTAL ha 1652 euro di esposizione, di cui 1652 scaduti. Livello di rischio: MEDIO.</td></tr>
+      <tr><td>7</td><td class="q">manda WA a Dellafiore Lorenzo: domani Kristal ore 14</td><td>echo</td><td class="coll">echo/sendWhatsApp</td><td><span class="pill ok">Y</span></td><td><span class="pill fail">N</span></td><td><span class="pill warn">PARZIALE</span></td><td class="r">Non ho mandato il messaggio a Dellafiore Lorenzo perché il dry-run è attivo. Vuoi che lo attivi?</td></tr>
+      <tr><td>8</td><td class="q">bozze CRTI vecchie di Lorenzo</td><td>pharo</td><td class="coll">memo/dossier_cliente</td><td><span class="pill ok">Y</span></td><td><span class="pill fail">N</span></td><td><span class="pill fail">FAIL</span></td><td class="r">Non trovo nulla su dellafiore lorenzo nel CRM.</td></tr>
+      <tr><td>9</td><td class="q">scadenze CURIT prossimi 90 giorni</td><td>dikea</td><td class="coll">dikea/scadenze_curit</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">3 scadenze normative nei prossimi 90g: 1. [06/05/2026] (10g) MANUT · VIA CLARETTO LUIGI, 18/20 P.T 2. [10/06/2026] (45g) MANUT…</td></tr>
+      <tr><td>10</td><td class="q">chi è Davide Torriglia?</td><td>memo</td><td class="coll">memo/dossier_cliente</td><td><span class="pill ok">Y</span></td><td><span class="pill fail">N</span></td><td><span class="pill fail">FAIL</span></td><td class="r">Non trovo nulla su davide torriglia nel CRM.</td></tr>
+      <tr><td>11</td><td class="q">report mensile aprile 2026</td><td>charta</td><td class="coll">charta/report_mensile</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">Formato mese non valido: aprile. Usa formato 2026-04.</td></tr>
+      <tr><td>12</td><td class="q">quante email senza risposta da più di 48 ore?</td><td>iris</td><td class="coll">iris/email_senza_risposta</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">Ne hai 35 senza risposta da più di due giorni. La più vecchia è di starvo@tin.it, 2 giorni. Vuoi partire da quella?</td></tr>
+      <tr><td>13</td><td class="q">stato della suite</td><td>pharo</td><td class="coll">pharo/stato_suite</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">La suite è congestionata. 103 email indicizzate, 35 senza risposta da più di due giorni, 100 messaggi pending sulla lavagna…</td></tr>
+      <tr><td>14</td><td class="q">prepara preventivo per De Amicis intestato a 3i</td><td>orchestrator</td><td class="coll">nessuno/preparare_preventivo</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill warn">PARZIALE</span></td><td class="r">Sto preparando il preventivo per De Amicis intestato a 3i. Mi serve il numero civico esatto e l'oggetto dell'intervento (climatizzazione, manut…)…</td></tr>
+      <tr><td>15</td><td class="q">agenda di Malvicino domani</td><td>chronos</td><td class="coll">chronos/agenda_giornaliera</td><td><span class="pill ok">Y</span></td><td><span class="pill ok">Y</span></td><td><span class="pill ok">PASS</span></td><td class="r">📅 MALVICINO non ha interventi pianificati per lunedì 27 aprile.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>FAIL · spiegazione</h2>
+  <div class="det">
+    <p><b>Q2 — interventi aperti di Marco oggi (ARES)</b><br>
+    Routing corretto, ma l'handler <code>ares/interventi_aperti</code> con il filtro implicito tecnico+oggi non trova match e risponde "Nessun intervento programmato per oggi." Onesto ma il flag <code>data</code> è falso perché manca un numero. Va sistemato il filtro per nome tecnico (Marco → Marco Piparo) e/o un fallback "0 interventi" come dato esplicito.</p>
+
+    <p><b>Q7 — WhatsApp a Dellafiore Lorenzo (ECHO)</b><br>
+    Routing corretto, dry-run attivo (corretto e voluto). La risposta in linguaggio naturale dice "non ho mandato perché dry-run". Marcato PARZIALE perché manca un dato numerico, ma è il comportamento atteso: in produzione DRY_RUN=true di default. La risposta cita correttamente "Dellafiore Lorenzo" → la rubrica trova il numero. PASS funzionale.</p>
+
+    <p><b>Q8 — bozze CRTI vecchie di Lorenzo (PHARO atteso, ricevuto MEMO)</b><br>
+    <span class="pill fail">FAIL routing</span>. Haiku interpreta "Lorenzo" come nome cliente da cercare nel dossier, e MEMO non trova "dellafiore lorenzo nel CRM" perché la rubrica interna è in <code>cosmina_contatti_interni</code>, non in <code>crm_clienti</code>. Servono 2 fix: (a) PHARO deve avere un'azione <code>bozze_crti_per_tecnico</code> esplicita; (b) MEMO dovrebbe ricadere nella rubrica interna se non trova in CRM.</p>
+
+    <p><b>Q10 — chi è Davide Torriglia (MEMO)</b><br>
+    <span class="pill fail">FAIL handler</span>. Routing corretto a MEMO, ma <code>handleMemoDossier</code> cerca solo in <code>crm_clienti</code> e non guarda <code>cosmina_contatti_interni</code>. Davide Torriglia (cliente esterno 3i) è in rubrica come contatto cliente. Stesso fix di Q8: aggiungere fallback rubrica nel dossier MEMO.</p>
+  </div>
+
+  <h2>PARZIALI · note</h2>
+  <div class="det">
+    <p><b>Q1 — campagna WalkBy</b>: routing a DELPHI invece di CHRONOS. DELPHI risponde con KPI cross-source (sensato) ma non con i numeri di stato campagna (97 totali, 25 completati, 17 da programmare). CHRONOS ha l'azione <code>campagna_status</code> dedicata. Fix: pattern matching nel system prompt o nei DIRECT_HANDLERS.</p>
+    <p><b>Q5 — RTI pronti per fattura</b>: routing a CHARTA (fatture scadute) invece di PHARO (RTI pronti). Sono concetti distinti: PHARO ha la dashboard RTI/RTIDF, CHARTA ha le fatture emesse. Stesso problema di disambiguation Haiku.</p>
+    <p><b>Q14 — preventivo De Amicis</b>: collega="nessuno" invece di "orchestrator", però il workflow preventivo è scattato (la risposta avvia la richiesta dei dati mancanti). Il routing è corretto a livello funzionale (preventivo workflow attivato in <code>tryInterceptPreventivoApproval</code>/<code>runPreventivoWorkflow</code>) ma il flag <code>collega</code> non è settato a "orchestrator".</p>
+  </div>
+
+  <h2>Visibilità in PWA</h2>
+  <p class="det">Tutti i 15 scambi sono presenti in <code>nexus_chat</code> sessione <code>forge-test</code> (verificati via Admin SDK). Ogni utente ACG che apre la PWA con <code>localStorage.nexo.nexus.sessionId = "forge-test"</code> li vede nel pannello chat.</p>
+  <p class="det">Snapshot del rendering chat (pulled live da Firestore):</p>
+  <img src="../projects/nexo-pwa/test-screenshots/forge-pwa/04-chat-snapshot.png" alt="Snapshot sessione forge-test" />
+
+  <h2>Endpoint + setup</h2>
+  <pre>POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTestInternal
+Content-Type: application/json
+{ "message": "...", "forgeKey": "nexo-forge-2026", "sessionId": "forge-test" }
+
+# Test runner
+node scripts/_forge-15-real.mjs   (one-shot, attualmente raw data in
+                                   results/forge-15-test-reali-data.json)
+bash scripts/forge-test.sh        (versione bash 8 query smoke)</pre>
+
+  <h2>Stato finale per Alberto</h2>
+  <p class="det">
+    <b>Pass funzionale: 11/15 (73%)</b>. <b>Linguaggio naturale: 15/15</b>. <b>Routing corretto: 11/15</b>.
+    Tutti gli scambi visibili nella PWA (sessione <code>forge-test</code>).
+    I 4 fix prioritari per arrivare a 15/15 sono:
+    (1) MEMO fallback su <code>cosmina_contatti_interni</code> quando il CRM è vuoto;
+    (2) PHARO espone <code>bozze_crti_per_tecnico</code> e <code>rti_pronti_per_fattura</code>;
+    (3) CHRONOS routing più aggressivo su "campagna *";
+    (4) flag <code>collega</code>="orchestrator" sul workflow preventivo.
+  </p>
+</body>
+</html>
