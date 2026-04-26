@@ -24,7 +24,7 @@ import {
   loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva } from "./preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback } from "./preventivo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -148,6 +148,34 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: preventivo voci intercept failed", { error: String(e).slice(0, 150) });
+      }
+
+      // Intercept Haiku fallback: se i parser regex non hanno matchato ma c'è
+      // un pending per la sessione, chiediamo a Haiku di interpretare il
+      // messaggio (aggiungi/rimuovi voce, sconto, modifica IVA, chiarimento).
+      try {
+        const prevHaiku = await tryInterceptPreventivoHaikuFallback({ userMessage: message, sessionId, userId });
+        if (prevHaiku && prevHaiku._preventivoHaikuHandled) {
+          const cleaned = naturalize(prevHaiku.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: prevHaiku.data || null, failed: false },
+            stato: "completata", modello: "preventivo_haiku_fallback",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "orchestrator", azione: "preventivo_haiku_fallback",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: prevHaiku.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "preventivo_haiku_fallback",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: preventivo haiku fallback failed", { error: String(e).slice(0, 150) });
       }
 
       // Intercept preventivo workflow per aderenza al routing reale di nexusRouter.

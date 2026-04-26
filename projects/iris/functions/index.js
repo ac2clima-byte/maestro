@@ -24,7 +24,7 @@ import {
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva } from "./handlers/preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback } from "./handlers/preventivo.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -298,6 +298,32 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("preventivo approval intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // Preventivo Haiku fallback: SOLO se esiste un pending per la sessione e
+    // nessun parser regex (voci/iva/approval) ha matchato. Haiku interpreta
+    // il messaggio (aggiungi/rimuovi/modifica voce, sconto, modifica iva,
+    // chiarimento) e ricalcola.
+    try {
+      const prevHaiku = await tryInterceptPreventivoHaikuFallback({ userMessage, sessionId, userId });
+      if (prevHaiku && prevHaiku._preventivoHaikuHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: prevHaiku.content,
+          direct: { data: prevHaiku.data || null, failed: false },
+          stato: "completata",
+          modello: "preventivo_haiku_fallback",
+        });
+        res.status(200).json({
+          intent: { collega: "orchestrator", azione: "preventivo_haiku_fallback", parametri: {}, rispostaUtente: prevHaiku.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: prevHaiku.data || null, failed: false },
+          modello: "preventivo_haiku_fallback", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("preventivo haiku fallback failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // Preventivo generation: intercetta "prepara preventivo ..."

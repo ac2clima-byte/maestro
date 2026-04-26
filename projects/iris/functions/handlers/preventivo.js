@@ -826,6 +826,284 @@ export function extractIstruzioniExtra(text) {
   return out;
 }
 
+// ─── tryInterceptPreventivoHaikuFallback ────────────────────────
+// Fallback intelligente: se per la sessione esiste un nexo_preventivi_pending
+// ma nessuno dei parser regex (voci/iva/approval) ha intercettato il
+// messaggio, chiediamo a Haiku di interpretare cosa vuole fare Alberto.
+// Le azioni possibili e gli effetti:
+//   modifica_iva   → applica come tryInterceptPreventivoIva
+//   aggiungi_voce  → aggiunge alla lista voci e ricalcola
+//   rimuovi_voce   → rimuove dalla lista (match per descrizione substring)
+//   modifica_voce  → cambia importo di una voce esistente
+//   sconto         → applica percentuale sull'imponibile
+//   approva        → marca pending come approvato (TODO step PDF)
+//   annulla        → cancella il pending
+//   chiarimento    → chiede chiarimento all'utente con la domanda generata
+async function callHaikuPreventivoIntent(apiKey, pendingData, userMessage) {
+  const intestatario = pendingData.intestatario || {};
+  const condominio = pendingData.condominio || {};
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  const stato = pendingData.stato || "attesa_voci";
+  const aliquota = pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22;
+  const totaleImp = pendingData.totale_imponibile || 0;
+  const totale = pendingData.totale || 0;
+  const fmtVoci = voci.length
+    ? voci.map((v, i) => `  ${i + 1}. ${v.descrizione}: ${v.importo} €`).join("\n")
+    : "  (nessuna voce ancora inserita)";
+
+  const system = `Sei l'assistente NEXUS di ACG Clima Service. Alberto sta preparando un preventivo.
+
+Stato attuale del preventivo:
+- Intestatario: ${intestatario.ragione_sociale || "—"}, P.IVA ${intestatario.piva || "—"}, ${intestatario.indirizzo || "—"}
+- Condominio: ${condominio.nome || "—"}, ${condominio.indirizzo || "—"}
+- Voci inserite:
+${fmtVoci}
+- IVA attuale: ${aliquota}%
+- Imponibile attuale: ${totaleImp} €
+- Totale attuale: ${totale} €
+- Stato: ${stato}
+
+Alberto ha scritto un messaggio che NON è stato riconosciuto dai parser regex (voci/iva/approva).
+Interpreta cosa vuole fare. Rispondi SOLO con un JSON valido (niente code fence, niente testo extra):
+
+{
+  "azione": "modifica_iva" | "aggiungi_voce" | "rimuovi_voce" | "modifica_voce" | "sconto" | "approva" | "annulla" | "chiarimento",
+  "parametri": {
+    // modifica_iva:   { aliquota: 0|4|10|22, regime: "reverse_charge"|"split_payment"|"esente"|"ordinario", nota?: "..." }
+    // aggiungi_voce:  { descrizione: "...", importo: 50 }
+    // rimuovi_voce:   { descrizione: "..." }    // substring per matchare la voce
+    // modifica_voce:  { descrizione: "...", importo: 50 }   // descrizione = match substring, importo = nuovo
+    // sconto:         { percentuale: 10 }
+    // approva:        {}
+    // annulla:        {}
+    // chiarimento:    { domanda: "Vuoi dire...?" }   // formula UNA domanda concisa
+  }
+}
+
+REGOLE
+- Non inventare voci o regimi che Alberto non ha menzionato.
+- Se proprio non capisci, usa "chiarimento" con una domanda specifica.
+- Importi: numeri decimali con punto (50.00), niente € o "euro".`;
+
+  const resp = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 400,
+      system,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+  if (!resp.ok) throw new Error(`Haiku ${resp.status}`);
+  const json = await resp.json();
+  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+  const s = text.indexOf("{"), e = text.lastIndexOf("}");
+  if (s < 0 || e <= s) return null;
+  return JSON.parse(text.slice(s, e + 1));
+}
+
+function recalcPreventivo(voci, aliquota = 22) {
+  const totaleImponibile = Math.round(voci.reduce((s, v) => s + Number(v.importo || 0), 0) * 100) / 100;
+  const ivaImporto = Math.round(totaleImponibile * (aliquota / 100) * 100) / 100;
+  const totale = Math.round((totaleImponibile + ivaImporto) * 100) / 100;
+  return { totaleImponibile, ivaImporto, totale };
+}
+
+function fmtRiepilogoPreventivo(pendingData) {
+  const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  const elenco = voci.map((v, i) => `${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`).join("\n");
+  const aliquota = pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22;
+  const regime = pendingData.iva_regime || "ordinario";
+  let ivaLabel;
+  if (regime === "reverse_charge") ivaLabel = `IVA 0% (reverse charge)`;
+  else if (regime === "split_payment") ivaLabel = `IVA ${aliquota}% (split payment, non incassata)`;
+  else if (aliquota === 0) ivaLabel = `IVA 0% (esente)`;
+  else ivaLabel = `IVA ${aliquota}% ${fmtEur(pendingData.iva_importo || 0)} €`;
+  return [
+    `Riepilogo aggiornato per ${pendingData.condominio?.nome || "—"}:`,
+    elenco || "  (nessuna voce)",
+    ``,
+    `Imponibile ${fmtEur(pendingData.totale_imponibile || 0)} €, ${ivaLabel}, totale ${fmtEur(pendingData.totale || 0)} €.`,
+  ].join("\n");
+}
+
+export async function tryInterceptPreventivoHaikuFallback({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+
+  // Cerca pending per la sessione
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_preventivi_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+  } catch {
+    return null;
+  }
+
+  const apiKey = ANTHROPIC_API_KEY.value();
+  if (!apiKey) return null;
+
+  let intent;
+  try {
+    intent = await callHaikuPreventivoIntent(apiKey, pendingData, t);
+  } catch (e) {
+    logger.warn("Haiku fallback preventivo failed", { error: String(e).slice(0, 150) });
+    return null; // lascia passare al routing standard
+  }
+  if (!intent || !intent.azione) return null;
+
+  const az = String(intent.azione).toLowerCase();
+  const params = intent.parametri || {};
+  let voci = Array.isArray(pendingData.voci) ? [...pendingData.voci] : [];
+  let aliquota = pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22;
+  let regime = pendingData.iva_regime || "ordinario";
+  let nota = pendingData.iva_nota || null;
+  let splitPayment = !!pendingData.iva_split_payment;
+
+  // ── Esegui l'azione ──────────────────────────────────────
+  if (az === "chiarimento") {
+    const d = String(params.domanda || "Non ho capito bene, puoi spiegare meglio?").slice(0, 280);
+    return {
+      content: d,
+      data: { intent: "chiarimento", domanda: d, source: "haiku_fallback" },
+      _preventivoHaikuHandled: true,
+    };
+  }
+
+  if (az === "annulla") {
+    try {
+      await pendingDoc.ref.set({ stato: "annullato", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } catch {}
+    return {
+      content: `Preventivo annullato. Quando vuoi prepararne uno nuovo dimmelo.`,
+      data: { intent: "annulla", source: "haiku_fallback" },
+      _preventivoHaikuHandled: true,
+    };
+  }
+
+  if (az === "approva") {
+    try {
+      await pendingDoc.ref.set({ stato: "approvato", approvatoAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } catch {}
+    return {
+      content: `Approvazione registrata. La generazione PDF e l'invio mail verranno gestiti dallo step successivo (TODO).`,
+      data: { intent: "approva", source: "haiku_fallback" },
+      _preventivoHaikuHandled: true,
+    };
+  }
+
+  if (az === "modifica_iva") {
+    if (params.aliquota != null) {
+      aliquota = Math.max(0, Math.min(30, Number(params.aliquota)));
+    }
+    regime = String(params.regime || regime || "ordinario");
+    nota = params.nota || null;
+    splitPayment = regime === "split_payment";
+  } else if (az === "aggiungi_voce") {
+    const desc = String(params.descrizione || "").trim();
+    const importo = Number(params.importo);
+    if (!desc || !Number.isFinite(importo) || importo <= 0) {
+      return {
+        content: `Mi serve descrizione e importo della voce da aggiungere. Esempio: "aggiungi viaggio 50".`,
+        _preventivoHaikuHandled: true,
+      };
+    }
+    voci.push({ descrizione: desc, importo: Math.round(importo * 100) / 100 });
+  } else if (az === "rimuovi_voce") {
+    const desc = String(params.descrizione || "").toLowerCase().trim();
+    if (!desc) {
+      return { content: `Quale voce vuoi rimuovere? Dimmi la descrizione.`, _preventivoHaikuHandled: true };
+    }
+    const before = voci.length;
+    voci = voci.filter(v => !String(v.descrizione || "").toLowerCase().includes(desc));
+    if (voci.length === before) {
+      return { content: `Non trovo nessuna voce che corrisponda a "${desc}". Voci attuali: ${(pendingData.voci || []).map(v => v.descrizione).join(", ") || "(nessuna)"}.`, _preventivoHaikuHandled: true };
+    }
+  } else if (az === "modifica_voce") {
+    const desc = String(params.descrizione || "").toLowerCase().trim();
+    const importo = Number(params.importo);
+    if (!desc || !Number.isFinite(importo) || importo <= 0) {
+      return { content: `Mi serve la voce da modificare e il nuovo importo. Esempio: "cambia sopralluogo a 250".`, _preventivoHaikuHandled: true };
+    }
+    let found = false;
+    voci = voci.map(v => {
+      if (!found && String(v.descrizione || "").toLowerCase().includes(desc)) {
+        found = true;
+        return { ...v, importo: Math.round(importo * 100) / 100 };
+      }
+      return v;
+    });
+    if (!found) {
+      return { content: `Non trovo la voce "${desc}". Voci attuali: ${(pendingData.voci || []).map(v => v.descrizione).join(", ") || "(nessuna)"}.`, _preventivoHaikuHandled: true };
+    }
+  } else if (az === "sconto") {
+    const perc = Number(params.percentuale);
+    if (!Number.isFinite(perc) || perc <= 0 || perc >= 100) {
+      return { content: `Sconto non valido. Dimmi una percentuale fra 1 e 99 (es. "sconto 10%").`, _preventivoHaikuHandled: true };
+    }
+    const fattore = (100 - perc) / 100;
+    voci = voci.map(v => ({ descrizione: `${v.descrizione} (sconto ${perc}%)`, importo: Math.round(v.importo * fattore * 100) / 100 }));
+  } else {
+    return null; // azione sconosciuta, lascia passare
+  }
+
+  // Ricalcola e salva
+  const r = recalcPreventivo(voci, aliquota);
+  const nuovoStato = voci.length > 0 ? "attesa_approvazione" : "attesa_voci";
+  const newPending = {
+    ...pendingData,
+    voci,
+    iva_aliquota: aliquota,
+    iva_regime: regime,
+    iva_nota: nota,
+    iva_split_payment: splitPayment,
+    iva_importo: r.ivaImporto,
+    totale_imponibile: r.totaleImponibile,
+    totale: r.totale,
+    stato: nuovoStato,
+  };
+  try {
+    await pendingDoc.ref.set({
+      voci, iva_aliquota: aliquota, iva_regime: regime, iva_nota: nota,
+      iva_split_payment: splitPayment, iva_importo: r.ivaImporto,
+      totale_imponibile: r.totaleImponibile, totale: r.totale,
+      stato: nuovoStato,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch (e) {
+    return { content: `Errore aggiornamento preventivo: ${String(e).slice(0, 150)}`, _preventivoHaikuHandled: true };
+  }
+
+  const blocchi = [fmtRiepilogoPreventivo(newPending)];
+  if (nota) {
+    blocchi.push("");
+    blocchi.push(`Nota fiscale: ${nota}`);
+  }
+  blocchi.push("");
+  blocchi.push(`Lo genero in PDF? Rispondi "sì" per procedere, "modifica" per cambiare le voci, "annulla" per scartare.`);
+
+  return {
+    content: blocchi.join("\n"),
+    data: {
+      pendingId: sessionId,
+      intent: az,
+      voci: newPending.voci,
+      iva_aliquota: aliquota,
+      iva_regime: regime,
+      iva_nota: nota,
+      totale_imponibile: r.totaleImponibile,
+      iva_importo: r.ivaImporto,
+      totale: r.totale,
+      source: "haiku_fallback",
+    },
+    _preventivoHaikuHandled: true,
+  };
+}
+
 /**
  * Intercepta "approva"/"modifica"/"rifiuta" dopo un preventivo pendingApproval.
  */
