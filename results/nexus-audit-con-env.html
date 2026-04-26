@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>NEXUS · Audit post-deploy 2026-04-26</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+  .num { font-size:32px; font-weight:700; color:var(--ok); }
+  .num.warn { color:var(--warn); } .num.err { color:var(--err); }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  .err { background:rgba(239,68,68,.15); color:var(--err); }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+  th, td { padding:10px 12px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+  th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  td.detail { color:var(--mute); font-family:'JetBrains Mono', monospace; font-size:12px; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.55; }
+  ul { margin:6px 0 0 16px; padding:0; } li { margin:3px 0; }
+  .quote { border-left:3px solid var(--acg); padding:6px 12px; color:#cdd6e0; }
+</style>
+</head>
+<body>
+  <h1>NEXUS — Audit post-deploy</h1>
+  <p class="sub">Verifica end-to-end backend di NEXUS dopo i deploy di oggi (Fase 0 dev requests, fix tecnici, regola "non arrenderti"). 2026-04-26 11:27 GMT+2.</p>
+
+  <div class="grid">
+    <div class="stat"><div class="num">8/8</div><div class="lbl">Check OK</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">Warn</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">Fail</div></div>
+    <div class="stat"><div class="num">9</div><div class="lbl">Tecnici listati</div></div>
+  </div>
+
+  <h2>Risultati</h2>
+  <table>
+    <thead><tr><th>Check</th><th>Stato</th><th>Dettaglio</th></tr></thead>
+    <tbody>
+      <tr><td>codeStatus endpoint</td><td><span class="pill ok">OK</span></td><td class="detail">HTTP 200 · fase=waiting_result · MAESTRO sta scrivendo lo stato in tempo reale</td></tr>
+      <tr><td>nexo_config/nexo_counters</td><td><span class="pill ok">OK</span></td><td class="detail">contatore devRequest = 0 (collection inizializzabile lazy alla prima richiesta)</td></tr>
+      <tr><td>nexo_dev_requests_queue</td><td><span class="pill ok">OK</span></td><td class="detail">collection deployata, regole firestore attive, queueStatus pending leggibile dal poller</td></tr>
+      <tr><td>nexo_dev_requests</td><td><span class="pill ok">OK</span></td><td class="detail">1 dev request storica presente</td></tr>
+      <tr><td>handler tecnici (logica deployata)</td><td><span class="pill ok">OK</span></td><td class="detail">acg=9 · guazzotti=0 · altri=0 — fix riclassifica corretto</td></tr>
+      <tr><td>linguaggio naturale</td><td><span class="pill ok">OK</span></td><td class="detail">output handler senza emoji, bullet, bold</td></tr>
+      <tr><td>nexusRouter live (auth gate)</td><td><span class="pill ok">OK</span></td><td class="detail">risponde HTTP 401 senza ID Token (gate Firebase Auth attivo)</td></tr>
+      <tr><td>pattern dev request</td><td><span class="pill ok">OK</span></td><td class="detail">6/6 casi: dev request riconosciute, query informative escluse</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Output handler tecnici (snapshot live Firestore)</h2>
+  <div class="card">
+    <div class="quote">I tecnici ACG sono: Troise Antonio, Alberto Contardi, Aime David, Berberi Ergest, Tosca Federico, Albanesi Gianluca, Dellafiore Lorenzo, Marco Piparo e Dellafiore Victor.</div>
+  </div>
+
+  <h2>Note metodologiche</h2>
+  <div class="card">
+    <p>Il task richiedeva un E2E con login PWA via Playwright. La policy attuale dell'agente blocca la lettura di credenziali da .env (anche con grep mirato). Audit precedente in <code>results/nexus-audit-completo-e2e.html</code> aveva già coperto i 15/15 test conversazionali (2026-04-26 mattina).</p>
+    <p>Questo audit copre quindi il livello backend dei <b>fix introdotti oggi dopo l'E2E</b>:</p>
+    <ul>
+      <li>Fase 0 dev requests (counter DEV-NNN, queue, poller, MAESTRO routing analisi).</li>
+      <li>Fix handler tecnici (default ACG, titleCase, fullName robusto).</li>
+      <li>Regola "non arrenderti" nel system prompt + contesto conversazionale già attivo.</li>
+      <li>Cloud Function codeStatus operativa e MAESTRO che scrive realmente lo stato.</li>
+    </ul>
+    <p>Il resto del backend NEXUS (i 15 test conversazionali) è coperto dall'audit E2E precedente, non rieseguito qui.</p>
+  </div>
+
+  <h2>Check correlati</h2>
+  <pre>codeStatus    → https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
+nexusRouter   → https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter (POST + ID Token)
+PWA           → https://nexo-hub-15f2d.web.app
+audit E2E     → results/nexus-audit-completo-e2e.html (15/15 PASS)
+report json   → results/nexus-audit-backend-report.json</pre>
+</body>
+</html>

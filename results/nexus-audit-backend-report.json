@@ -1,0 +1,60 @@
+{
+  "ts": "2026-04-26T09:27:16.296Z",
+  "rows": [
+    {
+      "name": "codeStatus endpoint",
+      "status": "ok",
+      "detail": "HTTP 200 · fase=waiting_result · task=rileggi-claude-md"
+    },
+    {
+      "name": "nexo_config/nexo_counters",
+      "status": "ok",
+      "detail": "devRequest counter attuale = 0"
+    },
+    {
+      "name": "nexo_dev_requests_queue",
+      "status": "ok",
+      "detail": "0 doc presenti (deploy collection ok)"
+    },
+    {
+      "name": "nexo_dev_requests",
+      "status": "ok",
+      "detail": "1 dev request storiche"
+    },
+    {
+      "name": "handler tecnici",
+      "status": "ok",
+      "detail": "acg=9 guazz=0 altri=0"
+    },
+    {
+      "name": "linguaggio naturale",
+      "status": "ok",
+      "detail": "no emoji, no bullet, no bold"
+    },
+    {
+      "name": "nexusRouter live (auth gate)",
+      "status": "ok",
+      "detail": "risponde 401 senza ID Token (atteso)"
+    },
+    {
+      "name": "pattern dev request",
+      "status": "ok",
+      "detail": "6/6 pass"
+    }
+  ],
+  "tecnici": {
+    "acg": [
+      "Troise Antonio",
+      "Alberto Contardi",
+      "Aime David",
+      "Berberi Ergest",
+      "Tosca Federico",
+      "Albanesi Gianluca",
+      "Dellafiore Lorenzo",
+      "Marco Piparo",
+      "Dellafiore Victor"
+    ],
+    "guazzotti": [],
+    "output": "I tecnici ACG sono: Troise Antonio, Alberto Contardi, Aime David, Berberi Ergest, Tosca Federico, Albanesi Gianluca, Dellafiore Lorenzo, Marco Piparo e Dellafiore Victor."
+  }
+}
