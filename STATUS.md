@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T15:52:45.786Z
+Ultimo aggiornamento: 2026-04-26T16:04:29.583Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 21850s
-Timestamp Firestore: 2026-04-26T15:52:35.958Z
+Uptime: 22562s
+Timestamp Firestore: 2026-04-26T16:04:28.197Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,19 +15,19 @@ Timestamp Firestore: 2026-04-26T15:52:35.958Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 21849.8778046,
-  "timestamp": "2026-04-26T15:52:35.958Z"
+  "uptime": 22562.08763784,
+  "timestamp": "2026-04-26T16:04:28.197Z"
 }
 ```
 
 </details>
 
 ## Task pending
-- dev-request-zYNnGZA2qKiHgEo5ZrsV (dev-request)
+Nessuno.
 
 ## Ultimi 5 commit
+- e1ca96c analysis: zYNnGZA2qKiHgEo5ZrsV
+- 082e9b9 feat(preventivo): documento su DOC + PDF via GRAPH
+- e36a827 status update
 - 47ad0e6 dev-request da NEXUS (1)
 - 53faaa7 result: preventivo-doc-e-pdf
-- ecd3e26 result: preventivo-haiku-fallback
-- 6945514 feat(preventivo): Haiku fallback intelligente per comandi non parsati
-- 7abca58 task: preventivo su DOC + PDF via GRAPH
