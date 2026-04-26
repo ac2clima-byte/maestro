@@ -1,0 +1,174 @@
+{
+  "ts": "2026-04-26T08:11:27.406Z",
+  "url": "https://nexo-hub-15f2d.web.app",
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 401 ()",
+    "Failed to load resource: the server responded with a status of 400 ()"
+  ],
+  "pageErrors": [],
+  "failedRequests": [
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTts",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTranscribeAudio",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosCampagneDashboard",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosAgendaDashboard",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosScadenzeDashboard",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoResolveAlert",
+      "status": 401
+    },
+    {
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexoPushSend",
+      "status": 401
+    }
+  ],
+  "bootstrap": {
+    "title": "NEXO — Hub dei Colleghi",
+    "hasAppRoot": true,
+    "hasAuthGate": true,
+    "hasNexusFab": true,
+    "hasSidebar": true
+  },
+  "authGate": {
+    "visible": true,
+    "hasEmailInput": true,
+    "hasPasswordInput": true,
+    "hasSubmitBtn": true
+  },
+  "assets": {
+    "cssLinks": [
+      "https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap",
+      "https://fonts.googleapis.com/icon?family=Material+Icons+Round",
+      "https://nexo-hub-15f2d.web.app/css/main.css?v=v03"
+    ],
+    "scripts": [
+      "https://nexo-hub-15f2d.web.app/js/app.js?v=v03"
+    ],
+    "scriptCount": 1,
+    "cssCount": 3
+  },
+  "endpoints": [
+    {
+      "name": "nexusRouter",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusRouter",
+      "method": "POST",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "nexusTts",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTts",
+      "method": "POST",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "nexusTranscribeAudio",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexusTranscribeAudio",
+      "method": "POST",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "irisArchiveEmail",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail",
+      "method": "POST",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "pharoRtiDashboard",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoRtiDashboard",
+      "method": "GET",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "chronosCampagneDashboard",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosCampagneDashboard",
+      "method": "GET",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "chronosAgendaDashboard",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosAgendaDashboard",
+      "method": "GET",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "chronosScadenzeDashboard",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/chronosScadenzeDashboard",
+      "method": "GET",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "pharoResolveAlert",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/pharoResolveAlert",
+      "method": "POST",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    },
+    {
+      "name": "nexoPushSend",
+      "url": "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexoPushSend",
+      "method": "POST",
+      "status": 401,
+      "ok": false,
+      "verdict": "OK (auth required)"
+    }
+  ],
+  "responseHeaders": {
+    "status": 200,
+    "cacheControl": "max-age=3600",
+    "contentType": "text/html; charset=utf-8"
+  },
+  "serviceWorker": "not-registered",
+  "authFlowError": "Errore: invalid credential"
+}
