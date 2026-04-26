@@ -546,6 +546,9 @@ async function processTask(task) {
       } catch (e) {
         console.error(`[DEV-REQ STATUS] update completed fallito per ${devId}: ${e.message}`);
       }
+      // Se la dev-request era bug_from_chat, scrivi un messaggio FORGE
+      // nella sessione NEXUS dell'utente con la sintesi dell'analisi.
+      postForgeAnalysisToChat(devId).catch(e => console.error(`[FORGE→NEXUS] ${e.message}`));
     }
     // Report email non bloccante
     sendForgeReport(taskId, ok ? 'PASS (analisi pushata)' : 'FAIL (analisi mancante)',
@@ -565,10 +568,196 @@ async function processTask(task) {
   pushFile(`result: ${taskId}`);
   console.log(`[DONE] Task ${taskId} ${completed ? 'completato' : 'timeout'}`);
 
+  // Se il task cita un dev-analysis-{id} e il dev-request originale era
+  // bug_from_chat, posta "Fix applicato" nella sessione NEXUS.
+  postForgeFixToChat(taskId, originalContent, completed).catch(e => console.error(`[FORGE→NEXUS fix] ${e.message}`));
+
   // Report email post-task (best-effort, non blocca il loop).
   sendForgeReport(taskId, completed ? 'PASS' : 'TIMEOUT',
     `Task: ${taskId}\nCompletato: ${completed ? 'sì' : 'timeout'}\nUltimi commit:\n${lastCommits(5).join('\n')}`)
     .catch(() => {});
+}
+
+// === FORGE → NEXUS CHAT ============================================
+// Quando Claude Code analizza/fixa una dev-request creata dal bottone 🐛
+// (type="bug_from_chat"), MAESTRO scrive un messaggio nella stessa
+// sessione NEXUS chat dell'utente in modo che Alberto veda il follow-up
+// senza dover guardare GitHub. I messaggi forge hanno source="forge"
+// così la PWA può stilarli diversamente.
+
+// Estrae i primi 1-3 paragrafi della sezione "Diagnosi" da un'analisi
+// markdown. Se non trova "Diagnosi" prende il primo paragrafo non-titolo.
+function extractAnalysisSummary(md) {
+  if (!md) return null;
+  const txt = String(md);
+  // Sezione "## Diagnosi" o "## Diagnosi — cosa succede"
+  const diagM = txt.match(/^##\s+Diagnosi[^\n]*\n+([\s\S]*?)(?=\n##\s|\n#\s|$)/m);
+  let body = diagM ? diagM[1] : null;
+  if (!body) {
+    // Fallback: primo blocco non-quote dopo l'intro
+    const lines = txt.split('\n');
+    let buf = [];
+    let started = false;
+    for (const l of lines) {
+      if (/^#/.test(l)) { if (started) break; continue; }
+      if (/^>/.test(l)) continue;
+      if (/^\s*$/.test(l)) { if (started && buf.length) break; continue; }
+      buf.push(l); started = true;
+      if (buf.length >= 6) break;
+    }
+    body = buf.join('\n');
+  }
+  if (!body) return null;
+  // Pulizia leggera: prendi le prime 2 frasi di prosa, max 350 caratteri.
+  const cleaned = body
+    .replace(/^\s*\d+\.\s+/gm, '')   // rimuovi numerazione liste
+    .replace(/^\s*[-•·]\s+/gm, '')   // rimuovi bullet
+    .replace(/`([^`]+)`/g, '$1')     // rimuovi backtick
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // rimuovi bold
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+  // Prendi prime 2-3 frasi
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
+  let out = sentences.slice(0, 3).join(' ');
+  if (out.length > 380) out = out.slice(0, 360).replace(/\s+\S*$/, '') + '…';
+  return out || null;
+}
+
+// Estrae il primo paragrafo della sezione "## Proposta" (o "Proposta — …").
+function extractAnalysisProposal(md) {
+  if (!md) return null;
+  const txt = String(md);
+  const propM = txt.match(/^##\s+Proposta[^\n]*\n+([\s\S]*?)(?=\n##\s|\n#\s|$)/m);
+  if (!propM) return null;
+  const body = propM[1];
+  // Cerca il primo step numerato "### 1)" o la prima frase
+  const stepM = body.match(/^###?\s*1\)?\s*[^\n]+\n+([\s\S]*?)(?=\n###?\s|\n##\s|$)/m);
+  let raw = stepM ? stepM[1] : body;
+  raw = raw
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*[-•·]\s+/gm, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+  const sentences = raw.split(/(?<=[.!?])\s+/).filter(s => s.length > 0);
+  let out = sentences.slice(0, 2).join(' ');
+  if (out.length > 250) out = out.slice(0, 230).replace(/\s+\S*$/, '') + '…';
+  return out || null;
+}
+
+// Scrive un messaggio "forge" nella sessione NEXUS dell'utente.
+async function writeForgeMessageToNexus(sessionId, content, extra = {}) {
+  if (!sessionId || !content) return null;
+  try {
+    const db = getDb();
+    const msgRef = db.collection('nexus_chat').doc();
+    await msgRef.set({
+      id: msgRef.id,
+      sessionId,
+      role: 'assistant',
+      content: String(content).slice(0, 1800),
+      source: 'forge',
+      stato: extra.stato || 'completata',
+      collegaCoinvolto: 'forge',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      ...(extra.meta || {}),
+    });
+    // Aggiorna sessione
+    try {
+      await db.collection('nexus_sessions').doc(sessionId).update({
+        messageCount: admin.firestore.FieldValue.increment(1),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch {}
+    console.log(`[FORGE→NEXUS] msg ${msgRef.id} scritto in sessione ${sessionId}`);
+    return msgRef.id;
+  } catch (e) {
+    console.error(`[FORGE→NEXUS ERROR] ${e.message}`);
+    return null;
+  }
+}
+
+// Step 1: dopo che Claude Code ha scritto dev-analysis-{devId}.md,
+// se il dev-request originale era bug_from_chat, posta un messaggio
+// "Ho analizzato il problema: …" nella sessione NEXUS dell'utente.
+async function postForgeAnalysisToChat(devId) {
+  try {
+    const db = getDb();
+    const docRef = db.collection('nexo_dev_requests').doc(devId);
+    const snap = await docRef.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    if (data.type !== 'bug_from_chat') return;
+    if (!data.sessionId) return;
+    if (data.forgeAnalysisMessageId) {
+      console.log(`[FORGE→NEXUS] devId ${devId} già notificato (msg=${data.forgeAnalysisMessageId})`);
+      return;
+    }
+
+    const path = join(TASKS_DIR, `dev-analysis-${devId}.md`);
+    if (!existsSync(path)) return;
+    const md = readFileSync(path, 'utf-8');
+    const summary = extractAnalysisSummary(md) || 'Ho letto il caso e capito cosa è andato storto.';
+    const proposal = extractAnalysisProposal(md);
+
+    const content = proposal
+      ? `Ho analizzato il problema: ${summary}\n\nProposta: ${proposal}\n\nLo sto fixando.`
+      : `Ho analizzato il problema: ${summary}\n\nLo sto preparando da fixare.`;
+
+    const msgId = await writeForgeMessageToNexus(data.sessionId, content, {
+      stato: 'completata',
+      meta: { forgeKind: 'analysis', devRequestId: devId },
+    });
+    if (msgId) {
+      try { await docRef.set({ forgeAnalysisMessageId: msgId, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch {}
+    }
+  } catch (e) {
+    console.error(`[FORGE→NEXUS analysis] ${e.message}`);
+  }
+}
+
+// Step 2: dopo un task di implementazione completato, cerca se cita
+// dev-analysis-{devId} nel suo contenuto. Se sì e il dev-request è
+// bug_from_chat, posta un messaggio "Fix applicato. …" nella sessione.
+async function postForgeFixToChat(taskId, taskContent, completed) {
+  try {
+    const m = String(taskContent || '').match(/dev-analysis-([A-Za-z0-9_-]{10,})/);
+    if (!m) return;
+    const devId = m[1];
+    const db = getDb();
+    const docRef = db.collection('nexo_dev_requests').doc(devId);
+    const snap = await docRef.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    if (data.type !== 'bug_from_chat') return;
+    if (!data.sessionId) return;
+    if (data.forgeFixMessageId) {
+      console.log(`[FORGE→NEXUS] fix devId ${devId} già notificato`);
+      return;
+    }
+
+    // Estrai sintesi del fix dal task originale (prime 1-2 frasi sostanziose)
+    const taskHead = String(taskContent || '').split('\n').slice(0, 12).join('\n');
+    let descr = (taskHead.match(/^[^#>\n][^\n]+/m) || [''])[0].trim();
+    if (descr.length > 220) descr = descr.slice(0, 210).replace(/\s+\S*$/, '') + '…';
+
+    const content = completed
+      ? `Fix applicato e deployato. ${descr || 'Le modifiche sono live in produzione.'} Riprova quando vuoi.`
+      : `Ho lavorato al fix per ${devId} ma il task non è andato a buon fine (timeout). Lo riproveremo.`;
+
+    const msgId = await writeForgeMessageToNexus(data.sessionId, content, {
+      stato: completed ? 'completata' : 'errore',
+      meta: { forgeKind: 'fix', devRequestId: devId, taskId },
+    });
+    if (msgId) {
+      try { await docRef.set({ forgeFixMessageId: msgId, fixedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true }); } catch {}
+    }
+  } catch (e) {
+    console.error(`[FORGE→NEXUS fix] ${e.message}`);
+  }
 }
 
 // === MAIN LOOP ===

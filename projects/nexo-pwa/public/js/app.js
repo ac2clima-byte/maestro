@@ -1601,6 +1601,7 @@ async function nexusEnsureSubscribed() {
           lavagnaMessageId: d.lavagnaMessageId,
           azione: d.azione,
           stato: d.stato,
+          source: d.source || null,
           timestamp: d.timestamp && d.timestamp.toDate ? d.timestamp.toDate() : null,
         });
       });
@@ -2161,8 +2162,11 @@ function escapeHtmlAndAutolink(text) {
 }
 
 function nexusRenderBubble(m, consecutive) {
+  const isForge = m.source === "forge";
   const meta = [];
-  if (m.collegaCoinvolto && m.collegaCoinvolto !== "nessuno" && m.collegaCoinvolto !== "multi") {
+  if (isForge) {
+    meta.push(`<span class="nexus-badge-col nexus-badge-forge">forge</span>`);
+  } else if (m.collegaCoinvolto && m.collegaCoinvolto !== "nessuno" && m.collegaCoinvolto !== "multi" && m.collegaCoinvolto !== "forge") {
     meta.push(`<span class="nexus-badge-col">${escapeHtml(m.collegaCoinvolto.toLowerCase())}</span>`);
   }
   if (m.stato && m.role === "assistant" && m.stato !== "diretta") {
@@ -2183,9 +2187,11 @@ function nexusRenderBubble(m, consecutive) {
     ? `<span class="nexus-bubble-wave" aria-hidden="true"><span></span><span></span><span></span><span></span></span>`
     : "";
   const timeHtml = m.timestamp ? `<span class="time">${escapeHtml(nexusBubbleTime(m.timestamp))}</span>` : "";
+  const forgeClass = isForge ? "forge" : "";
+  const forgePrefix = isForge ? `<span class="nexus-bubble-forge-tag" aria-hidden="true">🔧 FORGE</span> ` : "";
   return `
-    <div class="nexus-bubble ${escapeHtml(m.role)} ${consecutive ? "consecutive" : ""} ${isSpeaking ? "is-speaking" : ""}" data-bubble-id="${escapeHtml(m.id || "")}">
-      ${escapeHtmlAndAutolink(m.content)}${timeHtml}
+    <div class="nexus-bubble ${escapeHtml(m.role)} ${forgeClass} ${consecutive ? "consecutive" : ""} ${isSpeaking ? "is-speaking" : ""}" data-bubble-id="${escapeHtml(m.id || "")}">
+      ${forgePrefix}${escapeHtmlAndAutolink(m.content)}${timeHtml}
       ${waveIndicator}
       ${(meta.length || speakBtn) ? `<div class="nexus-bubble-meta">${meta.join("")}${speakBtn}</div>` : ""}
     </div>
