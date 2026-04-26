@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T17:39:18.248Z
+Ultimo aggiornamento: 2026-04-26T17:47:35.596Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 28235s
-Timestamp Firestore: 2026-04-26T17:39:00.738Z
+Uptime: 499s
+Timestamp Firestore: 2026-04-26T17:47:34.491Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,19 +15,19 @@ Timestamp Firestore: 2026-04-26T17:39:00.738Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 28234.546791355,
-  "timestamp": "2026-04-26T17:39:00.738Z"
+  "uptime": 499.133563942,
+  "timestamp": "2026-04-26T17:47:34.491Z"
 }
 ```
 
 </details>
 
 ## Task pending
-- nexus-bug-button-in-chat
+Nessuno.
 
 ## Ultimi 5 commit
+- a44936d result: nexus-bug-button-in-chat
+- df6f579 feat(nexus): bottone bug in chat con contesto conversazione
+- 1e04858 status update
 - 62d23d1 wip
 - afe4004 status update
-- 8933efa status update
-- 8863457 task: bottone bug in chat NEXUS
-- f0925e2 result: fix-storage-permessi-pdf
