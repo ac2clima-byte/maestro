@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>NEXUS · fix tecnici + comprensione contestuale</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .err { background:rgba(239,68,68,.15); color:var(--err); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  td { padding:8px 10px; border-bottom:1px solid #1f2a3d; vertical-align:top; }
+  td:first-child { color:var(--mute); width:240px; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.5; }
+  .quote { border-left:3px solid var(--acg); padding:6px 12px; color:#cdd6e0; font-style:italic; margin:8px 0; }
+  .bad { border-left-color: var(--err); }
+  .good { border-left-color: var(--ok); }
+</style>
+</head>
+<body>
+  <h1>Fix NEXUS · tecnici + comprensione contestuale</h1>
+  <p class="sub">Diagnosi del bug e fix applicato/deployato su <code>nexusRouter</code> (europe-west1).</p>
+
+  <h2>Diagnosi — perché non rispondeva ai tecnici</h2>
+  <div class="card">
+    <p>L'handler <code>handleListaTecnici</code> esisteva e veniva selezionato correttamente, ma dei 9 tecnici in <code>cosmina_contatti_interni</code>:</p>
+    <ul>
+      <li><b>8 docs su 9</b> hanno il campo <code>azienda</code> vuoto/mancante.</li>
+      <li>L'handler classificava "azienda vuota → gruppo <code>altri</code>" → <b>1 solo</b> tecnico in <code>acg</code>, <b>8</b> in <code>altri</code>.</li>
+      <li>I nomi sono memorizzati nel solo campo <code>nome</code> (es. <code>"DELLAFIORE VICTOR"</code>), <code>cognome</code> quasi sempre vuoto. La concatenazione <code>nome + cognome</code> + sort per "ultima parola come cognome" rendeva l'output incoerente.</li>
+    </ul>
+    <p>Risultato in chat: NEXUS non listava i tecnici ACG come ci si aspettava.</p>
+  </div>
+
+  <h2>Fix applicato in <code>handlers/memo.js</code></h2>
+  <table>
+    <tr><td>Default azienda</td><td>Quando <code>azienda</code> è vuota → gruppo <b>ACG</b> (rubrica nasce ACG, Guazzotti è esplicito).</td></tr>
+    <tr><td>fullName</td><td>Usa solo <code>nome</code> se <code>cognome</code> è vuoto o già contenuto in <code>nome</code>. Niente "NOME COGNOME" raddoppiato.</td></tr>
+    <tr><td>titleCase</td><td><code>"DELLAFIORE VICTOR"</code> → <code>"Dellafiore Victor"</code>. Output leggibile in chat.</td></tr>
+  </table>
+
+  <h2>Output verificato contro dati reali Firestore</h2>
+  <pre>I tecnici ACG sono: Troise Antonio, Alberto Contardi, Aime David,
+Berberi Ergest, Tosca Federico, Albanesi Gianluca, Dellafiore Lorenzo,
+Marco Piparo e Dellafiore Victor.</pre>
+  <p><span class="pill ok">9/9 tecnici trovati e classificati ACG</span></p>
+
+  <h2>Fix 2 — comprensione contestuale</h2>
+  <p>Aggiunto al system prompt di <code>callHaikuForIntent</code> un blocco esplicito "REGOLA SUL NON-ARRENDERSI":</p>
+  <pre>Se l'utente dice qualcosa che non capisci al primo colpo, guarda i
+messaggi precedenti per capire il contesto. Non rispondere mai
+"non ho capito" se puoi dedurre l'intenzione dal contesto. Anche
+se un handler ha appena fallito ("non trovato", "0 risultati"),
+se l'utente insiste con un riferimento ("dovrebbe esserci",
+"guarda meglio", "su firestore", "in COSMINA") riprova lo STESSO
+routing precedente — magari con parametri leggermente diversi —
+invece di chiedere di riformulare. Fai un secondo tentativo
+prima di arrenderti, sempre.</pre>
+  <p>Il loader <code>loadConversationContext(sessionId, max=5)</code> già passava gli ultimi 10 messaggi (5 user + 5 assistant) a Haiku → il prompt aggiornato dice ora esplicitamente come usarli.</p>
+
+  <h2>Esempio dialogo prima vs dopo</h2>
+  <div class="card">
+    <div class="quote">Alberto: "quali sono i tecnici di acg clima?"</div>
+    <div class="quote bad">[prima] NEXUS: "Non ho trovato tecnici ACG in rubrica."</div>
+    <div class="quote good">[dopo] NEXUS: "I tecnici ACG sono: Troise Antonio, Alberto Contardi, Aime David, Berberi Ergest, Tosca Federico, Albanesi Gianluca, Dellafiore Lorenzo, Marco Piparo e Dellafiore Victor."</div>
+  </div>
+  <div class="card">
+    <div class="quote">Alberto: "dovresti vederli su firestore"</div>
+    <div class="quote bad">[prima] NEXUS: "Non ho capito, puoi riformulare?"</div>
+    <div class="quote good">[dopo] NEXUS: riprova il routing memo/lista_tecnici interpretando "li" come riferimento ai tecnici della domanda precedente.</div>
+  </div>
+
+  <h2>Stato deploy</h2>
+  <p><span class="pill ok">nexusRouter europe-west1 deployato</span></p>
+  <p>Endpoint: <code>https://nexusrouter-pfvwdew6fq-ew.a.run.app</code></p>
+</body>
+</html>

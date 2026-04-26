@@ -417,17 +417,36 @@ function joinNatural(items) {
   return items.slice(0, -1).join(", ") + " e " + items[items.length - 1];
 }
 
-function fullName(v) {
-  const nome = String(v.nome || "").trim();
-  const cognome = String(v.cognome || "").trim();
-  return [nome, cognome].filter(Boolean).join(" ").trim();
+// Capitalizza un nome in formato leggibile: "DELLAFIORE VICTOR" → "Dellafiore Victor".
+function titleCase(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\b([a-zàèéìòùç])/g, (m) => m.toUpperCase())
+    .trim();
 }
 
+function fullName(v) {
+  // I doc reali hanno il nome completo in `nome` (es. "DELLAFIORE VICTOR")
+  // e `cognome` quasi sempre vuoto. Concateniamo se entrambi presenti,
+  // altrimenti usiamo solo il `nome` come unica fonte. Poi titleCase.
+  const nome = String(v.nome || "").trim();
+  const cognome = String(v.cognome || "").trim();
+  let raw;
+  if (nome && cognome && !nome.toLowerCase().includes(cognome.toLowerCase())) {
+    raw = `${nome} ${cognome}`;
+  } else {
+    raw = nome || cognome;
+  }
+  return titleCase(raw);
+}
+
+// Default ACG quando azienda è vuota: i contatti senza azienda nel campo
+// sono storicamente colleghi ACG (la rubrica nasce in ACG). Solo se
+// `azienda` contiene esplicitamente "guazzotti" finisce nel gruppo Guazzotti.
 function aziendaSlug(azienda) {
   const a = String(azienda || "").toLowerCase();
-  if (a.includes("acg")) return "acg";
   if (a.includes("guazzotti")) return "guazzotti";
-  return "altri";
+  return "acg";
 }
 
 export async function handleListaTecnici(parametri, ctx) {
