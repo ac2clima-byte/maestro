@@ -8,6 +8,7 @@ import {
 // Import dei 10 Colleghi
 import {
   handleContaEmailUrgenti, handleEmailOggi, handleEmailTotali,
+  handleEmailRecenti, handleEmailAltre, handleLeggiEmail,
   handleRicercaEmailMittente, handleEmailSenzaRisposta, handleEmailPerCategoria,
   handleStatoLavagna, handleIrisAnalizzaEmail,
 } from "./iris.js";
@@ -88,7 +89,15 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
 - iris       → email in arrivo
     azioni: cerca_email_urgenti, email_oggi, email_totali, email_senza_risposta,
             cerca_email_mittente, email_per_categoria,
+            email_recenti (lista delle ultime email — vedi sotto),
+            email_altre (paginazione: pagina successiva),
+            leggi_email (parametri: {indice} oppure {emailId} o nome mittente),
             analizza_email (parametri: {mittente?} — "analizza l'ultima mail di X")
+    IMPORTANTE — quando Alberto vuole VEDERE le email (non solo il conteggio):
+      "guarda le mail" / "mostrami le email" / "fammi vedere" → email_recenti
+      "guarda le altre" / "le successive" / "avanti" / "altre" → email_altre
+      "leggi la prima" / "apri la 2" / "leggi quella di Torriglia" → leggi_email
+      Quante email "ho" / "ne hai" / "in totale" → email_totali (solo conteggio).
 - echo       → inbound/outbound WA:
     azioni: sendWhatsApp, sendTelegram, sendEmail, sendPush,
             wa_inbox (lista messaggi WA ricevuti, "messaggi WA in arrivo"),
@@ -300,6 +309,29 @@ export const DIRECT_HANDLERS = [
       || /messaggi\s+(wa|whatsapp)\s+(?:in\s+)?arriv|wa\s+(?:in\s+)?arriv|whatsapp\s+non.*gest/.test(m);
   }, fn: handleWaInboxList },
   { match: (col, az) => col === "iris" && /urgen/.test(az), fn: handleContaEmailUrgenti },
+  // IRIS — leggi email N (specifico, prima delle altre)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "iris" && /(leggi_email|apri_email|leggi.*mail|leggi_la|apri_la)/.test(az)) return true;
+    return /\b(leggi|apri|mostra(?:mi)?|dimmi)\s+(?:la\s+|il\s+)?(?:prima|seconda|terza|quarta|quinta|sesta|settima|ottava|nona|decima|ultima|\d{1,2})\b/i.test(m)
+        || /\b(?:leggi|apri|mostra(?:mi)?)\s+(?:la\s+)?mail\b.{0,30}(?:di|da|del)\s+/i.test(m);
+  }, fn: handleLeggiEmail },
+  // IRIS — guarda le altre / le successive (paginazione)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "iris" && /(altre|successiv|prossim|avanti|paginazion|email_altre|email_successive)/.test(az)) return true;
+    return /\b(?:guarda(?:le)?|mostra(?:mi)?)\s+(?:le\s+)?(?:altre|successive|prossim\w+)\b/i.test(m)
+        || /^\s*(?:le\s+)?altre\b/i.test(m)
+        || /^\s*avanti\b/i.test(m);
+  }, fn: handleEmailAltre },
+  // IRIS — guarda le mail / mostrami le email (lista)
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "iris" && /(email_recenti|recenti|lista|mostra|guarda|elenco|vedi)/.test(az)) return true;
+    return /\b(guarda(?:mi)?|mostra(?:mi)?|fammi\s+vedere|vedi(?:amo)?)\s+(?:le\s+)?(?:mie\s+)?(?:mail|email)\b/i.test(m)
+        || /^\s*(?:le\s+)?(?:mie\s+)?(?:mail|email)\s+recenti\b/i.test(m)
+        || /\bemail\s+recenti\b/i.test(m);
+  }, fn: handleEmailRecenti },
   { match: (col, az) => col === "iris" && /(oggi|today|di_oggi|ricevute_oggi)/.test(az), fn: handleEmailOggi },
   { match: (col, az) => col === "iris" && /(total|conta_email|count|quant(e|it))/.test(az) && !/urgen/.test(az), fn: handleEmailTotali },
   { match: (col, az) => col === "iris" && /(mittente|sender|cerca_email|ricerca|email_da|da_mittente)/.test(az), fn: handleRicercaEmailMittente },

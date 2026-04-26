@@ -64,6 +64,191 @@ export async function handleEmailOggi() {
   return conversationalPresent(sorted, "email di oggi");
 }
 
+// ─── Lista email recenti (per "guarda le mail" / "mostrami le email") ─
+//
+// Mostra una lista numerata di 5 email recenti con mittente, data,
+// oggetto e summary. Salva pendingEmails con cursor=0 per permettere
+// "leggi la prima/seconda/ultima" e "guarda le altre".
+function fmtDataBreve(iso) {
+  if (!iso) return "?";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "?";
+    return d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+  } catch { return "?"; }
+}
+
+function buildListaEmail(emails, intro, contestoLabel = "email", startIndex = 0) {
+  if (!emails.length) {
+    return { content: `Niente da mostrare per "${contestoLabel}".`, data: { count: 0 } };
+  }
+  const slice = emails.slice(startIndex, startIndex + 5);
+  const lines = [intro];
+  lines.push("");
+  slice.forEach((e, i) => {
+    const idx = startIndex + i + 1;
+    const chi = e.senderName || (e.sender || "?").split("@")[0];
+    const data = fmtDataBreve(e.received_time);
+    const oggetto = (e.subject || "(senza oggetto)").slice(0, 90);
+    const summ = (e.summary || e.body_text || "").slice(0, 140).replace(/\n/g, " ");
+    lines.push(`${idx}. Da ${chi} (${data}) — ${oggetto}`);
+    if (summ) lines.push(`   ${summ}`);
+  });
+  const totale = emails.length;
+  const mostrate = startIndex + slice.length;
+  if (totale > mostrate) {
+    lines.push("");
+    lines.push(`Ne ho ${totale - mostrate} altre. Dimmi "guarda le altre" per continuare oppure "leggi la 1" / "leggi la 2" per aprirne una.`);
+  } else if (mostrate > 0) {
+    lines.push("");
+    lines.push(`Dimmi "leggi la 1" (o un altro numero) per aprirla.`);
+  }
+  return {
+    content: lines.join("\n"),
+    data: {
+      pendingEmails: {
+        kind: "email_lista",
+        contestoLabel,
+        emails: emails.slice(0, 50).map(e => ({
+          id: e.id,
+          from: e.senderName || e.sender,
+          subject: e.subject,
+          summary: e.summary,
+          body: (e.body_text || "").slice(0, 4000),
+          received: e.received_time,
+          category: e.category,
+          intent: e.intent,
+          attachments: Array.isArray(e.attachments) ? e.attachments.slice(0, 5) : [],
+        })),
+        cursor: startIndex,
+        pageSize: 5,
+      },
+    },
+  };
+}
+
+export async function handleEmailRecenti(parametri = {}) {
+  const N = Math.min(Number(parametri.limit) || 50, 100);
+  const emails = await fetchIrisEmails(N);
+  if (!emails.length) {
+    return { content: "Non trovo email indicizzate. Forse il poller non ha ancora girato." };
+  }
+  const intro = emails.length === 1
+    ? `Hai 1 email recente.`
+    : `Hai ${emails.length} email recenti. Ecco le prime 5:`;
+  return buildListaEmail(emails, intro, "email recenti", 0);
+}
+
+export async function handleEmailAltre(parametri, ctx) {
+  const sessionId = ctx?.sessionId || null;
+  // Per evitare query Firestore: buildListaEmail funziona con startIndex,
+  // recuperiamo le email recenti e mostriamo la pagina successiva. Il
+  // cursor reale viene tracciato dall'intercept tryInterceptEmailLista
+  // che salva il pending in nexus_chat. Qui usiamo cursor passato in
+  // parametri.startIndex (5/10/...) o default 5.
+  const startIndex = Math.max(0, Number(parametri?.startIndex) || 5);
+  const emails = await fetchIrisEmails(50);
+  if (startIndex >= emails.length) {
+    return { content: "Non ci sono altre email. Hai visto tutte quelle indicizzate." };
+  }
+  return buildListaEmail(emails, `Eccone altre 5:`, "email recenti", startIndex);
+}
+
+// Legge il contenuto completo di un'email (per indice nella lista o per id).
+export async function handleLeggiEmail(parametri, ctx) {
+  const userMsg = String((ctx && ctx.userMessage) || "").toLowerCase();
+  let idx = Number(parametri?.indice || parametri?.index || 0);
+  const emailIdParam = String(parametri?.emailId || "").trim();
+
+  // Estrai indice dal messaggio se non passato esplicitamente.
+  // Pattern: "leggi/apri la PRIMA/SECONDA/.../1/2/..."
+  if (!idx) {
+    const ordinali = {
+      prima: 1, primo: 1, seconda: 2, secondo: 2, terza: 3, terzo: 3,
+      quarta: 4, quarto: 4, quinta: 5, quinto: 5, sesta: 6, sesto: 6,
+      settima: 7, settimo: 7, ottava: 8, ottavo: 8, nona: 9, nono: 9,
+      decima: 10, decimo: 10, ultima: -1, ultimo: -1,
+    };
+    for (const [k, v] of Object.entries(ordinali)) {
+      if (new RegExp(`\\b${k}\\b`, "i").test(userMsg)) { idx = v; break; }
+    }
+    if (!idx) {
+      const m = userMsg.match(/\b(?:leggi|apri|mostra(?:mi)?|dimmi)\s+(?:la\s+|il\s+)?(\d{1,2})\b/);
+      if (m) idx = Number(m[1]);
+    }
+  }
+
+  const emails = await fetchIrisEmails(50);
+
+  // Search per mittente: "leggi la mail di Torriglia"
+  const mittenteMatch = userMsg.match(/(?:leggi|apri|mostra(?:mi)?|dimmi)[^]*?(?:di|da|del|della)\s+([a-zà-ÿ][a-zà-ÿ\s'.-]{2,30})/i);
+  let target = null;
+
+  // 1. emailId esplicito
+  if (emailIdParam) {
+    target = emails.find(e => e.id === emailIdParam) || null;
+  }
+  // 2. ultima email
+  if (!target && idx === -1) target = emails[0];
+  // 3. indice numerico
+  if (!target && idx >= 1 && idx <= emails.length) {
+    target = emails[idx - 1];
+  }
+  // 4. fallback: search per mittente
+  if (!target && mittenteMatch) {
+    const q = mittenteMatch[1].trim().toLowerCase();
+    target = emails.find(e => {
+      const bag = `${e.senderName || ""} ${e.sender || ""}`.toLowerCase();
+      return bag.includes(q);
+    });
+  }
+
+  if (!target) {
+    return {
+      content: `Quale email vuoi che legga? Dimmi un numero (1-${Math.min(emails.length, 5)}) o il mittente (es. "leggi la mail di Torriglia").`,
+    };
+  }
+
+  const chi = target.senderName || target.sender || "?";
+  const oggetto = target.subject || "(senza oggetto)";
+  const data = fmtDataBreve(target.received_time);
+  const body = (target.body_text || "").slice(0, 1500).trim();
+  const summ = target.summary || "";
+  const cat = target.category || "ALTRO";
+
+  const lines = [];
+  lines.push(`Email da ${chi} del ${data} — ${oggetto}`);
+  if (summ) {
+    lines.push("");
+    lines.push(`Riassunto: ${summ}`);
+  }
+  if (body) {
+    lines.push("");
+    lines.push(`Testo: ${body}`);
+  }
+  if (Array.isArray(target.attachments) && target.attachments.length) {
+    lines.push("");
+    const att = target.attachments.map(a =>
+      `${a.filename || "allegato"} (${a.detectedType || "?"})${a.downloadUrl ? " — apribile" : ""}`,
+    ).join(", ");
+    lines.push(`Allegati: ${att}`);
+  }
+  lines.push("");
+  lines.push(`Vuoi che risponda, archivi, o apra un intervento?`);
+
+  return {
+    content: lines.join("\n"),
+    data: {
+      emailLetta: {
+        id: target.id,
+        sender: target.sender,
+        subject: target.subject,
+        category: cat,
+      },
+    },
+  };
+}
+
 export async function handleEmailTotali() {
   const emails = await fetchIrisEmails(500);
   const ultimo = emails[0]?.received_time;
