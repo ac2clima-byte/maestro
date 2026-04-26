@@ -1,33 +1,33 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-26T19:38:29.693Z
+Ultimo aggiornamento: 2026-04-26T19:38:59.732Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
+Fase: polling
 Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 702s
-Timestamp Firestore: 2026-04-26T19:36:08.056Z
+Dettagli: git pull in corso
+Uptime: 27s
+Timestamp Firestore: 2026-04-26T19:38:52.912Z
 
 <details><summary>Payload JSON</summary>
 
 ```json
 {
-  "fase": "idle",
+  "fase": "polling",
   "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 702.245753445,
-  "timestamp": "2026-04-26T19:36:08.056Z"
+  "dettagli": "git pull in corso",
+  "uptime": 27.147818981,
+  "timestamp": "2026-04-26T19:38:52.912Z"
 }
 ```
 
 </details>
 
 ## Task pending
-Nessuno.
+- fix-maestro-autostash-definitivo
 
 ## Ultimi 5 commit
+- 0fdaee2 task: fix MAESTRO autostash definitivo
+- fa9fc98 status update
 - 425ae33 wip
 - 7a153bd result: fix-ares-interventi-data-reale
 - 5501b5b status update
-- ac35c4f wip
-- 4a5d565 status update
