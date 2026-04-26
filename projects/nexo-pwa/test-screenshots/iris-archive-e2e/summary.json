@@ -1,0 +1,53 @@
+{
+  "steps": [
+    {
+      "name": "Bottone archivia trovato per email test",
+      "status": "ok",
+      "detail": "<button class=\"btn-archive\" data-archive=\"forge_test_archive_1777212922389\" title=\"Archivia in cartella per mittente\">📦 Archivia</button>"
+    },
+    {
+      "name": "Endpoint Archive chiamato",
+      "status": "fail",
+      "detail": "nessuna chiamata di rete"
+    },
+    {
+      "name": "Toast archivio visibile",
+      "status": "warn",
+      "detail": ""
+    },
+    {
+      "name": "Firestore status=archived",
+      "status": "fail",
+      "detail": "status=(none) · cartella=(none)"
+    },
+    {
+      "name": "Bottone elimina trovato",
+      "status": "ok",
+      "detail": ""
+    },
+    {
+      "name": "Endpoint Delete chiamato",
+      "status": "fail",
+      "detail": "nessuna chiamata"
+    },
+    {
+      "name": "Firestore status=deleted",
+      "status": "fail",
+      "detail": "status=(none)"
+    },
+    {
+      "name": "Console errors",
+      "status": "warn",
+      "detail": "Access to fetch at 'https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail' from origin 'https://nexo-hub-15f2d.web.app' has been blocked by CORS policy: Request header field x-forge-key is not allowed by Access-Control-Allow-Headers in preflight response. | Failed to load resource: net::ERR_FAILED | Access to fetch at 'https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail' from origin 'https://nexo-hub-15f2d.web.app' has been blocked by CORS policy: Request header field x-forge-key is not allowed by Access-Control-Allow-Headers in preflight response."
+    }
+  ],
+  "archiveId": "forge_test_archive_1777212922389",
+  "deleteId": "forge_test_delete_1777212922389",
+  "responses": [],
+  "consoleErrors": [
+    "Access to fetch at 'https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail' from origin 'https://nexo-hub-15f2d.web.app' has been blocked by CORS policy: Request header field x-forge-key is not allowed by Access-Control-Allow-Headers in preflight response.",
+    "Failed to load resource: net::ERR_FAILED",
+    "Access to fetch at 'https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail' from origin 'https://nexo-hub-15f2d.web.app' has been blocked by CORS policy: Request header field x-forge-key is not allowed by Access-Control-Allow-Headers in preflight response.",
+    "Failed to load resource: net::ERR_FAILED"
+  ]
+}

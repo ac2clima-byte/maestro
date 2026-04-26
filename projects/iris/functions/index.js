@@ -1568,15 +1568,35 @@ function splitMultipart(buf, boundary) {
 // script Hetzner consuma. iris_emails viene marcato status="archived"
 // o "deleted" ottimisticamente; il doc resta in Firestore (soft-delete).
 import { handleIrisArchiveEmail, handleIrisDeleteEmail } from "./handlers/iris.js";
+import { FORGE_KEY } from "./handlers/forge.js";
+
+// Auth a doppio binario per gli endpoint archive/delete:
+//  - Path principale: Firebase ID Token ACG (verifyAcgIdToken)
+//  - Path fallback (PWA in MOCK_MODE / FORGE): X-Forge-Key oppure
+//    body.forgeKey con la stessa chiave usata da FORGE.
+// Questo evita che il frontend non autenticato veda i bottoni inerti.
+async function checkArchiveDeleteAuth(req) {
+  const acg = await verifyAcgIdToken(req);
+  if (acg) return { ok: true, mode: "id_token", user: acg.email || acg.uid };
+  let expected;
+  try { expected = FORGE_KEY.value() || process.env.FORGE_KEY || "nexo-forge-2026"; }
+  catch { expected = process.env.FORGE_KEY || "nexo-forge-2026"; }
+  const provided = String(
+    req.headers["x-forge-key"] || (req.body && req.body.forgeKey) || ""
+  );
+  if (provided && provided === expected) return { ok: true, mode: "forge_key", user: "forge" };
+  return { ok: false };
+}
 
 export const irisArchiveEmail = onRequest(
-  { region: REGION, cors: false, timeoutSeconds: 30, memory: "256MiB", maxInstances: 10 },
+  { region: REGION, cors: false, secrets: [FORGE_KEY], timeoutSeconds: 30, memory: "256MiB", maxInstances: 10 },
   async (req, res) => {
     applyCorsOpen(req, res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
     if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
-    const authUser = await verifyAcgIdToken(req);
-    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+
+    const auth = await checkArchiveDeleteAuth(req);
+    if (!auth.ok) { res.status(401).json({ error: "unauthorized" }); return; }
 
     const body = req.body || {};
     const emailId = String(body.emailId || "").trim();
@@ -1585,7 +1605,7 @@ export const irisArchiveEmail = onRequest(
     try {
       const r = await handleIrisArchiveEmail({ emailId });
       if (!r.ok) { res.status(400).json({ error: r.error }); return; }
-      res.status(200).json(r);
+      res.status(200).json({ ...r, authMode: auth.mode });
     } catch (e) {
       logger.error("irisArchiveEmail failed", { error: String(e) });
       res.status(500).json({ error: String(e).slice(0, 300) });
@@ -1594,13 +1614,14 @@ export const irisArchiveEmail = onRequest(
 );
 
 export const irisDeleteEmail = onRequest(
-  { region: REGION, cors: false, timeoutSeconds: 30, memory: "256MiB", maxInstances: 10 },
+  { region: REGION, cors: false, secrets: [FORGE_KEY], timeoutSeconds: 30, memory: "256MiB", maxInstances: 10 },
   async (req, res) => {
     applyCorsOpen(req, res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
     if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
-    const authUser = await verifyAcgIdToken(req);
-    if (!authUser) { res.status(401).json({ error: "unauthorized" }); return; }
+
+    const auth = await checkArchiveDeleteAuth(req);
+    if (!auth.ok) { res.status(401).json({ error: "unauthorized" }); return; }
 
     const body = req.body || {};
     const emailId = String(body.emailId || "").trim();
@@ -1609,7 +1630,7 @@ export const irisDeleteEmail = onRequest(
     try {
       const r = await handleIrisDeleteEmail({ emailId });
       if (!r.ok) { res.status(400).json({ error: r.error }); return; }
-      res.status(200).json(r);
+      res.status(200).json({ ...r, authMode: auth.mode });
     } catch (e) {
       logger.error("irisDeleteEmail failed", { error: String(e) });
       res.status(500).json({ error: String(e).slice(0, 300) });

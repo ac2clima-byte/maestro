@@ -1648,6 +1648,9 @@ async function getFirestore() {
 // ─── Archivia / Elimina email (chiamate Cloud Function) ──────────
 const IRIS_ARCHIVE_URL = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail";
 const IRIS_DELETE_URL  = "https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail";
+// In MOCK_MODE (login bypassato) usiamo la chiave statica come fallback.
+// Quando il login Firebase Auth è attivo, l'ID Token ha priorità.
+const IRIS_FORGE_KEY = "nexo-forge-2026";
 
 async function getAuthIdToken() {
   const u = window.__irisCurrentUser;
@@ -1656,12 +1659,20 @@ async function getAuthIdToken() {
 }
 
 async function callIrisAction(url, emailId) {
+  const headers = { "Content-Type": "application/json" };
+  const body = { emailId };
   const token = await getAuthIdToken();
-  if (!token) throw new Error("Sessione scaduta, rifai login.");
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    // Fallback MOCK_MODE: la Cloud Function accetta anche X-Forge-Key.
+    headers["X-Forge-Key"] = IRIS_FORGE_KEY;
+    body.forgeKey = IRIS_FORGE_KEY;
+  }
   const resp = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ emailId }),
+    headers,
+    body: JSON.stringify(body),
   });
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");

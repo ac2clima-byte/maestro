@@ -1,0 +1,38 @@
+{
+  "state": {
+    "hasLoginGate": false,
+    "bodyText": "IRISCollega Email di NEXO\n100 email\n4 urgenti\n34 senza risposta\n⚙️ Regole\n📋 Dev Requests\n🛠️ Nuova richiesta dev\nFirestore live (100)\nLogout\n📋\nDigest\nAggiornato 16:09\nOggi 0 email ricevute oggi. 4 u",
+    "hasEmailCard": true,
+    "emailCount": 92,
+    "hasArchiveBtn": true,
+    "archiveBtnCount": 92,
+    "loggedIn": true,
+    "user": null
+  },
+  "target": {
+    "emailId": "qNqYj46oJSCBdkwpEWNJ",
+    "cardExists": true,
+    "btnHTML": "<button class=\"btn-archive\" data-archive=\"qNqYj46oJSCBdkwpEWNJ\" title=\"Archivia in cartella per mittente\">📦 Archivia</button>"
+  },
+  "after": {
+    "toastText": "",
+    "cardStillThere": true,
+    "btnDisabled": false
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://nexo-hub-15f2d.web.app/iris/",
+      "headers": {
+        "upgrade-insecure-requests": "1",
+        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36",
+        "sec-ch-ua": "\"HeadlessChrome\";v=\"147\", \"Not.A/Brand\";v=\"8\", \"Chromium\";v=\"147\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"Linux\""
+      }
+    }
+  ],
+  "responses": [],
+  "consoleErrors": [],
+  "consoleLogs": []
+}
