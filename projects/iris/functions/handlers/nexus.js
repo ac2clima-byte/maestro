@@ -103,15 +103,20 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
             wa_inbox (lista messaggi WA ricevuti, "messaggi WA in arrivo"),
             wa_analizza_ultimo (analizza ultimo WA ricevuto)
 - ares       → interventi (bacheca COSMINA):
-    azioni: interventi_aperti (parametri opzionali: {tecnico, data}),
+    azioni: interventi_aperti (parametri opzionali: {tecnico, data, citta}),
             apri_intervento, assegna_tecnico
     IMPORTANTE: "interventi aperti di [tecnico]" / "interventi di [tecnico] oggi"
       → SEMPRE collega="ares" + azione="interventi_aperti" con
       parametri.tecnico = nome (es. Marco, Lorenzo, David, Federico,
-      Antonio, Ergest). Se l'utente cita "oggi" / "domani" passa anche
-      parametri.data. NON confondere con PHARO: PHARO è per RTI/RTIDF
-      Guazzotti, ARES è per gli INTERVENTI in bacheca COSMINA.
-      "interventi" = ARES, sempre.
+      Antonio, Ergest).
+    parametri.data: "oggi", "ieri", "domani", "lunedì"…"domenica"
+      (eventualmente con "scorso/prossimo"), "la settimana scorsa",
+      "23 aprile", "23/04/2026". L'handler interpreta il tense ("aveva
+      venerdì" → venerdì passato; "avrà lunedì" → lunedì futuro).
+    parametri.citta: nome città citato dall'utente ("ad Alessandria",
+      "a Voghera", "a Tortona"). Lascia vuoto se non c'è.
+    NON confondere con PHARO: PHARO è per RTI/RTIDF Guazzotti, ARES è
+      per gli INTERVENTI in bacheca COSMINA. "interventi" = ARES, sempre.
 - chronos    → pianificazione + campagne:
     azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera,
             campagne_attive (lista), campagna_status (parametri: {nome})
@@ -444,8 +449,15 @@ export const DIRECT_HANDLERS = [
     const m = (ctx?.userMessage || "").toLowerCase();
     if (col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az)) return true;
     // Match diretto: "interventi (aperti) di [nome]" / "interventi di [nome] oggi/domani"
-    return /\bintervent[io]\s+(?:apert[io]\s+)?(?:di|del|per)\s+[a-zà-ÿ]/i.test(m)
-        || /\bintervent[io]\s+(?:di\s+)?oggi\b/i.test(m);
+    if (/\bintervent[io]\s+(?:apert[io]\s+)?(?:di|del|per)\s+[a-zà-ÿ]/i.test(m)) return true;
+    if (/\bintervent[io]\s+(?:di\s+)?oggi\b/i.test(m)) return true;
+    // Pattern "[Tecnico] aveva/ha/avrà ... intervento/i …" e "[Tecnico] venerdì …"
+    // Accettiamo qualsiasi nome dei 9 tecnici ACG come trigger.
+    const tecnRe = /\b(aime|david|albanesi|gianluca|contardi|alberto|dellafiore|lorenzo|victor|leshi|ergest|piparo|marco|tosca|federico|troise|antonio|malvicino)\b/i;
+    if (tecnRe.test(m) && /\bintervent/i.test(m)) return true;
+    // "interventi a/ad/in [Città]" senza tecnico esplicito
+    if (/\bintervent[io]\b.*\b(?:ad|a|in)\s+(?:alessandria|voghera|tortona|novi|casale|valenza|asti|pavia|milano|torino|genova|stradella|broni|rivanazzano|ovada|acqui)\b/i.test(m)) return true;
+    return false;
   }, fn: handleAresInterventiAperti },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();

@@ -1,27 +1,201 @@
 // handlers/ares.js — interventi (lettura + scrittura).
 import { getCosminaDb, db, FieldValue, logger } from "./shared.js";
 
-export async function handleAresInterventiAperti(parametri, ctx) {
-  const limit = Math.min(Number(parametri.limit) || 20, 50);
-  const userMessage = String((ctx && ctx.userMessage) || "").toLowerCase();
-  // Estrai tecnico dal messaggio se Haiku non l'ha passato:
-  // pattern "interventi (aperti) di <Nome>" / "<Nome>'s interventi" / "di <Nome>".
-  let tecnicoFilter = String(parametri.tecnico || parametri.nome || "").trim().toLowerCase();
-  if (!tecnicoFilter) {
-    const m = userMessage.match(/\b(?:di|del|per)\s+([a-zà-ÿ]+)(?:\s|$|,|\?|!)/i);
-    if (m && m[1] && !/^(oggi|domani|tutti|nostri|loro|noi|voi)$/i.test(m[1])) {
-      tecnicoFilter = m[1].toLowerCase();
+// ── Helpers parsing data ─────────────────────────────────────────
+const GIORNI_SETTIMANA = {
+  domenica: 0, lunedi: 1, "lunedì": 1, martedi: 2, "martedì": 2,
+  mercoledi: 3, "mercoledì": 3, giovedi: 4, "giovedì": 4,
+  venerdi: 5, "venerdì": 5, sabato: 6,
+};
+
+function _midnight(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function _addDays(d, n) {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function _formatDateIt(d) {
+  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+}
+
+// Detection del tense: "aveva, ha avuto, è andato, scorso/a, ieri" → passato.
+// "avrà, prossimo/a, domani" → futuro. "oggi" → presente.
+function _tense(msg) {
+  const m = String(msg || "").toLowerCase();
+  if (/\b(?:aveva|ha\s+avuto|è\s+stato|era|ho\s+avuto|ieri|scors[oa])\b/.test(m)) return "past";
+  if (/\b(?:avrà|avra|avremo|domani|prossim[oa])\b/.test(m)) return "future";
+  return "present";
+}
+
+// Ritorna { from, to, label } in oggetti Date (entrambi mezzanotte;
+// to è ESCLUSIVO: due < to). Oppure null se non c'è filtro temporale.
+export function parseRangeDataInterventi(text) {
+  const m = String(text || "").toLowerCase().trim();
+  if (!m) return null;
+  const today = _midnight(new Date());
+
+  if (/\boggi\b/.test(m)) return { from: today, to: _addDays(today, 1), label: "oggi" };
+  if (/\bieri\b/.test(m)) return { from: _addDays(today, -1), to: today, label: "ieri" };
+  if (/\bdomani\b/.test(m)) return { from: _addDays(today, 1), to: _addDays(today, 2), label: "domani" };
+  if (/\bdopodomani\b/.test(m)) return { from: _addDays(today, 2), to: _addDays(today, 3), label: "dopodomani" };
+
+  // Settimane
+  if (/\bquesta\s+settimana\b/.test(m)) {
+    const dow = today.getDay(); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
+    return { from: lun, to: _addDays(lun, 7), label: "questa settimana" };
+  }
+  if (/\bsettimana\s+scors|\bscorsa\s+settimana\b/.test(m)) {
+    const dow = today.getDay(); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
+    const lunS = _addDays(lun, -7);
+    return { from: lunS, to: lun, label: "la settimana scorsa" };
+  }
+  if (/\bsettimana\s+prossim|\bprossima\s+settimana\b/.test(m)) {
+    const dow = today.getDay(); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
+    return { from: _addDays(lun, 7), to: _addDays(lun, 14), label: "la settimana prossima" };
+  }
+
+  // Giorno della settimana (anche con accento). Il `\b` JS non funziona bene
+  // con caratteri accentati, quindi uso lookaround manuali su [^a-zà-ÿ].
+  for (const [name, idx] of Object.entries(GIORNI_SETTIMANA)) {
+    const escName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(?:^|[^a-zà-ÿ])${escName}(?=[^a-zà-ÿ]|$)`, "i");
+    if (!re.test(m)) continue;
+    const wantPast = /\bscors[oa]\b/.test(m) || (_tense(m) === "past" && !/\bprossim[oa]\b/.test(m));
+    const wantFuture = /\bprossim[oa]\b/.test(m) || _tense(m) === "future";
+    const todayDow = today.getDay();
+    let delta;
+    if (wantPast) {
+      delta = (todayDow - idx + 7) % 7;
+      if (delta === 0) delta = 7;
+      delta = -delta;
+    } else if (wantFuture) {
+      delta = (idx - todayDow + 7) % 7;
+      if (delta === 0) delta = 7;
+    } else {
+      delta = (todayDow - idx + 7) % 7;
+      if (delta === 0) delta = 0;
+      else delta = -delta;
+    }
+    const day = _addDays(today, delta);
+    // Label leggibile: lunedì/martedì… (mappa nome canonico)
+    const labelName = name.endsWith("i") ? name.replace(/i$/, "ì") : name;
+    return { from: day, to: _addDays(day, 1), label: `${labelName} ${_formatDateIt(day)}` };
+  }
+
+  // Data assoluta DD/MM[/YYYY] o DD-MM[-YYYY]
+  const ass = m.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+  if (ass) {
+    const dd = Number(ass[1]), mm = Number(ass[2]);
+    let yy = ass[3] ? Number(ass[3]) : today.getFullYear();
+    if (yy < 100) yy += 2000;
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+      const d = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+      if (!Number.isNaN(d.getTime())) {
+        return { from: d, to: _addDays(d, 1), label: `il ${_formatDateIt(d)}` };
+      }
     }
   }
-  const oggiFlag = /oggi|today|giorno/.test(JSON.stringify(parametri).toLowerCase())
-    || /\boggi\b/.test(userMessage);
+
+  // "il 23 aprile" / "23 aprile [2025]"
+  const MESI_ITA = { gennaio:1,febbraio:2,marzo:3,aprile:4,maggio:5,giugno:6,luglio:7,agosto:8,settembre:9,ottobre:10,novembre:11,dicembre:12 };
+  const meseAbs = m.match(/\b(\d{1,2})\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+(\d{4}))?\b/);
+  if (meseAbs) {
+    const dd = Number(meseAbs[1]);
+    const mm = MESI_ITA[meseAbs[2]];
+    const yy = meseAbs[3] ? Number(meseAbs[3]) : today.getFullYear();
+    const d = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+    if (!Number.isNaN(d.getTime())) {
+      return { from: d, to: _addDays(d, 1), label: `il ${_formatDateIt(d)}` };
+    }
+  }
+
+  return null;
+}
+
+// Whitelist città principali (Piemonte/Lombardia + grandi città)
+const CITTA_NOTE = [
+  "alessandria", "voghera", "tortona", "novi ligure", "novi", "casale monferrato", "casale",
+  "valenza", "asti", "acqui terme", "acqui", "ovada", "bra", "alba",
+  "milano", "torino", "genova", "pavia", "vigevano", "stradella",
+  "broni", "rivanazzano", "salice terme", "godiasco", "varzi",
+  "serravalle scrivia", "arquata scrivia", "felizzano", "san salvatore",
+  "moncalieri", "chivasso", "ivrea", "cuneo", "biella",
+];
+
+// Ordina la whitelist per lunghezza decrescente per evitare match prefisso
+// (es. "novi ligure" prima di "novi", "casale monferrato" prima di "casale").
+const CITTA_NOTE_SORTED = [...CITTA_NOTE].sort((a, b) => b.length - a.length);
+
+export function parseCittaIntervento(text) {
+  const m = String(text || "").toLowerCase();
+  // Pattern "ad X", "a X", "in X", "su X", "verso X" davanti al nome città
+  for (const citta of CITTA_NOTE_SORTED) {
+    const re = new RegExp(`\\b(?:ad|a|in|su|verso)\\s+${citta.replace(/\s+/g, "\\s+")}\\b`, "i");
+    if (re.test(m)) return citta;
+  }
+  // Match libero solo per città in whitelist (anche senza preposizione, fine frase)
+  for (const citta of CITTA_NOTE_SORTED) {
+    const re = new RegExp(`\\b${citta.replace(/\s+/g, "\\s+")}\\b`, "i");
+    if (re.test(m)) return citta;
+  }
+  return null;
+}
+
+// Stati terminali ARES (un intervento "chiuso" non è più attivo).
+const STATI_TERMINALI_RE = /\b(complet|chius|annul|terminat|cancel|risolt|finit)/;
+
+// Whitelist 9 tecnici ACG per estrazione robusta (no falsi positivi su città/giorni).
+const TECNICI_ACG = ["aime","david","albanesi","gianluca","contardi","alberto","dellafiore","lorenzo","victor","leshi","ergest","piparo","marco","tosca","federico","troise","antonio","malvicino"];
+
+function _extractTecnico(userMessage) {
+  const m = String(userMessage || "").toLowerCase();
+  for (const nome of TECNICI_ACG) {
+    if (new RegExp(`\\b${nome}\\b`, "i").test(m)) return nome;
+  }
+  // Fallback regex "di/del/per X"
+  const r = m.match(/\b(?:di|del|per)\s+([a-zà-ÿ]+)(?:\s|$|,|\?|!)/i);
+  if (r && r[1] && !/^(oggi|ieri|domani|tutti|nostri|loro|noi|voi|alessandria|voghera|tortona|pavia|milano|torino|genova|asti)$/i.test(r[1])) {
+    return r[1].toLowerCase();
+  }
+  return null;
+}
+
+export async function handleAresInterventiAperti(parametri, ctx) {
+  const limit = Math.min(Number(parametri.limit) || 20, 50);
+  const userMessage = String((ctx && ctx.userMessage) || "");
+  const userMessageLower = userMessage.toLowerCase();
+
+  // Tecnico
+  let tecnicoFilter = String(parametri.tecnico || parametri.nome || "").trim().toLowerCase() || null;
+  if (!tecnicoFilter) tecnicoFilter = _extractTecnico(userMessage);
+
+  // Range data: parametri.data > userMessage
+  let range = null;
+  if (parametri.data) range = parseRangeDataInterventi(String(parametri.data));
+  if (!range) range = parseRangeDataInterventi(userMessage);
+
+  // Città: parametri > userMessage
+  let citta = String(parametri.citta || parametri.zona || parametri.localita || "").toLowerCase().trim() || null;
+  if (!citta) citta = parseCittaIntervento(userMessage);
+
+  // Tense detection: se passato, includi anche stati terminali
+  const tense = _tense(userMessage);
+  const includeTerminali = tense === "past" || /\btutt[ie]\b|\banche\s+chius/.test(userMessageLower);
 
   let snap;
   try {
+    // Se c'è un range storico (passato), togli inBacheca==true per recuperare
+    // anche interventi già archiviati.
     let q = getCosminaDb().collection("bacheca_cards")
-      .where("listName", "==", "INTERVENTI")
-      .where("inBacheca", "==", true)
-      .limit(limit * 3);
+      .where("listName", "==", "INTERVENTI");
+    if (!range || tense !== "past") {
+      q = q.where("inBacheca", "==", true);
+    }
+    q = q.limit(Math.max(limit * 3, 200));
     snap = await q.get();
   } catch (e) {
     const msg = String(e?.message || e);
@@ -42,7 +216,10 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   snap.forEach((d) => {
     const data = d.data() || {};
     const stato = String(data.stato || "").toLowerCase();
-    if (stato.includes("complet") || stato.includes("annul")) return;
+
+    // Stato: scarta terminali a meno che la richiesta sia storica
+    if (!includeTerminali && STATI_TERMINALI_RE.test(stato)) return;
+
     let tecnico = data.techName;
     if (!tecnico && Array.isArray(data.techNames) && data.techNames.length) {
       tecnico = String(data.techNames[0]);
@@ -56,13 +233,20 @@ export async function handleAresInterventiAperti(parametri, ctx) {
         if (!Number.isNaN(v.getTime())) due = v;
       } catch {}
     }
-    if (oggiFlag && due) {
-      const today = new Date();
-      const sameDay = due.getFullYear() === today.getFullYear()
-        && due.getMonth() === today.getMonth()
-        && due.getDate() === today.getDate();
-      if (!sameDay) return;
+
+    // Range data
+    if (range) {
+      if (!due) return;
+      if (due < range.from || due >= range.to) return;
     }
+
+    // Filtro città (boardName + desc + zona)
+    if (citta) {
+      const hay = [data.boardName, data.desc, data.zona, data.workDescription, data.name]
+        .map(x => String(x || "").toLowerCase()).join(" ");
+      if (!hay.includes(citta)) return;
+    }
+
     items.push({
       id: d.id,
       condominio: data.boardName || "?",
@@ -80,41 +264,71 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   });
   const top = items.slice(0, limit);
 
+  // ── Costruzione risposta discorsiva ───────────────────────────
+  const tecnicoCap = tecnicoFilter
+    ? tecnicoFilter.charAt(0).toUpperCase() + tecnicoFilter.slice(1)
+    : null;
+  const cittaCap = citta ? citta.charAt(0).toUpperCase() + citta.slice(1) : null;
+  const rangeLabel = range ? range.label : null;
+  // Verbo: "ha avuto" se passato, "ha" se presente, "avrà" se futuro
+  const verb = (tense === "past") ? "ha avuto" : (tense === "future" ? "avrà" : "ha");
+
   if (!top.length) {
-    if (tecnicoFilter) {
-      const cap = tecnicoFilter.charAt(0).toUpperCase() + tecnicoFilter.slice(1);
+    const parts = [];
+    if (tecnicoCap) parts.push(tecnicoCap);
+    parts.push(rangeLabel ? `${rangeLabel}` : "");
+    parts.push(cittaCap ? `a ${cittaCap}` : "");
+    const ctx = parts.filter(Boolean).join(" ");
+    if (rangeLabel || cittaCap) {
       return {
-        content: oggiFlag
-          ? `${cap} non ha interventi programmati per oggi.`
-          : `${cap} non ha interventi attivi in bacheca.`,
-        data: { count: 0, tecnico: tecnicoFilter, oggi: oggiFlag },
+        content: tecnicoCap
+          ? `${tecnicoCap} ${rangeLabel ? rangeLabel + " " : ""}${cittaCap ? "a " + cittaCap + " " : ""}non ha interventi.`.replace(/\s+/g, " ").trim()
+          : `Nessun intervento ${rangeLabel || ""}${cittaCap ? " a " + cittaCap : ""}.`.replace(/\s+/g, " ").trim(),
+        data: { count: 0, tecnico: tecnicoFilter, range: rangeLabel, citta },
       };
     }
-    return { content: oggiFlag
-      ? "Nessun intervento programmato per oggi."
-      : "Non ho trovato interventi attivi nella bacheca COSMINA." };
+    if (tecnicoCap) {
+      return { content: `${tecnicoCap} non ha interventi attivi in bacheca.`, data: { count: 0, tecnico: tecnicoFilter } };
+    }
+    return { content: "Non ho trovato interventi attivi nella bacheca COSMINA.", data: { count: 0 } };
   }
 
-  const lines = top.map((i, idx) => {
+  // Render righe in prosa: niente 1./2./3. e niente "·"
+  const renderLine = (i) => {
     const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
+    const cond = String(i.condominio || "?").replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 60);
     const tag = i.tecnico !== "-" ? `tecnico ${i.tecnico}` : "non assegnato";
-    return `${idx + 1}. [${data}] ${i.condominio.slice(0, 50)} — ${i.stato} · ${tag}`;
-  }).join("\n");
+    const stato = i.stato || "aperto";
+    return `${data}, ${cond}, stato ${stato}, ${tag}`;
+  };
 
-  let header;
-  if (tecnicoFilter) {
-    const cap = tecnicoFilter.charAt(0).toUpperCase() + tecnicoFilter.slice(1);
-    header = oggiFlag
-      ? `${cap} ha ${top.length} interventi oggi:`
-      : `${cap} ha ${top.length} interventi attivi:`;
-  } else {
-    header = oggiFlag
-      ? `Interventi di oggi (${top.length}):`
-      : `${top.length} interventi attivi su COSMINA${items.length > top.length ? ` (mostro i primi ${top.length} di ${items.length})` : ""}:`;
+  // 1 risultato → frase singola
+  if (top.length === 1) {
+    const i = top[0];
+    const tecnicoTag = tecnicoCap ? `${tecnicoCap}` : "";
+    const dataTag = rangeLabel ? rangeLabel : "";
+    const cittaTag = cittaCap ? `a ${cittaCap}` : "";
+    const cond = String(i.condominio || "?").replace(/^[A-Z0-9]+\s*-\s*/, "").trim();
+    const dueIt = i.due ? i.due.toLocaleDateString("it-IT") : "data non specificata";
+    const head = `${tecnicoTag} ${dataTag} ${cittaTag}`.replace(/\s+/g, " ").trim();
+    return {
+      content: `${head ? head + " " : ""}${verb} un intervento il ${dueIt}: ${cond}, stato ${i.stato}.`.trim(),
+      data: { count: 1, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top },
+    };
   }
+
+  // Più risultati → introduzione discorsiva + righe (newline-separated, no enumerazione)
+  const intro = [
+    tecnicoCap ? `${tecnicoCap}` : "Trovo",
+    rangeLabel || "",
+    cittaCap ? `a ${cittaCap}` : "",
+    `${verb} ${top.length} interventi.`,
+  ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const righe = top.map(renderLine).join("\n");
+  const more = items.length > top.length ? `\n\nAltri ${items.length - top.length} non mostrati.` : "";
   return {
-    content: `${header}\n${lines}`,
-    data: { count: top.length, tecnico: tecnicoFilter || null, oggi: oggiFlag },
+    content: `${intro}\n\n${righe}${more}`,
+    data: { count: top.length, totalMatched: items.length, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top },
   };
 }
 
