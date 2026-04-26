@@ -1211,8 +1211,48 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId, options = {
     status: "emesso",
   };
 
+  // Sessioni FORGE/test: NON devono toccare il counter reale del template
+  // preventivo-doc (graph_counters/preventivo-doc_YYYY). Usano un counter
+  // locale separato in nexo_test_counters/preventivo (Firestore nexo-hub-15f2d)
+  // e passano il numero pre-formato a GRAPH con auto_number=false.
+  // Tutto ciò che inizia con "forge-test" è considerato test.
+  const isTestSession = String(sessionId || "").startsWith("forge-test");
+  let preassignedNumber = null;
+  if (isTestSession) {
+    try {
+      const ctrRef = db.collection("nexo_test_counters").doc("preventivo");
+      const next = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ctrRef);
+        const cur = snap.exists ? Number((snap.data() || {}).lastNumber || 0) : 0;
+        const n = cur + 1;
+        tx.set(ctrRef, {
+          lastNumber: n,
+          updatedAt: FieldValue.serverTimestamp(),
+        }, { merge: true });
+        return n;
+      });
+      const year = new Date().getFullYear();
+      preassignedNumber = `TEST-${String(next).padStart(3, "0")}/${year}`;
+    } catch (e) {
+      logger.warn("test counter fail, fallback to GRAPH counter", { error: String(e).slice(0, 120) });
+      preassignedNumber = null;
+    }
+  }
+
   let resp;
   try {
+    const body = {
+      template_id: GRAPH_TEMPLATE_ID,
+      company_id: "acg",
+      data,
+      docfin: docfinPayload,
+    };
+    if (preassignedNumber) {
+      body.auto_number = false;
+      body.number = preassignedNumber;
+    } else {
+      body.auto_number = true;
+    }
     const r = await fetch(GRAPH_API_URL, {
       method: "POST",
       headers: {
@@ -1220,13 +1260,7 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId, options = {
         "X-App-Id": GRAPH_APP_ID,
         "X-Api-Key": GRAPH_API_KEY,
       },
-      body: JSON.stringify({
-        template_id: GRAPH_TEMPLATE_ID,
-        company_id: "acg",
-        auto_number: true,
-        data,
-        docfin: docfinPayload,
-      }),
+      body: JSON.stringify(body),
     });
     resp = await r.json();
     if (!r.ok || !resp.success) {
