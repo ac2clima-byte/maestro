@@ -55,8 +55,9 @@ const TESTS = [
     mustNot: [/punteggio\s+0\/100/i] },
   { n: 14, q: "prepara preventivo per De Amicis intestato a 3i",
     routing: ["orchestrator", "preventivo"], must: [/preventiv/i] },
-  { n: 15, q: "agenda di Malvicino domani",
-    routing: "chronos", must: [/malvicino/i] },
+  { n: 15, q: "agenda di Marco domani",
+    routing: "chronos", must: [/marco/i],
+    note: "Marco Piparo, tecnico ACG. Versione precedente usava 'Malvicino' che è personale ufficio Guazzotti, non un tecnico." },
 ];
 
 const ROBOTIC = /(\*\*|^[\t ]*[·•]\s|^[\t ]*-\s|🚨|📊|📬|📤|📧|⚠️|✅|🔥|🟢|🟠|📅|🔧|📋|📇|⚙️|🏢)/m;

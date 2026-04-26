@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<title>Fix Q15: tecnico ACG corretto (Marco)</title>
+<style>
+:root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+.sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+.card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+.pill.ok { background:rgba(34,197,94,.18); color:var(--ok); }
+pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; font-size:12px; line-height:1.5; }
+code { background:#0f172a; padding:1px 6px; border-radius:4px; font-size:12px; }
+.quote { border-left:3px solid var(--acg); padding:6px 12px; color:#cdd6e0; margin:8px 0; }
+</style></head><body>
+<h1>Fix Q15: tecnico ACG corretto (Marco)</h1>
+<p class="sub">Q15 dei test FORGE usava "Malvicino" come tecnico ACG. Malvicino è invece personale ufficio Guazzotti. Sostituito con "Marco" (Marco Piparo, tecnico ACG) e aggiunta whitelist nel handler CHRONOS.</p>
+
+<h2>Modifiche</h2>
+<table>
+<tr><th>File</th><th>Cambio</th></tr>
+<tr><td><code>scripts/forge-15-severe.mjs</code></td><td>Q15: <code>"agenda di Malvicino domani"</code> → <code>"agenda di Marco domani"</code>. Criterio <code>must</code>: <code>/marco/i</code>.</td></tr>
+<tr><td><code>handlers/chronos.js</code></td><td>Whitelist <code>ACG_TECNICI</code> (9 nomi corretti) + <code>NON_TECNICI_NOTI</code> (Malvicino → Guazzotti). Se il nome richiesto non è ACG ma è in <code>NON_TECNICI_NOTI</code>, risponde con messaggio dedicato invece di andare a vuoto in bacheca_cards.</td></tr>
+<tr><td><code>handlers/nexus.js</code></td><td>System prompt Haiku aggiornato: l'esempio "agenda di Malvicino" rimosso, sostituito con "agenda di Marco". Aggiunta nota esplicita sui 9 tecnici ACG.</td></tr>
+</table>
+
+<h2>Comportamento confermato (test live)</h2>
+<div class="card">
+  <div class="quote">Alberto: "agenda di Marco domani"</div>
+  <div class="quote" style="border-left-color:var(--ok)">NEXUS: "Marco non ha interventi pianificati per lunedì 27 aprile."<br><small>collega: chronos · azione: agenda_giornaliera</small></div>
+</div>
+<div class="card">
+  <div class="quote">Alberto: "agenda di Malvicino domani"</div>
+  <div class="quote" style="border-left-color:var(--ok)">NEXUS: "Malvicino non è un tecnico ACG, è personale ufficio Guazzotti. I tecnici ACG sono: Aime David, Albanesi Gianluca, Contardi Alberto, Dellafiore Lorenzo, Dellafiore Victor, Leshi Ergest, Piparo Marco, Tosca Federico, Troise Antonio."<br><small>collega: chronos · azione: agenda_giornaliera</small></div>
+</div>
+
+<h2>Tecnici ACG (whitelist)</h2>
+<pre>1. Aime David
+2. Albanesi Gianluca
+3. Contardi Alberto
+4. Dellafiore Lorenzo
+5. Dellafiore Victor
+6. Leshi Ergest
+7. Piparo Marco
+8. Tosca Federico
+9. Troise Antonio</pre>
+
+<h2>Confermato lettura bacheca_cards</h2>
+<p style="color:var(--mute);font-size:13px;line-height:1.5">
+<code>handleChronosAgendaGiornaliera</code> in <code>projects/iris/functions/handlers/chronos.js:574-576</code> legge da
+<code>getCosminaDb().collection("bacheca_cards").where("listName","==","INTERVENTI").where("inBacheca","==",true).limit(300)</code>
+e poi filtra in-memory per <code>techName</code> (oppure <code>techNames[0]</code>) che contiene il nome richiesto, dentro la finestra del giorno selezionato.
+</p>
+
+<h2>Risultato test</h2>
+<p><span class="pill ok">15/15 PASS</span> — l'aggiornamento Q15 + whitelist non ha rotto nessuno degli altri test.</p>
+</body></html>

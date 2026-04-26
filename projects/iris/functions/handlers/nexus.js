@@ -97,8 +97,9 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
     azioni: interventi_aperti (parametri opzionali: {tecnico, data}),
             apri_intervento, assegna_tecnico
     IMPORTANTE: "interventi aperti di [tecnico]" / "interventi di [tecnico] oggi"
-      → interventi_aperti con parametri.tecnico = nome (es. Marco, Malvicino,
-      Lorenzo). Se l'utente cita "oggi" / "domani" passa anche parametri.data.
+      → interventi_aperti con parametri.tecnico = nome (es. Marco, Lorenzo,
+      David, Federico, Antonio, Ergest). Se l'utente cita "oggi" / "domani"
+      passa anche parametri.data.
 - chronos    → pianificazione + campagne:
     azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera,
             campagne_attive (lista), campagna_status (parametri: {nome})
@@ -108,7 +109,12 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
       con parametri.nome = il nome della campagna citato dall'utente.
       NON delphi, NON charta. DELPHI è solo per KPI cross-source generici.
     IMPORTANTE: "agenda di [tecnico]" → agenda_giornaliera con
-      parametri.tecnico = nome (es. "agenda di Malvicino domani").
+      parametri.tecnico = nome (es. "agenda di Marco domani"). I tecnici
+      ACG sono: Aime David, Albanesi Gianluca, Contardi Alberto,
+      Dellafiore Lorenzo, Dellafiore Victor, Leshi Ergest, Piparo Marco,
+      Tosca Federico, Troise Antonio. Malvicino è personale ufficio
+      Guazzotti, NON un tecnico ACG: l'handler lo riconosce e risponde di
+      conseguenza.
 - memo       → dossier_cliente, storico_impianto, lista_tecnici, chi_e_persona
     "tecnici", "lista tecnici", "chi sono i tecnici", "tecnici acg",
     "tecnici guazzotti" → azione lista_tecnici.

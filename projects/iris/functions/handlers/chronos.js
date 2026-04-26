@@ -543,6 +543,36 @@ export async function handleChronosSlotTecnico(parametri) {
   };
 }
 
+// Tecnici ACG (whitelist hard-coded). Match per cognome o nome.
+// I non-tecnici noti (personale ufficio Guazzotti che capita in chat con
+// Alberto) li riconosciamo per dare risposta corretta invece di "non
+// trovo interventi".
+const ACG_TECNICI = [
+  { keys: ["aime", "david"], nome: "Aime David" },
+  { keys: ["albanesi", "gianluca"], nome: "Albanesi Gianluca" },
+  { keys: ["contardi", "alberto"], nome: "Contardi Alberto" },
+  { keys: ["dellafiore lorenzo", "lorenzo dellafiore", "lorenzo"], nome: "Dellafiore Lorenzo" },
+  { keys: ["dellafiore victor", "victor dellafiore", "victor"], nome: "Dellafiore Victor" },
+  { keys: ["leshi", "ergest"], nome: "Leshi Ergest" },
+  { keys: ["piparo", "marco"], nome: "Piparo Marco" },
+  { keys: ["tosca", "federico"], nome: "Tosca Federico" },
+  { keys: ["troise", "antonio"], nome: "Troise Antonio" },
+];
+const NON_TECNICI_NOTI = [
+  { keys: ["malvicino"], descr: "personale ufficio Guazzotti" },
+];
+
+function isAcgTecnico(name) {
+  const n = String(name || "").toLowerCase();
+  if (!n) return false;
+  return ACG_TECNICI.some(t => t.keys.some(k => n.includes(k)));
+}
+
+function findNonTecnicoNoto(name) {
+  const n = String(name || "").toLowerCase();
+  return NON_TECNICI_NOTI.find(t => t.keys.some(k => n.includes(k))) || null;
+}
+
 export async function handleChronosAgendaGiornaliera(parametri, ctx) {
   const msg = (ctx?.userMessage || "").toLowerCase();
   const tecnico = String(
@@ -566,7 +596,24 @@ export async function handleChronosAgendaGiornaliera(parametri, ctx) {
   const end = new Date(giorno); end.setHours(23, 59, 59, 999);
 
   if (!tecnico) {
-    return { content: "Quale tecnico? Dimmi il nome (es. 'agenda di Malvicino')." };
+    return { content: "Quale tecnico? Dimmi il nome (es. 'agenda di Marco' o 'agenda di Lorenzo')." };
+  }
+
+  // Whitelist: se il nome NON corrisponde a un tecnico ACG ma è un non-tecnico
+  // noto (es. Malvicino = ufficio Guazzotti) rispondi correttamente invece di
+  // andare a vuoto in bacheca_cards.
+  const cap = (s) => s.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  if (!isAcgTecnico(tecnico)) {
+    const noto = findNonTecnicoNoto(tecnico);
+    if (noto) {
+      return {
+        content: `${cap(tecnico)} non è un tecnico ACG, è ${noto.descr}. I tecnici ACG sono: Aime David, Albanesi Gianluca, Contardi Alberto, Dellafiore Lorenzo, Dellafiore Victor, Leshi Ergest, Piparo Marco, Tosca Federico, Troise Antonio.`,
+        data: { tecnico, isAcgTecnico: false, ruolo: noto.descr },
+      };
+    }
+    // Nome non riconosciuto: continuiamo lo stesso (potrebbe essere un cognome
+    // o variante non in whitelist), ma l'agenda fallirà naturalmente se non
+    // matcha bacheca_cards.
   }
 
   let snap;
