@@ -292,7 +292,7 @@ async function pollDevRequests() {
   try {
     execSync('git add tasks/', { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
     execSync(`git commit -m "dev-request da NEXUS (${created.length})"`, { cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000 });
-    try { execSync('git pull --rebase origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 }); } catch {}
+    gitPullSafe();
     execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
     console.log(`[DEV-POLL] pushed ${created.length} file`);
   } catch (e) {
@@ -316,7 +316,7 @@ function writeAndPushStatusReport() {
   try {
     execSync('git add STATUS.md', { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
     execSync('git commit STATUS.md -m "status update"', { cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000 });
-    try { execSync('git pull --rebase origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 }); } catch {}
+    gitPullSafe();
     execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
     console.log('[STATUS] STATUS.md aggiornato e pushato');
   } catch (e) {
@@ -332,24 +332,66 @@ function git(cmd) {
   return execSync(`git ${cmd}`, { cwd: REPO_DIR, encoding: 'utf-8', timeout: 30_000 }).trim();
 }
 
+// gitPullSafe: pull --rebase resistente a "unstaged changes" e residui di
+// rebase precedenti. Pattern:
+//   1. abort di un eventuale rebase in corso (residuo di crash precedente)
+//   2. add -A + commit "auto: pre-pull" (allow-empty per non fallire)
+//   3. pull --rebase --autostash origin main
+//   4. fallback: stash -u && pull && stash pop
+//   5. ultimo fallback: stampa errore, non blocca il loop
+function gitPullSafe() {
+  const opts = { cwd: REPO_DIR, stdio: 'pipe', timeout: 30_000 };
+  // 1. abort rebase residuo (no-op se non c'è)
+  try { execSync('git rebase --abort', opts); } catch {}
+  // 2. commit "pre-pull" di tutto ciò che è dirty
+  try {
+    execSync('git add -A', opts);
+    try {
+      execSync('git -c commit.gpgsign=false commit -m "auto: pre-pull commit" --allow-empty-message --allow-empty', opts);
+    } catch {} // niente da committare → ok
+    // 3. pull con autostash come ulteriore safety net
+    execSync('git pull --rebase --autostash origin main', opts);
+    return true;
+  } catch (e1) {
+    // 4. fallback stash manuale
+    try {
+      execSync('git stash -u', opts);
+      execSync('git pull --rebase origin main', opts);
+      try { execSync('git stash pop', opts); } catch {}
+      return true;
+    } catch (e2) {
+      const msg = String(e2 && e2.message || e2).slice(0, 200);
+      console.error(`[PULL SAFE ERROR] ${msg}`);
+      // 5. ultimo tentativo: rebase abort + reset, no perdita perché abbiamo committato in step 2
+      try { execSync('git rebase --abort', opts); } catch {}
+      return false;
+    }
+  }
+}
+
 async function pull() {
   await updateStatus('polling', { msg: 'git pull in corso' });
-  try {
-    const out = git('pull --rebase origin main');
-    if (out.includes('Already up to date')) return false;
+  // gitPullSafe gestisce dirty tree, rebase residui, autostash; ritorna
+  // solo true/false (no stdout). Per capire se ci sono novità confronto
+  // l'HEAD prima/dopo.
+  let beforeHead = "";
+  try { beforeHead = git('rev-parse HEAD'); } catch {}
+  const ok = gitPullSafe();
+  if (!ok) return false;
+  let afterHead = "";
+  try { afterHead = git('rev-parse HEAD'); } catch {}
+  if (beforeHead && afterHead && beforeHead !== afterHead) {
     console.log(`[PULL] Nuovi aggiornamenti ricevuti`);
     return true;
-  } catch (e) {
-    console.error(`[PULL ERROR] ${e.message}`);
-    return false;
   }
+  return false;
 }
 
 function pushFile(message) {
   git('add -A');
   try {
     git(`commit -m "${message}"`);
-    try { git('pull --rebase origin main'); } catch {}
+    gitPullSafe();
     git('push origin main');
     console.log(`[PUSH] ${message}`);
   } catch (e) {
@@ -529,7 +571,7 @@ async function processTask(task) {
     // MAESTRO non scrive un result-*.md (così il task non sparisce dalla coda
     // finché l'analisi non è pushata davvero). Tenta un pull per vederla.
     await updateStatus('pushing_result', { task: taskId, msg: 'pull analisi da Claude Code' });
-    try { git('pull --rebase origin main'); } catch {}
+    gitPullSafe();
     const analysisPath = join(TASKS_DIR, `dev-analysis-${devId}.md`);
     const ok = existsSync(analysisPath);
     console.log(`[DONE] Dev request ${taskId} → analisi ${ok ? 'presente' : 'NON trovata'} (completed=${completed})`);
