@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>NEXO · Stato Claude Code (deploy test)</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:24px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:22px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:13px; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 16px; }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  .val { font-family:'JetBrains Mono', monospace; font-size:15px; margin-top:4px; word-break:break-all; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+  td { padding:6px 8px; border-bottom:1px solid #1f2a3d; }
+  td:first-child { color:var(--mute); width:140px; }
+  code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+  <h1>Stato Claude Code · live su Firestore</h1>
+  <p class="sub">Endpoint pubblico letto da Claude Chat per sapere cosa sta facendo MAESTRO + Claude Code in remoto.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="lbl">Endpoint</div>
+      <div class="val">GET europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus</div>
+      <div style="margin-top:8px"><span class="pill ok">200 OK</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">Firestore</div>
+      <div class="val">nexo_code_status / current</div>
+      <div style="margin-top:8px"><span class="pill ok">read:true · write:true</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">MAESTRO</div>
+      <div class="val">PID 30594 · maestro.mjs</div>
+      <div style="margin-top:8px"><span class="pill ok">running</span></div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:24px;font-size:15px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em">Risposta corrente</h2>
+  <table>
+    <tr><td>fase</td><td><code>waiting_result</code></td></tr>
+    <tr><td>task</td><td><code>code-status-firestore</code></td></tr>
+    <tr><td>dettagli</td><td>Claude Code sta lavorando</td></tr>
+    <tr><td>uptime</td><td>4.30s</td></tr>
+    <tr><td>timestamp</td><td>2026-04-26T09:02:18.989Z</td></tr>
+  </table>
+
+  <h2 style="margin-top:24px;font-size:15px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em">Payload JSON</h2>
+  <pre>{
+  "fase": "waiting_result",
+  "task": "code-status-firestore",
+  "dettagli": "Claude Code sta lavorando",
+  "uptime": 4.305338468,
+  "timestamp": "2026-04-26T09:02:18.989Z"
+}</pre>
+
+  <h2 style="margin-top:24px;font-size:15px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em">Fasi possibili</h2>
+  <table>
+    <tr><td>polling</td><td>git pull in corso</td></tr>
+    <tr><td>found_task</td><td>task trovato in tasks/</td></tr>
+    <tr><td>sending_to_code</td><td>invio a Claude Code via tmux</td></tr>
+    <tr><td>waiting_result</td><td>Claude Code sta lavorando</td></tr>
+    <tr><td>pushing_result</td><td>push del risultato</td></tr>
+    <tr><td>idle</td><td>nessun task in coda</td></tr>
+  </table>
+</body>
+</html>
