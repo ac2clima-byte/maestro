@@ -24,7 +24,7 @@ import {
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi } from "./handlers/preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./handlers/preventivo.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -298,6 +298,31 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("preventivo approval intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // Preventivo "modifica": Alberto vuole tornare a sistemare le voci dopo
+    // che il preventivo era già in attesa_approvazione. Riporta lo stato
+    // ad attesa_voci e mostra le voci attuali.
+    try {
+      const prevMod = await tryInterceptPreventivoModifica({ userMessage, sessionId, userId });
+      if (prevMod && prevMod._preventivoModificaHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: prevMod.content,
+          direct: { data: prevMod.data || null, failed: false },
+          stato: "completata",
+          modello: "preventivo_modifica",
+        });
+        res.status(200).json({
+          intent: { collega: "orchestrator", azione: "preventivo_modifica", parametri: {}, rispostaUtente: prevMod.content, confidenza: 1 },
+          nexusMessageId, userMsgId, stato: "completata",
+          direct: { data: prevMod.data || null, failed: false },
+          modello: "preventivo_modifica", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("preventivo modifica intercept failed", { error: String(e).slice(0, 200) });
     }
 
     // Preventivo "sì": intercept rapido regex-only per approvazione veloce

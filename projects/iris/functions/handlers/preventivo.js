@@ -423,6 +423,64 @@ export async function runPreventivoWorkflow({ userMessage, context = {}, userId,
     };
   }
 
+  // Check pending pre-esistente: se per questa sessione c'è già un preventivo
+  // ATTIVO (attesa_voci / attesa_approvazione) NON sovrascriviamo. Chiediamo
+  // ad Alberto se continuare o ricominciare. Se l'utente esplicita "ricomincia"
+  // / "rifai" / "nuovo" nel messaggio, procediamo a creare un nuovo pending
+  // (cancelliamo quello vecchio cosi il doc id sessionId resta unico).
+  const wantsRestart = /\b(ricominc\w+|rifai|rifare|nuovo\s+preventiv|cancella\s+preventiv|reset|riparti(?:amo)?)\b/i.test(userMessage);
+  if (sessionId) {
+    try {
+      const existing = await db.collection("nexo_preventivi_pending").doc(sessionId).get();
+      if (existing.exists) {
+        const ex = existing.data() || {};
+        const stato = ex.stato;
+        const isActive = stato === "attesa_voci" || stato === "attesa_approvazione";
+        if (isActive) {
+          if (wantsRestart) {
+            // Cancella pending esistente: il workflow continuerà sotto creando uno nuovo
+            try { await existing.ref.delete(); } catch {}
+          } else {
+            // Pending attivo, l'utente non ha chiesto restart → chiedi cosa fare
+            const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const condNome = ex.condominio?.nome || "—";
+            const intestNome = ex.intestatario?.ragione_sociale || "—";
+            const voci = Array.isArray(ex.voci) ? ex.voci : [];
+            const lines = [
+              `Hai già un preventivo in corso per ${condNome} intestato a ${intestNome} (stato: ${stato === "attesa_voci" ? "in attesa delle voci" : "in attesa di approvazione"}).`,
+            ];
+            if (voci.length) {
+              lines.push("");
+              lines.push(`Voci attuali:`);
+              voci.forEach((v, i) => lines.push(`${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`));
+              if (ex.totale != null) {
+                const aliquota = ex.iva_aliquota != null ? ex.iva_aliquota : 22;
+                const ivaLbl = ex.iva_regime === "reverse_charge" ? "IVA 0% (reverse charge)" : `IVA ${aliquota}%`;
+                lines.push(`Totale ${fmtEur(ex.totale_imponibile || 0)} € + ${ivaLbl} = ${fmtEur(ex.totale)} €.`);
+              }
+            }
+            lines.push("");
+            lines.push(`Vuoi continuare da dove eravamo (dimmi cosa modificare, es. "togli il sopralluogo" o "aggiungi verifica 300") oppure ricominciare da zero (rispondi "ricomincia")?`);
+            return {
+              content: lines.join("\n"),
+              data: {
+                pendingId: sessionId,
+                pendingExisting: true,
+                stato,
+                voci,
+              },
+              _preventivoReady: true,
+            };
+          }
+        }
+        // pending chiuso (approvato/inviato/annullato): andiamo avanti e
+        // creeremo un nuovo doc con .set() (overwrite) sullo stesso sessionId.
+      }
+    } catch (e) {
+      logger.warn("runPreventivoWorkflow: check pending failed", { error: String(e).slice(0, 150) });
+    }
+  }
+
   // Step 1: arricchimento azienda
   const t1 = Date.now();
   let intestatarioData = null;
@@ -863,6 +921,63 @@ export function extractIstruzioniExtra(text) {
     out.push(raw);
   }
   return out;
+}
+
+// ─── tryInterceptPreventivoModifica ────────────────────────────
+// Quando il pending è in attesa_approvazione e Alberto scrive "modifica"
+// (o varianti), riportiamo lo stato ad attesa_voci e mostriamo le voci
+// attuali così sa cosa cambiare. Da qui Haiku fallback gestirà
+// "togli/aggiungi/cambia" via tryInterceptPreventivoHaikuFallback.
+export async function tryInterceptPreventivoModifica({ userMessage, sessionId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim().toLowerCase();
+  if (!t) return null;
+  // Match: "modifica", "cambia", "modificalo", "rivedere", "cambiare"
+  // (forme sole o all'inizio frase). Esclude "modifica voce X" che va a
+  // Haiku fallback (più informativo).
+  if (!/^(modific\w*|cambi\w+|rived\w+|aggiust\w+)(?=$|\s|[,.!?])/i.test(t)) return null;
+  // Se la frase ha contenuto specifico (numeri, "togli", "aggiungi", ecc.)
+  // lasciamo passare al Haiku fallback che la interpreta meglio.
+  if (/\d|togli|rimuov|aggiung|sconto/i.test(t)) return null;
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_preventivi_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (pendingData.stato !== "attesa_approvazione") return null;
+  } catch {
+    return null;
+  }
+
+  try {
+    await pendingDoc.ref.set({
+      stato: "attesa_voci",
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch {}
+
+  const fmtEur = (n) => Number(n).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  const lines = [];
+  if (voci.length) {
+    lines.push(`Ok, torniamo a sistemare il preventivo. Voci attuali:`);
+    voci.forEach((v, i) => lines.push(`${i + 1}. ${v.descrizione}: ${fmtEur(v.importo)} €`));
+  } else {
+    lines.push(`Ok, torniamo a sistemare il preventivo. Non ci sono ancora voci.`);
+  }
+  lines.push("");
+  lines.push(`Dimmi cosa cambiare. Esempi: "togli il sopralluogo", "aggiungi verifica 300", "cambia il sopralluogo a 250".`);
+
+  return {
+    content: lines.join("\n"),
+    data: {
+      pendingId: sessionId,
+      stato: "attesa_voci",
+      voci,
+    },
+    _preventivoModificaHandled: true,
+  };
 }
 
 // ─── tryInterceptPreventivoSi ──────────────────────────────────

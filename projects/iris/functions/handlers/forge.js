@@ -24,7 +24,7 @@ import {
   loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
-import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi } from "./preventivo.js";
+import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -148,6 +148,33 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: preventivo voci intercept failed", { error: String(e).slice(0, 150) });
+      }
+
+      // Intercept "modifica": riporta il pending da attesa_approvazione
+      // ad attesa_voci e mostra le voci attuali.
+      try {
+        const prevMod = await tryInterceptPreventivoModifica({ userMessage: message, sessionId, userId });
+        if (prevMod && prevMod._preventivoModificaHandled) {
+          const cleaned = naturalize(prevMod.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: prevMod.data || null, failed: false },
+            stato: "completata", modello: "preventivo_modifica",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "orchestrator", azione: "preventivo_modifica",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: prevMod.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "preventivo_modifica",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: preventivo modifica intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // Intercept "sì" rapido: approva e genera PDF tramite GRAPH.
