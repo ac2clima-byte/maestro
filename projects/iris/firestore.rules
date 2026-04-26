@@ -283,9 +283,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+
     // iris_delete_queue: coda richieste soft-delete email (mode=soft → EWS
     // Deleted Items, recoverable). Stesso pattern dell'archive. Admin SDK only.
     match /iris_delete_queue/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // nexo_email_reports: log dei report email mandati da MAESTRO via
+    // nexoSendReport. Admin SDK only.
+    match /nexo_email_reports/{docId} {
       allow read: if true;
       allow write: if false;
     }

@@ -94,6 +94,48 @@ function lastCommits(n = 5) {
   }
 }
 
+// === REPORT EMAIL post-task ===
+// Manda una email di riepilogo a ac2clima@gmail.com via Cloud Function
+// nexoSendReport (Gmail SMTP). Best-effort: errori vengono loggati senza
+// bloccare il loop MAESTRO.
+const REPORT_URL = 'https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexoSendReport';
+const REPORT_TO = 'ac2clima@gmail.com';
+const FORGE_KEY = process.env.FORGE_KEY || 'nexo-forge-2026';
+
+async function sendForgeReport(taskName, result, details) {
+  const subject = `NEXO FORGE: ${taskName} ${result}`;
+  const body = [
+    `Task: ${taskName}`,
+    `Risultato: ${result}`,
+    `Timestamp: ${new Date().toISOString()}`,
+    '',
+    'Dettagli:',
+    String(details || '').slice(0, 8000),
+  ].join('\n');
+  try {
+    const resp = await fetch(REPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: REPORT_TO, subject, body, forgeKey: FORGE_KEY }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) {
+      console.error(`[FORGE-MAIL] HTTP ${resp.status}`);
+      return false;
+    }
+    const data = await resp.json().catch(() => ({}));
+    if (data.sent === false) {
+      console.log(`[FORGE-MAIL] log only (${data.reason || 'no_creds'}) per ${taskName}`);
+    } else {
+      console.log(`[FORGE-MAIL] inviata per ${taskName}`);
+    }
+    return true;
+  } catch (e) {
+    console.error(`[FORGE-MAIL] errore: ${e.message}`);
+    return false;
+  }
+}
+
 function formatStatusMd(codeStatus, pending, commits) {
   const isErr = codeStatus && codeStatus.error;
   const lines = [
@@ -456,6 +498,10 @@ async function processTask(task) {
     const analysisPath = join(TASKS_DIR, `dev-analysis-${devId}.md`);
     const ok = existsSync(analysisPath);
     console.log(`[DONE] Dev request ${taskId} → analisi ${ok ? 'presente' : 'NON trovata'} (completed=${completed})`);
+    // Report email non bloccante
+    sendForgeReport(taskId, ok ? 'PASS (analisi pushata)' : 'FAIL (analisi mancante)',
+      `Dev request: ${taskId}\nDevId: ${devId}\nCompletato: ${completed}\nAnalisi: ${ok ? 'presente' : 'mancante'}`)
+      .catch(() => {});
     return;
   }
 
@@ -469,6 +515,11 @@ async function processTask(task) {
   await updateStatus('pushing_result', { task: taskId, msg: 'push risultato' });
   pushFile(`result: ${taskId}`);
   console.log(`[DONE] Task ${taskId} ${completed ? 'completato' : 'timeout'}`);
+
+  // Report email post-task (best-effort, non blocca il loop).
+  sendForgeReport(taskId, completed ? 'PASS' : 'TIMEOUT',
+    `Task: ${taskId}\nCompletato: ${completed ? 'sì' : 'timeout'}\nUltimi commit:\n${lastCommits(5).join('\n')}`)
+    .catch(() => {});
 }
 
 // === MAIN LOOP ===

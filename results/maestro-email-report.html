@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<title>MAESTRO · report email post-task</title>
+<style>
+:root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+.sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+.alert { background: rgba(245,158,11,.12); border: 1px solid var(--warn); border-radius: 10px; padding: 16px; margin: 14px 0; }
+.alert h3 { margin: 0 0 6px; color: var(--warn); font-size: 15px; }
+.grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); }
+.stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+.num { font-size:30px; font-weight:700; color:var(--ok); }
+.lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+.pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:600; }
+.pill.ok { background:rgba(34,197,94,.18); color:var(--ok); }
+.pill.warn { background:rgba(245,158,11,.18); color:var(--warn); }
+table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; font-size:12px; line-height:1.5; overflow:auto; }
+code { background:#0f172a; padding:1px 6px; border-radius:4px; font-size:12px; }
+</style></head><body>
+<h1>MAESTRO · report email post-task</h1>
+<p class="sub">Cloud Function <code>nexoSendReport</code> + chiamata da <code>maestro.mjs</code> alla fine di ogni task. Email a <code>ac2clima@gmail.com</code> con subject <code>NEXO FORGE: [task] [PASS/FAIL]</code>. Audit log in <code>nexo_email_reports</code> sempre, anche quando le credenziali SMTP non sono configurate.</p>
+
+<div class="grid">
+  <div class="stat"><div class="num">200</div><div class="lbl">HTTP test allowlist</div></div>
+  <div class="stat"><div class="num">403</div><div class="lbl">HTTP forgeKey errata</div></div>
+  <div class="stat"><div class="num">403</div><div class="lbl">HTTP to fuori allowlist</div></div>
+  <div class="stat"><div class="num">1</div><div class="lbl">audit log scritto</div></div>
+</div>
+
+<div class="alert">
+  <h3>⚠ Credenziali Gmail mancanti — setup di Alberto</h3>
+  <p>L'endpoint è deployato e funziona, ma <b>NON manda davvero email</b> finché non vengono configurate le credenziali Gmail SMTP via App Password.</p>
+  <p><b>Cosa fare</b> (una sola volta, dalla console Alberto):</p>
+  <ol>
+    <li>Vai su <a href="https://myaccount.google.com/apppasswords" style="color:var(--warn)">myaccount.google.com/apppasswords</a> con l'account <code>ac2clima@gmail.com</code> (richiede 2FA attiva).</li>
+    <li>Crea una nuova App Password (etichetta: "NEXO FORGE"). Sarà 16 caratteri.</li>
+    <li>Da terminale:
+<pre>echo -n "ac2clima@gmail.com" | firebase functions:secrets:set GMAIL_USER \
+  --project nexo-hub-15f2d --data-file=-
+
+echo -n "abcd efgh ijkl mnop" | firebase functions:secrets:set GMAIL_APP_PASSWORD \
+  --project nexo-hub-15f2d --data-file=-
+
+cd projects/iris && firebase deploy --only functions:nexoSendReport \
+  --project nexo-hub-15f2d</pre>
+    </li>
+    <li>Test:
+<pre>curl -X POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexoSendReport \
+  -H "Content-Type: application/json" \
+  -d '{"to":"ac2clima@gmail.com","subject":"NEXO FORGE: test PASS","body":"prima email vera","forgeKey":"nexo-forge-2026"}'</pre>
+      Atteso: <code>{"ok":true,"sent":true,...}</code> e l'email arriva su Gmail.</li>
+  </ol>
+  <p>Allo stato attuale i secret sono stati creati con valore <code>"placeholder"</code> (≠ App Password 16 char), così l'handler li riconosce come "non configurati" e skippa graceful.</p>
+</div>
+
+<h2>Architettura</h2>
+<table>
+  <tr><th>Componente</th><th>File</th><th>Ruolo</th></tr>
+  <tr><td>Cloud Function</td><td><code>handlers/email-report.js</code></td><td><code>nexoSendReport</code> (HTTP POST europe-west1, no Firebase Auth, X-Forge-Key). Validazioni: forgeKey, to allowlist (ac2clima@gmail.com + alberto.contardi@acgclimaservice.com), subject ≤ 250, body ≤ 50000. Audit log su <code>nexo_email_reports</code>.</td></tr>
+  <tr><td>Secret</td><td>Secret Manager</td><td><code>GMAIL_USER</code>, <code>GMAIL_APP_PASSWORD</code> (placeholder ora — Alberto setta dopo). <code>FORGE_KEY</code> riusa quello FORGE.</td></tr>
+  <tr><td>Trasporto</td><td><code>nodemailer</code> v8</td><td>Service "gmail" + auth user/pass App Password. Aggiunto a <code>functions/package.json</code>.</td></tr>
+  <tr><td>Caller</td><td><code>maestro.mjs</code> · <code>sendForgeReport()</code></td><td>Chiamato post-push del result, sia per task normali (PASS/TIMEOUT) sia per dev-request (PASS/FAIL in base a esistenza di <code>tasks/dev-analysis-{id}.md</code>).</td></tr>
+  <tr><td>Audit</td><td><code>nexo_email_reports</code> Firestore</td><td>Ogni richiesta logga sempre: status (pending/sent/skipped/failed), to, subject, body (5000 char max), reason o messageId.</td></tr>
+</table>
+
+<h2>Sicurezza</h2>
+<table>
+  <tr><th>Mitigazione</th><th>Implementazione</th></tr>
+  <tr><td>Auth statica</td><td>X-Forge-Key (secret <code>FORGE_KEY</code>). 403 su chiave assente o errata.</td></tr>
+  <tr><td>Allowlist destinatari</td><td>Solo <code>ac2clima@gmail.com</code> e <code>alberto.contardi@acgclimaservice.com</code>. 403 altrimenti.</td></tr>
+  <tr><td>Limiti dimensione</td><td>subject ≤ 250 char, body ≤ 50.000 char.</td></tr>
+  <tr><td>Validazione App Password</td><td>password riconosciuta solo se ≥ 16 caratteri (lunghezza esatta App Password Gmail). Placeholder skippati graceful.</td></tr>
+  <tr><td>Audit immediato</td><td>Log in <code>nexo_email_reports</code> creato PRIMA del tentativo SMTP, poi aggiornato con esito.</td></tr>
+  <tr><td>Test non bloccante</td><td>Ne loop MAESTRO <code>sendForgeReport</code> ha catch silente: errori non bloccano il prossimo task.</td></tr>
+  <tr><td>Niente email durante i test</td><td>FORGE 15 test usa <code>nexusTestInternal</code> (path diverso). Solo i task processati da MAESTRO triggerano email.</td></tr>
+</table>
+
+<h2>Esempio email che verrà mandata</h2>
+<pre>From: NEXO FORGE &lt;ac2clima@gmail.com&gt;
+To:   ac2clima@gmail.com
+Subject: NEXO FORGE: implement-archivia-elimina-iris PASS
+
+Task: implement-archivia-elimina-iris
+Risultato: PASS
+Timestamp: 2026-04-26T...
+
+Dettagli:
+Task: implement-archivia-elimina-iris
+Completato: sì
+Ultimi commit:
+93028b7 feat(iris): tasti Archivia e Elimina per ogni email
+973403b result: implement-archivia-elimina-iris
+5e22be2 result: fix-test-q15-tecnico
+f268f79 fix: Q15 usa tecnico ACG corretto (Marco)
+6fe6994 task: FORGE report via email Gmail</pre>
+
+<h2>Endpoint live</h2>
+<pre>POST https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/nexoSendReport
+Content-Type: application/json
+{
+  "to":      "ac2clima@gmail.com",
+  "subject": "NEXO FORGE: ... PASS",
+  "body":    "...",
+  "forgeKey":"nexo-forge-2026"   // oppure header X-Forge-Key
+}
+
+Response (con credenziali OK):
+{ "ok": true, "sent": true, "messageId": "&lt;...&gt;", "logId": "...", "tookMs": ... }
+
+Response (senza credenziali, oggi):
+{ "ok": true, "sent": false, "reason": "credentials_not_configured",
+  "hint": "firebase functions:secrets:set GMAIL_USER ; ... GMAIL_APP_PASSWORD",
+  "logId": "...", "tookMs": ... }</pre>
+</body></html>

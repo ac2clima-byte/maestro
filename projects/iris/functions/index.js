@@ -1652,6 +1652,12 @@ export const nexoPushSend = onRequest(
 // in nexus_chat con sessionId="forge-test", visibili nella PWA.
 export { nexusTestInternal } from "./handlers/forge.js";
 
+// ─── nexoSendReport: report email post-task da MAESTRO ─────────
+// Endpoint X-Forge-Key (no auth Firebase). Manda email via Gmail SMTP
+// a destinazioni allowlist (ac2clima@gmail.com). Graceful: se mancano
+// credenziali GMAIL_USER/GMAIL_APP_PASSWORD scrive solo log Firestore.
+export { nexoSendReport } from "./handlers/email-report.js";
+
 // ─── Orchestrator workflow listener ────────────────────────────
 
 export const orchestratorLavagnaListener = onDocumentCreated(
