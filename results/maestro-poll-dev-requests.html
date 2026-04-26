@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>MAESTRO · poll dev-requests Firestore → GitHub</title>
+<style>
+  :root { --acg:#006eb7; --bg:#0b1220; --fg:#e6edf6; --mute:#9aa7bd; --ok:#22c55e; --warn:#f59e0b; }
+  body { margin:0; font-family:'DM Sans', system-ui, sans-serif; background:var(--bg); color:var(--fg); padding:28px; max-width:1100px; }
+  h1 { color:var(--acg); margin:0 0 4px; font-size:24px; }
+  h2 { color:var(--mute); font-size:13px; text-transform:uppercase; letter-spacing:.08em; margin:28px 0 10px; }
+  .sub { color:var(--mute); margin:0 0 18px; font-size:14px; }
+  .card { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px 18px; margin-bottom:12px; }
+  .grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .stat { background:#111827; border:1px solid #1f2a3d; border-radius:10px; padding:14px; text-align:center; }
+  .num { font-size:32px; font-weight:700; color:var(--ok); }
+  .lbl { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-top:4px; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { background:rgba(34,197,94,.15); color:var(--ok); }
+  .warn { background:rgba(245,158,11,.15); color:var(--warn); }
+  table { width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+  th, td { padding:8px 10px; border-bottom:1px solid #1f2a3d; text-align:left; vertical-align:top; }
+  th { color:var(--mute); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+  pre { background:#0f172a; border:1px solid #1f2a3d; padding:12px; border-radius:8px; overflow:auto; font-size:12px; line-height:1.55; }
+  code { background:#0f172a; padding:2px 6px; border-radius:4px; font-size:12px; }
+  .quote { border-left:3px solid var(--acg); padding:6px 12px; color:#cdd6e0; }
+</style>
+</head>
+<body>
+  <h1>MAESTRO · poll dev-requests Firestore → GitHub</h1>
+  <p class="sub">Aggiunto a maestro.mjs un poll di <code>nexo_dev_requests</code>. Le richieste salvate da NEXUS diventano file <code>tasks/dev-request-*.md</code> nel repo, MAESTRO le manda a Claude Code in modalità analisi.</p>
+
+  <div class="grid">
+    <div class="stat"><div class="num">1</div><div class="lbl">dev-request recuperata</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">pending residue</div></div>
+    <div class="stat"><div class="num">2 min</div><div class="lbl">cadenza poll (8 cicli)</div></div>
+  </div>
+
+  <h2>Cosa è stato sistemato</h2>
+  <div class="card">
+    <p>NEXUS scriveva in <code>nexo_dev_requests</code> ma il file md non veniva creato perché:</p>
+    <ul>
+      <li>Il poller esterno <code>scripts/dev_request_poller.mjs</code> legge solo <code>nexo_dev_requests_queue</code> (collection nuova introdotta nella Fase 0).</li>
+      <li>Le richieste pre-Fase 0 finite in <code>nexo_dev_requests</code> con auto-id (es. <code>trzc6usXBnlyv7SGPu04</code>) restavano orfane.</li>
+    </ul>
+    <p>Aggiunta <code>pollDevRequests()</code> direttamente in <code>maestro.mjs</code> che legge la collection canonica <code>nexo_dev_requests</code>:</p>
+    <ol>
+      <li>Query <code>where status == "pending" limit 10</code></li>
+      <li>Per ogni doc: scrive <code>tasks/dev-request-{id-sanificato}.md</code></li>
+      <li>Aggiorna il doc Firestore con <code>status="file_creato"</code> e <code>taskFile</code></li>
+      <li>Commit + pull --rebase + push</li>
+    </ol>
+    <p>Eseguito una volta in modalità one-shot per recuperare il backlog (1 documento storico).</p>
+  </div>
+
+  <h2>Verifica end-to-end</h2>
+  <table>
+    <tr><th>Check</th><th>Esito</th></tr>
+    <tr><td>nexo_dev_requests pending → 1 doc storico</td><td><span class="pill ok">OK</span></td></tr>
+    <tr><td>tasks/dev-request-trzc6usXBnlyv7SGPu04.md creato</td><td><span class="pill ok">OK</span></td></tr>
+    <tr><td>git push origin main (commit 26a97c6)</td><td><span class="pill ok">OK</span></td></tr>
+    <tr><td>doc Firestore status="file_creato"</td><td><span class="pill ok">OK</span></td></tr>
+    <tr><td>nexo_dev_requests pending residue</td><td><span class="pill ok">0</span></td></tr>
+  </table>
+
+  <h2>File generato</h2>
+  <pre># Dev Request da NEXUS
+Data: 2026-04-23T21:49:32.003Z
+ID Firestore: trzc6usXBnlyv7SGPu04
+User: alberto.contardi@acgclimaservice.com
+Session: nx_6vftjfkvmoc0l0o7
+
+Richiesta:
+
+&gt; aggiungi un bottone blu in alto per segnalare un bug
+
+## Cosa fare (Claude Code)
+
+1. Leggi il codice coinvolto (handler, PWA, scripts).
+2. Scrivi analisi in tasks/dev-analysis-trzc6usXBnlyv7SGPu04.md
+   (diagnosi, file/righe, proposta, rischi, effort).
+3. NON implementare. Solo analisi, poi commit e push.</pre>
+
+  <h2>Nota sul testo richiesto dal task</h2>
+  <div class="card">
+    <p>Il task chiedeva di verificare la dev-request "il report mensile non parsifica i mesi". Quella stringa NON è presente in <code>nexo_dev_requests</code> di <code>nexo-hub-15f2d</code>: l'unica pending era "aggiungi un bottone blu in alto per segnalare un bug". Probabilmente la richiesta originale è stata persa o scritta in un'altra collection prima di questo fix.</p>
+    <p>Il flow però è ora corretto: dalla prossima richiesta NEXUS in poi, MAESTRO la materializzerà al massimo entro 2 minuti.</p>
+  </div>
+
+  <h2>Cadenza</h2>
+  <pre>STATUS_REPORT_EVERY = 8           // 8 cicli × 15s = 120s
+
+while (true) {
+  await pull();
+  ...processa task...
+  ciclo++;
+  if (ciclo % STATUS_REPORT_EVERY === 0) {
+    await pollDevRequests();        // poll Firestore → file md
+    writeAndPushStatusReport();     // STATUS.md
+  }
+  await sleep(15s);
+}</pre>
+
+  <p><span class="pill warn">Restart MAESTRO necessario per attivare il poll automatico</span></p>
+</body>
+</html>

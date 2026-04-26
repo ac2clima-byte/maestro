@@ -143,6 +143,88 @@ function formatStatusMd(codeStatus, pending, commits) {
   return lines.join('\n');
 }
 
+// === DEV REQUEST POLL (Firestore → tasks/dev-request-*.md) ===
+// NEXUS scrive le richieste dev in nexo_dev_requests con status="pending".
+// Qui le materializziamo come file md nel repo: MAESTRO al ciclo successivo
+// le intercetta come kind=dev-request e Claude Code le analizza (no impl).
+// NB: scripts/dev_request_poller.mjs fa una cosa simile sulla collection
+// _queue, è rimasto come fallback ma il path canonico è questo dentro MAESTRO.
+async function pollDevRequests() {
+  let snap;
+  try {
+    snap = await getDb().collection('nexo_dev_requests')
+      .where('status', '==', 'pending')
+      .limit(10)
+      .get();
+  } catch (e) {
+    console.error(`[DEV-POLL] read failed: ${e.message}`);
+    return 0;
+  }
+  if (snap.empty) return 0;
+
+  const created = [];
+  for (const doc of snap.docs) {
+    const data = doc.data() || {};
+    const id = doc.id;
+    // Sanitizza l'id per renderlo safe come nome file: solo [A-Za-z0-9._-]
+    const safeId = id.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 64);
+    const filename = `tasks/dev-request-${safeId}.md`;
+    const fullPath = join(REPO_DIR, filename);
+    if (existsSync(fullPath)) {
+      // File già materializzato: marchialo file_creato e vai avanti
+      try { await doc.ref.update({ status: 'file_creato', taskFile: filename, updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch {}
+      continue;
+    }
+    const ts = data.createdAt && data.createdAt.toDate
+      ? data.createdAt.toDate().toISOString()
+      : new Date().toISOString();
+    const richiesta = String(
+      data.description || data.request || data.message || JSON.stringify(data)
+    ).slice(0, 4000);
+    const contenuto = [
+      '# Dev Request da NEXUS',
+      `Data: ${ts}`,
+      `ID Firestore: ${id}`,
+      `User: ${data.userId || '(n/a)'}`,
+      `Session: ${data.sessionId || '(n/a)'}`,
+      '',
+      'Richiesta:',
+      '',
+      '> ' + richiesta.replace(/\n/g, '\n> '),
+      '',
+      '## Cosa fare (Claude Code)',
+      '',
+      '1. Leggi il codice coinvolto (handler, PWA, scripts).',
+      `2. Scrivi analisi in tasks/dev-analysis-${safeId}.md (diagnosi, file/righe, proposta, rischi, effort).`,
+      '3. NON implementare. Solo analisi, poi commit e push.',
+      '',
+    ].join('\n');
+    try {
+      writeFileSync(fullPath, contenuto, 'utf-8');
+      created.push(filename);
+      try { await doc.ref.update({ status: 'file_creato', taskFile: filename, updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch {}
+      console.log(`[DEV-POLL] creato ${filename} (id=${id})`);
+    } catch (e) {
+      console.error(`[DEV-POLL] write fallito per ${id}: ${e.message}`);
+    }
+  }
+
+  if (created.length === 0) return 0;
+
+  // Commit + push
+  try {
+    execSync('git add tasks/', { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
+    execSync(`git commit -m "dev-request da NEXUS (${created.length})"`, { cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000 });
+    try { execSync('git pull --rebase origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 }); } catch {}
+    execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
+    console.log(`[DEV-POLL] pushed ${created.length} file`);
+  } catch (e) {
+    const msg = (e.stderr || e.message || '').toString().slice(0, 200);
+    if (!msg.includes('nothing to commit')) console.error(`[DEV-POLL PUSH ERROR] ${msg}`);
+  }
+  return created.length;
+}
+
 function writeAndPushStatusReport() {
   try {
     const codeStatus = fetchCodeStatus();
@@ -406,7 +488,9 @@ async function main() {
   console.log(`Repo: ${REPO_DIR}`);
   console.log(`Poll: ogni ${POLL_INTERVAL/1000}s · STATUS.md ogni ${STATUS_REPORT_EVERY * POLL_INTERVAL / 1000}s\n`);
 
-  // Primo report subito allo startup (utile per Claude Chat).
+  // Primo poll dev-requests + report subito allo startup (utile per
+  // Claude Chat e per recuperare richieste pendenti pre-restart).
+  await pollDevRequests();
   writeAndPushStatusReport();
 
   let ciclo = 0;
@@ -425,6 +509,7 @@ async function main() {
 
     ciclo++;
     if (ciclo % STATUS_REPORT_EVERY === 0) {
+      await pollDevRequests();
       writeAndPushStatusReport();
     }
 
