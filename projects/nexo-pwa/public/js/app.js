@@ -2403,12 +2403,52 @@ function nexusScheduleAutoSend() {
   }, NEXUS_VOICE_SILENCE_MS);
 }
 
-function nexusVoiceStart() {
+// Pre-flight permesso microfono via getUserMedia: dà feedback chiaro
+// (permesso negato / nessun device / errore generico) senza dover
+// aspettare l'errore tardivo da SpeechRecognition.
+async function nexusPreflightMic() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return { ok: false, reason: "no-mediadevices", msg: "Il browser non espone l'accesso al microfono. Usa Chrome o Edge." };
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    try { stream.getTracks().forEach(t => t.stop()); } catch {}
+    try { sessionStorage.setItem("nexo.mic.granted", "1"); } catch {}
+    return { ok: true };
+  } catch (e) {
+    const name = String(e && e.name || "");
+    if (/NotAllowed|SecurityError/i.test(name)) {
+      return { ok: false, reason: "denied", msg: "Permetti l'accesso al microfono nelle impostazioni del browser." };
+    }
+    if (/NotFound|Devices/i.test(name) || /audio-capture/i.test(String(e))) {
+      return { ok: false, reason: "no-device", msg: "Nessun microfono rilevato sul dispositivo." };
+    }
+    return { ok: false, reason: "other", msg: "Microfono non disponibile: " + (e.message || name || "errore") };
+  }
+}
+
+async function nexusVoiceStart() {
   if (!nexusVoiceSupported()) {
-    nexusSetVoiceStatus("Browser non supporta dettatura. Usa Chrome o Edge.", "error");
+    // Importante: nexusSetMicState("off") chiama nexusSetVoiceStatus("")
+    // che azzera il msg → fai prima setMicState, POI setVoiceStatus.
+    nexusSetMicState("off");
+    nexusSetVoiceStatus("Usa Chrome o Edge per la dettatura vocale.", "error");
     return;
   }
   if (nexusVoice.active) return;
+  // Pre-flight permesso (skip se già concesso in questa sessione)
+  let granted = false;
+  try { granted = sessionStorage.getItem("nexo.mic.granted") === "1"; } catch {}
+  if (!granted) {
+    nexusSetVoiceStatus("Controllo microfono…");
+    const pre = await nexusPreflightMic();
+    if (!pre.ok) {
+      nexusSetMicState("off");
+      nexusSetVoiceStatus(pre.msg, "error");
+      console.warn("[nexus-voice] preflight failed:", pre.reason);
+      return;
+    }
+  }
   nexusVoice.active = true;
   nexusVoice.finalText = ($("#nexusInput").value || "").trim();
   if (nexusVoice.finalText) nexusVoice.finalText += " ";
@@ -2453,12 +2493,14 @@ function nexusVoiceResume() {
       }
       if (err !== "aborted") {
         const map = {
-          "not-allowed": "Permesso microfono negato.",
-          "service-not-allowed": "Permesso microfono negato.",
-          "audio-capture": "Nessun microfono rilevato.",
-          "network": "Errore di rete.",
+          "not-allowed": "Permetti l'accesso al microfono nelle impostazioni del browser.",
+          "service-not-allowed": "Permetti l'accesso al microfono nelle impostazioni del browser.",
+          "audio-capture": "Nessun microfono rilevato sul dispositivo.",
+          "network": "Errore di rete: la dettatura richiede connessione.",
+          "language-not-supported": "Lingua non supportata.",
         };
-        nexusSetVoiceStatus(map[err] || ("Errore: " + err), "error");
+        nexusSetVoiceStatus(map[err] || ("Errore microfono: " + err), "error");
+        try { sessionStorage.removeItem("nexo.mic.granted"); } catch {}
         nexusVoiceStop();
       }
     };
@@ -2502,8 +2544,34 @@ function nexusVoiceStop() {
 
 function nexusToggleVoice() {
   if (nexusVoice.active) nexusVoiceStop();
-  else nexusVoiceStart();
+  else nexusVoiceStart().catch(e => console.warn("[nexus-voice] start failed:", e));
 }
+
+// Wire del bottone microfono indipendente da init() / auth.
+// Il bottone è SEMPRE visibile: se SR non è supportato, il click mostra
+// un messaggio chiaro ("Usa Chrome o Edge..."). Pattern identico a
+// nexusBugWireWhenReady (evita classi di bug "wire dipende da init").
+function nexusMicWireWhenReady() {
+  const wire = () => {
+    const mic = document.getElementById("nexusMicBtn");
+    if (!mic || mic._nexusMicWired) return;
+    mic._nexusMicWired = true;
+    mic.hidden = false; // SEMPRE visibile
+    if (!nexusVoiceSupported()) {
+      mic.classList.add("nexus-btn-disabled");
+      mic.title = "Usa Chrome o Edge per la dettatura vocale";
+    }
+    mic.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      console.log("[nexus-voice] click mic — supported:", nexusVoiceSupported(), "ua:", navigator.userAgent.slice(0, 80));
+      nexusToggleVoice();
+    });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", wire, { once: true });
+  else wire();
+}
+nexusMicWireWhenReady();
 
 // Hook: quando TTS finisce di parlare, riattiva mic se modalità continua attiva.
 // Aggancio: sovrascrivo il callback di fine TTS in nexusTts (patch runtime).
@@ -2549,11 +2617,9 @@ function nexusWire() {
   $("#nexusClearBtn")?.addEventListener("click", nexusClear);
   nexusBugWire();
   $("#nexusSendBtn").addEventListener("click", nexusSend);
-  const mic = $("#nexusMicBtn");
-  if (mic) {
-    mic.hidden = !nexusVoiceSupported();
-    mic.addEventListener("click", nexusToggleVoice);
-  }
+  // Il bottone mic è wirato in nexusMicWireWhenReady() su DOMContentLoaded
+  // (sempre visibile, gestisce browser non supportato con feedback chiaro).
+  // Qui non aggiungiamo nulla per evitare doppio listener.
   // TTS toggle
   nexusTtsInit();
   $("#nexusTtsToggle")?.addEventListener("click", nexusTtsToggle);

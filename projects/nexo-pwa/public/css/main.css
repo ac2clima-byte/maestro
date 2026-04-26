@@ -1570,6 +1570,15 @@
     background: #fef2f2; color: #b91c1c;
     animation: nexus-mic-pulse 1.1s infinite;
   }
+  /* Bottone mic in stato "browser non supportato": cliccabile, mostra messaggio */
+  .nexus-btn-icon.nexus-btn-disabled {
+    opacity: 0.45;
+    cursor: help;
+  }
+  .nexus-btn-icon.nexus-btn-disabled:hover {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
   .nexus-btn-icon.speaking {
     background: #eff6ff; color: #1d4ed8;
   }
