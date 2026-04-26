@@ -1,5 +1,5 @@
 {
-  "ts": "2026-04-26T11:29:49.348Z",
+  "ts": "2026-04-26T14:04:45.072Z",
   "session": "forge-test-v2",
   "rows": [
     {
@@ -11,7 +11,7 @@
       "azione": "chiarimento",
       "http": 200,
       "reply": "Ho trovato più campagne: Letture ACG FS 2026 (181 interventi); Letture GZT FS 2026 (85 interventi); LETTURE DIRETTE FS (0 interventi). Quale vuoi?",
-      "took": 12518,
+      "took": 12144,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -20,7 +20,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "0Ev1tkfrCxft4YWE56BT"
+      "nexusMessageId": "7ipiP6uPmG1gNFz89CwU"
     },
     {
       "n": 2,
@@ -31,7 +31,7 @@
       "azione": "interventi_aperti",
       "http": 200,
       "reply": "Marco non ha interventi programmati per oggi.",
-      "took": 4150,
+      "took": 4662,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -40,7 +40,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "lOV0Tqxg6ahDUCmvQsGo"
+      "nexusMessageId": "VGo6ccrlhX7ngT2yI06J"
     },
     {
       "n": 3,
@@ -51,7 +51,7 @@
       "azione": "dossier_cliente",
       "http": 200,
       "reply": "Dossier per \"de amicis\":\n\nAnagrafica CRM (3):\nCONDOMINIO DE AMICIS [V015] — VIA DE AMICIS, 12\n Amministratore: 2C\nCONDOMINIO LA STAZIONE [ZZ119] — VIA DE AMICIS, 3\n Amministratore: Nessuno\nCONDOMINIO MARTINETTO [ZZ148] — VIA DE AMICIS 5\n Amministratore: Nessuno\n\nUltimi interventi (2 di 2):\n2026-04-07 · LORENZO [RITORNO NON URGENTE] — RITORNO V015 - CONDOMINIO DE AMICIS - VIA DE AMICIS 12 - TORTONA - riduzione ora\n? [chiuso] — V15 - CONDOMINIO DE AMICIS\n\nRTI/RTIDF Guazzotti (2):\nGRTI-2026-081 (generico) — 2026-02-06 — rtidf_inviato · Albanesi Gianluca\nGRTI-2025-061 (generico) — 2025-10-20 — definito (non fatturabile) · Tosca Federico\n\nEmail correlate (4):\n[24/04] Davide Torriglia — R: Verifica riscaldamento condominio De Amicis\n[24/04] Davide Torriglia — R: Verifica riscaldamento De Amicis (auto-trigger v2)\n[24/04] Davide Torriglia — R: Verifica riscaldamento condominio De Amicis (TEST AUTO-TRIGGER)\nE altre 1.",
-      "took": 7857,
+      "took": 7687,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -60,7 +60,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "v8XiBouYkONszJroq3wE"
+      "nexusMessageId": "IJoST4QufuFxAAXpOVd4"
     },
     {
       "n": 4,
@@ -71,7 +71,7 @@
       "azione": "analizza_email",
       "http": 200,
       "reply": "Ho visto la mail di Davide. Alberto ha chiesto intestazione per offerta verifica riscaldamento. Torriglia ha risposto con ragione sociale e P.IVA. Dati chiave: 3i efficientamento energetico S.r.l. Società Benefit (P.IVA 02486680065), condominio De Amicis. Preparare preventivo verifica riscaldamento intestato a 3i efficientamento energetico per Condominio De Amicis. Procedo?",
-      "took": 3508,
+      "took": 3449,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -80,7 +80,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "zmcpUzXIGKVBuOLwVzAx"
+      "nexusMessageId": "CPnoYtdZ49I0IoT77Kel"
     },
     {
       "n": 5,
@@ -91,7 +91,7 @@
       "azione": "rti_pronti_fattura",
       "http": 200,
       "reply": "Ci sono 57 RTI pronti per la fattura, per un valore totale di 14.859 euro. Altri 31 sono pronti ma senza costo ancora compilato.",
-      "took": 4238,
+      "took": 4717,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -100,7 +100,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "A8KoRwbFEytbZffV9MhT"
+      "nexusMessageId": "MjZMPHgqcIMSgBQOCwGD"
     },
     {
       "n": 6,
@@ -111,7 +111,7 @@
       "azione": "chiarimento",
       "http": 200,
       "reply": "CONDOMINIO KRISTAL ha 1652 euro di esposizione, di cui 1652 scaduti.\n\nLivello di rischio: MEDIO.",
-      "took": 2716,
+      "took": 2491,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -120,7 +120,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "n7wGqKEwn7xx6H1BBgEL"
+      "nexusMessageId": "8nnJUCdBxyCIHS2UTWso"
     },
     {
       "n": 7,
@@ -131,7 +131,7 @@
       "azione": "sendWhatsApp",
       "http": 200,
       "reply": "Non ho mandato il messaggio a Dellafiore Lorenzo perché il dry-run è attivo. Vuoi che lo attivi?",
-      "took": 4147,
+      "took": 3443,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -140,7 +140,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "oiTTttg4RrztX3RdT5PV"
+      "nexusMessageId": "Ugo9CtaU3E7kXDqASQmb"
     },
     {
       "n": 8,
@@ -151,7 +151,7 @@
       "azione": "chiarimento",
       "http": 200,
       "reply": "Dellafiore Lorenzo ha 24 bozze CRTI (su 124 CRTI totali), di cui 24 vecchie più di 30 giorni.",
-      "took": 5376,
+      "took": 4949,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -160,7 +160,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "sDkfFlPZqEFTI1LCCfGf"
+      "nexusMessageId": "E1K2j7GCcZSre90SkJJ7"
     },
     {
       "n": 9,
@@ -168,10 +168,10 @@
       "routing": "dikea",
       "expected": "dikea",
       "collega": "dikea",
-      "azione": "chiarimento",
+      "azione": "scadenze_curit",
       "http": 200,
       "reply": "3 scadenze normative nei prossimi 90g:\n\n1. [06/05/2026] (10g) MANUT · VIA CLARETTO LUIGI, 18/20 P.T\n2. [10/06/2026] (45g) MANUT · VIA BELLOCCHIO, 6\n3. [10/06/2026] (45g) MANUT · VIA MORUZZI, 13",
-      "took": 5194,
+      "took": 5357,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -180,7 +180,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "J6SG6hZnT0hJwSe0ZUgI"
+      "nexusMessageId": "zR7NssCYm8uyFcjPS3lp"
     },
     {
       "n": 10,
@@ -191,7 +191,7 @@
       "azione": "chiarimento",
       "http": 200,
       "reply": "Davide Torriglia è un contatto di 3i efficientamento energetico S.r.l. Società Benefit, email davide.torriglia@gruppo3i.it. Ultima mail \"R: Verifica riscaldamento condominio De Amicis\" del 24/04/2026.",
-      "took": 4013,
+      "took": 4062,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -200,7 +200,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "XtDKYhlxEgUYLfDZsr0e"
+      "nexusMessageId": "gP44qPcKkxoClkM8p7q9"
     },
     {
       "n": 11,
@@ -208,10 +208,10 @@
       "routing": "charta",
       "expected": "charta",
       "collega": "charta",
-      "azione": "chiarimento",
+      "azione": "report_mensile",
       "http": 200,
       "reply": "Report aprile 2026: 86 email indicizzate, 11 interventi pianificati. Tra le email: 6 fatture fornitori. Esposizione clienti totale 203.074 euro, scaduto 179.593 euro. In più, 52 GRTIDF pronti da fatturare per 14.557 euro bloccati.",
-      "took": 8465,
+      "took": 5690,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -220,7 +220,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "Y0uV4UkqriEaaeh0z3bh"
+      "nexusMessageId": "ybfsV7X63yW4yWOlRIvw"
     },
     {
       "n": 12,
@@ -228,10 +228,10 @@
       "routing": "iris",
       "expected": "iris",
       "collega": "iris",
-      "azione": "chiarimento",
+      "azione": "email_senza_risposta",
       "http": 200,
       "reply": "Ne hai 35 senza risposta da più di due giorni. La più vecchia è di starvo@tin.it, 2 giorni. Vuoi partire da quella?",
-      "took": 2729,
+      "took": 3437,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -240,7 +240,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "z9dq39cGbyKqtwEkQZ2V"
+      "nexusMessageId": "WJsuqmmGUJkh8LUcWrdw"
     },
     {
       "n": 13,
@@ -251,7 +251,7 @@
       "azione": "stato_suite",
       "http": 200,
       "reply": "La suite è congestionata (punteggio 43/100). 103 email indicizzate, 35 senza risposta da più di due giorni, 200 messaggi pending sulla lavagna. Vuoi che proviamo a ripulire i messaggi pending?",
-      "took": 3225,
+      "took": 3400,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -260,7 +260,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "qBUDylCS5o0KvotIJfUY"
+      "nexusMessageId": "rwzkq2uVOHWrUMfePL6M"
     },
     {
       "n": 14,
@@ -276,8 +276,8 @@
       "collega": "orchestrator",
       "azione": "preparare_preventivo",
       "http": 200,
-      "reply": "Preventivo pronto (numero 960). Intestato a — per il De Amicis. Viene 750.00 euro più IVA 22%, in totale 915.00 euro. Ho messo 6 voci di lavoro standard per una verifica di questo tipo. Lo approvi e lo mando, oppure vuoi cambiare qualcosa?",
-      "took": 14774,
+      "reply": "Preventivo pronto (numero 670). Intestato a — per il De Amicis. Viene 650.00 euro più IVA 22%, in totale 793.00 euro. Ho messo 6 voci di lavoro standard per una verifica di questo tipo. Lo approvi e lo mando, oppure vuoi cambiare qualcosa?",
+      "took": 17892,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -286,7 +286,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "2GHX6iPAliD5ZLWsLQjM"
+      "nexusMessageId": "Ke8CCxXjotE0VdpG82gp"
     },
     {
       "n": 15,
@@ -297,7 +297,7 @@
       "azione": "agenda_giornaliera",
       "http": 200,
       "reply": "Marco non ha interventi pianificati per lunedì 27 aprile.",
-      "took": 3917,
+      "took": 4868,
       "routingOk": true,
       "naturalOk": true,
       "mustOk": true,
@@ -306,7 +306,7 @@
       "mustNotOk": true,
       "pass": true,
       "reasons": [],
-      "nexusMessageId": "bHzbXamNQnMSDTKolugS"
+      "nexusMessageId": "llyrwtd41LqqJGbeFNnV"
     }
   ],
   "totals": {

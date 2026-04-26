@@ -93,13 +93,16 @@ COLLEGHI + AZIONI STANDARD (preferisci queste azioni quando possibile):
     azioni: sendWhatsApp, sendTelegram, sendEmail, sendPush,
             wa_inbox (lista messaggi WA ricevuti, "messaggi WA in arrivo"),
             wa_analizza_ultimo (analizza ultimo WA ricevuto)
-- ares       → interventi:
+- ares       → interventi (bacheca COSMINA):
     azioni: interventi_aperti (parametri opzionali: {tecnico, data}),
             apri_intervento, assegna_tecnico
     IMPORTANTE: "interventi aperti di [tecnico]" / "interventi di [tecnico] oggi"
-      → interventi_aperti con parametri.tecnico = nome (es. Marco, Lorenzo,
-      David, Federico, Antonio, Ergest). Se l'utente cita "oggi" / "domani"
-      passa anche parametri.data.
+      → SEMPRE collega="ares" + azione="interventi_aperti" con
+      parametri.tecnico = nome (es. Marco, Lorenzo, David, Federico,
+      Antonio, Ergest). Se l'utente cita "oggi" / "domani" passa anche
+      parametri.data. NON confondere con PHARO: PHARO è per RTI/RTIDF
+      Guazzotti, ARES è per gli INTERVENTI in bacheca COSMINA.
+      "interventi" = ARES, sempre.
 - chronos    → pianificazione + campagne:
     azioni: scadenze_prossime, slot_tecnico, agenda_giornaliera,
             campagne_attive (lista), campagna_status (parametri: {nome})
@@ -377,7 +380,13 @@ export const DIRECT_HANDLERS = [
     return (col === "ares" && /(apri_intervent|crea_intervent|nuovo_intervent|open_intervent)/.test(az))
       || /^\s*(apri|crea|nuovo|aggiungi)\s+(un\s+)?intervent/.test(m);
   }, fn: handleAresApriIntervento },
-  { match: (col, az) => col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az), fn: handleAresInterventiAperti },
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "ares" && /(intervent|apert|attiv|in_corso|lista|cosa.*fare|oggi|giorno)/.test(az)) return true;
+    // Match diretto: "interventi (aperti) di [nome]" / "interventi di [nome] oggi/domani"
+    return /\bintervent[io]\s+(?:apert[io]\s+)?(?:di|del|per)\s+[a-zà-ÿ]/i.test(m)
+        || /\bintervent[io]\s+(?:di\s+)?oggi\b/i.test(m);
+  }, fn: handleAresInterventiAperti },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "echo" && /(whatsapp|wa|send_whatsapp|send_wa|send_message|invia)/.test(az))
