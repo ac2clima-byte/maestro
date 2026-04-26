@@ -1,0 +1,24 @@
+{
+  "state": {
+    "rcAll": "3",
+    "rcPending": "0",
+    "rcProgress": "1",
+    "rcCompleted": "2",
+    "visibleStatuses": [
+      {
+        "text": "In corso",
+        "cls": "request-status in_progress"
+      },
+      {
+        "text": "Completata",
+        "cls": "request-status completed"
+      },
+      {
+        "text": "Completata",
+        "cls": "request-status completed"
+      }
+    ],
+    "itemCount": 3
+  },
+  "errors": []
+}

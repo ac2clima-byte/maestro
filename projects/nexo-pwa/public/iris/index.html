@@ -1655,7 +1655,13 @@ const IRIS_FORGE_KEY = "nexo-forge-2026";
 async function getAuthIdToken() {
   const u = window.__irisCurrentUser;
   if (!u) return null;
-  try { return await u.getIdToken(); } catch { return null; }
+  // forceRefresh=true: prende un token nuovo dal server invece di cache.
+  // Evita errori 401 quando il token in memoria è scaduto.
+  try { return await u.getIdToken(true); }
+  catch (e) {
+    console.warn("[IRIS] getIdToken(true) failed, retry no-refresh", e?.message || e);
+    try { return await u.getIdToken(); } catch { return null; }
+  }
 }
 
 async function callIrisAction(url, emailId) {
@@ -1664,10 +1670,17 @@ async function callIrisAction(url, emailId) {
   const token = await getAuthIdToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
-  } else {
-    // Fallback MOCK_MODE: la Cloud Function accetta anche X-Forge-Key.
+  } else if (MOCK_MODE) {
+    // PWA in MOCK_MODE: login Firebase bypassato, usa la chiave statica.
+    // La Cloud Function accetta X-Forge-Key in alternativa all'ID Token.
     headers["X-Forge-Key"] = IRIS_FORGE_KEY;
     body.forgeKey = IRIS_FORGE_KEY;
+  } else {
+    // Auth reale ma utente non loggato (token non disponibile e
+    // refresh non ha funzionato). Mostra errore con redirect al login.
+    const err = new Error("Sessione scaduta. Apri il login e riprova.");
+    err.code = "auth_required";
+    throw err;
   }
   const resp = await fetch(url, {
     method: "POST",
@@ -1676,6 +1689,11 @@ async function callIrisAction(url, emailId) {
   });
   if (!resp.ok) {
     const t = await resp.text().catch(() => "");
+    if (resp.status === 401 || resp.status === 403) {
+      const err = new Error(`Autorizzazione fallita (HTTP ${resp.status}). Ricarica la pagina e riprova.`);
+      err.code = "auth_failed";
+      throw err;
+    }
     throw new Error(`HTTP ${resp.status}: ${t.slice(0, 150)}`);
   }
   return resp.json();
@@ -1710,6 +1728,17 @@ function fadeAndRemoveCard(emailId) {
   });
 }
 
+function handleAuthError(err) {
+  // Se err.code === auth_required (no token + no MOCK_MODE) → suggerisci login.
+  if (err && (err.code === "auth_required" || err.code === "auth_failed")) {
+    showIrisToast(err.message || "Sessione scaduta. Ricarica la pagina.", true);
+    // Auto-reload dopo 3s per ritornare al login gate (auth Firebase).
+    setTimeout(() => { try { location.reload(); } catch {} }, 3000);
+    return true;
+  }
+  return false;
+}
+
 async function archiveEmailFromCard(emailId, btn) {
   if (!emailId || !btn) return;
   const original = btn.innerHTML;
@@ -1720,7 +1749,9 @@ async function archiveEmailFromCard(emailId, btn) {
     showIrisToast(`Archiviata in "${r.folder || "cartella mittente"}".`);
     fadeAndRemoveCard(emailId);
   } catch (err) {
-    showIrisToast("Errore archiviazione: " + (err.message || err), true);
+    if (!handleAuthError(err)) {
+      showIrisToast("Errore archiviazione: " + (err.message || err), true);
+    }
     btn.disabled = false;
     btn.innerHTML = original;
   }
@@ -1737,6 +1768,11 @@ async function deleteEmailFromCard(emailId, btn) {
     showIrisToast("Email eliminata.");
     fadeAndRemoveCard(emailId);
   } catch (err) {
+    if (handleAuthError(err)) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+      return;
+    }
     showIrisToast("Errore eliminazione: " + (err.message || err), true);
     btn.disabled = false;
     btn.innerHTML = original;

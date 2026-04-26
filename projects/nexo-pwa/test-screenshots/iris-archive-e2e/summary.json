@@ -3,12 +3,12 @@
     {
       "name": "Bottone archivia trovato per email test",
       "status": "ok",
-      "detail": "<button class=\"btn-archive\" data-archive=\"forge_test_archive_1777213085224\" title=\"Archivia in cartella per mittente\">📦 Archivia</button>"
+      "detail": "<button class=\"btn-archive\" data-archive=\"forge_test_archive_1777213748848\" title=\"Archivia in cartella per mittente\">📦 Archivia</button>"
     },
     {
       "name": "Endpoint Archive chiamato",
       "status": "ok",
-      "detail": "HTTP 200 · body: {\"ok\":true,\"queueId\":\"7fTF1aEOmvcd9it88Hv8\",\"folder\":\"Ee Forge\",\"emailId\":\"forge_test_archive_177721"
+      "detail": "HTTP 200 · body: {\"ok\":true,\"queueId\":\"N9qY24Z2itio4t1a0Hdh\",\"folder\":\"Ee Forge\",\"emailId\":\"forge_test_archive_177721"
     },
     {
       "name": "Toast archivio visibile",
@@ -28,7 +28,7 @@
     {
       "name": "Endpoint Delete chiamato",
       "status": "ok",
-      "detail": "HTTP 200 · body: {\"ok\":true,\"queueId\":\"Gx36o3EwPopV9dWJkQ6g\",\"emailId\":\"forge_test_delete_1777213085224\",\"authMode\":\""
+      "detail": "HTTP 200 · body: {\"ok\":true,\"queueId\":\"qGlJPlgjHOC6qgj8PW6i\",\"emailId\":\"forge_test_delete_1777213748848\",\"authMode\":\""
     },
     {
       "name": "Firestore status=deleted",
@@ -41,18 +41,18 @@
       "detail": ""
     }
   ],
-  "archiveId": "forge_test_archive_1777213085224",
-  "deleteId": "forge_test_delete_1777213085224",
+  "archiveId": "forge_test_archive_1777213748848",
+  "deleteId": "forge_test_delete_1777213748848",
   "responses": [
     {
       "status": 200,
       "url": "nexo-hub-15f2d.cloudfunctions.net/irisArchiveEmail",
-      "body": "{\"ok\":true,\"queueId\":\"7fTF1aEOmvcd9it88Hv8\",\"folder\":\"Ee Forge\",\"emailId\":\"forge_test_archive_1777213085224\",\"authMode\":\"forge_key\"}"
+      "body": "{\"ok\":true,\"queueId\":\"N9qY24Z2itio4t1a0Hdh\",\"folder\":\"Ee Forge\",\"emailId\":\"forge_test_archive_1777213748848\",\"authMode\":\"forge_key\"}"
     },
     {
       "status": 200,
       "url": "-nexo-hub-15f2d.cloudfunctions.net/irisDeleteEmail",
-      "body": "{\"ok\":true,\"queueId\":\"Gx36o3EwPopV9dWJkQ6g\",\"emailId\":\"forge_test_delete_1777213085224\",\"authMode\":\"forge_key\"}"
+      "body": "{\"ok\":true,\"queueId\":\"qGlJPlgjHOC6qgj8PW6i\",\"emailId\":\"forge_test_delete_1777213748848\",\"authMode\":\"forge_key\"}"
     }
   ],
   "consoleErrors": []

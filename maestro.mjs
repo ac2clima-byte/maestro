@@ -214,7 +214,10 @@ async function pollDevRequests() {
     const fullPath = join(REPO_DIR, filename);
     if (existsSync(fullPath)) {
       // File già materializzato: marchialo file_creato e vai avanti
-      try { await doc.ref.update({ status: 'file_creato', taskFile: filename, updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch {}
+      // Uso lo stato "in_progress" perché è quello che la PWA IRIS conosce
+      // (vedi STATUS_LABELS in iris/index.html). Quando Claude Code scrive
+      // l'analisi e la pusha, lo status diventa "completed".
+      try { await doc.ref.update({ status: 'in_progress', taskFile: filename, updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch {}
       continue;
     }
     const ts = data.createdAt && data.createdAt.toDate
@@ -244,7 +247,10 @@ async function pollDevRequests() {
     try {
       writeFileSync(fullPath, contenuto, 'utf-8');
       created.push(filename);
-      try { await doc.ref.update({ status: 'file_creato', taskFile: filename, updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch {}
+      // Uso lo stato "in_progress" perché è quello che la PWA IRIS conosce
+      // (vedi STATUS_LABELS in iris/index.html). Quando Claude Code scrive
+      // l'analisi e la pusha, lo status diventa "completed".
+      try { await doc.ref.update({ status: 'in_progress', taskFile: filename, updatedAt: admin.firestore.FieldValue.serverTimestamp() }); } catch {}
       console.log(`[DEV-POLL] creato ${filename} (id=${id})`);
     } catch (e) {
       console.error(`[DEV-POLL] write fallito per ${id}: ${e.message}`);
@@ -498,6 +504,20 @@ async function processTask(task) {
     const analysisPath = join(TASKS_DIR, `dev-analysis-${devId}.md`);
     const ok = existsSync(analysisPath);
     console.log(`[DONE] Dev request ${taskId} → analisi ${ok ? 'presente' : 'NON trovata'} (completed=${completed})`);
+    // Aggiorna stato Firestore: se l'analisi esiste → completed, altrimenti
+    // resta in_progress (verrà ritentata al prossimo poll).
+    if (ok) {
+      try {
+        await getDb().collection('nexo_dev_requests').doc(devId).set({
+          status: 'completed',
+          analysisFile: `tasks/dev-analysis-${devId}.md`,
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      } catch (e) {
+        console.error(`[DEV-REQ STATUS] update completed fallito per ${devId}: ${e.message}`);
+      }
+    }
     // Report email non bloccante
     sendForgeReport(taskId, ok ? 'PASS (analisi pushata)' : 'FAIL (analisi mancante)',
       `Dev request: ${taskId}\nDevId: ${devId}\nCompletato: ${completed}\nAnalisi: ${ok ? 'presente' : 'mancante'}`)
