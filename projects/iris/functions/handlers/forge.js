@@ -53,7 +53,7 @@ export const nexusTestInternal = onRequest(
     region: REGION,
     cors: true,
     secrets: [ANTHROPIC_API_KEY, FORGE_KEY],
-    timeoutSeconds: 60,
+    timeoutSeconds: 90,
     memory: "256MiB",
     maxInstances: 5,
   },
