@@ -1514,6 +1514,10 @@ const NEXUS_LAVAGNA_WATCH = new Map(); // lavagnaId → unsubscribe
 function nexusOpen() {
   $("#nexusPanel").classList.add("open");
   $("#nexusFab").classList.add("hidden-when-open");
+  // body.nexus-chat-open: usato dal CSS per nascondere il bottone bug globale
+  // su mobile (ridurre confusione: Alberto vedeva 2 bottoni 🐛 ravvicinati e
+  // tappava quello sbagliato).
+  document.body.classList.add("nexus-chat-open");
   // focus input
   setTimeout(() => $("#nexusInput")?.focus(), 100);
   nexusEnsureSubscribed();
@@ -1522,6 +1526,7 @@ function nexusClose() {
   $("#nexusPanel").classList.remove("open");
   $("#nexusPanel").classList.remove("fullscreen");  // esce anche dal fullscreen
   $("#nexusFab").classList.remove("hidden-when-open");
+  document.body.classList.remove("nexus-chat-open");
   nexusUpdateFullscreenBtn();
   // Stop TTS quando chiudi il pannello
   if (nexusTts.supported) nexusTtsStop();
@@ -1739,6 +1744,11 @@ async function nexusBugSubmit() {
   const err  = document.getElementById("nexusBugError");
   const btn  = document.getElementById("nexusBugSubmit");
   if (err) err.textContent = "";
+  console.log("[nexus-bug] submit start", {
+    sessionId: NEXUS_SESSION_ID,
+    msgCount: NEXUS_MESSAGES.length,
+    auth: !!CURRENT_USER,
+  });
   if (!CURRENT_USER) {
     if (err) err.textContent = "Devi essere autenticato.";
     return;
@@ -1755,6 +1765,7 @@ async function nexusBugSubmit() {
   const noteText = (note && note.value || "").trim().slice(0, 2000);
 
   if (btn) { btn.disabled = true; btn.textContent = "Invio…"; }
+  console.log("[nexus-bug] submit", { sessionId: NEXUS_SESSION_ID, msgCount: NEXUS_MESSAGES.length, convoLen: conversation.length, hasNote: !!noteText });
   try {
     const { db, fsMod } = await getFirestore();
     const me = (CURRENT_USER && CURRENT_USER.email) || null;
@@ -1764,7 +1775,7 @@ async function nexusBugSubmit() {
       note: noteText || null,
       description: noteText || "(nessuna nota — vedi conversazione)",
       conversation,
-      sessionId: NEXUS_SESSION_ID,
+      sessionId: NEXUS_SESSION_ID || null,
       userId: me,
       status: "pending",
       createdAt: fsMod.serverTimestamp(),

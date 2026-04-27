@@ -1056,6 +1056,18 @@
     .report-bug-label { display: none; }
     .report-bug-btn { padding: 8px 10px; }
   }
+  /* Su mobile, quando la chat NEXUS è aperta (pannello fullscreen mobile),
+     il bottone globale "Segnala bug" viene NASCOSTO per evitare confusione
+     con il bottone 🐛 dentro la chat. Alberto vedeva entrambi e tappava
+     quello globale pensando fosse quello della chat. */
+  @media (max-width: 760px) {
+    body:has(#nexusPanel.open) #reportBugBtn { display: none !important; }
+  }
+  /* Fallback per browser senza :has() (Safari < 15.4 / vecchi Chrome): la
+     classe .nexus-chat-open viene aggiunta da JS sul body quando si apre. */
+  @media (max-width: 760px) {
+    body.nexus-chat-open #reportBugBtn { display: none !important; }
+  }
 
   .report-bug-modal {
     position: fixed;
@@ -1222,6 +1234,9 @@
       right: 0; bottom: 0; top: 0; left: 0;
       width: 100vw; height: 100vh;
       border-radius: 0;
+      /* Sopra il bottone globale (z-index 70) per evitare overlap su
+         mobile dove la chat occupa tutto lo schermo. */
+      z-index: 80;
     }
     .nexus-fab.hidden-when-open { display: none; }
     /* Su mobile il bottone fullscreen è inutile (già a schermo intero) */
@@ -1289,11 +1304,11 @@
   .nexus-header .close:hover { background: #f3f4f6; color: #111827; }
   .nexus-header .nexus-bug-btn {
     font-size: 0.95rem;
-    opacity: 0.78;
+    opacity: 0.85;
     min-width: 32px; min-height: 32px;
     /* Garantisce hit area su mobile + scarta zoom on double-tap */
     touch-action: manipulation;
-    -webkit-tap-highlight-color: rgba(220, 38, 38, 0.15);
+    -webkit-tap-highlight-color: rgba(220, 38, 38, 0.25);
     user-select: none;
     position: relative;
     z-index: 3;
