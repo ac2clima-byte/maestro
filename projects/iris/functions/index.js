@@ -25,7 +25,7 @@ import {
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./handlers/preventivo.js";
-import { tryInterceptAresConfermaIntervento } from "./handlers/ares.js";
+import { tryInterceptAresConfermaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./handlers/ares.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
