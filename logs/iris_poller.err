@@ -7889,3 +7889,34 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #28  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
   #29  RISPOSTA_CLIENTE              high    neutro       assistenza@computherm.it                  → RISPONDI
   #30  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+[2026-04-27T14:47:43Z] ERR: ciclo FAILED (rc=124): ultime righe:
+  #23  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #24  FAILED: Expecting ',' delimiter: line 52 column 6 (char 2460)
+  #25  FAILED: HTTP Error 400: Bad Request
+  #26  FAILED: HTTP Error 400: Bad Request
+  #27  FAILED: HTTP Error 400: Bad Request
+  #28  FAILED: HTTP Error 400: Bad Request
+  #29  FAILED: HTTP Error 400: Bad Request
+  #30  FAILED: HTTP Error 400: Bad Request
+  #31  FAILED: HTTP Error 400: Bad Request
+  #32  FAILED: HTTP Error 400: Bad Request
+  #33  FAILED: HTTP Error 400: Bad Request
+  #34  FAILED: HTTP Error 400: Bad Request
+  #35  FAILED: HTTP Error 400: Bad Request
+  #36  FAILED: HTTP Error 400: Bad Request
+  #37  FAILED: HTTP Error 400: Bad Request
+  #38  FAILED: HTTP Error 400: Bad Request
+  #39  FAILED: HTTP Error 400: Bad Request
+  #40  FAILED: HTTP Error 400: Bad Request
+  #41  FAILED: HTTP Error 400: Bad Request
+  #42  FAILED: HTTP Error 400: Bad Request
+  #43  FAILED: HTTP Error 400: Bad Request
+  #44  FAILED: HTTP Error 400: Bad Request
+  #45  FAILED: HTTP Error 400: Bad Request
+  #46  FAILED: HTTP Error 400: Bad Request
+  #47  FAILED: HTTP Error 400: Bad Request
+  #48  FAILED: HTTP Error 400: Bad Request
+  #49  FAILED: HTTP Error 400: Bad Request
+  #50  FAILED: HTTP Error 400: Bad Request
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
