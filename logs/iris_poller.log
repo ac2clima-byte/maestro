@@ -7471,3 +7471,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #28  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
   #29  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
 [2026-04-27T06:50:41Z] ─── fine ciclo ───
+[2026-04-27T06:55:41Z] ─── inizio ciclo IRIS (limit=50) ───
