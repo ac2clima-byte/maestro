@@ -4,6 +4,7 @@ import {
   mezzanotteItalia, dataItaliaItFormat, oggiItalia,
   tecniciAssegnatiCard, cardDuplicateGroupKey, cardRichnessCompare,
   cardCategoryFromListName, cardCategoryLabel,
+  cardExecutionStatus, isCardRitorno,
 } from "./shared.js";
 
 // ── Helpers parsing data ─────────────────────────────────────────
@@ -405,8 +406,13 @@ export async function handleAresInterventiAperti(parametri, ctx) {
         techName: data.techName,
         techNames: data.techNames,
         due: data.due,
+        stato: data.stato,
+        name: data.name,
+        desc: data.desc,
       },
       categoria: cardCategoryFromListName(data.listName, data.name),
+      executionStatus: cardExecutionStatus(data),
+      isRitorno: isCardRitorno(data),
     });
   }
 
@@ -424,15 +430,28 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   }
   const itemsDedup = [];
   let droppedCount = 0;
-  const droppedSamples = [];
+  const droppedDetail = []; // descrizioni dei dedup per nota finale
   for (const group of dedupBuckets.values()) {
     if (group.length <= 1) { itemsDedup.push(group[0]); continue; }
     // Sort: card più ricca prima
     group.sort((a, b) => cardRichnessCompare(a._raw, b._raw));
-    itemsDedup.push(group[0]);
+    const kept = group[0];
+    itemsDedup.push(kept);
     droppedCount += group.length - 1;
-    if (droppedSamples.length < 3) {
-      droppedSamples.push({ kept: group[0].id, dropped: group.slice(1).map(g => g.id) });
+    // Costruisci descrizione del dedup per il messaggio utente
+    for (const dropped of group.slice(1)) {
+      const whK = Number(kept._raw.workHours || 0);
+      const whD = Number(dropped._raw.workHours || 0);
+      const wdLK = String(kept._raw.workDescription || "").length;
+      const wdLD = String(dropped._raw.workDescription || "").length;
+      let motivo = "rapporto chiuso più volte";
+      if (whK > 0 && whD > 0 && whK !== whD) {
+        motivo = `rapporto leggero ${whD}h vs ${whK}h della stessa card`;
+      } else if (wdLK > wdLD * 2) {
+        motivo = `rapporto sintetico vs descrizione completa`;
+      }
+      const condK = String(kept._raw.boardName || "").replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 40);
+      droppedDetail.push(`${condK || kept.id}: card ${dropped.id.slice(-8)} raggruppata (${motivo})`);
     }
   }
 
@@ -530,18 +549,29 @@ export async function handleAresInterventiAperti(parametri, ctx) {
   };
 
   // Render righe in prosa per le risposte multi-result.
+  // Per le card "scheduled" (ritorni / aperte non eseguite) etichetta
+  // diversa: "programmato non ancora eseguito" invece di "stato chiuso".
   const renderLine = (i) => {
     const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
     const cond = getCondLabel(i);
-    const stato = i.stato || "aperto";
-    // Tecnici: dedup case-insensitive
     const techsArr = String(i.tecnico || "").split(" + ").map(t => t.trim()).filter(Boolean);
     const techsDedup = [...new Map(techsArr.map(t => [t.toLowerCase(), t])).values()];
     let tag;
     if (techsDedup.length > 1) tag = `tecnici ${techsDedup.join(" + ")}`;
     else if (techsDedup.length === 1 && techsDedup[0] !== "-") tag = `tecnico ${techsDedup[0]}`;
     else tag = "non assegnato";
-    return `${data}, ${cond}, stato ${stato}, ${tag}`;
+    // Stato semantico per Alberto: "eseguito" / "programmato non eseguito" / etc.
+    let statoLabel;
+    if (i.executionStatus === "executed") {
+      statoLabel = i.isRitorno ? "ritorno eseguito" : "eseguito";
+    } else if (i.executionStatus === "scheduled") {
+      statoLabel = i.isRitorno ? "ritorno programmato non ancora eseguito" : "programmato non ancora eseguito";
+    } else if (i.executionStatus === "in_progress") {
+      statoLabel = "in corso";
+    } else {
+      statoLabel = `stato ${i.stato || "aperto"}`;
+    }
+    return `${data}, ${cond}, ${statoLabel}, ${tag}`;
   };
 
   // 1 risultato → frase singola
@@ -566,40 +596,92 @@ export async function handleAresInterventiAperti(parametri, ctx) {
     // Articolo per categoria: "un intervento", "uno spegnimento", "una lettura"
     const articolo = categoria === "spegnimento" || categoria === "spegnimenti" ? "uno"
       : (categoria === "lettura" || categoria === "accensione" ? "una" : "un");
+    // Stato semantico: distingue eseguito da programmato non eseguito
+    let statoFrase;
+    if (i.executionStatus === "scheduled") {
+      statoFrase = i.isRitorno ? "ritorno programmato non ancora eseguito" : "programmato non ancora eseguito";
+    } else if (i.executionStatus === "executed") {
+      statoFrase = i.isRitorno ? "ritorno eseguito" : `eseguito (stato ${i.stato})`;
+    } else {
+      statoFrase = `stato ${i.stato}`;
+    }
+    // Per scheduled cambia anche il verbo principale
+    let verbo = verb;
+    if (i.executionStatus === "scheduled" && tense === "past") {
+      verbo = "aveva in agenda";
+    } else if (i.executionStatus === "scheduled" && tense !== "past") {
+      verbo = "ha in agenda";
+    }
     return {
-      content: `${head ? head + " " : ""}${verb} ${articolo} ${categoria}${dueIt}: ${cond}, stato ${i.stato}${coAss}.`.trim(),
+      content: `${head ? head + " " : ""}${verbo} ${articolo} ${categoria}${dueIt}: ${cond}, ${statoFrase}${coAss}.`.trim(),
       data: { count: 1, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats, droppedCount },
     };
   }
 
-  // ── Più risultati → intro raggruppata per tipologia ─────────────
-  // Conta categorie nel set top (es. {intervento: 2, spegnimento: 1}).
-  const byCat = {};
-  for (const i of top) {
-    const c = i.categoria || "intervento";
-    byCat[c] = (byCat[c] || 0) + 1;
-  }
-  // Costruisce frase italiana naturale: "2 interventi e 1 spegnimento"
-  const catFrasi = Object.entries(byCat).map(([cat, n]) => `${n} ${cardCategoryLabel(cat, n)}`);
-  let catSummary;
-  if (catFrasi.length === 1) catSummary = catFrasi[0];
-  else if (catFrasi.length === 2) catSummary = `${catFrasi[0]} e ${catFrasi[1]}`;
-  else catSummary = catFrasi.slice(0, -1).join(", ") + " e " + catFrasi[catFrasi.length - 1];
+  // ── Più risultati → intro raggruppata per tipologia + esecuzione ─
+  // Split eseguiti vs scheduled (programmati non eseguiti).
+  const eseguiti = top.filter(i => i.executionStatus === "executed");
+  const scheduled = top.filter(i => i.executionStatus === "scheduled");
+  const inProgress = top.filter(i => i.executionStatus === "in_progress");
 
-  const intro = [
-    tecnicoCap ? `${tecnicoCap}` : "Trovo",
-    rangeLabel || "",
-    cittaCap ? `a ${cittaCap}` : "",
-    `${verb} ${catSummary}.`,
-  ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  // Conteggi per categoria sui SOLI eseguiti per la frase principale.
+  const buildCatSummary = (subset) => {
+    const byCat = {};
+    for (const i of subset) {
+      const c = i.categoria || "intervento";
+      byCat[c] = (byCat[c] || 0) + 1;
+    }
+    const frasi = Object.entries(byCat).map(([cat, n]) => `${n} ${cardCategoryLabel(cat, n)}`);
+    if (!frasi.length) return null;
+    if (frasi.length === 1) return frasi[0];
+    if (frasi.length === 2) return `${frasi[0]} e ${frasi[1]}`;
+    return frasi.slice(0, -1).join(", ") + " e " + frasi[frasi.length - 1];
+  };
+
+  // Costruisce frase intro distinguendo eseguito vs programmato non eseguito.
+  const introParts = [];
+  introParts.push(tecnicoCap ? `${tecnicoCap}` : "Trovo");
+  if (rangeLabel) introParts.push(rangeLabel);
+  if (cittaCap) introParts.push(`a ${cittaCap}`);
+  // Per past tense (aveva avuto), per "eseguiti" usa il verbo "ha avuto/eseguito"
+  // Per scheduled mantieni "ha in agenda / ha programmato"
+  const eseguitiSummary = buildCatSummary(eseguiti);
+  const scheduledSummary = buildCatSummary(scheduled);
+  const inProgressSummary = buildCatSummary(inProgress);
+
+  let frase;
+  if (eseguitiSummary && (scheduledSummary || inProgressSummary)) {
+    const verboEseguito = (tense === "past") ? "ha eseguito" : "esegue";
+    const subAgenda = scheduledSummary || inProgressSummary;
+    const verboAgenda = (tense === "past") ? "aveva in agenda" : "ha in agenda";
+    frase = `${verboEseguito} ${eseguitiSummary} e ${verboAgenda} ${subAgenda} (non ancora eseguit${subAgenda.includes("interventi") || subAgenda.includes("spegnimenti") || subAgenda.includes("letture") ? "i" : "o"}).`;
+  } else if (eseguitiSummary) {
+    frase = `${verb} ${eseguitiSummary}.`;
+  } else if (scheduledSummary) {
+    const verboAgenda = (tense === "past") ? "aveva in agenda" : "ha in agenda";
+    frase = `${verboAgenda} ${scheduledSummary} (non ancora eseguit${scheduledSummary.includes("interventi") || scheduledSummary.includes("spegnimenti") || scheduledSummary.includes("letture") ? "i" : "o"}).`;
+  } else if (inProgressSummary) {
+    frase = `${verb} ${inProgressSummary} in corso.`;
+  } else {
+    frase = `${verb} ${top.length} card.`;
+  }
+  introParts.push(frase);
+  const intro = introParts.filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   const righe = top.map(renderLine).join("\n");
   const more = itemsForRender.length > top.length ? `\n\nAltre ${itemsForRender.length - top.length} non mostrate.` : "";
-  const dedupNote = droppedCount > 0
-    ? `\n\nNota: ${droppedCount} card raggruppata${droppedCount > 1 ? "e" : ""} come duplicato (rapporto chiuso più volte sullo stesso intervento).`
-    : "";
+  // Nota dedup: include ID e motivo
+  let dedupNote = "";
+  if (droppedCount > 0) {
+    const linee = droppedDetail.slice(0, 3).join("; ");
+    dedupNote = `\n\nNota dedup: ${droppedCount} card raggruppata${droppedCount > 1 ? "e" : ""} come duplicato. ${linee}.`;
+  }
   return {
     content: `${intro}\n\n${righe}${more}${dedupNote}`,
-    data: { count: top.length, totalMatched: itemsForRender.length, droppedCount, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats },
+    data: {
+      count: top.length, totalMatched: itemsForRender.length, droppedCount,
+      droppedDetail, eseguiti: eseguiti.length, scheduled: scheduled.length, inProgress: inProgress.length,
+      tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats,
+    },
   };
 }
 

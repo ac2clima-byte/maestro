@@ -343,6 +343,63 @@ export function cardCategoryFromListName(listName, name) {
   return "card";
 }
 
+// Stato di esecuzione di una card "intervento":
+//   "executed"  → eseguito davvero (closedAt valorizzato O workHours > 0
+//                 con workDescription non-trivial O stato=chiuso con
+//                 closedAt valorizzato)
+//   "scheduled" → programmato ma non eseguito (stato=aperto, no closedAt,
+//                 no workHours; oppure listName/name dice RITORNO/DA FARE)
+//   "in_progress" → in corso (stato non terminale + qualche segnale di lavoro)
+//
+// Per "interventi di X ieri" tipicamente vogliamo separare:
+//   - eseguiti = lavoro fatto
+//   - scheduled = era in agenda ma non si è andati (rinviato/saltato)
+//
+// Nota: la categoria "ritorno" si rileva da `name` ("RITORNO ...") + desc
+// ("🔄 RITORNO NON URGENTE") + stato=aperto. Indipendente dal due.
+export function cardExecutionStatus(card) {
+  if (!card) return "unknown";
+  const stato = String(card.stato || "").toLowerCase();
+  const closedAt = card.closedAt;
+  const wh = Number(card.workHours || 0);
+  const wd = String(card.workDescription || "").trim();
+  const name = String(card.name || "").toUpperCase();
+  const desc = String(card.desc || "").toUpperCase();
+
+  // 1. Eseguito: ha closedAt timestamp → rapporto chiuso
+  if (closedAt) return "executed";
+  // 2. Eseguito: stato chiuso E workHours/workDescription valorizzati
+  if (/chius|complet|terminat/.test(stato) && (wh > 0 || wd.length >= 5)) return "executed";
+
+  // 3. Ritorno NON URGENTE / DA FARE / programmato ma non eseguito
+  // Indizi: name inizia con RITORNO, oppure desc contiene RITORNO NON URGENTE
+  // o DA FARE. Stato aperto.
+  const isRitorno = /^RITORNO\b/.test(name) || /RITORNO\s+NON\s+URGENTE/.test(desc) || /\bDA\s+FARE\b/.test(desc);
+  if (isRitorno && /apert|attiv|in_corso|nuovo/.test(stato || "aperto")) return "scheduled";
+
+  // 4. Aperto + nessun closedAt + nessuna ora di lavoro = ancora da fare
+  if (/apert|attiv|in_corso|nuovo|^$/.test(stato || "aperto") && !wh && !wd) return "scheduled";
+
+  // 5. Stato chiuso ma nessun rapporto → "executed without report" — rara,
+  // tratta come executed (lo spegnimento ad esempio non ha workDescription)
+  if (/chius|complet/.test(stato)) return "executed";
+
+  return "in_progress";
+}
+
+// True se la card è un "RITORNO" / "DA FARE" / "RITORNO NON URGENTE"
+// programmato (passibile di essere un placeholder di lavoro futuro, non
+// di lavoro eseguito).
+export function isCardRitorno(card) {
+  if (!card) return false;
+  const name = String(card.name || "").toUpperCase();
+  const desc = String(card.desc || "").toUpperCase();
+  if (/^RITORNO\b/.test(name)) return true;
+  if (/\bRITORNO\s+NON\s+URGENTE\b/.test(desc)) return true;
+  if (/\bRITORNO\s+URGENTE\b/.test(desc)) return true;
+  return false;
+}
+
 // Italiano singolare/plurale per categoria card.
 export function cardCategoryLabel(category, count) {
   const sing = {
