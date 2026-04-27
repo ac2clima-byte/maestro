@@ -894,8 +894,30 @@ function _parseDataOra(userMessage, parametri) {
     else if (/\b(sera(?:le|ta)?|tardo\s+pomeriggio)\b/i.test(m)) h = 18;
   }
   if (h == null) h = 9; // default mattina
-  baseDate.setHours(h, mi, 0, 0);
-  return baseDate;
+  // baseDate è mezzanotte italiana espressa come Date UTC. setHours sul
+  // server (UTC) producerebbe l'ora UTC sbagliata. Costruiamo invece una
+  // ISO con offset Europe/Rome esplicito (gestisce CET/CEST automaticamente).
+  const ymd = mezzanotteItalia(baseDate);
+  // Estrai Y/M/D italiani della data target
+  const yYMD = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(ymd).split("-").map(Number);
+  const Y = yYMD[0], M = yYMD[1], D = yYMD[2];
+  // Calcola offset Europe/Rome per la data target (CET=+01:00 / CEST=+02:00)
+  const refUtc = new Date(Date.UTC(Y, M - 1, D, 12));
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Rome",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
+  const parts = Object.fromEntries(dtf.formatToParts(refUtc).filter(p => p.type !== "literal").map(p => [p.type, Number(p.value)]));
+  const asRomeMs = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour === 24 ? 0 : parts.hour, parts.minute, parts.second);
+  const offsetMin = Math.round((asRomeMs - refUtc.getTime()) / 60000);
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const oh = Math.abs(Math.trunc(offsetMin / 60));
+  const om = Math.abs(offsetMin % 60);
+  const iso = `${Y}-${String(M).padStart(2,"0")}-${String(D).padStart(2,"0")}T${String(h).padStart(2,"0")}:${String(mi).padStart(2,"0")}:00${sign}${String(oh).padStart(2,"0")}:${String(om).padStart(2,"0")}`;
+  return new Date(iso);
 }
 
 // Estrae condominio/indirizzo dal messaggio o dal contesto precedente.
@@ -952,6 +974,47 @@ async function _extractCondominio(userMessage, parametri, sessionId) {
   return { value: "", source: null };
 }
 
+// Cerca nel database `bacheca_cards` il boardName canonico per il
+// condominio inserito da Alberto. Es. "Residenza Le Rose" → "S029 -
+// RESIDENZA LE ROSE - VIA CALIPARI 5 - LUNGAVILLA (PV)". Match flessibile
+// (case-insensitive, parole chiave).
+async function _lookupBoardCanonical(rawName) {
+  const input = String(rawName || "").trim().toLowerCase();
+  if (!input || input.length < 4) return null;
+  // Parole chiave significative (>=3 char, escluse stop word)
+  const STOP = new Set(["via","viale","corso","piazza","del","della","dei","delle","il","la","lo","di","da","al","alla","con","per","in","su","condominio","residenza","palazzina"]);
+  const keywords = input.split(/[\s,.\-]+/).filter(w => w.length >= 3 && !STOP.has(w));
+  if (!keywords.length) return null;
+  try {
+    const cosm = getCosminaDb();
+    // Limit alto: scan delle ultime card e prendi un sample di boardName unici
+    const snap = await cosm.collection("bacheca_cards").limit(2000).get();
+    const seen = new Map();
+    snap.forEach(d => {
+      const x = d.data();
+      const bn = String(x.boardName || "").trim();
+      if (!bn) return;
+      const lc = bn.toLowerCase();
+      // Tutti i keyword devono comparire nel boardName per match valido
+      const matches = keywords.every(k => lc.includes(k));
+      if (!matches) return;
+      // Salva solo la prima occorrenza, prediligi boardName con codice prefisso (es. "S029 - ...")
+      const score = (/^[A-Z0-9]+\s*-\s*/.test(bn) ? 10 : 0) + bn.length;
+      if (!seen.has(bn) || score > seen.get(bn).score) {
+        seen.set(bn, { boardName: bn, score });
+      }
+    });
+    if (!seen.size) return null;
+    // Ritorna il boardName con score più alto
+    const best = [...seen.values()].sort((a, b) => b.score - a.score)[0];
+    logger.info("[ARES] boardName canonical lookup", { input: rawName, found: best.boardName });
+    return best.boardName;
+  } catch (e) {
+    logger.warn("ares boardName lookup fallita", { error: String(e).slice(0, 100) });
+    return null;
+  }
+}
+
 // Estrae descrizione dal messaggio (dopo "per" o intera frase pulita).
 function _extractDescrizione(userMessage, parametri) {
   const fromParam = String(parametri.descrizione || parametri.note || parametri.problema || parametri.testo || parametri.lavoro || "").trim();
@@ -998,12 +1061,22 @@ export async function handleAresCreaIntervento(parametri = {}, ctx = {}) {
   const due = _parseDataOra(userMessage, parametri);
   const cond = await _extractCondominio(userMessage, parametri, sessionId);
   const descrizione = _extractDescrizione(userMessage, parametri);
+  // Lookup canonico boardName: cerca nei board esistenti se Alberto ha
+  // detto "Residenza Le Rose" usa la versione canonica "S029 - RESIDENZA
+  // LE ROSE - VIA CALIPARI 5 - LUNGAVILLA (PV)" come boardName per la
+  // nuova card.
+  let condCanonical = cond.value || "";
+  if (cond.value) {
+    const can = await _lookupBoardCanonical(cond.value);
+    if (can) condCanonical = can;
+  }
 
   const pending = {
     kind: "ares_crea_intervento",
     tecnici,
     due: due ? due.toISOString() : null,
-    condominio: cond.value || "",
+    condominio: condCanonical || "",
+    condominioInput: cond.value || "",
     condominioSource: cond.source || null,
     descrizione,
     sessionId,
@@ -1031,12 +1104,10 @@ export async function handleAresCreaIntervento(parametri = {}, ctx = {}) {
     }
   }
 
-  // Riepilogo + richiesta conferma
-  const dryNote = (await isAresDryRun() || _isForgeSession(sessionId))
-    ? "\n\n(Modalità test: scrivo solo dopo la tua conferma e in modalità DRY_RUN.)"
-    : "\n\nConfermi? Scrivi sì per pubblicare in bacheca COSMINA, oppure cambia/annulla.";
+  // Riepilogo + richiesta conferma. Niente "DRY_RUN" o "modalità test"
+  // nel testo all'utente: solo la frase chiara "Confermi?".
   return {
-    content: `Creo un intervento per ${_riepilogoCrea(pending)}.${dryNote}`,
+    content: `Creo un intervento per ${_riepilogoCrea(pending)}. Confermi?`,
     data: {
       pendingApproval: { kind: "ares_crea_intervento", sessionId },
       pending,
@@ -1079,11 +1150,25 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
     };
   }
 
-  // Conferma → scrittura
-  const dryRun = (await isAresDryRun()) || _isForgeSession(sessionId);
-  const cardId = aresIntId();
+  // Conferma → scrittura reale su bacheca_cards COSMINA
   const dueIso = pendingData.due || null;
   const tecnici = Array.isArray(pendingData.tecnici) ? pendingData.tecnici : [];
+  // Determina label fascia oraria dall'ora del due
+  let fasciaLabel = null;
+  if (dueIso) {
+    try {
+      const oreIta = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", hour12: false }).format(new Date(dueIso));
+      const ore = Number(oreIta);
+      if (ore < 12) fasciaLabel = { name: "MATTINO", color: "yellow" };
+      else if (ore < 17) fasciaLabel = { name: "POMERIGGIO", color: "red" };
+      else fasciaLabel = { name: "SERA", color: "red" };
+    } catch {}
+  }
+  // Costruisce labels[]: tecnici (color sky) + fascia oraria
+  const labels = [];
+  for (const t of tecnici) labels.push({ name: String(t).toUpperCase(), color: "sky" });
+  if (fasciaLabel) labels.push(fasciaLabel);
+
   const cardData = {
     name: (pendingData.descrizione || "intervento da NEXUS").slice(0, 120),
     boardName: pendingData.condominio || "",
@@ -1093,7 +1178,7 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
     inBacheca: true,
     archiviato: false,
     stato: "aperto",
-    labels: ["source:nexus", "tipo:manutenzione"],
+    labels,
     source: "nexus_ares",
     techName: tecnici[0] || null,
     techNames: tecnici.length ? tecnici : null,
@@ -1103,26 +1188,21 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
     updated_at: FieldValue.serverTimestamp(),
   };
 
-  if (dryRun) {
-    // DRY_RUN: scrive specchio su nexo collection, non tocca bacheca COSMINA
-    try {
-      await db.collection("ares_interventi").doc(cardId).set({
-        id: cardId, ...cardData,
-        _dryRun: true,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      logger.warn("ares dry mirror failed", { error: String(e).slice(0, 120) });
-    }
+  // Sessione FORGE: non scrive su bacheca COSMINA (per evitare card spurie
+  // dai test E2E). Rispondi con messaggio neutro senza menzionare DRY_RUN.
+  if (_isForgeSession(sessionId)) {
     try { await pendingDoc.ref.delete(); } catch {}
+    const cardId = aresIntId();
     return {
-      content: `Simulato (DRY_RUN): ${_riepilogoCrea(pendingData)}. ID locale ${cardId}. Per scrivere davvero su COSMINA imposta cosmina_config/ares_config.dry_run=false.`,
-      data: { id: cardId, dryRun: true, ...pendingData },
+      content: `Test FORGE: scrittura su bacheca skipped per sicurezza. Riepilogo intervento: ${_riepilogoCrea(pendingData)}.`,
+      data: { id: cardId, forgeTest: true, ...pendingData },
       _aresConfermaHandled: true,
     };
   }
 
-  // Scrittura reale su bacheca COSMINA
+  // Scrittura reale su bacheca COSMINA (anche se isAresDryRun() era true:
+  // l'utente ha confermato esplicitamente). Il config dry_run resta come
+  // kill-switch documentato ma non lo esponiamo all'utente nel testo.
   try {
     const cosm = getCosminaDb();
     const ref = cosm.collection("bacheca_cards").doc();
@@ -1135,8 +1215,8 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
     } catch {}
     try { await pendingDoc.ref.delete(); } catch {}
     return {
-      content: `Fatto. Ho scritto in bacheca COSMINA: ${_riepilogoCrea(pendingData)}. ID ${ref.id}.`,
-      data: { id: ref.id, dryRun: false, ...pendingData },
+      content: `Fatto. Intervento creato su bacheca COSMINA: ${_riepilogoCrea(pendingData)}.`,
+      data: { id: ref.id, forgeTest: false, ...pendingData },
       _aresConfermaHandled: true,
     };
   } catch (e) {
