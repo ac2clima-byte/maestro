@@ -388,7 +388,9 @@ export const nexusTestInternal = onRequest(
         stato = "errore_handler";
       }
 
-      const modelloUsato = llmSource === "ollama" ? "qwen2.5:7b@ollama" : (llmSource === "regex" ? "regex" : MODEL);
+      const modelloUsato = llmSource === "ollama"
+        ? `${llmUsage.model || "qwen2.5"}@ollama`
+        : (llmSource === "regex" ? "regex" : MODEL);
       const cleaned = naturalize(finalContent || "");
       const nexusMessageId = await writeNexusMessage(sessionId, {
         role: "assistant", content: cleaned, intent, stato,

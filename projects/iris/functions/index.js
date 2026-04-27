@@ -648,7 +648,9 @@ export const nexusRouter = onRequest(
       }
     }
 
-    const modelloUsato = llmSource === "ollama" ? "qwen2.5:7b@ollama" : (llmSource === "regex" ? "regex" : MODEL);
+    const modelloUsato = llmSource === "ollama"
+      ? `${llmUsage.model || "qwen2.5"}@ollama`
+      : (llmSource === "regex" ? "regex" : MODEL);
     const nexusMessageId = await writeNexusMessage(sessionId, {
       role: "assistant", content: finalContent,
       intent, stato,
