@@ -981,14 +981,19 @@ async function _extractCondominio(userMessage, parametri, sessionId) {
 async function _lookupBoardCanonical(rawName) {
   const input = String(rawName || "").trim().toLowerCase();
   if (!input || input.length < 4) return null;
-  // Parole chiave significative (>=3 char, escluse stop word)
+  // Parole chiave significative (>=3 char, escluse stop word generiche).
+  // NB: "condominio" e "residenza" sono stop word per il matching ma vengono
+  // usate sotto come BOOST di score (preferiamo board name con la stessa
+  // tipologia: input "residenza" → board "RESIDENZA", input "condominio" → "CONDOMINIO").
   const STOP = new Set(["via","viale","corso","piazza","del","della","dei","delle","il","la","lo","di","da","al","alla","con","per","in","su","condominio","residenza","palazzina"]);
   const keywords = input.split(/[\s,.\-]+/).filter(w => w.length >= 3 && !STOP.has(w));
   if (!keywords.length) return null;
+  // Tipologia esplicitata dall'input (per boost score)
+  const wantsResidenza = /\bresidenza\b/.test(input);
+  const wantsCondominio = /\bcondominio\b/.test(input);
+  const wantsPalazzina = /\bpalazzina\b/.test(input);
   try {
     const cosm = getCosminaDb();
-    // Limit alto: scan delle ultime card e prendi un sample di boardName unici.
-    // 5000 copre la maggior parte dei condomini attivi negli ultimi 12 mesi.
     const snap = await cosm.collection("bacheca_cards").limit(5000).get();
     const seen = new Map();
     snap.forEach(d => {
@@ -996,19 +1001,24 @@ async function _lookupBoardCanonical(rawName) {
       const bn = String(x.boardName || "").trim();
       if (!bn) return;
       const lc = bn.toLowerCase();
-      // Tutti i keyword devono comparire nel boardName per match valido
       const matches = keywords.every(k => lc.includes(k));
       if (!matches) return;
-      // Salva solo la prima occorrenza, prediligi boardName con codice prefisso (es. "S029 - ...")
-      const score = (/^[A-Z0-9]+\s*-\s*/.test(bn) ? 10 : 0) + bn.length;
+      // Score: codice prefisso (10) + tipologia esatta matchata (50)
+      let score = (/^[A-Z0-9]+\s*-\s*/.test(bn) ? 10 : 0) + Math.min(bn.length, 100);
+      if (wantsResidenza && /\bresidenza\b/i.test(bn)) score += 50;
+      if (wantsCondominio && /\bcondominio\b/i.test(bn)) score += 50;
+      if (wantsPalazzina && /\bpalazzina\b/i.test(bn)) score += 50;
+      // Penalty se la tipologia richiesta NON è quella del board
+      if (wantsResidenza && !/\bresidenza\b/i.test(bn) && /\b(condominio|palazzina)\b/i.test(bn)) score -= 30;
+      if (wantsCondominio && !/\bcondominio\b/i.test(bn) && /\b(residenza|palazzina)\b/i.test(bn)) score -= 30;
+      if (wantsPalazzina && !/\bpalazzina\b/i.test(bn) && /\b(condominio|residenza)\b/i.test(bn)) score -= 30;
       if (!seen.has(bn) || score > seen.get(bn).score) {
         seen.set(bn, { boardName: bn, score });
       }
     });
     if (!seen.size) return null;
-    // Ritorna il boardName con score più alto
     const best = [...seen.values()].sort((a, b) => b.score - a.score)[0];
-    logger.info("[ARES] boardName canonical lookup", { input: rawName, found: best.boardName });
+    logger.info("[ARES] boardName canonical lookup", { input: rawName, found: best.boardName, score: best.score });
     return best.boardName;
   } catch (e) {
     logger.warn("ares boardName lookup fallita", { error: String(e).slice(0, 100) });
