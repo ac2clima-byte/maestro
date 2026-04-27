@@ -8989,3 +8989,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #26  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → INOLTRA
   #27  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
 [2026-04-27T13:44:43Z] ─── fine ciclo ───
+[2026-04-27T13:49:43Z] ─── inizio ciclo IRIS (limit=50) ───
