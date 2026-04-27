@@ -1,25 +1,38 @@
 // handlers/ares.js — interventi (lettura + scrittura).
-import { getCosminaDb, db, FieldValue, logger } from "./shared.js";
+import { getCosminaDb, db, FieldValue, logger, mezzanotteItalia, dataItaliaItFormat, oggiItalia } from "./shared.js";
 
 // ── Helpers parsing data ─────────────────────────────────────────
+// IMPORTANTE: tutto il calcolo data deve essere in fuso Europe/Rome
+// (le Cloud Functions girano in UTC, alle 00-02 UTC = 02-04 CEST il
+// `new Date().setHours(0,0,0,0)` produceva il giorno precedente).
 const GIORNI_SETTIMANA = {
   domenica: 0, lunedi: 1, "lunedì": 1, martedi: 2, "martedì": 2,
   mercoledi: 3, "mercoledì": 3, giovedi: 4, "giovedì": 4,
   venerdi: 5, "venerdì": 5, sabato: 6,
 };
 
+// Mezzanotte italiana del giorno passato (default: oggi). NON USARE
+// new Date().setHours(0,0,0,0) — quello è midnight UTC sul server.
 function _midnight(d) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+  return mezzanotteItalia(d);
 }
 function _addDays(d, n) {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
   return x;
 }
+// Format DD/MM/YYYY usando il fuso italiano.
 function _formatDateIt(d) {
-  return `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+  return dataItaliaItFormat(d);
+}
+// Giorno della settimana (0=domenica) per una Date, nel fuso Europe/Rome.
+function _dayOfWeekRome(d) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Rome", weekday: "short",
+  }).format(d);
+  // "Sun"=0, "Mon"=1, ...
+  const map = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return map[fmt] ?? new Date(d).getDay();
 }
 
 // Detection del tense: "aveva, ha avuto, è andato, scorso/a, ieri" → passato.
@@ -45,18 +58,18 @@ export function parseRangeDataInterventi(text) {
   if (/\bdomani\b/.test(m)) return { from: _addDays(today, 1), to: _addDays(today, 2), label: "domani" };
   if (/\bdopodomani\b/.test(m)) return { from: _addDays(today, 2), to: _addDays(today, 3), label: "dopodomani" };
 
-  // Settimane
+  // Settimane (dow Europe/Rome, non server)
   if (/\bquesta\s+settimana\b/.test(m)) {
-    const dow = today.getDay(); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
+    const dow = _dayOfWeekRome(today); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
     return { from: lun, to: _addDays(lun, 7), label: "questa settimana" };
   }
   if (/\bsettimana\s+scors|\bscorsa\s+settimana\b/.test(m)) {
-    const dow = today.getDay(); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
+    const dow = _dayOfWeekRome(today); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
     const lunS = _addDays(lun, -7);
     return { from: lunS, to: lun, label: "la settimana scorsa" };
   }
   if (/\bsettimana\s+prossim|\bprossima\s+settimana\b/.test(m)) {
-    const dow = today.getDay(); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
+    const dow = _dayOfWeekRome(today); const lun = _addDays(today, dow === 0 ? -6 : 1 - dow);
     return { from: _addDays(lun, 7), to: _addDays(lun, 14), label: "la settimana prossima" };
   }
 
@@ -68,7 +81,7 @@ export function parseRangeDataInterventi(text) {
     if (!re.test(m)) continue;
     const wantPast = /\bscors[oa]\b/.test(m) || (_tense(m) === "past" && !/\bprossim[oa]\b/.test(m));
     const wantFuture = /\bprossim[oa]\b/.test(m) || _tense(m) === "future";
-    const todayDow = today.getDay();
+    const todayDow = _dayOfWeekRome(today);
     let delta;
     if (wantPast) {
       delta = (todayDow - idx + 7) % 7;
@@ -92,7 +105,8 @@ export function parseRangeDataInterventi(text) {
   const ass = m.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
   if (ass) {
     const dd = Number(ass[1]), mm = Number(ass[2]);
-    let yy = ass[3] ? Number(ass[3]) : today.getFullYear();
+    // anno fallback: anno italiano corrente
+    let yy = ass[3] ? Number(ass[3]) : Number(oggiItalia(today).slice(0, 4));
     if (yy < 100) yy += 2000;
     if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
       const d = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
@@ -108,7 +122,7 @@ export function parseRangeDataInterventi(text) {
   if (meseAbs) {
     const dd = Number(meseAbs[1]);
     const mm = MESI_ITA[meseAbs[2]];
-    const yy = meseAbs[3] ? Number(meseAbs[3]) : today.getFullYear();
+    const yy = meseAbs[3] ? Number(meseAbs[3]) : Number(oggiItalia(today).slice(0, 4));
     const d = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
     if (!Number.isNaN(d.getTime())) {
       return { from: d, to: _addDays(d, 1), label: `il ${_formatDateIt(d)}` };

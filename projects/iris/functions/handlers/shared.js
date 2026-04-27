@@ -113,6 +113,97 @@ export function hourBucket() {
   return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}-${String(d.getUTCHours()).padStart(2, "0")}`;
 }
 
+// ─── Timezone helpers (Europe/Rome) ─────────────────────────────
+// Le Cloud Functions girano in UTC. Tutti i calcoli di "oggi/ieri/domani"
+// e i giorni della settimana DEVONO usare Europe/Rome (CET/CEST), perché
+// la nostra utenza è italiana. Senza questo, alle 00-02 UTC (= 02-04 CEST)
+// "oggi" risultava il giorno precedente.
+const ROME_TZ = "Europe/Rome";
+
+// Ritorna i campi Y/M/D di "now" nel fuso Europe/Rome.
+function _romeYMD(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ROME_TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  // en-CA produce "YYYY-MM-DD"
+  const parts = fmt.format(d).split("-").map(Number);
+  return { y: parts[0], m: parts[1], d: parts[2] };
+}
+
+// "YYYY-MM-DD" oggi in Europe/Rome (es. "2026-04-27").
+export function oggiItalia(date) {
+  const { y, m, d } = _romeYMD(date || new Date());
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// "27/04/2026" formato italiano.
+export function dataItaliaItFormat(date) {
+  const { y, m, d } = _romeYMD(date || new Date());
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+}
+
+// Ora corrente "HH:MM" in Europe/Rome.
+export function oraItalia(date) {
+  return new Intl.DateTimeFormat("it-IT", {
+    timeZone: ROME_TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(date || new Date());
+}
+
+// Giorno della settimana in italiano (lowercase): "lunedì", "martedì", ecc.
+export function giornoSettimanaItalia(date) {
+  const s = new Intl.DateTimeFormat("it-IT", {
+    timeZone: ROME_TZ, weekday: "long",
+  }).format(date || new Date());
+  return s.toLowerCase();
+}
+
+// Date object che rappresenta MEZZANOTTE in Europe/Rome del giorno passato
+// (o di oggi). Tutti i calcoli range data devono partire da qui invece di
+// `new Date()` con `setHours(0,0,0,0)` (che è mezzanotte locale del server,
+// quasi sempre UTC su Cloud Functions).
+//
+// Ritorna una Date che, quando convertita in `toISOString()` o quando si
+// fa `.getTime() + delta`, rappresenta correttamente "mezzanotte italiana".
+//
+// Implementazione: prendi Y/M/D italiani, costruisci la stringa ISO con
+// offset Europe/Rome calcolato dinamicamente (gestisce CET/CEST).
+export function mezzanotteItalia(date) {
+  const ref = date instanceof Date ? date : (date ? new Date(date) : new Date());
+  const { y, m, d } = _romeYMD(ref);
+  // Calcola offset Europe/Rome per la data data (CET=+01:00 / CEST=+02:00)
+  const offsetMin = _romeOffsetMinutes(new Date(Date.UTC(y, m - 1, d, 12)));
+  const sign = offsetMin >= 0 ? "+" : "-";
+  const oh = Math.abs(Math.trunc(offsetMin / 60));
+  const om = Math.abs(offsetMin % 60);
+  const iso = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}T00:00:00${sign}${String(oh).padStart(2, "0")}:${String(om).padStart(2, "0")}`;
+  return new Date(iso);
+}
+
+// Offset in minuti del fuso Europe/Rome rispetto a UTC per una specifica
+// Date di riferimento. Positivo per fuso ad est di UTC.
+function _romeOffsetMinutes(date) {
+  // Trick: confronta epoch UTC vs epoch derivato dalla rappresentazione in Rome.
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone: ROME_TZ,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
+  const parts = Object.fromEntries(dtf.formatToParts(date).filter(p => p.type !== "literal").map(p => [p.type, Number(p.value)]));
+  const asRomeMs = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour === 24 ? 0 : parts.hour, parts.minute, parts.second);
+  return Math.round((asRomeMs - date.getTime()) / 60000);
+}
+
+// Stringa pronta per system prompt LLM: "lunedì 27 aprile 2026, ore 10:35".
+export function oggiPromptItalia(date) {
+  const ref = date || new Date();
+  const fmt = new Intl.DateTimeFormat("it-IT", {
+    timeZone: ROME_TZ, weekday: "long", day: "numeric", month: "long", year: "numeric",
+  }).format(ref);
+  return `${fmt}, ore ${oraItalia(ref)}`;
+}
+
 const MAX_PER_IP_PER_HOUR = 30;
 const MAX_GLOBAL_PER_HOUR = 200;
 const RATE_COLLECTION = "iris_rate_suggest_reply";

@@ -21,6 +21,7 @@ import {
   ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
   getCosminaDb,
   fetchIrisEmails,
+  oggiItalia,
 } from "./shared.js";
 
 const CALLIOPE_MODEL = "claude-sonnet-4-6";
@@ -1992,11 +1993,14 @@ function _startOfWeekIso(iso) {
 export function parseRangeDataPreventivi(text) {
   const m = String(text || "").toLowerCase().trim();
   if (!m) return null;
-  const today = new Date();
-  const oggiIso = _padDate(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  // Y/M/D nel fuso Europe/Rome: tutti i calcoli "oggi/ieri/mese/anno"
+  // partono da qui invece che da new Date() (che è UTC su Cloud Functions).
+  const oggiIso = oggiItalia();             // "YYYY-MM-DD"
+  const todayY  = Number(oggiIso.slice(0, 4));
+  const todayMo = Number(oggiIso.slice(5, 7));   // 1..12
 
   if (/\boggi\b|\bodierni\b|\bodierno\b|\bodierna\b/.test(m)) {
-    return { from: oggiIso, to: oggiIso, label: "oggi", year: today.getFullYear() };
+    return { from: oggiIso, to: oggiIso, label: "oggi", year: todayY };
   }
   if (/\bieri\b/.test(m)) {
     const ieri = _addDaysIso(oggiIso, -1);
@@ -2005,7 +2009,7 @@ export function parseRangeDataPreventivi(text) {
   if (/\bquesta\s+settimana\b|\bsettimana\s+corrent/.test(m)) {
     const lun = _startOfWeekIso(oggiIso);
     const dom = _addDaysIso(lun, 6);
-    return { from: lun, to: dom, label: "questa settimana", year: today.getFullYear() };
+    return { from: lun, to: dom, label: "questa settimana", year: todayY };
   }
   if (/\bsettimana\s+scors|\bla\s+scorsa\s+settimana/.test(m)) {
     const lunQ = _startOfWeekIso(oggiIso);
@@ -2017,7 +2021,7 @@ export function parseRangeDataPreventivi(text) {
   const meseM = m.match(/\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+(\d{4}))?\b/);
   if (meseM) {
     const meseN = MESI_ITA[meseM[1]];
-    const anno = meseM[2] ? Number(meseM[2]) : today.getFullYear();
+    const anno = meseM[2] ? Number(meseM[2]) : todayY;
     const from = _padDate(anno, meseN, 1);
     const lastDay = new Date(anno, meseN, 0).getDate();
     const to = _padDate(anno, meseN, lastDay);
@@ -2025,20 +2029,20 @@ export function parseRangeDataPreventivi(text) {
   }
   // "questo mese" / "del mese"
   if (/\bquesto\s+mese\b|\bmese\s+corrent/.test(m)) {
-    const y = today.getFullYear(), mo = today.getMonth() + 1;
+    const y = todayY, mo = todayMo;
     const lastDay = new Date(y, mo, 0).getDate();
     return { from: _padDate(y, mo, 1), to: _padDate(y, mo, lastDay), label: "questo mese", year: y };
   }
   // "mese scorso"
   if (/\bmese\s+scors|\bscorso\s+mese\b/.test(m)) {
-    const y = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear();
-    const mo = today.getMonth() === 0 ? 12 : today.getMonth();
+    const y  = todayMo === 1 ? todayY - 1 : todayY;
+    const mo = todayMo === 1 ? 12 : todayMo - 1;
     const lastDay = new Date(y, mo, 0).getDate();
     return { from: _padDate(y, mo, 1), to: _padDate(y, mo, lastDay), label: "mese scorso", year: y };
   }
   // "questo anno" / "quest'anno" / "del 2025"
   if (/\bquest['']?\s*anno\b|\banno\s+corrent|\bdi\s+quest['']?\s*anno\b/.test(m)) {
-    const y = today.getFullYear();
+    const y = todayY;
     return { from: `${y}-01-01`, to: `${y}-12-31`, label: `quest'anno`, year: y };
   }
   const annoM = m.match(/\bdel\s+(20\d{2})\b|\bnel\s+(20\d{2})\b|\b(20\d{2})\b/);
@@ -2050,7 +2054,7 @@ export function parseRangeDataPreventivi(text) {
   const dataM = m.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
   if (dataM) {
     const dd = Number(dataM[1]), mm = Number(dataM[2]);
-    let yy = dataM[3] ? Number(dataM[3]) : today.getFullYear();
+    let yy = dataM[3] ? Number(dataM[3]) : todayY;
     if (yy < 100) yy += 2000;
     if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
       const iso = _padDate(yy, mm, dd);

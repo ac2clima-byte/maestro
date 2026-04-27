@@ -3,6 +3,7 @@ import {
   db, FieldValue, logger,
   ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
   naturalize,
+  oggiPromptItalia,
 } from "./shared.js";
 
 // Import dei 10 Colleghi
@@ -1320,10 +1321,14 @@ export async function tryAnalyzeLongText(userMessage, apiKey) {
 
 // ─── Haiku intent call ─────────────────────────────────────────
 export async function callHaikuForIntent(apiKey, messages) {
+  // Prepend la data/ora corrente in fuso Europe/Rome al system prompt.
+  // Le Cloud Functions girano UTC; senza questo, alle 22-24 italiane Haiku
+  // pensa di essere già "domani" e calcola "oggi/domani" sbagliati.
+  const dateHeader = `OGGI è ${oggiPromptItalia()}. Tutte le date e ore di riferimento sono nel fuso Europe/Rome.\n\n`;
   const payload = {
     model: MODEL,
     max_tokens: 1024,
-    system: NEXUS_SYSTEM_PROMPT,
+    system: dateHeader + NEXUS_SYSTEM_PROMPT,
     messages,
   };
   const resp = await fetch(ANTHROPIC_URL, {

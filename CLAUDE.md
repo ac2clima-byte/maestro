@@ -115,6 +115,22 @@ toccato.
 - Se un'API non è raggiungibile, stampalo e vai avanti
 - Mantieni codice MODULARE: 1 file per handler, niente monoliti
 
+## Timezone
+- Il timezone di riferimento è **Europe/Rome** (CET/CEST).
+- Tutte le date e ore mostrate ad Alberto e usate nei calcoli ("oggi",
+  "ieri", "domani", giorni della settimana, ranges) DEVONO essere in
+  Europe/Rome.
+- Le Cloud Functions girano in UTC: NON usare `new Date().setHours(0,0,0,0)`
+  o `new Date().getDay()` per calcolare "oggi italiano". Usare gli helper
+  in `handlers/shared.js`:
+  - `oggiItalia()` → "YYYY-MM-DD" del giorno italiano
+  - `oraItalia()` → "HH:MM" italiana
+  - `giornoSettimanaItalia()` → "lunedì"…"domenica" italiani
+  - `mezzanotteItalia()` → Date object alla mezzanotte italiana
+  - `oggiPromptItalia()` → stringa pronta per LLM ("lunedì 27 aprile 2026, ore 11:21")
+- Il system prompt di Haiku (in `nexus.js:callHaikuForIntent`) include
+  automaticamente "OGGI è …" calcolato in Europe/Rome.
+
 ## Regola FORGE — Ordine obbligatorio per ogni task
 1. FIXA il codice
 2. TESTA con Playwright o curl (verifica che funzioni)
