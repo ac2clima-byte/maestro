@@ -323,36 +323,60 @@ export const nexusTestInternal = onRequest(
         }
       }
 
-      // Pipeline: loadContext → haiku intent → parse → tryDirectAnswer
+      // Pipeline: regex-first → (Haiku → Ollama fallback) → parse → tryDirectAnswer
       const sessionContext = await loadConversationContext(sessionId, 5);
       const messages = [...sessionContext, { role: "user", content: message }];
 
-      let haiku;
-      try {
-        haiku = await callHaikuForIntent(apiKey, messages);
-      } catch (e) {
-        const fallback = {
-          collega: "nessuno", azione: "errore", parametri: {},
-          confidenza: 0,
-          rispostaUtente: `Errore interpretazione: ${String(e).slice(0, 120)}`,
-        };
-        const cleaned = naturalize(fallback.rispostaUtente);
-        const nexusMessageId = await writeNexusMessage(sessionId, {
-          role: "assistant", content: cleaned, intent: fallback,
-          stato: "errore_modello", modello: MODEL,
-        });
-        res.status(200).json({
-          query: message, reply: cleaned, collega: "nessuno", azione: "errore",
-          stato: "errore_modello", natural: isNatural(cleaned),
-          sessionId, userMsgId, nexusMessageId,
-          tookMs: Date.now() - startedAt,
-          timestamp: new Date().toISOString(),
-        });
-        return;
-      }
+      // LIVELLO 1: regex-first
+      const regexIntent = { collega: "", azione: "", parametri: {}, confidenza: 0 };
+      const regexDirectRaw = await tryDirectAnswer(regexIntent, message, sessionId);
+      const regexDirect = (regexDirectRaw && !regexDirectRaw._failed) ? regexDirectRaw : null;
 
-      const intent = parseAndValidateIntent(haiku.text, message);
-      const direct = await tryDirectAnswer(intent, message, sessionId);
+      let intent;
+      let llmUsage = {};
+      let llmSource = "regex";
+      let direct;
+
+      if (regexDirect) {
+        const handlerCollega = regexDirect._handlerCollega || "nessuno";
+        intent = {
+          collega: handlerCollega,
+          azione: "regex_match",
+          parametri: {},
+          confidenza: 0.95,
+          rispostaUtente: regexDirect.content || "",
+        };
+        direct = regexDirect;
+      } else {
+        // LIVELLO 2: Haiku con fallback Ollama
+        let llm;
+        try {
+          llm = await callIntentRouter(apiKey, messages);
+        } catch (e) {
+          const fallback = {
+            collega: "nessuno", azione: "errore", parametri: {},
+            confidenza: 0,
+            rispostaUtente: `Errore interpretazione: ${String(e).slice(0, 120)}`,
+          };
+          const cleaned = naturalize(fallback.rispostaUtente);
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned, intent: fallback,
+            stato: "errore_modello", modello: MODEL,
+          });
+          res.status(200).json({
+            query: message, reply: cleaned, collega: "nessuno", azione: "errore",
+            stato: "errore_modello", natural: isNatural(cleaned),
+            sessionId, userMsgId, nexusMessageId,
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+        llmUsage = llm.usage || {};
+        llmSource = llm.source;
+        intent = parseAndValidateIntent(llm.text, message);
+        direct = await tryDirectAnswer(intent, message, sessionId);
+      }
 
       let finalContent = intent.rispostaUtente;
       let stato = "assegnata";
@@ -363,20 +387,15 @@ export const nexusTestInternal = onRequest(
         finalContent = direct.content || finalContent;
         stato = "errore_handler";
       }
-      // FORGE è sincrono: niente lavagna async. Se l'intent richiederebbe
-      // un Collega async (ECHO whatsapp, ARES apri intervento), lo stato
-      // resta "assegnata" e il test deve solo verificare che intent +
-      // rispostaUtente siano sensate.
 
+      const modelloUsato = llmSource === "ollama" ? "qwen2.5:7b@ollama" : (llmSource === "regex" ? "regex" : MODEL);
       const cleaned = naturalize(finalContent || "");
       const nexusMessageId = await writeNexusMessage(sessionId, {
         role: "assistant", content: cleaned, intent, stato,
         direct: direct ? { data: direct.data || null, failed: !!direct._failed } : null,
-        modello: MODEL, usage: haiku.usage,
+        modello: modelloUsato, usage: llmUsage, intentSource: llmSource,
       });
 
-      // Se Haiku ha messo "nessuno" ma un direct handler regex-based ha matchato,
-      // il Collega effettivo è quello del handler (più informativo per testing).
       const effectiveCollega = (direct && direct._handlerCollega)
         ? direct._handlerCollega
         : intent.collega;
@@ -392,8 +411,9 @@ export const nexusTestInternal = onRequest(
         natural: isNatural(cleaned),
         direct: direct ? { ok: !direct._failed, data: direct.data || null } : null,
         sessionId, userMsgId, nexusMessageId,
-        modello: MODEL,
-        usage: haiku.usage,
+        modello: modelloUsato,
+        intentSource: llmSource,
+        usage: llmUsage,
         tookMs: Date.now() - startedAt,
         timestamp: new Date().toISOString(),
       });
