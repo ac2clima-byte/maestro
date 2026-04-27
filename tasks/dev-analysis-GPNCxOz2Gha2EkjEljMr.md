@@ -200,8 +200,106 @@ Senza step 3 e 5: ~**2 ore**.
 3. **Regression** "interventi di Federico venerdì" → trova card Via Toscanini, no break.
 4. **Regression** "interventi di oggi" senza tecnico → trova 11 (post-fix listName).
 
-## Nota operativa
+## Bug F — labels[] IGNORATO (causa primaria reale)
 
-Questo bug è di **UX**, non di logica. La query è corretta, il dato è corretto, ma la **comunicazione** della risposta non aiuta Alberto a capire se è un'errata sua aspettativa o un problema della query. Il fix giusto è arricchire la diagnostica, non cambiare la query.
+**Verifica approfondita su `bacheca_cards/card_1777270881517_nqyeldr1t`**:
+```
+listName: INTERVENTI
+due:      2026-04-27T12:00:00.000Z   ← oggi italiano alle 14:00
+stato:    aperto
+techName: "LORENZO"          (primario)
+techNames: ["LORENZO"]       (solo Lorenzo)
+labels: [
+  {"name":"LORENZO","color":"sky"},
+  {"name":"MARCO","color":"sky"},     ← Marco è qui!
+  {"name":"MATTINO","color":"yellow"}
+]
+boardName: G033 - CONDOMINIO DEPRETIS - VIA SANT'AMBROGIO 17 - VOGHERA (PV)
+name: RIQUALIFICAZIONE
+```
 
-In parallelo, se Alberto si aspetta che NEXUS tracci storico assegnazioni (per dire "Marco al Depretis è stato spostato a Lorenzo stamattina"), serve l'infrastruttura step 5 — fuori dal scope di un fix immediato.
+ACG **assegna i co-tecnici via `labels[]`** quando 2 tecnici lavorano insieme. Lorenzo è il primario (chi chiude la card), Marco è co-coinvolto. Il mio handler ARES legge solo `techName`+`techNames[]` e **ignora completamente `labels[]`**. La card Depretis di oggi NON viene mai associata a Marco nelle query.
+
+**Quanto è frequente questo pattern?** Su 5.000 card scansionate:
+- 279 card (5.6%) hanno un nome tecnico ACG in `labels[]`
+- **222 di queste** (80% delle card label-tecnico) hanno tecnici in label che **NON sono in techName/techNames**
+
+Significa che il modello "MEMO dovrebbe sapere cosa è un'assegnazione" oggi è incompleto: l'handler lo limita a `techName`+`techNames[]` ma la realtà ACG include anche `labels[]`. Sono ~220 card sistematicamente non recuperate da query "interventi di [Tecnico]".
+
+### Definizione corretta di "tecnico assegnato a una card" su `bacheca_cards`
+
+(da centralizzare in `MEMO` / `shared.js` / context memo Firestore):
+
+```
+Un tecnico T è ASSEGNATO a una card se vale ALMENO UNO dei seguenti:
+  1. card.techName === T (case-insensitive uppercase, primario)
+  2. T ∈ card.techNames[]  (case-insensitive uppercase, co-primari)
+  3. card.labels[].name === T  (case-insensitive uppercase, label co-coinvolto)
+
+In tutti e tre i casi, T DEVE comparire nei risultati di "interventi di T".
+```
+
+### Fix proposto (S, alta priorità)
+
+**Dove:** `ares.js:_allTechs` (centralizza la logica) + query Firestore.
+
+```js
+function _allTechs(data) {
+  const seen = new Set();
+  const out = [];
+  const add = (t) => {
+    const s = String(t || "").trim();
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(s);
+  };
+  add(data.techName);
+  if (Array.isArray(data.techNames)) for (const t of data.techNames) add(t);
+  // FIX: anche labels[] sono assegnazioni in ACG (co-tecnici). Esclude
+  // labels colore/etichetta (MATTINO, POMERIGGIO, URGENTE, ...) che
+  // non sono nomi di tecnici.
+  if (Array.isArray(data.labels)) {
+    for (const l of data.labels) {
+      const nm = String(l && l.name || "").trim();
+      if (nm && TECNICI_ACG_UPPER.includes(nm.toUpperCase())) add(nm);
+    }
+  }
+  return out;
+}
+```
+
+E nella query Firestore: aggiungi una terza query `where("labels", "array-contains", { name: tecnicoUpper, color: "sky" })` — **ma** Firestore non supporta `array-contains` su oggetti con shape complessa senza match esatto. Soluzione pratica: dopo le 2 query parallele esistenti (`techName==X`, `techNames array-contains X`), fai una **terza query** che filtra in memoria sui risultati `byListName` o estende la lettura.
+
+Fix più robusto: leggere SEMPRE le card del range data + filtrare in memoria su `_allTechs(data)`. Ovvero abbandonare il branch `byTecnico` Firestore-side e usare sempre il branch `byListName` con range data come query primaria, poi filtrare in memoria. Costa ~50 read in più per query ma risolve definitivamente.
+
+### Verifica fix attesa
+
+"interventi di Marco oggi" → trova:
+- card_1777270881517_nqyeldr1t (Depretis, Lorenzo+Marco label)
+- (eventuali altre con Marco in label oggi — verificare)
+
+E per i giorni successivi 28-30/04 trova le ~30+ card di Marco (LETTURE RIP) che oggi già funzionano (techName="MARCO"), senza regressioni.
+
+## Nota operativa — risposta ad Alberto
+
+> "MEMO dovrebbe sapere cosa significa assegnare un intervento ad un
+> tecnico, non serve andare a rivedere la logica ogni volta altrimenti
+> è inutile."
+
+Hai ragione e la mia analisi precedente era inadeguata: avevo concluso "NEXUS ha ragione" basandomi su una definizione TROPPO RISTRETTA di "assegnato" (solo `techName`/`techNames[]`). La definizione corretta in ACG include anche `labels[]` con nome tecnico.
+
+**Action items per centralizzare**:
+1. **`shared.js`**: spostare `_allTechs` in `shared.js` come `tecniciAssegnatiCard(card)` esportata. Diventa la fonte unica di verità.
+2. **`context/memo-firestore-garbymobile.md`**: aggiungere nello schema `bacheca_cards` la definizione "tecnici assegnati = techName ∪ techNames[] ∪ labels[].name (filtrati su whitelist)".
+3. **`CLAUDE.md`**: aggiungere regola "Per qualsiasi handler che cerca interventi per tecnico, usare `tecniciAssegnatiCard()` da `shared.js`. Non reimplementare la logica."
+
+Il fix richiede modifica codice — non solo analisi. Effort **S** (~30 min):
+- helper centrale + import in ares.js
+- estensione query (terza query labels o shift a byListName con range)
+- test FORGE: "interventi di Marco oggi" → trova Depretis
+- update memo + CLAUDE.md
+- deploy + commit "feat(memo): tecnici assegnati include labels"
+
+Resto a disposizione per implementare se lo richiedi.
