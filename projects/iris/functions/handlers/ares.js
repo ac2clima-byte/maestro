@@ -1045,8 +1045,8 @@ function _riepilogoCrea(p) {
     ? (p.tecnici.length === 1 ? p.tecnici[0] : p.tecnici.slice(0, -1).join(", ") + " e " + p.tecnici[p.tecnici.length - 1])
     : "(nessun tecnico)";
   const dataLabel = p.due
-    ? new Date(p.due).toLocaleDateString("it-IT", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
-        + " alle " + new Date(p.due).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+    ? new Date(p.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
+        + " alle " + new Date(p.due).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false })
     : "(data non specificata)";
   const luogoLabel = p.condominio || "(luogo non specificato)";
   const descLabel = p.descrizione || "manutenzione";
