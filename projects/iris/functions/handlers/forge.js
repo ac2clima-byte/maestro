@@ -25,7 +25,7 @@ import {
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
-import { tryInterceptAresConfermaIntervento } from "./ares.js";
+import { tryInterceptAresConfermaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
