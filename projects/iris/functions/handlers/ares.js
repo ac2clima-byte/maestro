@@ -987,8 +987,9 @@ async function _lookupBoardCanonical(rawName) {
   if (!keywords.length) return null;
   try {
     const cosm = getCosminaDb();
-    // Limit alto: scan delle ultime card e prendi un sample di boardName unici
-    const snap = await cosm.collection("bacheca_cards").limit(2000).get();
+    // Limit alto: scan delle ultime card e prendi un sample di boardName unici.
+    // 5000 copre la maggior parte dei condomini attivi negli ultimi 12 mesi.
+    const snap = await cosm.collection("bacheca_cards").limit(5000).get();
     const seen = new Map();
     snap.forEach(d => {
       const x = d.data();
