@@ -9941,3 +9941,26 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
 ============================================================
 [2026-04-27T18:38:51Z] ─── fine ciclo ───
 [2026-04-27T18:43:51Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-04-27T18:45:59Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.rAbbnPQ3ro)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-04-27T18:45:59Z] ─── fine ciclo ───
