@@ -7933,3 +7933,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #26  COMUNICAZIONE_INTERNA         high    neutro       assistenza@computherm.it                  → RISPONDI
   #27  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
 [2026-04-27T08:56:42Z] ─── fine ciclo ───
+[2026-04-27T09:01:42Z] ─── inizio ciclo IRIS (limit=50) ───
