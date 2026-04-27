@@ -1,22 +1,22 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-27T15:00:03.797Z
+Ultimo aggiornamento: 2026-04-27T15:02:15.914Z
 
 ## Stato MAESTRO + Claude Code
-Fase: pushing_result
-Task: fix-ares-crea-intervento-reale
-Dettagli: push risultato
-Uptime: 37951s
-Timestamp Firestore: 2026-04-27T14:59:59.099Z
+Fase: idle
+Task: nessuno
+Dettagli: nessun task in coda
+Uptime: 38087s
+Timestamp Firestore: 2026-04-27T15:02:15.281Z
 
 <details><summary>Payload JSON</summary>
 
 ```json
 {
-  "fase": "pushing_result",
-  "task": "fix-ares-crea-intervento-reale",
-  "dettagli": "push risultato",
-  "uptime": 37951.076352222,
-  "timestamp": "2026-04-27T14:59:59.099Z"
+  "fase": "idle",
+  "task": null,
+  "dettagli": "nessun task in coda",
+  "uptime": 38087.255442369,
+  "timestamp": "2026-04-27T15:02:15.281Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-27T14:59:59.099Z
 Nessuno.
 
 ## Ultimi 5 commit
-- bd447d5 auto: pre-pull commit
-- 2d90a16 result: fix-ares-crea-intervento-reale
-- efb1a06 auto: pre-pull commit
-- 90994d5 auto: pre-pull commit
-- 4f1ba9e auto: pre-pull commit
+- f11fcd0 auto: pre-pull commit
+- c7d6a61 auto: pre-pull commit
+- 0b19fe1 auto: pre-pull commit
+- fa5bc5a auto: pre-pull commit
+- 120780e auto: pre-pull commit
