@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-27T14:01:41.734Z
+Ultimo aggiornamento: 2026-04-27T14:03:52.161Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 34453s
-Timestamp Firestore: 2026-04-27T14:01:40.510Z
+Uptime: 34584s
+Timestamp Firestore: 2026-04-27T14:03:51.483Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-27T14:01:40.510Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 34452.630182519,
-  "timestamp": "2026-04-27T14:01:40.510Z"
+  "uptime": 34583.523156142,
+  "timestamp": "2026-04-27T14:03:51.483Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-27T14:01:40.510Z
 Nessuno.
 
 ## Ultimi 5 commit
-- 990f290 auto: pre-pull commit
-- 9236e10 auto: pre-pull commit
-- a7268a7 auto: pre-pull commit
-- 631ddd5 result: fix-ares-dedup-tipologia
-- fad1ac6 auto: pre-pull commit
+- 9ade572 auto: pre-pull commit
+- 10d259c auto: pre-pull commit
+- adafc0e auto: pre-pull commit
+- c1785c4 fix(ares): dedup card + tipologia + labels + render migliorato
+- 9a81033 auto: pre-pull commit
