@@ -1,33 +1,17 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-27T09:57:18.172Z
+Ultimo aggiornamento: 2026-04-27T09:59:30.365Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
-Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 19788s
-Timestamp Firestore: 2026-04-27T09:57:16.432Z
+Errore lettura codeStatus: Command failed: curl -fsS --max-time 8 https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
+curl: (22) The requested URL returned error: 500
 
-<details><summary>Payload JSON</summary>
-
-```json
-{
-  "fase": "idle",
-  "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 19787.932424163,
-  "timestamp": "2026-04-27T09:57:16.432Z"
-}
-```
-
-</details>
 
 ## Task pending
 Nessuno.
 
 ## Ultimi 5 commit
-- 819e5b6 auto: pre-pull commit
-- 812e182 auto: pre-pull commit
-- 8c38185 auto: pre-pull commit
-- 83c7b59 auto: pre-pull commit
-- 614da7e auto: pre-pull commit
+- d6aec02 auto: pre-pull commit
+- fa08899 auto: pre-pull commit
+- e2bde36 auto: pre-pull commit
+- 44cbf45 auto: pre-pull commit
+- 124f86e auto: pre-pull commit
