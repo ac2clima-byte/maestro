@@ -796,6 +796,7 @@ export async function callOllamaIntent({ system, user, model = OLLAMA_MODEL_SMAR
         model,
         prompt,
         stream: false,
+        keep_alive: "30m",
         options: { temperature: 0, num_predict: maxTokens },
       }),
       signal: ctrl.signal,
