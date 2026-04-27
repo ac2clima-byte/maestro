@@ -4,7 +4,7 @@ import {
   ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
   naturalize,
   oggiPromptItalia,
-  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_SMART,
+  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_FAST, OLLAMA_MODEL_SMART,
 } from "./shared.js";
 
 // Import dei 10 Colleghi
