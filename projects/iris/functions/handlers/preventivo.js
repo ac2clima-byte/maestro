@@ -1508,7 +1508,7 @@ Frasi tipo "sì/ok/vai/procedi/conferma/manda" → approva. Se contiene "mail/ma
     user: `Messaggio utente: ${userMessage}\n\nRispondi SOLO con il JSON.`,
     model: OLLAMA_MODEL_SMART,
     maxTokens: 300,
-    timeoutMs: 30000,
+    timeoutMs: 50000,
   });
   const jsonStr = extractFirstJSON(r.text);
   if (!jsonStr) return null;

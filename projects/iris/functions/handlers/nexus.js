@@ -1405,17 +1405,21 @@ export async function callIntentRouter(apiKey, messages) {
   const dateHeader = `OGGI è ${oggiPromptItalia()}.\n\n`;
   // System prompt compatto per Ollama: solo schema colleghi + formato JSON.
   const systemCompact = dateHeader + buildOllamaSystemPrompt();
+  // qwen2.5:1.5b: ~6× più veloce del 7b su CPU-only, meno qualità ma il
+  // routing semplice (collega+azione) tiene. I casi complessi (creazione
+  // intervento, preventivo) sono già intercettati a regex livello 1 e
+  // workflow dedicati, non passano da qui.
   try {
     const r = await callOllamaIntent({
       system: systemCompact,
       user: `Messaggio utente: ${userText}\n\nRispondi SOLO con il JSON.`,
-      model: OLLAMA_MODEL_SMART,
-      maxTokens: 400,
-      timeoutMs: 30000,
+      model: OLLAMA_MODEL_FAST,
+      maxTokens: 250,
+      timeoutMs: 45000,
     });
     return {
       text: r.text,
-      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6) },
+      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6), model: OLLAMA_MODEL_FAST },
       source: "ollama",
     };
   } catch (e) {
