@@ -7339,3 +7339,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #26  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
   #27  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
 [2026-04-27T06:14:41Z] ─── fine ciclo ───
+[2026-04-27T06:19:41Z] ─── inizio ciclo IRIS (limit=50) ───
