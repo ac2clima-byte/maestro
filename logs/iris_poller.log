@@ -8626,3 +8626,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #29  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
   #30  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
 [2026-04-27T12:05:42Z] ─── fine ciclo ───
+[2026-04-27T12:10:42Z] ─── inizio ciclo IRIS (limit=50) ───
