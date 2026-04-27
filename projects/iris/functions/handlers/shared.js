@@ -19,6 +19,15 @@ export const REGION = "europe-west1";
 export const MODEL = "claude-haiku-4-5";
 export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
+// Ollama locale (Hetzner NEXO `diogene`, 168.119.164.92:11434).
+// Usato come fallback quando Haiku torna 4xx (balance, rate limit, ecc.).
+export const OLLAMA_URL = process.env.OLLAMA_URL || "http://168.119.164.92:11434";
+export const OLLAMA_MODEL_FAST = "qwen2.5:1.5b";   // routing single-token (non usato per JSON)
+export const OLLAMA_MODEL_SMART = "qwen2.5:7b";    // intent JSON con parametri
+// Header placeholder finché non c'è reverse proxy con auth vera.
+// Le CF Google non hanno IP fissi → ufw per IP non è praticabile.
+export const OLLAMA_KEY = process.env.OLLAMA_KEY || "nexo-ollama-2026";
+
 // ─── Primary Firebase app (nexo-hub-15f2d) ─────────────────────
 if (!getApps().length) initializeApp();
 export const db = getFirestore();
@@ -741,6 +750,68 @@ export async function sendPushNotification(title, body, link, userId) {
     logger.error("sendPushNotification failed", { error: String(e) });
     result.errors.push(String(e).slice(0, 200));
     return result;
+  }
+}
+
+// ─── Ollama fallback (LLM locale Hetzner NEXO) ─────────────────
+
+// Riconosce errori Haiku per cui ha senso fare fallback su Ollama:
+// 400 (balance esaurito), 401/403 (auth), 429 (rate limit), 5xx (downtime),
+// errori di rete (fetch fallito).
+export function isHaikuTransientError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  if (/anthropic\s+(400|401|403|429|5\d\d)/.test(msg)) return true;
+  if (/balance|insufficient|credit|quota|rate.?limit/.test(msg)) return true;
+  if (/fetch failed|network|timeout|enotfound|econnrefused/.test(msg)) return true;
+  return false;
+}
+
+// Estrae il primo blocco JSON {...} da un testo libero (Ollama spesso
+// avvolge il JSON in code fence ```json o aggiunge prefazione).
+export function extractFirstJSON(text) {
+  if (!text) return null;
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
+  const candidate = fenced ? fenced[1].trim() : text.trim();
+  const s = candidate.indexOf("{");
+  const e = candidate.lastIndexOf("}");
+  if (s === -1 || e === -1 || e <= s) return null;
+  return candidate.slice(s, e + 1);
+}
+
+// Chiama Ollama con prompt single-shot (system + user concatenati nel campo
+// `prompt`, non in chat). Adatto al fallback intent: vogliamo il JSON di
+// routing e basta.
+export async function callOllamaIntent({ system, user, model = OLLAMA_MODEL_SMART, maxTokens = 400, timeoutMs = 30000 }) {
+  const prompt = `${system}\n\n${user}`;
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const resp = await fetch(`${OLLAMA_URL}/api/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Nexo-Key": OLLAMA_KEY,
+      },
+      body: JSON.stringify({
+        model,
+        prompt,
+        stream: false,
+        options: { temperature: 0, num_predict: maxTokens },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`Ollama ${resp.status}: ${t.slice(0, 200)}`);
+    }
+    const json = await resp.json();
+    return {
+      text: String(json.response || "").trim(),
+      durationNs: json.total_duration || 0,
+      model,
+    };
+  } finally {
+    clearTimeout(tid);
   }
 }
 

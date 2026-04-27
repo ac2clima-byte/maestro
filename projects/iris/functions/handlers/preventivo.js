@@ -22,6 +22,7 @@ import {
   getCosminaDb,
   fetchIrisEmails,
   oggiItalia,
+  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_SMART, extractFirstJSON,
 } from "./shared.js";
 
 const CALLIOPE_MODEL = "claude-sonnet-4-6";
@@ -1456,12 +1457,63 @@ REGOLE GENERALI
       messages: [{ role: "user", content: userMessage }],
     }),
   });
-  if (!resp.ok) throw new Error(`Haiku ${resp.status}`);
+  if (!resp.ok) throw new Error(`Anthropic ${resp.status}`);
   const json = await resp.json();
   const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
   if (s < 0 || e <= s) return null;
   return JSON.parse(text.slice(s, e + 1));
+}
+
+// Versione Ollama qwen2.5:7b dello stesso prompt — usata come fallback
+// quando Haiku torna 4xx (balance, rate limit, downtime).
+async function callOllamaPreventivoIntent(pendingData, userMessage) {
+  const intestatario = pendingData.intestatario || {};
+  const condominio = pendingData.condominio || {};
+  const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
+  const stato = pendingData.stato || "attesa_voci";
+  const aliquota = pendingData.iva_aliquota != null ? pendingData.iva_aliquota : 22;
+  const totaleImp = pendingData.totale_imponibile || 0;
+  const totale = pendingData.totale || 0;
+  const fmtVoci = voci.length
+    ? voci.map((v, i) => `  ${i + 1}. ${v.descrizione}: ${v.importo} €`).join("\n")
+    : "  (nessuna voce)";
+
+  const system = `Sei NEXUS, assistente di Alberto (ACG Clima Service). Stai aiutando con un preventivo.
+
+Stato:
+- Intestatario: ${intestatario.ragione_sociale || "—"}
+- Condominio: ${condominio.nome || "—"}
+- Voci:
+${fmtVoci}
+- IVA: ${aliquota}% — Imponibile ${totaleImp}€ — Totale ${totale}€ — Stato: ${stato}
+
+Rispondi SOLO con un oggetto JSON valido (niente code fence, niente prosa):
+{"azione":"<una di: modifica_iva, aggiungi_voce, rimuovi_voce, modifica_voce, sconto, approva, annulla, chiarimento>","parametri":{...}}
+
+Schema parametri:
+- modifica_iva: {aliquota:0|4|10|22, regime:"reverse_charge"|"split_payment"|"esente"|"ordinario"}
+- aggiungi_voce: {descrizione:"...", importo:50}
+- rimuovi_voce: {descrizione:"..."}
+- modifica_voce: {descrizione:"...", importo:50}
+- sconto: {percentuale:10}
+- approva: {sendByEmail?:true, destinatarioEmail?:"x@y.it"}
+- annulla: {}
+- chiarimento: {domanda:"..."}
+
+Frasi tipo "sì/ok/vai/procedi/conferma/manda" → approva. Se contiene "mail/manda/invia" → sendByEmail=true. Se ambiguo → chiarimento.`;
+
+  const r = await callOllamaIntent({
+    system,
+    user: `Messaggio utente: ${userMessage}\n\nRispondi SOLO con il JSON.`,
+    model: OLLAMA_MODEL_SMART,
+    maxTokens: 300,
+    timeoutMs: 30000,
+  });
+  const jsonStr = extractFirstJSON(r.text);
+  if (!jsonStr) return null;
+  try { return JSON.parse(jsonStr); }
+  catch { return null; }
 }
 
 function recalcPreventivo(voci, aliquota = 22) {
@@ -1506,16 +1558,37 @@ export async function tryInterceptPreventivoHaikuFallback({ userMessage, session
   }
 
   const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return null;
 
   let intent;
+  let intentSource = "haiku";
   try {
-    intent = await callHaikuPreventivoIntent(apiKey, pendingData, t);
+    if (apiKey) {
+      intent = await callHaikuPreventivoIntent(apiKey, pendingData, t);
+    }
   } catch (e) {
-    logger.warn("Haiku fallback preventivo failed", { error: String(e).slice(0, 150) });
-    return null; // lascia passare al routing standard
+    if (!isHaikuTransientError(e)) {
+      logger.warn("Haiku fallback preventivo failed", { error: String(e).slice(0, 150) });
+      return null;
+    }
+    // Cade su Ollama qwen2.5:7b
+    logger.warn("Haiku preventivo transient, falling back to ollama", { error: String(e).slice(0, 150) });
+    intent = null;
   }
+
+  if (!intent) {
+    // Tenta Ollama come fallback (anche quando apiKey manca)
+    try {
+      intent = await callOllamaPreventivoIntent(pendingData, t);
+      intentSource = "ollama";
+    } catch (e2) {
+      logger.warn("Ollama fallback preventivo failed", { error: String(e2).slice(0, 150) });
+      return null; // lascia passare al routing standard
+    }
+  }
+
   if (!intent || !intent.azione) return null;
+  // Annota la sorgente per debug
+  intent._source = intentSource;
 
   const az = String(intent.azione).toLowerCase();
   const params = intent.parametri || {};

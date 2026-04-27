@@ -20,7 +20,7 @@ import {
 
 import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
-  parseAndValidateIntent, callHaikuForIntent, loadConversationContext,
+  parseAndValidateIntent, callHaikuForIntent, callIntentRouter, loadConversationContext,
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
@@ -572,20 +572,53 @@ export const nexusRouter = onRequest(
     }
     messages.push({ role: "user", content: userMessage });
 
-    let haiku;
-    try { haiku = await callHaikuForIntent(apiKey, messages); }
-    catch (e) {
-      logger.error("nexus haiku failed", { error: String(e) });
-      const fallback = { collega: "nessuno", azione: "errore", parametri: {}, confidenza: 0, rispostaUtente: `Errore interpretazione: ${String(e).slice(0, 120)}` };
-      const nexusMessageId = await writeNexusMessage(sessionId, { role: "assistant", content: fallback.rispostaUtente, intent: fallback, stato: "errore_modello", modello: MODEL });
-      res.status(200).json({ intent: fallback, nexusMessageId, userMsgId, stato: "errore_modello" });
-      return;
+    // ─── LIVELLO 1: regex-first (zero costo, zero latenza) ─────
+    // Molti DIRECT_HANDLERS già matchano sul solo userMessage. Proviamo
+    // prima senza chiamare LLM: se uno scatta, salviamo Haiku/Ollama
+    // del tutto.
+    const regexIntent = { collega: "", azione: "", parametri: {}, confidenza: 0 };
+    const regexDirectRaw = await tryDirectAnswer(regexIntent, userMessage, sessionId);
+    // Considera "regex matchato" SOLO se non è fallito. Se l'handler regex
+    // è fallito (errore Firestore, ecc.) cade su Haiku come prima per non
+    // restituire un errore muto.
+    const regexDirect = (regexDirectRaw && !regexDirectRaw._failed) ? regexDirectRaw : null;
+
+    let intent;
+    let llmUsage = {};
+    let llmSource = "regex";
+    let llmText = null;
+    let direct;
+
+    if (regexDirect) {
+      // Regex ha risposto: ricostruisci intent dal handler che ha matchato.
+      // _handlerCollega può essere null (es. saluti) → degrada a "nessuno".
+      const handlerCollega = regexDirect._handlerCollega || "nessuno";
+      intent = {
+        collega: handlerCollega,
+        azione: "regex_match",
+        parametri: {},
+        confidenza: 0.95,
+        rispostaUtente: regexDirect.content || "",
+      };
+      direct = regexDirect;
+    } else {
+      // ─── LIVELLO 2: Haiku con fallback Ollama (callIntentRouter) ─
+      let llm;
+      try {
+        llm = await callIntentRouter(apiKey, messages);
+      } catch (e) {
+        logger.error("nexus router (haiku+ollama) failed", { error: String(e).slice(0, 200) });
+        const fallback = { collega: "nessuno", azione: "errore", parametri: {}, confidenza: 0, rispostaUtente: `Errore interpretazione: ${String(e).slice(0, 120)}` };
+        const nexusMessageId = await writeNexusMessage(sessionId, { role: "assistant", content: fallback.rispostaUtente, intent: fallback, stato: "errore_modello", modello: MODEL });
+        res.status(200).json({ intent: fallback, nexusMessageId, userMsgId, stato: "errore_modello" });
+        return;
+      }
+      llmUsage = llm.usage || {};
+      llmSource = llm.source;
+      llmText = llm.text;
+      intent = parseAndValidateIntent(llm.text, userMessage);
+      direct = await tryDirectAnswer(intent, userMessage, sessionId);
     }
-
-    const intent = parseAndValidateIntent(haiku.text, userMessage);
-
-    // Try direct answer
-    const direct = await tryDirectAnswer(intent, userMessage, sessionId);
     let finalContent = intent.rispostaUtente;
     let stato = "assegnata";
     let lavagnaId = null;
@@ -615,11 +648,12 @@ export const nexusRouter = onRequest(
       }
     }
 
+    const modelloUsato = llmSource === "ollama" ? "qwen2.5:7b@ollama" : (llmSource === "regex" ? "regex" : MODEL);
     const nexusMessageId = await writeNexusMessage(sessionId, {
       role: "assistant", content: finalContent,
       intent, stato,
       direct: direct ? { data: direct.data || null, failed: !!direct._failed } : null,
-      modello: MODEL, usage: haiku.usage,
+      modello: modelloUsato, usage: llmUsage, intentSource: llmSource,
     });
 
     res.status(200).json({
@@ -627,7 +661,7 @@ export const nexusRouter = onRequest(
       lavagnaMessageId: lavagnaId,
       stato,
       direct: direct ? { data: direct.data || null, failed: !!direct._failed } : null,
-      modello: MODEL, usage: haiku.usage,
+      modello: modelloUsato, usage: llmUsage, intentSource: llmSource,
     });
   }
 );

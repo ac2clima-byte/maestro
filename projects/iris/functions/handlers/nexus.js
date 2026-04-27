@@ -4,6 +4,7 @@ import {
   ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
   naturalize,
   oggiPromptItalia,
+  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_SMART,
 } from "./shared.js";
 
 // Import dei 10 Colleghi
@@ -310,8 +311,34 @@ export function parseAndValidateIntent(raw, userMessage) {
   return { collega, azione, parametri, confidenza, rispostaUtente, reasoning, steps };
 }
 
+// Greeting/saluti — risposta canned senza LLM.
+// Funzione handler dummy: ritorna content fisso. Va in DIRECT_HANDLERS
+// così salta sia Haiku che Ollama per i saluti più comuni.
+async function handleSalutoNexus() {
+  const opts = [
+    "Ciao Alberto, dimmi pure.",
+    "Eccomi, cosa ti serve?",
+    "Sono qui, dimmi.",
+  ];
+  return { content: opts[Math.floor(Math.random() * opts.length)] };
+}
+
+async function handleGrazieNexus() {
+  return { content: "Figurati, sono qui." };
+}
+
 // ─── DIRECT_HANDLERS: mappa (collega, azione) → handler ─────────
 export const DIRECT_HANDLERS = [
+  // Saluti basici (zero LLM): "ciao", "hey", "buongiorno", "salve"
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase().trim();
+    return /^(ciao|hey|hei|salve|buongiorno|buonasera|buondì|buon dì)\s*[!.?]*\s*$/i.test(m);
+  }, fn: handleSalutoNexus },
+  // Ringraziamenti
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase().trim();
+    return /^(grazie|ti ringrazio|perfetto grazie|ok grazie|grazie mille)\s*[!.?]*\s*$/i.test(m);
+  }, fn: handleGrazieNexus },
   // IRIS — analizza email (intent recognition + training)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
@@ -1348,4 +1375,93 @@ export async function callHaikuForIntent(apiKey, messages) {
   const text = (json.content || [])
     .filter(b => b.type === "text").map(b => b.text).join("\n").trim();
   return { text, usage: json.usage || {} };
+}
+
+// ─── Intent router con fallback Ollama ─────────────────────────
+// Prova Haiku per primo. Se fallisce con errore "transient" (balance,
+// rate limit, downtime, network) cade su Ollama qwen2.5:7b locale.
+// Restituisce sempre { text, usage, source } dove source ∈ {"haiku","ollama"}.
+export async function callIntentRouter(apiKey, messages) {
+  if (apiKey) {
+    try {
+      const r = await callHaikuForIntent(apiKey, messages);
+      return { text: r.text, usage: r.usage, source: "haiku" };
+    } catch (e) {
+      if (!isHaikuTransientError(e)) throw e;
+      logger.warn("nexus haiku transient error, falling back to ollama", {
+        error: String(e).slice(0, 200),
+      });
+    }
+  } else {
+    logger.warn("nexus no anthropic key, using ollama as primary");
+  }
+
+  // Ollama: ricostruisci system + user concatenando l'ultimo turno utente.
+  // Per Ollama il contesto conversazionale lungo non aiuta (modello piccolo,
+  // performance crollano). Mandiamo solo l'ultimo userMessage + system prompt
+  // potato (rimuoviamo solo la parte tono/stile, manteniamo elenco colleghi).
+  const lastUser = [...messages].reverse().find(m => m.role === "user");
+  const userText = lastUser ? String(lastUser.content || "") : "";
+  const dateHeader = `OGGI è ${oggiPromptItalia()}.\n\n`;
+  // System prompt compatto per Ollama: solo schema colleghi + formato JSON.
+  const systemCompact = dateHeader + buildOllamaSystemPrompt();
+  try {
+    const r = await callOllamaIntent({
+      system: systemCompact,
+      user: `Messaggio utente: ${userText}\n\nRispondi SOLO con il JSON.`,
+      model: OLLAMA_MODEL_SMART,
+      maxTokens: 400,
+      timeoutMs: 30000,
+    });
+    return {
+      text: r.text,
+      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6) },
+      source: "ollama",
+    };
+  } catch (e) {
+    logger.error("nexus ollama fallback failed", { error: String(e).slice(0, 200) });
+    throw e;
+  }
+}
+
+// System prompt compatto per Ollama qwen2.5:7b — solo lo schema essenziale.
+// Il prompt completo NEXUS_SYSTEM_PROMPT è troppo lungo (2k token) e fa
+// degradare la qualità del modello locale.
+function buildOllamaSystemPrompt() {
+  return `Sei NEXUS, router intent per ACG Clima Service.
+Rispondi SOLO con un oggetto JSON valido (niente code fence, niente prosa). Schema:
+{"collega":"<slug>","azione":"<snake_case>","parametri":{...},"confidenza":0.0-1.0,"rispostaUtente":"<1-2 frasi italiano colloquiale>"}
+
+COLLEGHI E AZIONI:
+- iris (email): cerca_email_urgenti, email_oggi, email_totali, email_recenti, email_altre, leggi_email, email_senza_risposta, ricerca_email_mittente, email_per_categoria, analizza_email
+- echo (WA): wa_inbox, wa_analizza_ultimo, send_whatsapp
+- ares (interventi COSMINA): interventi_aperti (QUERY: "interventi di X", "che ha fatto X"), crea_intervento (CREAZIONE: "metti/programma/fissa intervento")
+  parametri ares.crea_intervento: {tecnici:["MARCO"], data:"oggi/domani/lunedì", ora:"09:00", condominio:"X", descrizione:"Y"}
+  parametri ares.interventi_aperti: {tecnico:"Marco", data:"oggi", citta:"alessandria"}
+- chronos (agende/scadenze/campagne): agenda_giornaliera (param: tecnico, data), scadenze_prossime, slot_tecnico, campagne_attive, campagna_status (param: nome)
+- memo (clienti CRM): dossier_cliente, lista_tecnici, chi_e_persona (param: nome), ricerca_indirizzo
+- charta (amministrazione): fatture_scadute, incassi_oggi, report_mensile (param: mese), esposizione_cliente (param: nome)
+- emporion (magazzino): disponibilita, sotto_scorta
+- dikea (compliance): scadenze_curit, impianti_senza_targa
+- delphi (KPI): kpi_dashboard, costo_ai, confronto_mom
+- pharo (RTI/monitoring): stato_suite, rti_pronti_fattura, bozze_crti_per_tecnico (param: tecnico)
+- calliope (preventivi/bozze): bozze_pendenti, preventivi_emessi, bozza_risposta
+- orchestrator (workflow): preparare_preventivo (param: condominio, committente, oggetto)
+- nessuno: saluti, chiarimenti
+
+REGOLE:
+- "interventi di X" / "che ha fatto X" / "X aveva interventi" → ares/interventi_aperti
+- "metti/programma/fissa intervento a X" → ares/crea_intervento
+- "agenda di X" → chronos/agenda_giornaliera
+- "esposizione cliente Y" / "quanto deve Y" → charta/esposizione_cliente
+- "guarda mail / mostrami email" → iris/email_recenti
+- "mail urgenti" → iris/cerca_email_urgenti
+- "RTI pronti" → pharo/rti_pronti_fattura
+- "scadenze curit" → dikea/scadenze_curit
+- "prepara preventivo per X" → orchestrator/preparare_preventivo
+- "lista preventivi" / "preventivi emessi" → calliope/preventivi_emessi
+
+Tecnici ACG: Aime David, Albanesi Gianluca, Contardi Alberto, Dellafiore Lorenzo, Dellafiore Victor, Leshi Ergest, Piparo Marco, Tosca Federico, Troise Antonio.
+
+rispostaUtente: 1-2 frasi italiano naturale come un collega, NO emoji NO bold NO bullet.`;
 }
