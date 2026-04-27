@@ -403,6 +403,33 @@ export const nexusRouter = onRequest(
       logger.warn("ares conferma intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
+    // Intercept ARES crea_intervento: comando esplicito "metti/crea/programma
+    // intervento ..." → bypass Haiku, chiama direttamente handleAresCreaIntervento.
+    // Robusto a fallimenti Anthropic API e mantiene latency bassa.
+    try {
+      if (isCreaInterventoCommand(userMessage)) {
+        const ar = await handleAresCreaIntervento({}, { userMessage, sessionId });
+        if (ar && ar.content) {
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant",
+            content: ar.content,
+            direct: { data: ar.data || null, failed: false },
+            stato: "completata",
+            modello: "ares_crea_intervento",
+          });
+          res.status(200).json({
+            intent: { collega: "ares", azione: "crea_intervento", parametri: {}, rispostaUtente: ar.content, confidenza: 1 },
+            nexusMessageId, userMsgId, stato: "completata",
+            direct: { data: ar.data || null, failed: false },
+            modello: "ares_crea_intervento", usage: {},
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      logger.warn("ares crea intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
     // Preventivo generation: intercetta "prepara preventivo ..."
     if (/^\s*(prepara|genera|fai|scriv\w+)\s+(il\s+|un\s+)?preventiv/i.test(userMessage) ||
         /\bpreventiv\w+\s+per\s+.*\bintestat/i.test(userMessage)) {
