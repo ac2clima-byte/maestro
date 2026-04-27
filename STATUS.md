@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-27T17:58:02.639Z
+Ultimo aggiornamento: 2026-04-27T18:02:43.426Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 48634s
-Timestamp Firestore: 2026-04-27T17:58:02.027Z
+Uptime: 48914s
+Timestamp Firestore: 2026-04-27T18:02:42.468Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-27T17:58:02.027Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 48633.829842506,
-  "timestamp": "2026-04-27T17:58:02.027Z"
+  "uptime": 48914.286030045,
+  "timestamp": "2026-04-27T18:02:42.468Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-27T17:58:02.027Z
 Nessuno.
 
 ## Ultimi 5 commit
-- afd3b15 auto: pre-pull commit
-- efd4fdb auto: pre-pull commit
-- 76041d0 auto: pre-pull commit
-- f906988 auto: pre-pull commit
-- 687c4d3 auto: pre-pull commit
+- f83d878 auto: pre-pull commit
+- 6447912 auto: pre-pull commit
+- d687617 result: sostituisci-haiku-con-ollama
+- 4ac8e64 auto: pre-pull commit
+- ba317fd auto: pre-pull commit
