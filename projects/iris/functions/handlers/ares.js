@@ -192,8 +192,14 @@ function _isListInterventi(listName) {
   return false;
 }
 
-// Estrae tutti i nomi tecnici da una card (techName + techNames[]).
-// Dedup case-insensitive (techName spesso duplicato in techNames[]).
+// Estrae TUTTI i tecnici assegnati a una card.
+// Definizione ACG (centralizzata qui — non ridefinire in altri handler):
+//   Un tecnico T è ASSEGNATO se compare in ALMENO UNO di:
+//     1. card.techName (primario)
+//     2. card.techNames[] (co-primari)
+//     3. card.labels[].name filtrato su whitelist 9 tecnici ACG (label co-coinvolto)
+// Le label NON-tecnico (MATTINO, POMERIGGIO, URGENTE, sky, ...) sono filtrate.
+// Dedup case-insensitive.
 function _allTechs(data) {
   const seen = new Set();
   const out = [];
@@ -207,6 +213,15 @@ function _allTechs(data) {
   };
   add(data.techName);
   if (Array.isArray(data.techNames)) for (const t of data.techNames) add(t);
+  // labels[].name è assegnazione co-tecnico in ACG. Filtra su whitelist
+  // per escludere MATTINO/URGENTE/SCADUTO/etc. che sono qualifiers.
+  if (Array.isArray(data.labels)) {
+    for (const l of data.labels) {
+      if (!l || !l.name) continue;
+      const nm = String(l.name).trim();
+      if (TECNICI_ACG.includes(nm.toLowerCase())) add(nm);
+    }
+  }
   return out;
 }
 
@@ -282,6 +297,30 @@ export async function handleAresInterventiAperti(parametri, ctx) {
       stats.queries.push({ q: "techNames array-contains " + tecnicoUpper, count: s2.size || 0 });
       s1.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
       s2.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
+
+      // Query 3: labels[].name === TECNICO (co-tecnici via label colorata).
+      // ACG usa labels Trello-style {name, color} per i co-coinvolti. Il
+      // color può variare (sky/sky_light/black_light/orange/blue/lime),
+      // quindi facciamo array-contains per ognuno dei 6 colori più
+      // frequenti — copre > 99% dei casi reali.
+      const LABEL_COLORS = ["sky_light", "sky", "black_light", "orange", "blue", "lime"];
+      const labelQueries = LABEL_COLORS.map(color =>
+        cosm.collection("bacheca_cards")
+          .where("labels", "array-contains", { name: tecnicoUpper, color })
+          .limit(500).get()
+          .catch(e => { logger.warn("ares label query failed", { color, error: String(e).slice(0, 100) }); return { forEach: () => {}, size: 0 }; })
+      );
+      try {
+        const labelSnaps = await Promise.all(labelQueries);
+        let labelCount = 0;
+        labelSnaps.forEach((s, i) => {
+          labelCount += s.size || 0;
+          s.forEach(d => { if (!docs.has(d.id)) docs.set(d.id, d); });
+        });
+        stats.queries.push({ q: `labels array-contains {name=${tecnicoUpper},color in [${LABEL_COLORS.join(",")}]}`, count: labelCount });
+      } catch (eLab) {
+        logger.warn("ares label queries failed", { error: String(eLab).slice(0, 150) });
+      }
 
       // Fallback ulteriore: il primo nome è capitalize → potrebbe essere
       // "Federico" non "FEDERICO". Provo Capitalize se 0 risultati.
