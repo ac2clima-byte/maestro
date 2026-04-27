@@ -14,6 +14,14 @@
 | 11:19:31 | ALBERTO | "interventi di Marco oggi" |
 | 11:19:36 | NEXUS | "Marco oggi non ha interventi (cercato: 334 card totali, filtro data oggi, solo aperti)." |
 
+## ⚠️ CORREZIONE — verifica approfondita (NEXUS aveva torto)
+
+> La mia analisi iniziale concludeva "Marco oggi non ha interventi → NEXUS
+> ha ragione". **Era sbagliato.** Una verifica più approfondita ha trovato
+> il vero bug, descritto in fondo (sezione "## Bug F — labels[] ignorato").
+> La sezione "Verifica dei dati reali" qui sotto resta come riferimento
+> ma la conclusione era errata: rileggere fino in fondo.
+
 ## Verifica dei dati reali (Europe/Rome 27/04/2026)
 
 Ho replicato la query handler ARES su `bacheca_cards` (`garbymobile-f89ac`):
