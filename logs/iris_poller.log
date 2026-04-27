@@ -8197,3 +8197,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #29  FAILED: Expecting ',' delimiter: line 51 column 4 (char 2027)
   #30  COMUNICAZIONE_INTERNA         high    neutro       info@acgclimaservice.com                  → ARCHIVIA
 [2026-04-27T10:08:42Z] ─── fine ciclo ───
+[2026-04-27T10:13:42Z] ─── inizio ciclo IRIS (limit=50) ───
