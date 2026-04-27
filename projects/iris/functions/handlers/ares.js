@@ -1,5 +1,10 @@
 // handlers/ares.js — interventi (lettura + scrittura).
-import { getCosminaDb, db, FieldValue, logger, mezzanotteItalia, dataItaliaItFormat, oggiItalia } from "./shared.js";
+import {
+  getCosminaDb, db, FieldValue, logger,
+  mezzanotteItalia, dataItaliaItFormat, oggiItalia,
+  tecniciAssegnatiCard, cardDuplicateGroupKey, cardRichnessCompare,
+  cardCategoryFromListName, cardCategoryLabel,
+} from "./shared.js";
 
 // ── Helpers parsing data ─────────────────────────────────────────
 // IMPORTANTE: tutto il calcolo data deve essere in fuso Europe/Rome
@@ -192,37 +197,14 @@ function _isListInterventi(listName) {
   return false;
 }
 
-// Estrae TUTTI i tecnici assegnati a una card.
-// Definizione ACG (centralizzata qui — non ridefinire in altri handler):
+// Alias locale: delega a tecniciAssegnatiCard centralizzato in shared.js.
+// Definizione ACG (vedi shared.js):
 //   Un tecnico T è ASSEGNATO se compare in ALMENO UNO di:
 //     1. card.techName (primario)
 //     2. card.techNames[] (co-primari)
 //     3. card.labels[].name filtrato su whitelist 9 tecnici ACG (label co-coinvolto)
-// Le label NON-tecnico (MATTINO, POMERIGGIO, URGENTE, sky, ...) sono filtrate.
-// Dedup case-insensitive.
 function _allTechs(data) {
-  const seen = new Set();
-  const out = [];
-  const add = (t) => {
-    const s = String(t || "").trim();
-    if (!s) return;
-    const k = s.toLowerCase();
-    if (seen.has(k)) return;
-    seen.add(k);
-    out.push(s);
-  };
-  add(data.techName);
-  if (Array.isArray(data.techNames)) for (const t of data.techNames) add(t);
-  // labels[].name è assegnazione co-tecnico in ACG. Filtra su whitelist
-  // per escludere MATTINO/URGENTE/SCADUTO/etc. che sono qualifiers.
-  if (Array.isArray(data.labels)) {
-    for (const l of data.labels) {
-      if (!l || !l.name) continue;
-      const nm = String(l.name).trim();
-      if (TECNICI_ACG.includes(nm.toLowerCase())) add(nm);
-    }
-  }
-  return out;
+  return tecniciAssegnatiCard(data);
 }
 
 // Converte campo `due` in Date (gestisce string ISO, Timestamp Firestore, Date).
@@ -412,24 +394,73 @@ export async function handleAresInterventiAperti(parametri, ctx) {
       name: data.name || "(senza titolo)",
       workDescription: data.workDescription || "",
       listName: data.listName || "",
+      // Raw card fields per dedup + categoria
+      _raw: {
+        workHours: data.workHours,
+        workDescription: data.workDescription,
+        closedAt: data.closedAt,
+        boardName: data.boardName,
+        originalBoardId: data.originalBoardId,
+        listName: data.listName,
+        techName: data.techName,
+        techNames: data.techNames,
+        due: data.due,
+      },
+      categoria: cardCategoryFromListName(data.listName, data.name),
     });
+  }
+
+  // ── DEDUP: card duplicate sullo stesso intervento fisico ────────
+  // Trello sync occasionalmente crea più rapporti per lo stesso intervento.
+  // Raggruppa per (originalBoardId | boardName-norm, dueDay, techPrimary,
+  // listName-group) e mantieni la card più "ricca".
+  const dedupBuckets = new Map();
+  for (const it of items) {
+    const key = cardDuplicateGroupKey(it._raw);
+    if (!key) { dedupBuckets.set(it.id, [it]); continue; }
+    const cur = dedupBuckets.get(key);
+    if (!cur) dedupBuckets.set(key, [it]);
+    else cur.push(it);
+  }
+  const itemsDedup = [];
+  let droppedCount = 0;
+  const droppedSamples = [];
+  for (const group of dedupBuckets.values()) {
+    if (group.length <= 1) { itemsDedup.push(group[0]); continue; }
+    // Sort: card più ricca prima
+    group.sort((a, b) => cardRichnessCompare(a._raw, b._raw));
+    itemsDedup.push(group[0]);
+    droppedCount += group.length - 1;
+    if (droppedSamples.length < 3) {
+      droppedSamples.push({ kept: group[0].id, dropped: group.slice(1).map(g => g.id) });
+    }
   }
 
   // Logging diagnostico (visibile in Cloud Functions logs)
   logger.info("[ARES] handleAresInterventiAperti", {
     tecnicoFilter, range: range ? range.label : null, citta,
     tense, includeTerminali,
-    stats, items: items.length,
+    stats, itemsRaw: items.length, itemsDedup: itemsDedup.length, droppedCount,
     filteredByList, filteredByStato, scannedTecnico,
     filteredByDate, filteredByCitta,
   });
 
-  items.sort((a, b) => {
+  itemsDedup.sort((a, b) => {
     if (!a.due) return 1;
     if (!b.due) return -1;
     return a.due.getTime() - b.due.getTime();
   });
-  const top = items.slice(0, limit);
+  // Riassegno la variabile items perché i blocchi successivi (counts/render
+  // intro "items.length > top.length") leggono items.
+  const items_ = items; // shadow per non rompere il logger sopra
+  // eslint-disable-next-line no-unused-vars
+  void items_;
+  // Riuso la variabile locale items per compatibilità render successivo
+  // ATTENZIONE: 'items' è const, usiamo un alias.
+  const itemsForRender = itemsDedup;
+  const top = itemsForRender.slice(0, limit);
+  // Per le sezioni successive che leggono items.length come "totalMatched"
+  // (vedi "Altri X non mostrati"), uso itemsForRender.length.
 
   // ── Costruzione risposta discorsiva ───────────────────────────
   const tecnicoCap = tecnicoFilter
@@ -467,24 +498,43 @@ export async function handleAresInterventiAperti(parametri, ctx) {
     return { content: "Non ho trovato interventi nella bacheca COSMINA.", data: { count: 0, stats } };
   }
 
-  // Render righe in prosa. Se boardName è generico (ZZ000 / CLIENTI PRIVATI)
-  // o vuoto/"?", usa il `name` o `workDescription` come fallback.
+  // Helper: estrae titolo "umano" della card. Per ACCENSIONE/SPEGNIMENTO/
+  // LETTURE usa il `name` (es. "Spegnimento", "Letture dirette") perché il
+  // boardName è il condominio mentre il name dice cosa è. Per INTERVENTI
+  // tipici usa boardName + fallback name su ZZ000/CLIENTI PRIVATI.
+  const getCondLabel = (i) => {
+    const board = String(i.condominio || "").trim();
+    const cat = i.categoria || "intervento";
+    const cleanName = String(i.name || i.workDescription || "")
+      .replace(/\s*-?\s*Intervento\s+concluso\s+DA\s+.+$/i, "")
+      .replace(/\s*-?\s*Intervento\s+concluso\s*$/i, "")
+      .replace(/^RITORNO\s+/i, "")
+      .trim();
+    const boardClean = board.replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 70);
+    if (cat === "spegnimento" || cat === "accensione" || cat === "lettura") {
+      // Es. "Spegnimento al CONDOMINIO STELLA A"
+      const cond = boardClean || cleanName || "(senza luogo)";
+      return `${cat} al ${cond}`;
+    }
+    if (cat === "ticket") return `ticket: ${cleanName || boardClean || "(senza titolo)"}`;
+    // intervento/da validare/card
+    if (!board || board === "?" || /^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
+      return cleanName ? cleanName.slice(0, 90) : "intervento privato";
+    }
+    // Per INTERVENTI con board valido, se name è ricco e diverso dal board, mostralo
+    if (cleanName && cleanName.length > 10 && !/Intervento concluso/i.test(i.name || "")
+        && !cleanName.toLowerCase().includes(boardClean.toLowerCase().slice(0, 20))) {
+      return `${boardClean} (${cleanName.slice(0, 60)})`;
+    }
+    return boardClean;
+  };
+
+  // Render righe in prosa per le risposte multi-result.
   const renderLine = (i) => {
     const data = i.due ? i.due.toLocaleDateString("it-IT") : "n.d.";
-    const board = String(i.condominio || "").trim();
-    let cond;
-    if (!board || board === "?" || /^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
-      const fb = String(i.name || i.workDescription || "")
-        .replace(/\s*-?\s*Intervento\s+concluso\s+DA\s+.+$/i, "")
-        .replace(/\s*-?\s*Intervento\s+concluso\s*$/i, "")
-        .trim();
-      cond = fb ? fb.slice(0, 80) : "intervento privato";
-    } else {
-      cond = board.replace(/^[A-Z0-9]+\s*-\s*/, "").slice(0, 70);
-    }
+    const cond = getCondLabel(i);
     const stato = i.stato || "aperto";
-    // techs: dedup case-insensitive (i.tecnico è già "A + B + C" ma può
-    // contenere duplicati derivati dal merge tra techName e techNames[])
+    // Tecnici: dedup case-insensitive
     const techsArr = String(i.tecnico || "").split(" + ").map(t => t.trim()).filter(Boolean);
     const techsDedup = [...new Map(techsArr.map(t => [t.toLowerCase(), t])).values()];
     let tag;
@@ -500,16 +550,7 @@ export async function handleAresInterventiAperti(parametri, ctx) {
     const tecnicoTag = tecnicoCap ? `${tecnicoCap}` : "";
     const dataTag = rangeLabel ? rangeLabel : "";
     const cittaTag = cittaCap ? `a ${cittaCap}` : "";
-    const board = String(i.condominio || "");
-    let cond;
-    if (!board || /^ZZ\d+/i.test(board) || /CLIENTI\s+PRIVATI/i.test(board)) {
-      const fb = String(i.name || i.workDescription || "")
-        .replace(/\s*-?\s*Intervento\s+concluso\s+DA\s+.+$/i, "")
-        .trim();
-      cond = fb || "intervento privato";
-    } else {
-      cond = board.replace(/^[A-Z0-9]+\s*-\s*/, "").trim();
-    }
+    const cond = getCondLabel(i);
     const head = `${tecnicoTag} ${dataTag} ${cittaTag}`.replace(/\s+/g, " ").trim();
     // Co-assegnato: dedup, case-insensitive, esclude il tecnico richiesto
     let coAss = "";
@@ -519,27 +560,46 @@ export async function handleAresInterventiAperti(parametri, ctx) {
       const dedup = [...new Set(others.map(t => t.trim()))].filter(Boolean);
       if (dedup.length) coAss = ` (co-assegnato a ${dedup.join(", ")})`;
     }
-    // Se c'è già il giorno nel range label ("giovedì 23/04/2026") evita "il 23/04/2026"
     const includeDateSuffix = !dataTag || !i.due || !dataTag.includes(i.due.toLocaleDateString("it-IT"));
     const dueIt = (i.due && includeDateSuffix) ? ` il ${i.due.toLocaleDateString("it-IT")}` : "";
+    const categoria = i.categoria || "intervento";
+    // Articolo per categoria: "un intervento", "uno spegnimento", "una lettura"
+    const articolo = categoria === "spegnimento" || categoria === "spegnimenti" ? "uno"
+      : (categoria === "lettura" || categoria === "accensione" ? "una" : "un");
     return {
-      content: `${head ? head + " " : ""}${verb} un intervento${dueIt}: ${cond}, stato ${i.stato}${coAss}.`.trim(),
-      data: { count: 1, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats },
+      content: `${head ? head + " " : ""}${verb} ${articolo} ${categoria}${dueIt}: ${cond}, stato ${i.stato}${coAss}.`.trim(),
+      data: { count: 1, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats, droppedCount },
     };
   }
 
-  // Più risultati → introduzione discorsiva + righe (newline-separated, no enumerazione)
+  // ── Più risultati → intro raggruppata per tipologia ─────────────
+  // Conta categorie nel set top (es. {intervento: 2, spegnimento: 1}).
+  const byCat = {};
+  for (const i of top) {
+    const c = i.categoria || "intervento";
+    byCat[c] = (byCat[c] || 0) + 1;
+  }
+  // Costruisce frase italiana naturale: "2 interventi e 1 spegnimento"
+  const catFrasi = Object.entries(byCat).map(([cat, n]) => `${n} ${cardCategoryLabel(cat, n)}`);
+  let catSummary;
+  if (catFrasi.length === 1) catSummary = catFrasi[0];
+  else if (catFrasi.length === 2) catSummary = `${catFrasi[0]} e ${catFrasi[1]}`;
+  else catSummary = catFrasi.slice(0, -1).join(", ") + " e " + catFrasi[catFrasi.length - 1];
+
   const intro = [
     tecnicoCap ? `${tecnicoCap}` : "Trovo",
     rangeLabel || "",
     cittaCap ? `a ${cittaCap}` : "",
-    `${verb} ${top.length} interventi.`,
+    `${verb} ${catSummary}.`,
   ].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
   const righe = top.map(renderLine).join("\n");
-  const more = items.length > top.length ? `\n\nAltri ${items.length - top.length} non mostrati.` : "";
+  const more = itemsForRender.length > top.length ? `\n\nAltre ${itemsForRender.length - top.length} non mostrate.` : "";
+  const dedupNote = droppedCount > 0
+    ? `\n\nNota: ${droppedCount} card raggruppata${droppedCount > 1 ? "e" : ""} come duplicato (rapporto chiuso più volte sullo stesso intervento).`
+    : "";
   return {
-    content: `${intro}\n\n${righe}${more}`,
-    data: { count: top.length, totalMatched: items.length, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats },
+    content: `${intro}\n\n${righe}${more}${dedupNote}`,
+    data: { count: top.length, totalMatched: itemsForRender.length, droppedCount, tecnico: tecnicoFilter, range: rangeLabel, citta, items: top, stats },
   };
 }
 

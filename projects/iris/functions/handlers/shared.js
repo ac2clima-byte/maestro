@@ -204,6 +204,158 @@ export function oggiPromptItalia(date) {
   return `${fmt}, ore ${oraItalia(ref)}`;
 }
 
+// ─── MEMO: assegnazione tecnici a card bacheca_cards ─────────────
+// FONTE UNICA DI VERITÀ: usare ovunque, non reimplementare la logica.
+//
+// Definizione ACG: un tecnico T è ASSEGNATO a una card se compare in
+// ALMENO UNO di:
+//   1. card.techName               (primario)
+//   2. T ∈ card.techNames[]        (co-primari)
+//   3. card.labels[].name === T    (label co-coinvolto, filtrato su whitelist)
+//
+// Filtro whitelist: solo i 9 tecnici ACG sono nomi tecnici.
+// Le label MATTINO/POMERIGGIO/URGENTE/DA VALIDARE/sky/etc. sono qualifiers
+// e vanno scartate.
+export const TECNICI_ACG_WHITELIST = [
+  "aime", "david", "albanesi", "gianluca", "contardi", "alberto",
+  "dellafiore", "lorenzo", "victor", "leshi", "ergest", "piparo",
+  "marco", "tosca", "federico", "troise", "antonio", "malvicino",
+];
+
+export function tecniciAssegnatiCard(card) {
+  if (!card) return [];
+  const seen = new Set();
+  const out = [];
+  const add = (t) => {
+    const s = String(t || "").trim();
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(s);
+  };
+  add(card.techName);
+  if (Array.isArray(card.techNames)) for (const t of card.techNames) add(t);
+  if (Array.isArray(card.labels)) {
+    for (const l of card.labels) {
+      if (!l || !l.name) continue;
+      const nm = String(l.name).trim();
+      if (TECNICI_ACG_WHITELIST.includes(nm.toLowerCase())) add(nm);
+    }
+  }
+  return out;
+}
+
+// Verifica se un tecnico (case-insensitive) è assegnato a una card.
+export function tecnicoAssegnatoACard(card, tecnico) {
+  const target = String(tecnico || "").toLowerCase().trim();
+  if (!target) return false;
+  return tecniciAssegnatiCard(card)
+    .some(t => t.toLowerCase().includes(target) || target.includes(t.toLowerCase()));
+}
+
+// ─── MEMO: dedup card duplicate sullo stesso intervento fisico ───
+// Trello sync occasionalmente crea due card per lo stesso intervento
+// (rapporto chiuso 2 volte a pochi minuti di distanza). Per "interventi
+// di X ieri" è meglio raggrupparle e mostrare quella con dati più ricchi.
+//
+// Chiave di gruppo: (originalBoardId | boardName-normalizzato, dueDay, techPrimary).
+// Stessa board Trello + stesso giorno + stesso tecnico primario → STESSO INTERVENTO.
+//
+// Fallback se originalBoardId è null: usa boardName normalizzato (rimuovi
+// prefisso codice "V023 - " perché lo stesso condominio appare con boardName
+// corto e completo).
+export function cardDuplicateGroupKey(card) {
+  if (!card) return null;
+  const dueDay = (() => {
+    if (!card.due) return "no-due";
+    try {
+      const d = card.due.toDate ? card.due.toDate() : new Date(card.due);
+      if (Number.isNaN(d.getTime())) return "no-due";
+      return d.toISOString().slice(0, 10);
+    } catch { return "no-due"; }
+  })();
+  // Tecnico primario: techName se valorizzato, altrimenti primo techNames
+  let tech = String(card.techName || "").toUpperCase().trim();
+  if (!tech && Array.isArray(card.techNames) && card.techNames.length) {
+    tech = String(card.techNames[0]).toUpperCase().trim();
+  }
+  // Board key: priorità originalBoardId Trello, fallback boardName normalizzato
+  let boardKey = String(card.originalBoardId || "").trim();
+  if (!boardKey) {
+    boardKey = String(card.boardName || "")
+      .toLowerCase()
+      // Rimuove codice prefisso "V023 - ", "G033 - ", ecc.
+      .replace(/^[a-z0-9]+\s*-\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+  // listName partecipa alla key SOLO se è ACCENSIONE/SPEGNIMENTO o LETTURE,
+  // così uno spegnimento NON viene dedotto contro un INTERVENTO sullo
+  // stesso condominio nello stesso giorno (sono attività diverse).
+  const ln = String(card.listName || "").toUpperCase();
+  let lnGroup = "INTERVENTO";
+  if (/ACCENSIONE|SPEGNIMENTO/.test(ln)) lnGroup = "ACCSPENG";
+  else if (/^LETTUR/.test(ln)) lnGroup = "LETTURA";
+  else if (/TICKET/.test(ln)) lnGroup = "TICKET";
+  else if (/DA\s+VALIDAR/.test(ln)) lnGroup = "VALIDARE";
+  return `${lnGroup}|${boardKey || "?"}|${dueDay}|${tech || "?"}`;
+}
+
+// Compara due card e ritorna -1 se a è "più ricca" (da preferire), 1
+// altrimenti, 0 se equivalenti. "Ricco" = workHours alto, workDescription
+// lunga, closedAt più recente, name più specifico.
+export function cardRichnessCompare(a, b) {
+  const wha = Number(a?.workHours || 0);
+  const whb = Number(b?.workHours || 0);
+  if (whb !== wha) return whb - wha; // più alto è meglio
+  const wdLa = String(a?.workDescription || "").length;
+  const wdLb = String(b?.workDescription || "").length;
+  if (wdLb !== wdLa) return wdLb - wdLa;
+  // boardName più lungo (con codice prefisso) tipicamente è il dato vero
+  const bnA = String(a?.boardName || "").length;
+  const bnB = String(b?.boardName || "").length;
+  if (bnB !== bnA) return bnB - bnA;
+  // closedAt più recente preferito (rapporto rifatto vince)
+  const cA = a?.closedAt?.toMillis?.() || 0;
+  const cB = b?.closedAt?.toMillis?.() || 0;
+  return cB - cA;
+}
+
+// Categoria semantica della card per il render (intervento/spegnimento/...).
+// Quando listName è "ACCENSIONE/SPEGNIMENTO" (categoria mista), usa il
+// name della card (es. "Spegnimento", "Accensione") per disambiguare.
+export function cardCategoryFromListName(listName, name) {
+  const ln = String(listName || "").toUpperCase();
+  const nm = String(name || "").toUpperCase();
+  // Lista mista ACCENSIONE/SPEGNIMENTO: distingui dal name
+  if (/ACCENSIONE.*SPEGNIMENTO|SPEGNIMENTO.*ACCENSIONE/.test(ln)) {
+    if (/SPEGNIMENT/.test(nm)) return "spegnimento";
+    if (/ACCENSION/.test(nm)) return "accensione";
+    return "accensione/spegnimento";
+  }
+  if (/SPEGNIMENTO/.test(ln)) return "spegnimento";
+  if (/ACCENSIONE/.test(ln)) return "accensione";
+  if (/^LETTUR/.test(ln)) return "lettura";
+  if (/TICKET/.test(ln)) return "ticket";
+  if (/DA\s+VALIDAR/.test(ln)) return "da validare";
+  if (/INTERVENT/.test(ln)) return "intervento";
+  return "card";
+}
+
+// Italiano singolare/plurale per categoria card.
+export function cardCategoryLabel(category, count) {
+  const sing = {
+    "intervento": "intervento", "spegnimento": "spegnimento", "accensione": "accensione",
+    "lettura": "lettura", "ticket": "ticket", "da validare": "card da validare", "card": "card",
+  };
+  const plur = {
+    "intervento": "interventi", "spegnimento": "spegnimenti", "accensione": "accensioni",
+    "lettura": "letture", "ticket": "ticket", "da validare": "card da validare", "card": "card",
+  };
+  return count === 1 ? sing[category] : plur[category];
+}
+
 const MAX_PER_IP_PER_HOUR = 30;
 const MAX_GLOBAL_PER_HOUR = 200;
 const RATE_COLLECTION = "iris_rate_suggest_reply";
