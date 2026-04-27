@@ -8428,3 +8428,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #29  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
   #30  FAILED: Expecting ',' delimiter: line 62 column 8 (char 3116)
 [2026-04-27T11:11:42Z] ─── fine ciclo ───
+[2026-04-27T11:16:42Z] ─── inizio ciclo IRIS (limit=50) ───
