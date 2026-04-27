@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-27T14:10:26.064Z
+Ultimo aggiornamento: 2026-04-27T14:21:37.755Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 34978s
-Timestamp Firestore: 2026-04-27T14:10:25.732Z
+Uptime: 35649s
+Timestamp Firestore: 2026-04-27T14:21:36.552Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-27T14:10:25.732Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 34977.842521305,
-  "timestamp": "2026-04-27T14:10:25.732Z"
+  "uptime": 35648.635073626,
+  "timestamp": "2026-04-27T14:21:36.552Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-27T14:10:25.732Z
 Nessuno.
 
 ## Ultimi 5 commit
-- 1358878 auto: pre-pull commit
-- 1d6d9db auto: pre-pull commit
-- ec0d698 auto: pre-pull commit
-- fff7575 auto: pre-pull commit
-- c070e4a auto: pre-pull commit
+- 37de8e2 auto: pre-pull commit
+- f4dfcb8 auto: pre-pull commit
+- ffa2d4f result: fix-ares-verifica-dati-marco-ieri
+- e6598e0 fix(ares): verifica e correggi dati Marco ieri
+- 1e2d31c auto: pre-pull commit
