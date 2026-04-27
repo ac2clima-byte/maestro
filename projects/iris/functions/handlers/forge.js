@@ -261,6 +261,38 @@ export const nexusTestInternal = onRequest(
         logger.warn("forge: ares conferma intercept failed", { error: String(e).slice(0, 150) });
       }
 
+      // Intercept ARES crea_intervento: se il messaggio è un comando di
+      // creazione esplicito ("metti/crea/programma intervento ..."),
+      // chiama direttamente handleAresCreaIntervento bypassando Haiku.
+      // Utile sia per FORGE (test deterministici) sia per fallback quando
+      // Anthropic API è giù.
+      try {
+        if (isCreaInterventoCommand(message)) {
+          const ar = await handleAresCreaIntervento({}, { userMessage: message, sessionId });
+          if (ar && ar.content) {
+            const cleaned = naturalize(ar.content);
+            const nexusMessageId = await writeNexusMessage(sessionId, {
+              role: "assistant", content: cleaned,
+              direct: { data: ar.data || null, failed: false },
+              stato: "completata", modello: "ares_crea_intervento",
+            });
+            res.status(200).json({
+              query: message, reply: cleaned,
+              collega: "ares", azione: "crea_intervento",
+              stato: "completata", natural: isNatural(cleaned),
+              direct: { ok: true, data: ar.data || null },
+              sessionId, userMsgId, nexusMessageId,
+              modello: "ares_crea_intervento",
+              tookMs: Date.now() - startedAt,
+              timestamp: new Date().toISOString(),
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        logger.warn("forge: ares crea intercept failed", { error: String(e).slice(0, 150) });
+      }
+
       // Intercept preventivo workflow per aderenza al routing reale di nexusRouter.
       // FORGE deve testare anche questo path; il workflow stesso è dry-run safe
       // se sessionId inizia con "forge-test" (DRY_RUN ECHO + nessun side effect).
