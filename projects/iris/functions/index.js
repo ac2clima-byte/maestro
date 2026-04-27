@@ -203,7 +203,7 @@ export const codeStatus = onRequest(
 // ─── nexusRouter (intent parsing + dispatch) ───────────────────
 
 export const nexusRouter = onRequest(
-  { region: REGION, cors: false, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60, memory: "256MiB", maxInstances: 10 },
+  { region: REGION, cors: false, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 90, memory: "256MiB", maxInstances: 10 },
   async (req, res) => {
     applyCors(req, res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }

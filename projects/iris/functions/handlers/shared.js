@@ -781,7 +781,7 @@ export function extractFirstJSON(text) {
 // Chiama Ollama con prompt single-shot (system + user concatenati nel campo
 // `prompt`, non in chat). Adatto al fallback intent: vogliamo il JSON di
 // routing e basta.
-export async function callOllamaIntent({ system, user, model = OLLAMA_MODEL_SMART, maxTokens = 400, timeoutMs = 30000 }) {
+export async function callOllamaIntent({ system, user, model = OLLAMA_MODEL_SMART, maxTokens = 400, timeoutMs = 50000 }) {
   const prompt = `${system}\n\n${user}`;
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), timeoutMs);
