@@ -9055,3 +9055,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #27  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
   #28  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
 [2026-04-27T14:02:43Z] ─── fine ciclo ───
+[2026-04-27T14:07:43Z] ─── inizio ciclo IRIS (limit=50) ───
