@@ -1,1 +1,15 @@
 node_modules/
+
+# Credenziali e segreti — MAI committare
+.env
+.env.*
+*.env
+
+# Service account keys
+*-service-account*.json
+serviceAccountKey.json
+
+# Logs locali (autogenerati dal poller)
+logs/iris_poller.pid
+logs/iris_poller.log
+logs/iris_poller.err
