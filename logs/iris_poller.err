@@ -6463,3 +6463,34 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #28  RISPOSTA_CLIENTE              high    positivo     info@acgclimaservice.com                  → RISPONDI
   #29  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → RISPONDI
   #30  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+[2026-04-27T07:53:41Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 2/6] Classifying with Haiku…
+  #1  COMUNICAZIONE_INTERNA         high    neutro       cosmina.acg@gmail.com                     → ARCHIVIA
+  #2  COMUNICAZIONE_INTERNA         low     neutro       sara.quagliano@acgclimaservice.com        → ARCHIVIA
+  #3  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #4  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #5  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #6  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #7  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #8  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #9  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #10  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #11  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #12  ALTRO                         medium  positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #13  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #14  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #15  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #16  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #17  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #18  RISPOSTA_CLIENTE              high    positivo     davide.torriglia@gruppo3i.it              → PREPARA_PREVENTIVO
+  #19  FAILED: Expecting ',' delimiter: line 61 column 8 (char 2821)
+  #20  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #21  FAILED: Expecting ',' delimiter: line 61 column 6 (char 2734)
+  #22  FAILED: Expecting ',' delimiter: line 71 column 8 (char 2779)
+  #23  RISPOSTA_CLIENTE              high    neutro       starvo@tin.it                             → RISPONDI
+  #24  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #25  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #26  RISPOSTA_CLIENTE              high    neutro       assistenza@computherm.it                  → RISPONDI
+  #27  COMUNICAZIONE_INTERNA         high    positivo     edoardo.camponeschi@guazzottienergia.com  → ARCHIVIA
+  #28  RISPOSTA_CLIENTE              high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #29  RISPOSTA_CLIENTE              high    positivo     studiomdconsulting@gmail.com              → ARCHIVIA
