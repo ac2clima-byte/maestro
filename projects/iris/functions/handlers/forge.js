@@ -21,7 +21,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { ANTHROPIC_API_KEY, REGION, MODEL, applyCorsOpen, logger, naturalize } from "./shared.js";
 import {
-  loadConversationContext, callHaikuForIntent, parseAndValidateIntent,
+  loadConversationContext, callHaikuForIntent, callIntentRouter, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
