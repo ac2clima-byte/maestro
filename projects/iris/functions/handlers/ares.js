@@ -1020,9 +1020,24 @@ function _extractDescrizione(userMessage, parametri) {
   const fromParam = String(parametri.descrizione || parametri.note || parametri.problema || parametri.testo || parametri.lavoro || "").trim();
   if (fromParam) return fromParam.slice(0, 120);
   const m = String(userMessage || "");
-  // "per [descrizione]"
-  const perM = m.match(/\bper\s+([a-zà-ÿ\s\d.,'\-]{4,80}?)(?:\s*(?:domani|oggi|alle|con\s|presso|in\b|al\b|alla\b|$|[,.!?]))/i);
-  if (perM) return perM[1].trim();
+  // Strategia 1: dopo virgola finale (",controllo impianto solare")
+  // L'utente tipicamente separa la descrizione da virgola dopo il luogo.
+  const commaTail = m.match(/,\s*([a-zà-ÿ\s\d.,'\-]{4,120})$/i);
+  if (commaTail) {
+    const t = commaTail[1].trim();
+    if (t && t.length >= 5) return t.slice(0, 120);
+  }
+  // Strategia 2: TUTTE le occorrenze di "per X" — prendi quelle che NON
+  // sono nomi di tecnici (è "per Victor" → assegnatario, non descrizione).
+  const perGlobal = [...m.matchAll(/\bper\s+([a-zà-ÿ\s\d.,'\-]{4,80}?)(?:\s*(?:domani|oggi|alle|con\s|presso|in\b|al\b|alla\b|$|[,.!?]))/gi)];
+  for (const match of perGlobal) {
+    const cand = match[1].trim();
+    const candLow = cand.toLowerCase();
+    // Se è solo un nome di tecnico, scarta
+    if (TECNICI_ACG.includes(candLow)) continue;
+    if (candLow.split(/\s+/).every(w => TECNICI_ACG.includes(w))) continue;
+    return cand;
+  }
   return "";
 }
 
