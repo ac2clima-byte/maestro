@@ -16,7 +16,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
 <title>NEXO — Hub dei Colleghi</title>
-<link rel="stylesheet" href="css/main.css?v=v08">
+<link rel="stylesheet" href="css/main.css?v=v09">
 </head>
 <body>
 
@@ -104,8 +104,8 @@
 <div id="reportBugModal" class="report-bug-modal" role="dialog" aria-modal="true" aria-labelledby="reportBugTitle" aria-hidden="true">
   <div class="rb-card">
     <h2 id="reportBugTitle">Segnala un bug</h2>
-    <p class="rb-hint">Descrivi cosa non funziona. La richiesta finisce nella coda dev di Claude Code.</p>
-    <textarea id="reportBugText" placeholder="Descrivi cosa non funziona…" maxlength="4000"></textarea>
+    <p class="rb-hint">Descrivi cosa non funziona (opzionale). La richiesta finisce nella coda dev di Claude Code.</p>
+    <textarea id="reportBugText" placeholder="Cosa non va? (opzionale)" maxlength="4000"></textarea>
     <div class="rb-error" id="reportBugError"></div>
     <div class="rb-actions">
       <button type="button" class="rb-btn" id="reportBugCancel">Annulla</button>
@@ -164,6 +164,6 @@
   </div>
 </div>
 
-<script type="module" src="js/app.js?v=v08"></script>
+<script type="module" src="js/app.js?v=v09"></script>
 </body>
 </html>

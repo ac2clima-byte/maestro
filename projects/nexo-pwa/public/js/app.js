@@ -1749,11 +1749,9 @@ async function nexusBugSubmit() {
     if (err) err.textContent = `Aspetta ${wait}s prima di inviarne un altro.`;
     return;
   }
+  // La conversazione e la nota sono entrambe opzionali: se non c'è nulla
+  // la dev-request viene comunque creata con il fallback nel description.
   const conversation = nexusBugCollectConversation();
-  if (!conversation.length) {
-    if (err) err.textContent = "Niente da segnalare: la chat è vuota.";
-    return;
-  }
   const noteText = (note && note.value || "").trim().slice(0, 2000);
 
   if (btn) { btn.disabled = true; btn.textContent = "Invio…"; }
@@ -3099,13 +3097,15 @@ let _reportBugLastSentAt = 0;
 
 async function submitBugReport(text) {
   const trimmed = String(text || "").trim();
-  if (!trimmed) return { ok: false, error: "Scrivi una descrizione." };
   if (trimmed.length > 4000) return { ok: false, error: "Troppo lungo (max 4000 caratteri)." };
+  // Descrizione opzionale: usa un placeholder se vuoto. Le firestore.rules
+  // richiedono description.size() > 0, per questo non passiamo "" diretto.
+  const description = trimmed || "(nessun dettaglio fornito)";
   try {
     const { db, fsMod } = await getFirestore();
     const me = (CURRENT_USER && CURRENT_USER.email) || null;
     const payload = {
-      description: trimmed,
+      description,
       status: "pending",
       source: "report_bug_btn",
       userId: me,
