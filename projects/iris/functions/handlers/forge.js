@@ -96,6 +96,33 @@ export const nexusTestInternal = onRequest(
       await ensureNexusSession(sessionId, userId, message);
       const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: message });
 
+      // Intercept dev request: lamentele "non funziona X", "vorrei", "aggiungi",
+      // ecc. vanno salvate in nexo_dev_requests, NON instradate ai colleghi.
+      try {
+        const dev = await tryInterceptDevRequest({ userMessage: message, userId, sessionId });
+        if (dev) {
+          const cleaned = naturalize(dev.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: dev.data || null, failed: false },
+            stato: "completata", modello: "dev_request",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "nessuno", azione: "dev_request",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: dev.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "dev_request",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: dev request intercept failed", { error: String(e).slice(0, 150) });
+      }
+
       // Intercept preventivo IVA: regime fiscale (reverse charge, split,
       // esente, "iva N%") modifica IVA+totale del pending.
       try {
