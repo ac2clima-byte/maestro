@@ -1187,37 +1187,42 @@ export async function tryInterceptDevRequest({ userMessage, userId, sessionId })
   if (!isDevRequest(userMessage)) return null;
 
   const description = String(userMessage || "").trim().slice(0, 3000);
-  const humanId = await nextDevRequestId();
+  // Sessioni FORGE: skip Firestore writes per non creare DEV-NNN reali +
+  // task/dev-request-* fittizi durante i test automatici.
+  const isForge = String(sessionId || "").startsWith("forge-test");
+  const humanId = isForge ? `FORGE-${Date.now()}` : await nextDevRequestId();
 
   let docId = null;
-  try {
-    // Doc primario in nexo_dev_requests (storia completa + stato analisi)
-    const ref = db.collection("nexo_dev_requests").doc(humanId);
-    await ref.set({
-      id: humanId,
-      description,
-      status: "pending",
-      source: "nexus_chat",
-      userId: userId || null,
-      sessionId: sessionId || null,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    docId = humanId;
+  if (!isForge) {
+    try {
+      // Doc primario in nexo_dev_requests (storia completa + stato analisi)
+      const ref = db.collection("nexo_dev_requests").doc(humanId);
+      await ref.set({
+        id: humanId,
+        description,
+        status: "pending",
+        source: "nexus_chat",
+        userId: userId || null,
+        sessionId: sessionId || null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      docId = humanId;
 
-    // Coda per il poller locale: il poller legge i doc con queueStatus=pending,
-    // crea il file md, pusha, e marca queueStatus=pushed.
-    await db.collection("nexo_dev_requests_queue").doc(humanId).set({
-      id: humanId,
-      description,
-      queueStatus: "pending",
-      userId: userId || null,
-      sessionId: sessionId || null,
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-  } catch (e) {
-    logger.warn("dev_request save failed", { error: String(e).slice(0, 200) });
+      // Coda per il poller locale: il poller legge i doc con queueStatus=pending,
+      // crea il file md, pusha, e marca queueStatus=pushed.
+      await db.collection("nexo_dev_requests_queue").doc(humanId).set({
+        id: humanId,
+        description,
+        queueStatus: "pending",
+        userId: userId || null,
+        sessionId: sessionId || null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn("dev_request save failed", { error: String(e).slice(0, 200) });
+    }
   }
 
   const preview = description.length > 100 ? description.slice(0, 97) + "…" : description;
