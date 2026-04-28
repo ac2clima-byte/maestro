@@ -1139,13 +1139,20 @@ function isDevRequest(userMessage) {
   // Se c'è una richiesta molto esplicita ("vorrei", "puoi fare") basta 1 match
   if (/\b(vorrei|puoi\s+fare|puoi\s+aggiungere|serve\s+che|mi\s+serve|fammi|crea\w*)\b/i.test(t)) return true;
   // Lamentela esplicita "non funziona/va/parte/carica/si carica X" è bug report.
-  // Esclusioni: avverbi/aggettivi di feedback ("bene/così/più/affatto/mai")
+  // Esclusioni: avverbi/aggettivi di feedback ("bene/così/affatto/mai")
   // che non indicano un oggetto rotto.
-  // NB: vocali accentate (così/più/granché) non funzionano dentro \b o \w —
-  // usiamo lookahead (?:\s|$|[,.?!]) come terminatore esplicito.
-  const lamenteleRe = /\bnon\s+(?:si\s+)?(funzion\w+|va\b|parte\b|carica\w+|risponde\w*)/i;
-  const lamenteleFiniteRe = /\bnon\s+(?:si\s+)?(?:funzion\w+|va|parte|carica\w*|risponde\w*)\s+(bene|così|cosi|più|piu|affatto|mai|granché|granche|sempre|tanto|molto|tale|niente|nulla)(?=\s|$|[,.?!])/i;
-  if (lamenteleRe.test(t) && !lamenteleFiniteRe.test(t)) return true;
+  // Note implementative:
+  //  - vocali accentate (così/più/granché) non funzionano dentro \b o \w
+  //  - "più/sempre" sono ambigui: "non risponde più" = feedback, ma
+  //    "non risponde più il sito" = bug. Escludo solo se l'avverbio è in
+  //    fondo alla frase (lookahead su fine stringa o punteggiatura).
+  const lamenteleRe = /\bnon\s+(?:si\s+)?(funzion\w*|va\b|parte\b|carica\w*|risponde\w*)/i;
+  // Pattern A: feedback assoluti che NON indicano mai un oggetto rotto.
+  const feedbackAssolutoRe = /\bnon\s+(?:si\s+)?(?:funzion\w+|va|parte|carica\w*|risponde\w*)\s+(bene|così|cosi|affatto|mai|granché|granche|tale|niente|nulla)(?=\s|$|[,.?!])/i;
+  // Pattern B: avverbi ambigui (più/sempre/molto/tanto) → feedback solo se
+  // a fine frase (niente oggetto dopo).
+  const feedbackAvverbioFineRe = /\bnon\s+(?:si\s+)?(?:funzion\w+|va|parte|carica\w*|risponde\w*)\s+(più|piu|sempre|tanto|molto)\s*(?:$|[,.?!])/i;
+  if (lamenteleRe.test(t) && !feedbackAssolutoRe.test(t) && !feedbackAvverbioFineRe.test(t)) return true;
   return false;
 }
 
