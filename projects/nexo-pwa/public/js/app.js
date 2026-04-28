@@ -2638,6 +2638,7 @@ function nexusVoicePause() {
   nexusVoice.paused = true;
   nexusSetMicState("speaking");
   if (nexusVoice.silenceTimer) { clearTimeout(nexusVoice.silenceTimer); nexusVoice.silenceTimer = null; }
+  if (nexusVoice.watchdogTimer) { clearTimeout(nexusVoice.watchdogTimer); nexusVoice.watchdogTimer = null; }
   const rec = nexusVoice.recognition;
   if (rec) { try { rec.stop(); } catch { try { rec.abort(); } catch {} } }
 }
@@ -2649,6 +2650,7 @@ function nexusVoiceStop() {
   nexusVoice.finalText = "";
   nexusVoice.interimText = "";
   if (nexusVoice.silenceTimer) { clearTimeout(nexusVoice.silenceTimer); nexusVoice.silenceTimer = null; }
+  if (nexusVoice.watchdogTimer) { clearTimeout(nexusVoice.watchdogTimer); nexusVoice.watchdogTimer = null; }
   const rec = nexusVoice.recognition;
   nexusVoice.recognition = null;
   if (rec) { try { rec.abort(); } catch {} }
