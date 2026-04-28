@@ -13729,3 +13729,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #31  FAILED: Expecting ',' delimiter: line 44 column 4 (char 1669)
   #32  FAILED: Expecting ',' delimiter: line 66 column 4 (char 1899)
 [2026-04-28T13:49:32Z] ─── fine ciclo ───
+[2026-04-28T13:54:32Z] ─── inizio ciclo IRIS (limit=50) ───
