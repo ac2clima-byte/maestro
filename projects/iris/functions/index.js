@@ -203,6 +203,10 @@ export const codeStatus = onRequest(
 // ─── nexusRouter (intent parsing + dispatch) ───────────────────
 
 export const nexusRouter = onRequest(
+  // GROQ_API_KEY non in `secrets`: Firebase richiede che siano valorizzati
+  // al deploy. Una volta che Alberto crea la secret con
+  //   firebase functions:secrets:set GROQ_API_KEY
+  // aggiungere `GROQ_API_KEY` al secrets array per leggerla via .value().
   { region: REGION, cors: false, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 90, memory: "256MiB", maxInstances: 10 },
   async (req, res) => {
     applyCors(req, res);

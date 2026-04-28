@@ -13,6 +13,26 @@ export const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 export const EWS_USERNAME = defineSecret("EWS_USERNAME");
 export const EWS_PASSWORD = defineSecret("EWS_PASSWORD");
 export const EWS_URL = defineSecret("EWS_URL");
+// Groq API: piano gratuito 14400 req/giorno, llama-3.3-70b-versatile.
+// NB: dichiarata come secret OPZIONALE — se non è valorizzata, il deploy
+// passa comunque e il router cade su Ollama L3 fallback.
+// Per attivare: vedi `getGroqApiKey()` sotto.
+export const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
+
+// Lettura sicura della Groq API key. Tre fonti, ordine di priorità:
+//   1. process.env.GROQ_API_KEY (env var diretta, anche locale)
+//   2. GROQ_API_KEY.value() (Firebase Secret Manager, se valorizzato)
+//   3. null (router cade su Ollama L3)
+// Wrappata in try/catch perché .value() throw se la secret è dichiarata
+// ma non ancora bound al runtime corrente.
+export function getGroqApiKey() {
+  if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY;
+  try {
+    const v = GROQ_API_KEY.value();
+    if (v && v !== "PLACEHOLDER_NOT_VALID_KEY_REPLACE_FROM_GROQ_CONSOLE") return v;
+  } catch {}
+  return null;
+}
 
 // ─── Constants ─────────────────────────────────────────────────
 export const REGION = "europe-west1";
@@ -20,13 +40,19 @@ export const MODEL = "claude-haiku-4-5";
 export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 // Ollama locale (Hetzner NEXO `diogene`, 168.119.164.92:11434).
-// Usato come fallback quando Haiku torna 4xx (balance, rate limit, ecc.).
+// Usato come fallback L3 quando Groq fallisce.
 export const OLLAMA_URL = process.env.OLLAMA_URL || "http://168.119.164.92:11434";
 export const OLLAMA_MODEL_FAST = "qwen2.5:1.5b";   // routing single-token (non usato per JSON)
 export const OLLAMA_MODEL_SMART = "qwen2.5:7b";    // intent JSON con parametri
 // Header placeholder finché non c'è reverse proxy con auth vera.
 // Le CF Google non hanno IP fissi → ufw per IP non è praticabile.
 export const OLLAMA_KEY = process.env.OLLAMA_KEY || "nexo-ollama-2026";
+
+// Groq API endpoint (piano gratuito).
+export const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+// Modello router: llama-3.3-70b-versatile è il più recente disponibile su Groq
+// (sostituisce llama-3.1-70b-versatile deprecato). Latenza tipica 200-500ms.
+export const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // ─── Primary Firebase app (nexo-hub-15f2d) ─────────────────────
 if (!getApps().length) initializeApp();
@@ -776,6 +802,67 @@ export function extractFirstJSON(text) {
   const e = candidate.lastIndexOf("}");
   if (s === -1 || e === -1 || e <= s) return null;
   return candidate.slice(s, e + 1);
+}
+
+// Riconosce errori Groq per cui ha senso fare fallback su Ollama:
+// 401/403 (auth/key invalida), 429 (rate limit), 5xx (downtime), errori
+// di rete (fetch fallito, timeout). 400 invece NO — è prompt malformato
+// e il fallback non aiuterebbe.
+export function isGroqTransientError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  if (/groq\s+(401|403|429|5\d\d)/.test(msg)) return true;
+  if (/rate.?limit|quota|insufficient/.test(msg)) return true;
+  if (/fetch failed|network|timeout|enotfound|econnrefused|aborterror|aborted/.test(msg)) return true;
+  if (/no_groq_key/.test(msg)) return true;
+  return false;
+}
+
+// Chiama Groq (piano gratuito) con chat completion API OpenAI-compatible.
+// Ritorna { text, usage, model } analogo a callOllamaIntent.
+// `responseFormatJson=true` forza il modello a produrre JSON valido.
+export async function callGroqIntent({ apiKey, system, user, model = GROQ_MODEL, maxTokens = 400, timeoutMs = 15000, responseFormatJson = true }) {
+  if (!apiKey) throw new Error("no_groq_key");
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), timeoutMs);
+  const body = {
+    model,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    temperature: 0,
+    max_tokens: maxTokens,
+  };
+  if (responseFormatJson) body.response_format = { type: "json_object" };
+  try {
+    const resp = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`Groq ${resp.status}: ${t.slice(0, 200)}`);
+    }
+    const json = await resp.json();
+    const text = String(json.choices?.[0]?.message?.content || "").trim();
+    return {
+      text,
+      usage: {
+        prompt_tokens: json.usage?.prompt_tokens || 0,
+        completion_tokens: json.usage?.completion_tokens || 0,
+        total_tokens: json.usage?.total_tokens || 0,
+        model,
+      },
+      model,
+    };
+  } finally {
+    clearTimeout(tid);
+  }
 }
 
 // Chiama Ollama con prompt single-shot (system + user concatenati nel campo

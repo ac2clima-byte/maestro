@@ -2,9 +2,11 @@
 import {
   db, FieldValue, logger,
   ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
+  GROQ_MODEL, getGroqApiKey,
   naturalize,
   oggiPromptItalia,
   callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_FAST, OLLAMA_MODEL_SMART,
+  callGroqIntent, isGroqTransientError,
 } from "./shared.js";
 
 // Import dei 10 Colleghi
@@ -498,7 +500,10 @@ export const DIRECT_HANDLERS = [
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "charta" && /(esposizion|scadut.*client|credit|debit)/.test(az))
-      || /esposizione.*client|quanto.*deve|credit.*verso/.test(m);
+      || /esposizione.*client|esposizione.*cliente/.test(m)
+      || /\b(quant\w*\s+deve|chi\s+(?:ci\s+)?deve|chi\s+mi\s+deve|chi\s+devo\s+riscuoter)/i.test(m)
+      || /\bcredit[oi]\s+(?:verso|nei\s+confronti|aperti?|pendenti?|scaduti?)\b/i.test(m)
+      || /^\s*(?:i\s+)?credit[oi]\s*\??\s*$/i.test(m);
   }, fn: handleChartaEsposizioneCliente },
   { match: (col, az) => col === "charta" && /(incass|pagament|accredit|bonifico)/.test(az) && /(oggi|today)/.test(az), fn: handleChartaIncassiOggi },
   { match: (col, az) => col === "charta" && /(fattura|scadut|incass|pagament|accredit)/.test(az), fn: handleFattureScadute },
@@ -599,8 +604,12 @@ export const DIRECT_HANDLERS = [
   }, fn: handleDikeaImpiantiSenzaTarga },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
-    if (col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz)/.test(az)) return true;
-    return /scadenze\s+curit|curit\s+(prossim|in\s+scadenza)/i.test(m);
+    if (col === "dikea" && /(curit|ree|bollino|compliance|normat|scadenz|fgas|f.gas)/.test(az)) return true;
+    if (/scadenze\s+curit|curit\s+(prossim|in\s+scadenza)/i.test(m)) return true;
+    // F-Gas: "scadenze F-Gas", "F-Gas in scadenza", "controlli F-Gas"
+    if (/\b(?:scadenze|controll[oi]|verifich\w+|prossim\w+)\s+f\s*[-‐]?\s*gas\b/i.test(m)) return true;
+    if (/\bf\s*[-‐]?\s*gas\s+(?:in\s+scadenza|prossim\w+|da\s+verifica|scadut)/i.test(m)) return true;
+    return false;
   }, fn: handleDikeaScadenzeCurit },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
@@ -1169,6 +1178,12 @@ function isDevRequest(userMessage) {
   // a fine frase (niente oggetto dopo).
   const feedbackAvverbioFineRe = /\bnon\s+(?:si\s+)?(?:funzion\w+|va|parte|carica\w*|risponde\w*)\s+(più|piu|sempre|tanto|molto)\s*(?:$|[,.?!])/i;
   if (lamenteleRe.test(t) && !feedbackAssolutoRe.test(t) && !feedbackAvverbioFineRe.test(t)) return true;
+  // "è rotto X" / "X è rotto" / "ho un bug su X" / "c'è un bug in X"
+  // NB: \b non funziona con vocali accentate in JS, uso lookahead/anchor.
+  if (/(?:^|\s)(?:è|e['])\s+rott[oa]\s+\S/i.test(t)) return true;
+  if (/\w+\s+(?:è|e['])\s+rott[oa](?:\s|$|[,.?!])/i.test(t)) return true;
+  if (/\bho\s+(?:un|trovato\s+un)\s+bug\b/i.test(t)) return true;
+  if (/\bc['']?\s*(?:è|e)\s+un\s+bug\s+(?:su|in|nel|nella)\b/i.test(t)) return true;
   return false;
 }
 
@@ -1433,40 +1448,79 @@ export async function callHaikuForIntent(apiKey, messages) {
   return { text, usage: json.usage || {} };
 }
 
-// ─── Intent router — Strategia B: Ollama unico LLM ─────────────
-// Decisione 2026-04-28: Anthropic Haiku rimosso dal routing per indipendenza
-// dal balance API. Tutto il routing semantico passa da Ollama qwen2.5:1.5b
-// su Hetzner NEXO. Le pattern frequenti sono coperte da regex L1 in
-// DIRECT_HANDLERS e arrivano qui SOLO i casi fuzzy.
+// ─── Intent router — Architettura 3-livelli ────────────────────
+// L1 (regex DIRECT_HANDLERS) gestita upstream in index.js/forge.js.
+// Quando il messaggio arriva qui, L1 ha già fallito. Tentativo:
 //
-// Mantengo `apiKey` come parametro per compatibilità firma ma non viene usato.
-// Il param resta per rollback rapido (rimettere try Haiku) se necessario.
+//   L2 — Groq API (llama-3.3-70b, ~200-500ms, 14400 req/giorno gratis)
+//   L3 — Ollama qwen2.5:7b fallback (locale, latente ma sempre disponibile)
 //
-// Restituisce { text, usage, source } con source="ollama".
+// Decisione 2026-04-28: Groq sostituisce sia Haiku (balance esaurito) sia
+// qwen2.5:1.5b primario (allucinazioni caotiche su prompt fuzzy). Modello
+// 70B su TPU Groq dà routing di qualità Haiku-like a costo zero.
+//
+// Mantengo `apiKey` (Anthropic) come parametro per compatibilità firma —
+// non viene più usato dal router. Idem, ANTHROPIC_API_KEY resta come secret
+// perché altri moduli (calliope sonnet) ne fanno uso.
+//
+// Restituisce { text, usage, source } con source ∈ {"groq","ollama"}.
 export async function callIntentRouter(apiKey, messages) {
   // Ricostruisci system + user concatenando l'ultimo turno utente.
-  // Per Ollama il contesto conversazionale lungo non aiuta (modello piccolo,
-  // performance crollano). Mandiamo solo l'ultimo userMessage + system prompt
-  // compatto.
   const lastUser = [...messages].reverse().find(m => m.role === "user");
   const userText = lastUser ? String(lastUser.content || "") : "";
   const dateHeader = `OGGI è ${oggiPromptItalia()}.\n\n`;
   const systemCompact = dateHeader + buildOllamaSystemPrompt();
+
+  // ─── L2: Groq ─────────────────────────────────────────────────
+  const groqKey = getGroqApiKey();
+  if (groqKey) {
+    try {
+      const r = await callGroqIntent({
+        apiKey: groqKey,
+        system: systemCompact,
+        user: userText,
+        model: GROQ_MODEL,
+        maxTokens: 300,
+        timeoutMs: 15000,
+        responseFormatJson: true,
+      });
+      return {
+        text: r.text,
+        usage: { ...r.usage, source: "groq" },
+        source: "groq",
+      };
+    } catch (e) {
+      if (!isGroqTransientError(e)) {
+        // Errore non transient (es. 400 prompt malformato): rilancia
+        logger.error("nexus groq permanent error", { error: String(e).slice(0, 200) });
+        throw e;
+      }
+      logger.warn("nexus groq transient, falling back to ollama 7b", {
+        error: String(e).slice(0, 200),
+      });
+    }
+  } else {
+    logger.warn("nexus no GROQ_API_KEY, using ollama as primary");
+  }
+
+  // ─── L3: Ollama qwen2.5:7b fallback ───────────────────────────
+  // Uso il 7b (non 1.5b) qui perché il fallback è raro: vale la pena la
+  // latenza extra per qualità migliore. Cold start ~25s, caldo ~10s.
   try {
     const r = await callOllamaIntent({
       system: systemCompact,
       user: `Messaggio utente: ${userText}\n\nRispondi SOLO con il JSON.`,
-      model: OLLAMA_MODEL_FAST,
-      maxTokens: 250,
-      timeoutMs: 45000,
+      model: OLLAMA_MODEL_SMART,
+      maxTokens: 300,
+      timeoutMs: 60000,
     });
     return {
       text: r.text,
-      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6), model: OLLAMA_MODEL_FAST },
+      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6), model: OLLAMA_MODEL_SMART, source: "ollama" },
       source: "ollama",
     };
   } catch (e) {
-    logger.error("nexus ollama call failed", { error: String(e).slice(0, 200) });
+    logger.error("nexus ollama L3 fallback failed", { error: String(e).slice(0, 200) });
     throw e;
   }
 }
