@@ -494,10 +494,14 @@ export const DIRECT_HANDLERS = [
   // interventi_aperti, perché matchando per primo intercetta i comandi di
   // creazione ("metti/programma/fissa intervento") che altrimenti
   // cadrebbero su interventi_aperti (che è una query).
+  // GUARD: il userMessage DEVE contenere un verbo di creazione esplicito.
+  // Senza guard, Ollama allucinava `crea_intervento` su qualunque prompt
+  // fuzzy menzionasse un condominio (es. "abbiamo un condominio fiordaliso?").
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
+    if (!isCreaInterventoCommand(m)) return false;
     if (col === "ares" && /(crea_intervent|metti_intervent|programma_intervent|fissa_intervent)/.test(az)) return true;
-    return isCreaInterventoCommand(m);
+    return true;
   }, fn: handleAresCreaIntervento },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
