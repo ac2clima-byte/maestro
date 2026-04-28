@@ -14323,3 +14323,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #32  FAILED: Expecting ',' delimiter: line 66 column 4 (char 2164)
   #33  RISPOSTA_CLIENTE              high    neutro       starvo@tin.it                             → PREPARA_PREVENTIVO
 [2026-04-28T16:31:32Z] ─── fine ciclo ───
+[2026-04-28T16:36:32Z] ─── inizio ciclo IRIS (limit=50) ───
