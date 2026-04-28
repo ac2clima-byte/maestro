@@ -14818,3 +14818,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #29  FAILED: Expecting ',' delimiter: line 66 column 8 (char 2683)
   #30  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → INOLTRA
 [2026-04-28T18:46:33Z] ─── fine ciclo ───
+[2026-04-28T18:51:33Z] ─── inizio ciclo IRIS (limit=50) ───
