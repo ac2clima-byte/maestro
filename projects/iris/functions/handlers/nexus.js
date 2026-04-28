@@ -1138,6 +1138,10 @@ function isDevRequest(userMessage) {
   }
   // Se c'è una richiesta molto esplicita ("vorrei", "puoi fare") basta 1 match
   if (/\b(vorrei|puoi\s+fare|puoi\s+aggiungere|serve\s+che|mi\s+serve|fammi|crea\w*)\b/i.test(t)) return true;
+  // Lamentela esplicita "non funziona/va/parte/carica X" è SEMPRE bug report.
+  // Lo \s+\w richiede un oggetto dopo: evita falsi positivi su "non va bene"
+  // o "non funziona così" (frasi di feedback su una risposta NEXUS).
+  if (/\bnon\s+(funzion\w+|va\b|parte\b|carica\w+|risponde|risponde\w*)\s+\w/i.test(t)) return true;
   return false;
 }
 
