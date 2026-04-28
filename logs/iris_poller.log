@@ -15611,3 +15611,35 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #32  COMUNICAZIONE_INTERNA         high    neutro       amministrazione@cima.it                   → RISPONDI
 [2026-04-28T22:22:34Z] ─── fine ciclo ───
 [2026-04-28T22:27:34Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-04-28T22:31:34Z] ERR: ciclo FAILED (rc=124): ultime righe:
+  #3  NEWSLETTER_SPAM               high    neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #4  FATTURA_FORNITORE             medium  neutro       roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
+  #5  COMUNICAZIONE_INTERNA         high    neutro       cerutti.ing@gmail.com                     → INOLTRA
+  #6  NEWSLETTER_SPAM               high    neutro       noreply@email.alleanza.it                 → ARCHIVIA
+  #7  COMUNICAZIONE_INTERNA         high    positivo     andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #8  COMUNICAZIONE_INTERNA         high    neutro       massimo.poggi@guazzottienergia.com        → ARCHIVIA
+  #9  COMUNICAZIONE_INTERNA         high    neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #10  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #11  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → VERIFICA_PAGAMENTO
+  #12  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → RISPONDI
+  #13  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #14  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #15  COMUNICAZIONE_INTERNA         high    positivo     fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #16  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #17  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #18  COMUNICAZIONE_INTERNA         medium  neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #19  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #20  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #21  FAILED: Expecting ',' delimiter: line 52 column 4 (char 2092)
+  #22  FAILED: Expecting ',' delimiter: line 61 column 4 (char 1965)
+  #23  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #24  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #25  FAILED: Expecting ',' delimiter: line 66 column 8 (char 2808)
+  #26  FAILED: Expecting ',' delimiter: line 49 column 4 (char 1757)
+  #27  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #28  FAILED: Expecting ',' delimiter: line 48 column 4 (char 1743)
+  #29  FAILED: Expecting ',' delimiter: line 67 column 4 (char 2125)
+  #30  FAILED: Expecting ',' delimiter: line 53 column 4 (char 2072)
+  #31  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #32  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+[2026-04-28T22:31:34Z] ─── fine ciclo ───
