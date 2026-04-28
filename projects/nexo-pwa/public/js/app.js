@@ -2400,6 +2400,7 @@ const nexusVoice = {
   interimText: "",
   finalText: "",
   silenceTimer: null,
+  watchdogTimer: null,   // watchdog 8s per browser che non emettono final
   paused: false,         // true quando NEXUS sta parlando
 };
 const NEXUS_VOICE_SILENCE_MS = 1500; // 1.5s di silenzio → auto-invio
