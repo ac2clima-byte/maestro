@@ -1,33 +1,17 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-28T12:57:58.049Z
+Ultimo aggiornamento: 2026-04-28T13:20:49.097Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
-Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 117030s
-Timestamp Firestore: 2026-04-28T12:57:58.119Z
+Errore lettura codeStatus: Command failed: curl -fsS --max-time 8 https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
+curl: (22) The requested URL returned error: 500
 
-<details><summary>Payload JSON</summary>
-
-```json
-{
-  "fase": "idle",
-  "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 117029.875423118,
-  "timestamp": "2026-04-28T12:57:58.119Z"
-}
-```
-
-</details>
 
 ## Task pending
 Nessuno.
 
 ## Ultimi 5 commit
-- 512788d auto: pre-pull commit
-- e076a80 auto: pre-pull commit
-- 28c9e28 auto: pre-pull commit
-- 4199a1b auto: pre-pull commit
-- 6197c3a auto: pre-pull commit
+- 4fd8d0e auto: pre-pull commit
+- a751a5c auto: pre-pull commit
+- d3fe35e auto: pre-pull commit
+- 7f9f915 auto: pre-pull commit
+- bb48416 result: routing-groq-regex-ollama-fallback
