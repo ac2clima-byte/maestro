@@ -823,6 +823,7 @@ const TECNICI_ACG_UPPER = TECNICI_ACG.map(t => t.toUpperCase());
 // whitelist 9 tecnici.
 function _extractTecniciCrea(userMessage, parametri) {
   const out = new Set();
+  const m = String(userMessage || "").toLowerCase();
   const add = (raw) => {
     const t = String(raw || "").trim().toLowerCase();
     if (!t) return;
@@ -831,13 +832,27 @@ function _extractTecniciCrea(userMessage, parametri) {
     }
   };
 
-  // 1. Da parametri (Haiku)
-  if (Array.isArray(parametri.tecnici)) for (const t of parametri.tecnici) add(t);
+  // 1. Da parametri (Haiku/Ollama) — con sanity check anti-allucinazione:
+  // se il LLM mette ≥5 tecnici e nessuno è citato esplicitamente nel
+  // messaggio, ignora la lista (è quasi certamente un'allucinazione tipo
+  // "tutti i tecnici della whitelist"). Eccezione: "tutti/ognuno" nel
+  // messaggio è un override esplicito.
+  if (Array.isArray(parametri.tecnici)) {
+    const fromLLM = parametri.tecnici.length;
+    const explicitInMsg = TECNICI_ACG.filter(n => new RegExp(`\\b${n}\\b`, "i").test(m)).length;
+    const meansAll = /\b(tutti|tutte|ognuno|ognuna|tutto)\b/i.test(m);
+    if (fromLLM >= 5 && explicitInMsg === 0 && !meansAll) {
+      logger.warn("ares: ignored LLM tecnici list (likely hallucination)",
+        { count: fromLLM, msgPreview: m.slice(0, 80) });
+    } else {
+      for (const t of parametri.tecnici) add(t);
+    }
+  }
   if (parametri.tecnico) add(parametri.tecnico);
   if (parametri.nome) add(parametri.nome);
 
-  // 2. Pattern "con [tecnico]" / "con [A] e [B]"
-  const m = String(userMessage || "").toLowerCase();
+  // 2. Pattern "con [tecnico]" / "con [A] e [B]" — usa la variabile m già
+  // dichiarata in alto.
   const conM = m.match(/\bcon\s+([a-zà-ÿ\s,e]+?)(?:\s*(?:domani|oggi|ieri|stamani|stamattina|alle|al\b|alla\b|allo\b|in\b|presso\b|per\b|a\s|$|[,.\?!]))/i);
   if (conM) {
     for (const part of conM[1].split(/\s+e\s+|\s*,\s*/)) add(part);

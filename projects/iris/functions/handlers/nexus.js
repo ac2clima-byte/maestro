@@ -16,7 +16,7 @@ import {
 } from "./iris.js";
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleBozzePendenti, handleApriBozza, handlePreventiviEmessi } from "./preventivo.js";
-import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE } from "./memo.js";
+import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE, handleMemoCercaCondominio } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
 import { handleEchoWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
@@ -463,6 +463,18 @@ export const DIRECT_HANDLERS = [
     if (col === "memo" && /(chi_e|chi_è|persona|rubrica)/.test(az)) return true;
     return /^\s*chi\s+(?:è|e)\s+\S+/i.test(m);
   }, fn: handleMemoChiE },
+  // MEMO — cerca condominio/cliente (query esistenziali "abbiamo X?")
+  // PRIMA del dossier perché "abbiamo un condominio X" può confondersi
+  // con dossier generico.
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (col === "memo" && /(cerca_condom|trova_condom|esiste_cond|abbiamo_cond|cerca_client|esiste_client)/.test(az)) return true;
+    // "abbiamo/c'è/esiste/conosci/ho un/il condominio/cliente X?"
+    if (/\b(?:abbiamo|c['']?\s*è|c['']?\s*sono|esiste|esistono|conosci|hai|ho)\s+(?:un[oa]?\s+|il\s+|la\s+|lo\s+|gli\s+|i\s+|le\s+)?(?:condominio|cond\.|palazzin\w+|residenz\w+|stabile|cliente|client[ie])\s+\S/i.test(m)) return true;
+    // "il condominio X è in anagrafica? / esiste? / c'è?"
+    if (/\b(?:il|la|lo)\s+(?:condominio|cond\.|cliente)\s+\S+.*\b(?:è\s+in\s+anagrafic|esiste|c['']?\s*è|nel\s+crm|in\s+rubric)/i.test(m)) return true;
+    return false;
+  }, fn: handleMemoCercaCondominio },
   // MEMO — dossier generico (fallback su condominio/cliente)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
@@ -1421,38 +1433,25 @@ export async function callHaikuForIntent(apiKey, messages) {
   return { text, usage: json.usage || {} };
 }
 
-// ─── Intent router con fallback Ollama ─────────────────────────
-// Prova Haiku per primo. Se fallisce con errore "transient" (balance,
-// rate limit, downtime, network) cade su Ollama qwen2.5:7b locale.
-// Restituisce sempre { text, usage, source } dove source ∈ {"haiku","ollama"}.
+// ─── Intent router — Strategia B: Ollama unico LLM ─────────────
+// Decisione 2026-04-28: Anthropic Haiku rimosso dal routing per indipendenza
+// dal balance API. Tutto il routing semantico passa da Ollama qwen2.5:1.5b
+// su Hetzner NEXO. Le pattern frequenti sono coperte da regex L1 in
+// DIRECT_HANDLERS e arrivano qui SOLO i casi fuzzy.
+//
+// Mantengo `apiKey` come parametro per compatibilità firma ma non viene usato.
+// Il param resta per rollback rapido (rimettere try Haiku) se necessario.
+//
+// Restituisce { text, usage, source } con source="ollama".
 export async function callIntentRouter(apiKey, messages) {
-  if (apiKey) {
-    try {
-      const r = await callHaikuForIntent(apiKey, messages);
-      return { text: r.text, usage: r.usage, source: "haiku" };
-    } catch (e) {
-      if (!isHaikuTransientError(e)) throw e;
-      logger.warn("nexus haiku transient error, falling back to ollama", {
-        error: String(e).slice(0, 200),
-      });
-    }
-  } else {
-    logger.warn("nexus no anthropic key, using ollama as primary");
-  }
-
-  // Ollama: ricostruisci system + user concatenando l'ultimo turno utente.
+  // Ricostruisci system + user concatenando l'ultimo turno utente.
   // Per Ollama il contesto conversazionale lungo non aiuta (modello piccolo,
   // performance crollano). Mandiamo solo l'ultimo userMessage + system prompt
-  // potato (rimuoviamo solo la parte tono/stile, manteniamo elenco colleghi).
+  // compatto.
   const lastUser = [...messages].reverse().find(m => m.role === "user");
   const userText = lastUser ? String(lastUser.content || "") : "";
   const dateHeader = `OGGI è ${oggiPromptItalia()}.\n\n`;
-  // System prompt compatto per Ollama: solo schema colleghi + formato JSON.
   const systemCompact = dateHeader + buildOllamaSystemPrompt();
-  // qwen2.5:1.5b: ~6× più veloce del 7b su CPU-only, meno qualità ma il
-  // routing semplice (collega+azione) tiene. I casi complessi (creazione
-  // intervento, preventivo) sono già intercettati a regex livello 1 e
-  // workflow dedicati, non passano da qui.
   try {
     const r = await callOllamaIntent({
       system: systemCompact,
@@ -1467,7 +1466,7 @@ export async function callIntentRouter(apiKey, messages) {
       source: "ollama",
     };
   } catch (e) {
-    logger.error("nexus ollama fallback failed", { error: String(e).slice(0, 200) });
+    logger.error("nexus ollama call failed", { error: String(e).slice(0, 200) });
     throw e;
   }
 }
@@ -1481,13 +1480,13 @@ Rispondi SOLO con un oggetto JSON valido (niente code fence, niente prosa). Sche
 {"collega":"<slug>","azione":"<snake_case>","parametri":{...},"confidenza":0.0-1.0,"rispostaUtente":"<1-2 frasi italiano colloquiale>"}
 
 COLLEGHI E AZIONI:
-- iris (email): cerca_email_urgenti, email_oggi, email_totali, email_recenti, email_altre, leggi_email, email_senza_risposta, ricerca_email_mittente, email_per_categoria, analizza_email
+- iris (email): email_recenti (default per "guarda mail/mostra email"), email_oggi, email_totali, leggi_email, email_senza_risposta, ricerca_email_mittente, email_per_categoria, analizza_email, cerca_email_urgenti (SOLO se l'utente dice "urgenti/urgente")
 - echo (WA): wa_inbox, wa_analizza_ultimo, send_whatsapp
 - ares (interventi COSMINA): interventi_aperti (QUERY: "interventi di X", "che ha fatto X"), crea_intervento (CREAZIONE: "metti/programma/fissa intervento")
   parametri ares.crea_intervento: {tecnici:["MARCO"], data:"oggi/domani/lunedì", ora:"09:00", condominio:"X", descrizione:"Y"}
   parametri ares.interventi_aperti: {tecnico:"Marco", data:"oggi", citta:"alessandria"}
 - chronos (agende/scadenze/campagne): agenda_giornaliera (param: tecnico, data), scadenze_prossime, slot_tecnico, campagne_attive, campagna_status (param: nome)
-- memo (clienti CRM): dossier_cliente, lista_tecnici, chi_e_persona (param: nome), ricerca_indirizzo
+- memo (clienti CRM): cerca_condominio (param: nome — per "abbiamo/c'è/esiste un condominio X?"), dossier_cliente, lista_tecnici, chi_e_persona (param: nome), ricerca_indirizzo
 - charta (amministrazione): fatture_scadute, incassi_oggi, report_mensile (param: mese), esposizione_cliente (param: nome)
 - emporion (magazzino): disponibilita, sotto_scorta
 - dikea (compliance): scadenze_curit, impianti_senza_targa
@@ -1495,19 +1494,27 @@ COLLEGHI E AZIONI:
 - pharo (RTI/monitoring): stato_suite, rti_pronti_fattura, bozze_crti_per_tecnico (param: tecnico)
 - calliope (preventivi/bozze): bozze_pendenti, preventivi_emessi, bozza_risposta
 - orchestrator (workflow): preparare_preventivo (param: condominio, committente, oggetto)
-- nessuno: saluti, chiarimenti
+- nessuno: saluti, chiarimenti, lamentele
 
 REGOLE:
 - "interventi di X" / "che ha fatto X" / "X aveva interventi" → ares/interventi_aperti
-- "metti/programma/fissa intervento a X" → ares/crea_intervento
+- "metti/programma/fissa/crea intervento a X" → ares/crea_intervento (SOLO con verbo creazione esplicito!)
 - "agenda di X" → chronos/agenda_giornaliera
 - "esposizione cliente Y" / "quanto deve Y" → charta/esposizione_cliente
 - "guarda mail / mostrami email" → iris/email_recenti
-- "mail urgenti" → iris/cerca_email_urgenti
+- "mail urgenti" / "email urgenti" → iris/cerca_email_urgenti (SOLO con keyword "urgent[ie]"!)
+- "abbiamo X / c'è X / esiste X / conosci X?" → memo/cerca_condominio (NON iris, NON ares!)
+- "non funziona X / non parte X / non si carica X" → nessuno/chiarimento (è un bug report, NON iris/cerca_email_urgenti)
 - "RTI pronti" → pharo/rti_pronti_fattura
 - "scadenze curit" → dikea/scadenze_curit
 - "prepara preventivo per X" → orchestrator/preparare_preventivo
 - "lista preventivi" / "preventivi emessi" → calliope/preventivi_emessi
+- "ciao / buongiorno / grazie" → nessuno/saluto
+
+REGOLA ANTI-ALLUCINAZIONE:
+Se il messaggio è una domanda esistenziale ("abbiamo X?") NON usare crea_intervento.
+Se il messaggio è una lamentela ("non funziona X") NON usare cerca_email_urgenti.
+Se il messaggio non è chiaro, usa collega="nessuno" azione="chiarimento".
 
 Tecnici ACG: Aime David, Albanesi Gianluca, Contardi Alberto, Dellafiore Lorenzo, Dellafiore Victor, Leshi Ergest, Piparo Marco, Tosca Federico, Troise Antonio.
 

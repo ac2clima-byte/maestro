@@ -647,3 +647,123 @@ export async function handleMemoChiE(parametri, ctx) {
     },
   };
 }
+
+// ─── handleMemoCercaCondominio ─────────────────────────────────
+// Risponde a query esistenziali "abbiamo / c'è / esiste / conosci un
+// condominio X?". Cerca in bacheca_cards (boardName canonico) e
+// crm_clienti (denominazione/ragione sociale).
+//
+// Trigger regex L1 in nexus.js. Parametri opzionali:
+//   {nome, condominio, cliente} — sennò estrae dal userMessage.
+export async function handleMemoCercaCondominio(parametri, ctx) {
+  const userMessage = String((ctx && ctx.userMessage) || "");
+  let q = String(parametri.nome || parametri.condominio || parametri.cliente || "").trim();
+  if (!q) q = _parseNomeQuery(userMessage);
+  if (!q || q.length < 3) {
+    return { content: "Quale condominio o cliente devo cercare?" };
+  }
+  const qLow = q.toLowerCase();
+
+  const cosm = getCosminaDb();
+  const matches = [];
+
+  // 1. bacheca_cards.boardName (deduplica per boardName)
+  try {
+    const snap = await cosm.collection("bacheca_cards").limit(2000).get();
+    const seen = new Set();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const board = String(v.boardName || "").trim();
+      if (!board) return;
+      if (seen.has(board)) return;
+      if (board.toLowerCase().includes(qLow)) {
+        seen.add(board);
+        matches.push({ source: "bacheca_cards", boardName: board });
+      }
+    });
+  } catch (e) {
+    logger.warn("memo cerca_condominio bacheca_cards failed", { error: String(e).slice(0, 120) });
+  }
+
+  // 2. crm_clienti.denominazione/ragione_sociale (in caso il condominio
+  //    non abbia ancora card in bacheca, ma esista in anagrafica)
+  try {
+    const snap = await cosm.collection("crm_clienti").limit(700).get();
+    snap.forEach(d => {
+      const v = d.data() || {};
+      const den = String(v.denominazione || v.ragione_sociale || v.nome || "").trim();
+      if (!den) return;
+      if (den.toLowerCase().includes(qLow)) {
+        // Evita duplicati con quanto già trovato in bacheca_cards
+        const dup = matches.some(m => m.boardName && m.boardName.toLowerCase().includes(den.toLowerCase()));
+        if (!dup) {
+          matches.push({
+            source: "crm_clienti",
+            denominazione: den,
+            indirizzo: v.indirizzo || "",
+            citta: v.citta || "",
+          });
+        }
+      }
+    });
+  } catch (e) {
+    logger.warn("memo cerca_condominio crm failed", { error: String(e).slice(0, 120) });
+  }
+
+  if (!matches.length) {
+    return {
+      content: `Non trovo nessun condominio o cliente con "${q}". Verifica il nome o prova diversamente.`,
+      data: { query: q, matches: [] },
+    };
+  }
+
+  // Render risposta
+  if (matches.length === 1) {
+    const r = matches[0];
+    if (r.boardName) {
+      return {
+        content: `Sì, c'è ${r.boardName}.`,
+        data: { query: q, matches },
+      };
+    }
+    const indir = r.indirizzo ? ` in ${r.indirizzo}` : "";
+    const citta = r.citta ? ` (${r.citta})` : "";
+    return {
+      content: `Sì, c'è ${r.denominazione}${indir}${citta}.`,
+      data: { query: q, matches },
+    };
+  }
+
+  // Più match: lista breve
+  const lines = matches.slice(0, 5).map((r, i) => {
+    if (r.boardName) return `${i + 1}. ${r.boardName}`;
+    const extra = [r.indirizzo, r.citta].filter(Boolean).join(", ");
+    return `${i + 1}. ${r.denominazione}${extra ? " — " + extra : ""}`;
+  });
+  const more = matches.length > 5 ? `\n…e altri ${matches.length - 5}.` : "";
+  return {
+    content: `Ho trovato ${matches.length} risultati per "${q}":\n${lines.join("\n")}${more}`,
+    data: { query: q, matches },
+  };
+}
+
+// Estrae il nome del condominio/cliente dalla domanda esistenziale.
+// Accetta pattern: "abbiamo X?", "c'è X?", "esiste X?", "conosci X?",
+// "ho il cliente X?", "il condominio X è in anagrafica?".
+function _parseNomeQuery(userMessage) {
+  const m = String(userMessage || "").trim();
+  if (!m) return "";
+  // "abbiamo (un/il) condominio X?" / "c'è il cliente X?" / "esiste X?"
+  const re1 = /\b(?:abbiamo|c['']?\s*è|c['']?\s*sono|esiste|conosci|hai|ho)\s+(?:un[oa]?\s+|il\s+|la\s+|lo\s+|gli\s+|i\s+|le\s+)?(?:condominio|cond\.|palazzin\w+|residenz\w+|stabile|cliente|client[ie])\s+([a-zà-ÿ0-9\s\-'\.]{2,60}?)\s*[\?\.\!]?\s*$/i;
+  const m1 = re1.exec(m);
+  if (m1) return m1[1].trim();
+  // "il condominio X è in anagrafica?" / "il cliente X esiste?"
+  const re2 = /\b(?:il|la|lo)\s+(?:condominio|cond\.|cliente)\s+([a-zà-ÿ0-9\s\-'\.]{2,60}?)\s+(?:è\s+in\s+anagrafic|esiste|c['']?\s*è|nel\s+crm)/i;
+  const m2 = re2.exec(m);
+  if (m2) return m2[1].trim();
+  // Fallback: "abbiamo X?" senza articolo (rara)
+  const re3 = /\b(?:abbiamo|c['']?\s*è|esiste|conosci)\s+([a-zà-ÿ0-9][a-zà-ÿ0-9\s\-'\.]{2,60}?)\s*\?/i;
+  const m3 = re3.exec(m);
+  if (m3) return m3[1].trim();
+  return "";
+}

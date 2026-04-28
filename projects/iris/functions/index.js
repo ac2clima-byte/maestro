@@ -623,6 +623,11 @@ export const nexusRouter = onRequest(
     let stato = "assegnata";
     let lavagnaId = null;
 
+    // Colleghi che hanno un onDocumentCreated listener attivo su nexo_lavagna.
+    // Se il LLM dirige a un collega NON in questo set, non posto in lavagna
+    // (il messaggio resterebbe orfano per sempre) e fallback a chiarimento.
+    const COLLEGHI_CON_LISTENER = new Set(["ares", "orchestrator"]);
+
     if (direct && !direct._failed) {
       finalContent = direct.content || finalContent;
       stato = "completata";
@@ -630,21 +635,41 @@ export const nexusRouter = onRequest(
       finalContent = direct.content || finalContent;
       stato = "errore_handler";
     } else if (intent.collega && intent.collega !== "nessuno" && intent.collega !== "multi") {
-      // Postamessage on Lavagna for async processing
-      try {
-        lavagnaId = await postLavagnaFromNexus({
-          collega: intent.collega,
-          azione: intent.azione,
-          parametri: intent.parametri,
-          rispostaUtente: intent.rispostaUtente,
-          userMessage,
-          sessionId,
-          nexusMessageId: userMsgId,
-        });
-        stato = "in_attesa_collega";
-      } catch (e) {
-        logger.error("lavagna post failed", { error: String(e) });
-        stato = "errore_lavagna";
+      if (!COLLEGHI_CON_LISTENER.has(intent.collega)) {
+        // Niente listener async per questo collega: non posto in lavagna,
+        // rispondo onestamente che non ho un handler attivo. Salvo come
+        // dev request così la richiesta non si perde.
+        logger.warn("nexus: collega senza listener", { collega: intent.collega, azione: intent.azione, userMessage: userMessage.slice(0, 80) });
+        finalContent = `Non ho ancora un handler attivo per ${intent.collega}/${intent.azione}. Lo registro come richiesta di sviluppo.`;
+        stato = "no_handler";
+        try {
+          await tryInterceptDevRequest({
+            userMessage: `[auto] no handler ${intent.collega}/${intent.azione}: ${userMessage}`,
+            userId, sessionId,
+          });
+        } catch (e) {
+          logger.warn("nexus: auto dev_request failed", { error: String(e).slice(0, 150) });
+        }
+      } else {
+        // Collega con listener: posta in lavagna ma sostituisci finalContent
+        // con un placeholder onesto (la rispostaUtente del LLM è una promessa,
+        // non un fatto compiuto — non la mostriamo come se il lavoro fosse fatto).
+        try {
+          lavagnaId = await postLavagnaFromNexus({
+            collega: intent.collega,
+            azione: intent.azione,
+            parametri: intent.parametri,
+            rispostaUtente: intent.rispostaUtente,
+            userMessage,
+            sessionId,
+            nexusMessageId: userMsgId,
+          });
+          stato = "in_attesa_collega";
+          finalContent = `Ho passato la richiesta a ${intent.collega} (azione: ${intent.azione}). Aspetto la sua risposta…`;
+        } catch (e) {
+          logger.error("lavagna post failed", { error: String(e) });
+          stato = "errore_lavagna";
+        }
       }
     }
 
