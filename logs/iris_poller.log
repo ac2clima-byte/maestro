@@ -15148,3 +15148,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #29  FATTURA_FORNITORE             high    frustrato    sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
   #30  FAILED: Expecting ',' delimiter: line 67 column 4 (char 2161)
 [2026-04-28T20:16:33Z] ─── fine ciclo ───
+[2026-04-28T20:21:33Z] ─── inizio ciclo IRIS (limit=50) ───
