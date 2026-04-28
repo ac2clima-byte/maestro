@@ -1139,10 +1139,12 @@ function isDevRequest(userMessage) {
   // Se c'è una richiesta molto esplicita ("vorrei", "puoi fare") basta 1 match
   if (/\b(vorrei|puoi\s+fare|puoi\s+aggiungere|serve\s+che|mi\s+serve|fammi|crea\w*)\b/i.test(t)) return true;
   // Lamentela esplicita "non funziona/va/parte/carica/si carica X" è bug report.
-  // Esclusioni: avverbi/aggettivi di feedback ("bene/così/più/affatto/mai/granché")
+  // Esclusioni: avverbi/aggettivi di feedback ("bene/così/più/affatto/mai")
   // che non indicano un oggetto rotto.
-  const lamenteleRe = /\bnon\s+(?:si\s+)?(funzion\w+|va\b|parte\b|carica\w+|risponde\w*)\b/i;
-  const lamenteleFiniteRe = /\bnon\s+(?:si\s+)?(?:funzion\w+|va|parte|carica\w*|risponde\w*)\s+(bene|cos[ìi]|pi[uù]|affatto|mai|granch[ée]|sempre|tanto|molto|tale|niente|nulla)\b/i;
+  // NB: vocali accentate (così/più/granché) non funzionano dentro \b o \w —
+  // usiamo lookahead (?:\s|$|[,.?!]) come terminatore esplicito.
+  const lamenteleRe = /\bnon\s+(?:si\s+)?(funzion\w+|va\b|parte\b|carica\w+|risponde\w*)/i;
+  const lamenteleFiniteRe = /\bnon\s+(?:si\s+)?(?:funzion\w+|va|parte|carica\w*|risponde\w*)\s+(bene|così|cosi|più|piu|affatto|mai|granché|granche|sempre|tanto|molto|tale|niente|nulla)(?=\s|$|[,.?!])/i;
   if (lamenteleRe.test(t) && !lamenteleFiniteRe.test(t)) return true;
   return false;
 }
