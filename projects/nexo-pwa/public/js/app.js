@@ -2562,33 +2562,40 @@ function nexusVoiceResume() {
     const rec = new NEXUS_SR();
     rec.lang = "it-IT";
     rec.continuous = true;
-    // interimResults=false: il browser emette UN solo final per utterance.
-    // Evita il bug iOS/Chrome mobile dove ripetuti isFinal=true cumulativi
-    // ("victologia" → "victologia un" → "victologia un intervento") venivano
-    // concatenati producendo testo gonfio e illeggibile.
-    rec.interimResults = false;
+    // interimResults=true: feedback visivo live durante la dettatura.
+    // CRUCIALE: gli interim NON entrano in finalText e NON triggerano
+    // l'auto-send. Solo i final lo fanno → niente accumulo cumulativo.
+    rec.interimResults = true;
     rec.onstart = () => {
       nexusVoice.listening = true;
       nexusSetMicState("listening");
+      nexusScheduleVoiceWatchdog();
     };
     rec.onresult = (ev) => {
-      let finalChunk = "";
+      let interim = "", finalChunk = "";
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const r = ev.results[i];
         if (r.isFinal) finalChunk += r[0].transcript;
+        else interim += r[0].transcript;
       }
-      if (!finalChunk) return;
-      // Dedup difensiva: alcuni motori SR emettono comunque final cumulativi
-      // (final="abc"; final="abc def"). Se il nuovo chunk INIZIA con l'ultimo
-      // segmento di finalText, sostituisci l'ultimo segmento invece di appendere.
-      nexusVoice.finalText = _mergeFinalChunk(nexusVoice.finalText, finalChunk) + " ";
-      nexusVoice.interimText = "";
+      // Aggiorna interim per feedback visivo (non triggera auto-send).
+      nexusVoice.interimText = interim.trim();
+      // Final: dedup difensiva contro motori SR che emettono final cumulativi.
+      if (finalChunk) {
+        nexusVoice.finalText = _mergeFinalChunk(nexusVoice.finalText, finalChunk) + " ";
+      }
       const ta = $("#nexusInput");
       if (ta) {
-        ta.value = nexusVoice.finalText.trim();
+        ta.value = (nexusVoice.finalText + nexusVoice.interimText).trim();
         nexusAutoResize();
       }
-      nexusScheduleAutoSend();
+      // Auto-send schedulato SOLO sui final → niente invii prematuri.
+      if (finalChunk) {
+        nexusScheduleAutoSend();
+      }
+      // Resetta watchdog ad ogni evento (interim o final): se finora non c'è
+      // ancora final ma sta arrivando interim, allunga il margine.
+      nexusScheduleVoiceWatchdog();
     };
     rec.onerror = (ev) => {
       const err = ev.error || "unknown";
