@@ -188,7 +188,11 @@ function formatStatusMd(codeStatus, pending, commits) {
 // === DEV REQUEST POLL (Firestore → tasks/dev-request-*.md) ===
 // NEXUS scrive le richieste dev in nexo_dev_requests con status="pending".
 // Qui le materializziamo come file md nel repo: MAESTRO al ciclo successivo
-// le intercetta come kind=dev-request e Claude Code le analizza (no impl).
+// le intercetta come kind=dev-request e Claude Code le esegue end-to-end
+// (autonomo, decisione 2026-04-28): analizza, fixa, deploya, committa,
+// risponde. Niente più "solo analisi" obbligatoria.
+// Eccezione: per fix rischiosi (schema, sicurezza, prod massive)
+// Claude Code può scegliere di scrivere solo l'analisi e fermarsi.
 // NB: scripts/dev_request_poller.mjs fa una cosa simile sulla collection
 // _queue, è rimasto come fallback ma il path canonico è questo dentro MAESTRO.
 async function pollDevRequests() {
@@ -266,11 +270,36 @@ async function pollDevRequests() {
       lines.push('> ' + richiesta.replace(/\n/g, '\n> '));
       lines.push('');
     }
-    lines.push('## Cosa fare (Claude Code)');
+    lines.push('## Cosa fare (Claude Code) — MODALITÀ AUTONOMA');
     lines.push('');
-    lines.push('1. Leggi il codice coinvolto (handler, PWA, scripts).');
-    lines.push(`2. Scrivi analisi in tasks/dev-analysis-${safeId}.md (diagnosi, file/righe, proposta, rischi, effort).`);
-    lines.push('3. NON implementare. Solo analisi, poi commit e push.');
+    lines.push('Decisione 2026-04-28: per le dev-request `bug_from_chat` e `generic`,');
+    lines.push('Claude Code **analizza, fixa, deploya, testa, committa, risponde** end-to-end');
+    lines.push('senza chiedere conferma. Niente più "solo analisi".');
+    lines.push('');
+    lines.push('Flusso normale:');
+    lines.push('');
+    lines.push('1. Analizza il bug (file:riga, root cause)');
+    lines.push('2. Implementa il fix subito (regex, handler, prompt, ecc.)');
+    lines.push(`3. Scrivi (opzionale) tasks/dev-analysis-${safeId}.md — solo se utile per memoria`);
+    lines.push('4. Deploya Cloud Functions / hosting modificato');
+    lines.push(`5. Testa con nexusTestInternal sui pattern del bug (sessionId="forge-test-${safeId}")`);
+    lines.push('6. Commit + push (commit semantico --allow-empty se i file sono già autocommit)');
+    lines.push(`7. Email report ad ac2clima@gmail.com via nexoSendReport con messaggio "${safeId}: [esito]"`);
+    if (isBugFromChat) {
+      const sid = String(data.sessionId || '').replace(/['"]/g, '');
+      lines.push(`8. Scrivi nella chat NEXUS della sessione \`${sid}\`:`);
+      lines.push('   "Fix applicato: [cosa è cambiato]. Riprova."');
+      lines.push('   (collection nexus_chat, role=assistant, content=...)');
+    }
+    lines.push('');
+    lines.push('**Eccezione: SOLO ANALISI** (NIENTE implementazione) se il fix è rischioso:');
+    lines.push('- Modifica schema database o migrazione collection Firestore');
+    lines.push('- Cancellazione/archiviazione massiva dati produzione');
+    lines.push('- Rilascio email/WhatsApp non DRY_RUN a clienti reali');
+    lines.push('- Cambio architetturale invasivo (es. sostituzione layer completo)');
+    lines.push('- Modifica di sicurezza (rules, IAM, secret manager)');
+    lines.push('');
+    lines.push('In quei casi: scrivi solo `tasks/dev-analysis-' + safeId + '.md` con 2-3 alternative e fermati.');
     lines.push('');
     const contenuto = lines.join('\n');
     try {
@@ -485,10 +514,14 @@ async function waitForCompletion() {
 
 // === TASK PROCESSING ===
 // Due tipi di task in tasks/:
-//   1. dev-request-*.md → richieste NEXUS da analizzare (NON eseguire).
-//      MAESTRO le manda a Claude Code con prompt di SOLA ANALISI:
-//      Claude Code scrive l'analisi in tasks/dev-analysis-{id}.md e la pusha.
-//      Il "result" finale è il file dev-analysis, non un result-*.md normale.
+//   1. dev-request-*.md → richieste NEXUS in modalità AUTONOMA (2026-04-28).
+//      MAESTRO le manda a Claude Code con prompt di "analizza + fixa".
+//      Claude Code: diagnostica, implementa, deploya, testa, committa,
+//      risponde nella chat NEXUS, manda email. Per fix rischiosi può
+//      ancora scegliere di scrivere solo `tasks/dev-analysis-{id}.md`.
+//      Il task è "fatto" quando Claude Code completa il prompt;
+//      MAESTRO crea uno stub dev-analysis vuoto se non ce n'è uno reale,
+//      così la coda non riproproduce il task ad ogni ciclo.
 //   2. tutti gli altri .md → task di esecuzione standard.
 //      Claude Code esegue, MAESTRO scrive results/{taskId}.md.
 function getPendingTasks() {
@@ -515,23 +548,32 @@ function getPendingTasks() {
 
 function buildDevRequestPrompt(taskId, devId, originalContent) {
   return [
-    `Hai ricevuto una dev request da NEXUS (utente Alberto). NON IMPLEMENTARE.`,
-    `Devi solo analizzare e proporre.`,
+    `Hai ricevuto una dev request da NEXUS (utente Alberto). MODALITÀ AUTONOMA.`,
+    `Analizza, implementa, testa, deploya, committa, rispondi. Niente conferme.`,
     ``,
-    `Step:`,
-    `1. Leggi il file: tasks/${taskId}.md`,
-    `2. Studia il codice coinvolto (handlers/, projects/nexo-pwa/, scripts/, ecc.).`,
-    `3. Scrivi la tua analisi in: tasks/dev-analysis-${devId}.md`,
-    `   Struttura:`,
-    `   - Diagnosi: cosa succede oggi e perché`,
-    `   - File coinvolti: percorsi e righe specifiche`,
-    `   - Proposta: cosa cambiare, in che ordine, perché`,
-    `   - Rischi e alternative`,
-    `   - Effort stimato (S/M/L)`,
-    `4. Committa e pusha su main: git add tasks/dev-analysis-${devId}.md && git commit -m "analysis: ${devId}" && git push origin main`,
+    `Flusso normale:`,
+    `1. Leggi tasks/${taskId}.md`,
+    `2. Studia il codice coinvolto (handlers/, projects/nexo-pwa/, scripts/, ecc.)`,
+    `3. Diagnostica il bug: file:riga, root cause`,
+    `4. Implementa il fix subito (regex, handler, prompt, UI, ...)`,
+    `5. (Opzionale) Scrivi tasks/dev-analysis-${devId}.md se utile come memoria`,
+    `6. Deploya Cloud Functions / hosting modificato`,
+    `7. Testa con nexusTestInternal sui pattern del bug (sessionId="forge-test-${devId}")`,
+    `8. Commit + push (commit semantico --allow-empty se autocommit ha già preso i file)`,
+    `9. Email report ad ac2clima@gmail.com via nexoSendReport`,
+    `10. Se bug_from_chat: scrivi nella chat NEXUS della sessione "Fix applicato: [cosa]. Riprova."`,
     ``,
-    `IMPORTANTE: NON modificare codice di produzione, solo scrivere il file di analisi.`,
-    `Quando hai finito, torna al prompt.`,
+    `**Eccezione SOLO ANALISI** (no implementazione) se il fix è rischioso:`,
+    `- Modifica schema database o migrazione collection Firestore`,
+    `- Cancellazione/archiviazione massiva dati produzione`,
+    `- Email/WhatsApp non DRY_RUN a clienti reali`,
+    `- Cambio architetturale invasivo`,
+    `- Modifica di sicurezza (rules, IAM, secret manager)`,
+    ``,
+    `In quei casi: scrivi solo tasks/dev-analysis-${devId}.md con 2-3 alternative`,
+    `e fermati. L'utente sceglierà.`,
+    ``,
+    `Vedi CLAUDE.md sezione "Dev Requests — Claude Code AUTONOMO" per dettagli.`,
     ``,
     `--- contenuto richiesta ---`,
     originalContent,
@@ -567,34 +609,60 @@ async function processTask(task) {
   const completed = await waitForCompletion();
 
   if (kind === 'dev-request') {
-    // L'output è tasks/dev-analysis-{devId}.md, scritto e pushato da Claude Code.
-    // MAESTRO non scrive un result-*.md (così il task non sparisce dalla coda
-    // finché l'analisi non è pushata davvero). Tenta un pull per vederla.
-    await updateStatus('pushing_result', { task: taskId, msg: 'pull analisi da Claude Code' });
+    // Modalità AUTONOMA (decisione 2026-04-28): Claude Code può scegliere
+    // tra fix completo (analizza + implementa + deploya + committa) oppure
+    // solo analisi (per bug rischiosi). In entrambi i casi, completed=true
+    // significa che ha terminato — la coda libera il task.
+    //
+    // Il file dev-analysis-{devId}.md resta OPZIONALE: c'è solo se Claude
+    // Code ha scelto la via "solo analisi". Se ha implementato direttamente,
+    // il fix è in commit/result/email — non in un file dev-analysis.
+    await updateStatus('pushing_result', { task: taskId, msg: 'pull risultato da Claude Code' });
     gitPullSafe();
     const analysisPath = join(TASKS_DIR, `dev-analysis-${devId}.md`);
-    const ok = existsSync(analysisPath);
-    console.log(`[DONE] Dev request ${taskId} → analisi ${ok ? 'presente' : 'NON trovata'} (completed=${completed})`);
-    // Aggiorna stato Firestore: se l'analisi esiste → completed, altrimenti
-    // resta in_progress (verrà ritentata al prossimo poll).
+    const hasAnalysis = existsSync(analysisPath);
+    const ok = completed; // autonomo: completed → done, niente vincolo file analysis
+    console.log(`[DONE] Dev request ${taskId} → completed=${completed} | analisi ${hasAnalysis ? 'presente' : 'non scritta (fix diretto)'}`);
     if (ok) {
       try {
         await getDb().collection('nexo_dev_requests').doc(devId).set({
           status: 'completed',
-          analysisFile: `tasks/dev-analysis-${devId}.md`,
+          analysisFile: hasAnalysis ? `tasks/dev-analysis-${devId}.md` : null,
+          autonomousFix: !hasAnalysis,
           completedAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         }, { merge: true });
       } catch (e) {
         console.error(`[DEV-REQ STATUS] update completed fallito per ${devId}: ${e.message}`);
       }
-      // Se la dev-request era bug_from_chat, scrivi un messaggio FORGE
-      // nella sessione NEXUS dell'utente con la sintesi dell'analisi.
-      postForgeAnalysisToChat(devId).catch(e => console.error(`[FORGE→NEXUS] ${e.message}`));
+      // Se la dev-request era bug_from_chat e c'è un analysis md scritto,
+      // pubblica la sintesi nella sessione NEXUS originale. Per i fix
+      // autonomi (no analysis), Claude Code scrive direttamente il
+      // messaggio "Fix applicato: ..." nella chat (vedi prompt step 10).
+      if (hasAnalysis) {
+        postForgeAnalysisToChat(devId).catch(e => console.error(`[FORGE→NEXUS] ${e.message}`));
+      }
+    }
+    // Marker: task md spostato/marcato completato così la coda non lo
+    // ripropone. Modalità autonoma: completed=true basta per liberare.
+    if (ok && !hasAnalysis) {
+      // Crea un marker dev-analysis stub minimale per non far ricadere il
+      // task in coda al prossimo poll (la queue lo skippa se l'analysis
+      // esiste — vedi `getPendingTasks` riga 530-531).
+      try {
+        const stub = `# Dev Request ${devId} — fix autonomo\n\nClaude Code ha implementato il fix end-to-end senza scrivere un'analisi separata.\nVedi commit recenti per i dettagli del fix.\nCompleted: ${new Date().toISOString()}\n`;
+        writeFileSync(analysisPath, stub, 'utf-8');
+        try {
+          execSync(`git add ${analysisPath}`, { cwd: REPO_DIR, stdio: 'pipe', timeout: 5_000 });
+          execSync(`git commit -m "analysis-stub: ${devId} (autonomous fix)"`, { cwd: REPO_DIR, stdio: 'pipe', timeout: 10_000 });
+          gitPullSafe();
+          execSync('git push origin main', { cwd: REPO_DIR, stdio: 'pipe', timeout: 15_000 });
+        } catch {}
+      } catch {}
     }
     // Report email non bloccante
-    sendForgeReport(taskId, ok ? 'PASS (analisi pushata)' : 'FAIL (analisi mancante)',
-      `Dev request: ${taskId}\nDevId: ${devId}\nCompletato: ${completed}\nAnalisi: ${ok ? 'presente' : 'mancante'}`)
+    sendForgeReport(taskId, ok ? 'PASS' : 'FAIL (timeout o aborted)',
+      `Dev request: ${taskId}\nDevId: ${devId}\nCompletato: ${completed}\nAnalisi: ${hasAnalysis ? 'scritta' : 'fix autonomo (no analysis md)'}`)
       .catch(() => {});
     return;
   }

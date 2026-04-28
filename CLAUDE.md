@@ -77,10 +77,42 @@ NEXUS è la chat dove Alberto parla e i Colleghi rispondono.
 - handlers/preventivo.js: 500+ righe, workflow completo
 - Collection: calliope_bozze, charta_preventivi, memo_aziende
 
-## Dev Requests
-- File tasks/dev-request-*.md: NON eseguire come task normale
-- Analizza il problema, scrivi analisi in tasks/dev-analysis-*.md
-- NON implementare, solo analisi e proposta
+## Dev Requests — Claude Code AUTONOMO
+- File `tasks/dev-request-*.md`: vanno eseguiti end-to-end senza
+  conferma (decisione 2026-04-28).
+- Flusso normale per dev-request `type=bug_from_chat` o `type=generic`:
+  1. Analizza il bug (diagnosi, file:riga, root cause)
+  2. **Implementa il fix subito** (NON fermarti all'analisi)
+  3. Deploya le Cloud Functions / hosting modificato
+  4. Testa con `nexusTestInternal` (FORGE) sui pattern del bug
+  5. Commit + push (commit semantico `--allow-empty` se il poller ha
+     già autocommit-tato i file)
+  6. Manda email report ad `ac2clima@gmail.com` via `nexoSendReport`
+  7. Se `type=bug_from_chat`: scrivi nella chat NEXUS della sessione
+     originale "Fix applicato: [cosa è cambiato]. Riprova."
+
+- Eccezione — solo analisi (NIENTE implementazione) quando il fix è
+  **rischioso**:
+  - Modifica schema database / migrazione collection Firestore
+  - Cancellazione/archiviazione massiva dati produzione
+  - Rilascio email a clienti reali / WhatsApp non DRY_RUN
+  - Cambio architetturale invasivo (es. sostituzione completa di un
+    layer come "tutto su Ollama" — chiedi conferma con tre opzioni)
+  - Cambio di sicurezza (rules, IAM, secret manager)
+
+  In quei casi scrivi `tasks/dev-analysis-{ID}.md` con analisi + 2-3
+  proposte alternative e fermati. L'utente sceglierà.
+
+- Categorizzazione tipica:
+  - **Implementa subito**: regex L1 mancante, handler sbagliato, typo,
+    UI fix, prompt LLM da affinare, cache busting, copy in italiano,
+    routing intent, fix latenza non strutturali
+  - **Solo analisi**: schema bacheca_cards, regole Firestore, GDPR,
+    ECHO/WhatsApp produzione, API key/secrets, deploy Railway/Hetzner
+    distruttivi
+
+- Se il task md ha esplicita richiesta "NON IMPLEMENTARE, solo analisi",
+  rispetta quell'istruzione (override esplicito dell'utente).
 
 ## File di contesto MEMO (leggili quando serve)
 - context/memo-firestore-garbymobile.md: schema COSMINA
