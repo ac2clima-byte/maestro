@@ -1,22 +1,22 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-28T13:23:04.473Z
+Ultimo aggiornamento: 2026-04-28T13:31:41.679Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
-Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 118534s
-Timestamp Firestore: 2026-04-28T13:23:02.036Z
+Fase: pushing_result
+Task: salva-groq-api-key
+Dettagli: push risultato
+Uptime: 119047s
+Timestamp Firestore: 2026-04-28T13:31:35.520Z
 
 <details><summary>Payload JSON</summary>
 
 ```json
 {
-  "fase": "idle",
-  "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 118533.904303497,
-  "timestamp": "2026-04-28T13:23:02.036Z"
+  "fase": "pushing_result",
+  "task": "salva-groq-api-key",
+  "dettagli": "push risultato",
+  "uptime": 119046.650358591,
+  "timestamp": "2026-04-28T13:31:35.520Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-28T13:23:02.036Z
 Nessuno.
 
 ## Ultimi 5 commit
-- 3c9e55f auto: pre-pull commit
-- 1a1fbc1 auto: pre-pull commit
-- a6463f7 auto: pre-pull commit
-- 0d100cf auto: pre-pull commit
-- 70f5811 auto: pre-pull commit
+- e76cf3a auto: pre-pull commit
+- ac7707f result: salva-groq-api-key
+- 4ce088a feat(nexo): routing Groq gratuito + Ollama 7b fallback
+- 7b67572 auto: pre-pull commit
+- d541674 auto: pre-pull commit
