@@ -14554,3 +14554,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #30  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
   #31  FAILED: Expecting ',' delimiter: line 52 column 6 (char 2481)
 [2026-04-28T17:34:32Z] ─── fine ciclo ───
+[2026-04-28T17:39:32Z] ─── inizio ciclo IRIS (limit=50) ───
