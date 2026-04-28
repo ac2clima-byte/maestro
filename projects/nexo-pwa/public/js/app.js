@@ -2405,6 +2405,34 @@ const nexusVoice = {
 const NEXUS_VOICE_SILENCE_MS = 1500; // 1.5s di silenzio → auto-invio
 const NEXUS_VOICE_STOP_WORDS = /\b(stop|basta|zitto|fermati|fine)\b/i;
 
+// Merge finalChunk con finalText difendendo da motori SR che emettono
+// final cumulativi. Se il nuovo chunk inizia con l'ultimo segmento (parole
+// dopo l'ultimo punto/virgola/separatore) di finalText, lo sostituisce.
+// Altrimenti append normale.
+function _mergeFinalChunk(existingFinal, newChunk) {
+  const a = (existingFinal || "").replace(/\s+/g, " ").trim();
+  const b = (newChunk || "").replace(/\s+/g, " ").trim();
+  if (!b) return a;
+  if (!a) return b;
+  // Trova l'ultimo segmento di a (dopo l'ultimo .?! o, se assente, tutto a).
+  const sepMatch = a.match(/[.?!]\s+(?=\S)/g);
+  let prefix = "", lastSeg = a;
+  if (sepMatch && sepMatch.length) {
+    const lastIdx = a.lastIndexOf(sepMatch[sepMatch.length - 1]);
+    if (lastIdx > 0) {
+      prefix = a.slice(0, lastIdx + sepMatch[sepMatch.length - 1].length).trim();
+      lastSeg = a.slice(lastIdx + sepMatch[sepMatch.length - 1].length).trim();
+    }
+  }
+  // Se il nuovo chunk inizia con l'ultimo segmento (case-insensitive) e
+  // l'ultimo segmento è almeno 4 char (evita match accidentali su "ok"),
+  // sostituisci.
+  if (lastSeg.length >= 4 && b.toLowerCase().startsWith(lastSeg.toLowerCase())) {
+    return (prefix ? prefix + " " : "") + b;
+  }
+  return a + " " + b;
+}
+
 function nexusVoiceSupported() { return !!NEXUS_SR; }
 
 function nexusSetVoiceStatus(msg, variant = "") {
@@ -2510,23 +2538,30 @@ function nexusVoiceResume() {
     const rec = new NEXUS_SR();
     rec.lang = "it-IT";
     rec.continuous = true;
-    rec.interimResults = true;
+    // interimResults=false: il browser emette UN solo final per utterance.
+    // Evita il bug iOS/Chrome mobile dove ripetuti isFinal=true cumulativi
+    // ("victologia" → "victologia un" → "victologia un intervento") venivano
+    // concatenati producendo testo gonfio e illeggibile.
+    rec.interimResults = false;
     rec.onstart = () => {
       nexusVoice.listening = true;
       nexusSetMicState("listening");
     };
     rec.onresult = (ev) => {
-      let interim = "", finalChunk = "";
+      let finalChunk = "";
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
         const r = ev.results[i];
         if (r.isFinal) finalChunk += r[0].transcript;
-        else interim += r[0].transcript;
       }
-      if (finalChunk) nexusVoice.finalText = (nexusVoice.finalText + " " + finalChunk).trim() + " ";
-      nexusVoice.interimText = interim.trim();
+      if (!finalChunk) return;
+      // Dedup difensiva: alcuni motori SR emettono comunque final cumulativi
+      // (final="abc"; final="abc def"). Se il nuovo chunk INIZIA con l'ultimo
+      // segmento di finalText, sostituisci l'ultimo segmento invece di appendere.
+      nexusVoice.finalText = _mergeFinalChunk(nexusVoice.finalText, finalChunk) + " ";
+      nexusVoice.interimText = "";
       const ta = $("#nexusInput");
       if (ta) {
-        ta.value = (nexusVoice.finalText + nexusVoice.interimText).trim();
+        ta.value = nexusVoice.finalText.trim();
         nexusAutoResize();
       }
       nexusScheduleAutoSend();

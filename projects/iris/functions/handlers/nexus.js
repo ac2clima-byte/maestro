@@ -514,6 +514,13 @@ export const DIRECT_HANDLERS = [
     // Match diretto: "interventi (aperti) di [nome]" / "interventi di [nome] oggi/domani"
     if (/\bintervent[io]\s+(?:apert[io]\s+)?(?:di|del|per)\s+[a-zà-ÿ]/i.test(m)) return true;
     if (/\bintervent[io]\s+(?:di\s+)?oggi\b/i.test(m)) return true;
+    // Query generiche senza tecnico: "che/quali/quanti/cosa interventi … oggi/domani/[giorno]"
+    const dataRe = /\b(oggi|domani|dopodomani|ieri|stamattina|stamane|stasera|stanotte|lunedì|lunedi|martedì|martedi|mercoledì|mercoledi|giovedì|giovedi|venerdì|venerdi|sabato|domenica|\d{1,2}[\/\-]\d{1,2})\b/i;
+    if (/\b(che|quali|quanti|cosa|come)\b.*\bintervent[io]\b/i.test(m) && dataRe.test(m)) return true;
+    // "interventi … oggi/domani/giorno" anche con parole intermedie ("interventi che ci sono oggi")
+    if (/\bintervent[io]\b/i.test(m) && dataRe.test(m)) return true;
+    // "ci sono interventi …" — query esistenziale generica
+    if (/\b(?:ci\s+sono|c['’]\s*è|c['’]\s*sono|abbiamo)\b.*\bintervent[io]\b/i.test(m)) return true;
     // Pattern "[Tecnico] aveva/ha/avrà ... intervento/i …" e "[Tecnico] venerdì …"
     // Accettiamo qualsiasi nome dei 9 tecnici ACG come trigger.
     const tecnRe = /\b(aime|david|albanesi|gianluca|contardi|alberto|dellafiore|lorenzo|victor|leshi|ergest|piparo|marco|tosca|federico|troise|antonio|malvicino)\b/i;
@@ -1242,6 +1249,16 @@ REGOLE:
 - SOLO JSON valido, niente code fence, niente testo extra.
 - Italiano operativo, concreto.`;
 
+// Rapporto parole-uniche / parole-totali. Sotto 0.3 (e ≥20 parole) il
+// testo è quasi certamente rumore vocale ripetitivo da Web Speech API
+// che cumula trascrizioni interim ("victologia victologia un victologia un...").
+function _looksRepetitive(t) {
+  const words = String(t || "").toLowerCase().split(/\s+/).filter(w => w.length >= 3);
+  if (words.length < 20) return false;
+  const unique = new Set(words);
+  return (unique.size / words.length) < 0.3;
+}
+
 function shouldAnalyzeTextDirectly(userMessage) {
   const t = String(userMessage || "").trim();
   if (!t) return false;
@@ -1251,7 +1268,10 @@ function shouldAnalyzeTextDirectly(userMessage) {
   }
   // Heuristica: testo lungo (>200 char) senza domanda esplicita
   if (t.length > 200) {
-    const lower = t.toLowerCase();
+    // Marker di mail/messaggio incollato (citazioni, "ha scritto", ecc.)
+    const hasMailMarkers = /(ha\s+scritto|wrote|^Da:|^From:|>\s|:\s*\n)/im.test(t);
+    // Filtro rumore vocale: bassa entropia + nessun marker email → skip
+    if (_looksRepetitive(t) && !hasMailMarkers) return false;
     // Non è una domanda NEXUS standard ("quante email", "apri intervento", ecc.)
     const isQuestion = /\?|^(quante?|quanti|cosa|come|dove|quando|chi|perché|apri|manda|scrivi|dimmi|cerca|trova|registra|fammi)\s/i.test(t);
     if (!isQuestion) return true;
