@@ -1,17 +1,33 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-28T13:36:09.192Z
+Ultimo aggiornamento: 2026-04-28T13:41:05.945Z
 
 ## Stato MAESTRO + Claude Code
-Errore lettura codeStatus: Command failed: curl -fsS --max-time 8 https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
-curl: (22) The requested URL returned error: 500
+Fase: pushing_result
+Task: redeploy-functions-groq
+Dettagli: push risultato
+Uptime: 119609s
+Timestamp Firestore: 2026-04-28T13:40:57.598Z
 
+<details><summary>Payload JSON</summary>
+
+```json
+{
+  "fase": "pushing_result",
+  "task": "redeploy-functions-groq",
+  "dettagli": "push risultato",
+  "uptime": 119609.328982205,
+  "timestamp": "2026-04-28T13:40:57.598Z"
+}
+```
+
+</details>
 
 ## Task pending
 Nessuno.
 
 ## Ultimi 5 commit
-- 9825e97 auto: pre-pull commit
-- 6f01a68 auto: pre-pull commit
-- 48c2bc5 auto: pre-pull commit
-- 1f8770a auto: pre-pull commit
-- 4931ffb auto: pre-pull commit
+- 1463c63 auto: pre-pull commit
+- 972a3a4 result: redeploy-functions-groq
+- 4f582c1 auto: pre-pull commit
+- 35d32b5 auto: pre-pull commit
+- 22e8c31 auto: pre-pull commit
