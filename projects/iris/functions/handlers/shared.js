@@ -42,16 +42,16 @@ export const MODEL = "claude-haiku-4-5";
 export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 // Ollama locale (Hetzner NEXO `diogene`, 168.119.164.92:11434).
-// Usato come fallback L3 quando Groq fallisce.
+// Usato come fallback L3 quando Groq L2 fallisce.
 //
-// Modello scelto per L3: phi3:mini (Microsoft, 3.8B, ~22GB su CPU EPYC).
-// Benchmark del 28/04: phi3.5/phi3:mini = 4/6 vs qwen2.5:1.5b = 1/6 sui
-// prompt-bug della giornata. Latenza CPU 8-25s ma è OK per fallback raro.
-// qwen2.5:1.5b deprecato: allucina caoticamente sui prompt fuzzy.
+// Modello scelto per L3: qwen2.5:7b. Latenza CPU EPYC 4-core: 8-15s a caldo.
+// Decisione utente 28/04: NON usare qwen2.5:1.5b (allucina, 1/6 al benchmark).
+// phi3:mini (4/6 al benchmark) ha latenza 60-80s sul prompt completo,
+// va in timeout function (90s).
 export const OLLAMA_URL = process.env.OLLAMA_URL || "http://168.119.164.92:11434";
-export const OLLAMA_MODEL_FALLBACK = "phi3:mini";  // L3 fallback router
-export const OLLAMA_MODEL_FAST = "qwen2.5:1.5b";   // legacy, non usato post-Groq
-export const OLLAMA_MODEL_SMART = "qwen2.5:7b";    // legacy, non usato post-Groq
+export const OLLAMA_MODEL_FALLBACK = "qwen2.5:7b";  // L3 fallback router
+export const OLLAMA_MODEL_FAST = "qwen2.5:1.5b";    // legacy, non usato
+export const OLLAMA_MODEL_SMART = "qwen2.5:7b";     // alias di FALLBACK
 // Header placeholder finché non c'è reverse proxy con auth vera.
 // Le CF Google non hanno IP fissi → ufw per IP non è praticabile.
 export const OLLAMA_KEY = process.env.OLLAMA_KEY || "nexo-ollama-2026";
