@@ -1503,17 +1503,15 @@ export async function callIntentRouter(apiKey, messages) {
     logger.warn("nexus no GROQ_API_KEY, using ollama as primary");
   }
 
-  // ─── L3: Ollama phi3:mini fallback ────────────────────────────
-  // Modello scelto: phi3:mini (3.8B, Microsoft) — benchmark 28/04 mostra
-  // 4/6 sui prompt-bug del giorno, vs qwen2.5:1.5b solo 1/6.
-  // Latenza CPU EPYC 4-core: 25-60s sui prompt completi. Tagliamo
-  // num_predict per restare entro 75s (function timeout 90s).
+  // ─── L3: Ollama qwen2.5:7b fallback ───────────────────────────
+  // Latenza CPU EPYC 4-core: 8-15s a caldo, 25s cold start.
+  // Quando Groq è OK questo path scatta SOLO su 429/5xx/rete → raro.
   try {
     const r = await callOllamaIntent({
       system: systemCompact,
       user: `Messaggio: ${userText}\n\nRispondi SOLO con il JSON, niente prosa.`,
       model: OLLAMA_MODEL_FALLBACK,
-      maxTokens: 150,
+      maxTokens: 200,
       timeoutMs: 75000,
     });
     return {
