@@ -14719,3 +14719,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #32  FAILED: Expecting ',' delimiter: line 65 column 4 (char 1992)
   #33  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
 [2026-04-28T18:19:33Z] ─── fine ciclo ───
+[2026-04-28T18:24:33Z] ─── inizio ciclo IRIS (limit=50) ───
