@@ -5,7 +5,7 @@ import {
   GROQ_MODEL, getGroqApiKey,
   naturalize,
   oggiPromptItalia,
-  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_FAST, OLLAMA_MODEL_SMART,
+  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_FALLBACK,
   callGroqIntent, isGroqTransientError,
 } from "./shared.js";
 
@@ -1503,20 +1503,22 @@ export async function callIntentRouter(apiKey, messages) {
     logger.warn("nexus no GROQ_API_KEY, using ollama as primary");
   }
 
-  // ─── L3: Ollama qwen2.5:7b fallback ───────────────────────────
-  // Uso il 7b (non 1.5b) qui perché il fallback è raro: vale la pena la
-  // latenza extra per qualità migliore. Cold start ~25s, caldo ~10s.
+  // ─── L3: Ollama phi3:mini fallback ────────────────────────────
+  // Modello scelto: phi3:mini (3.8B, Microsoft) — benchmark 28/04 mostra
+  // 4/6 sui prompt-bug del giorno, vs qwen2.5:1.5b solo 1/6.
+  // Latenza CPU EPYC 4-core: 25-60s sui prompt completi. Tagliamo
+  // num_predict per restare entro 75s (function timeout 90s).
   try {
     const r = await callOllamaIntent({
       system: systemCompact,
-      user: `Messaggio utente: ${userText}\n\nRispondi SOLO con il JSON.`,
-      model: OLLAMA_MODEL_SMART,
-      maxTokens: 300,
-      timeoutMs: 60000,
+      user: `Messaggio: ${userText}\n\nRispondi SOLO con il JSON, niente prosa.`,
+      model: OLLAMA_MODEL_FALLBACK,
+      maxTokens: 150,
+      timeoutMs: 75000,
     });
     return {
       text: r.text,
-      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6), model: OLLAMA_MODEL_SMART, source: "ollama" },
+      usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6), model: OLLAMA_MODEL_FALLBACK, source: "ollama" },
       source: "ollama",
     };
   } catch (e) {

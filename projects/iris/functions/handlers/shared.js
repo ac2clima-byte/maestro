@@ -13,25 +13,27 @@ export const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 export const EWS_USERNAME = defineSecret("EWS_USERNAME");
 export const EWS_PASSWORD = defineSecret("EWS_PASSWORD");
 export const EWS_URL = defineSecret("EWS_URL");
-// Groq API: piano gratuito 14400 req/giorno, llama-3.3-70b-versatile.
-// NB: dichiarata come secret OPZIONALE — se non è valorizzata, il deploy
-// passa comunque e il router cade su Ollama L3 fallback.
-// Per attivare: vedi `getGroqApiKey()` sotto.
-export const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
 
-// Lettura sicura della Groq API key. Tre fonti, ordine di priorità:
-//   1. process.env.GROQ_API_KEY (env var diretta, anche locale)
-//   2. GROQ_API_KEY.value() (Firebase Secret Manager, se valorizzato)
-//   3. null (router cade su Ollama L3)
-// Wrappata in try/catch perché .value() throw se la secret è dichiarata
-// ma non ancora bound al runtime corrente.
+// Groq API key — letta come env var, NON come Firebase Secret.
+// Motivo: defineSecret("GROQ_API_KEY") obbliga il deploy a valorizzarla,
+// e finché Alberto non ha creato l'account Groq la secret resta vuota
+// e il deploy fallisce. Pattern alternativo: leggi da process.env.
+//
+// Per attivare Groq:
+//   1. Alberto registra account su https://console.groq.com (gratis)
+//   2. Crea API key
+//   3. firebase functions:secrets:set GROQ_API_KEY  (paste della key)
+//   4. Aggiungi `GROQ_API_KEY = defineSecret("GROQ_API_KEY")` qui sopra
+//   5. Aggiungi GROQ_API_KEY ai secrets:[] di nexusRouter e nexusTestInternal
+//   6. Re-deploy. Il router L2 inizierà a usare Groq automaticamente.
+//
+// Finché GROQ_API_KEY non è disponibile, getGroqApiKey() ritorna null →
+// callIntentRouter cade direttamente su Ollama L3 (qwen2.5:7b).
 export function getGroqApiKey() {
-  if (process.env.GROQ_API_KEY) return process.env.GROQ_API_KEY;
-  try {
-    const v = GROQ_API_KEY.value();
-    if (v && v !== "PLACEHOLDER_NOT_VALID_KEY_REPLACE_FROM_GROQ_CONSOLE") return v;
-  } catch {}
-  return null;
+  const v = process.env.GROQ_API_KEY;
+  if (!v) return null;
+  if (v === "PLACEHOLDER_NOT_VALID_KEY_REPLACE_FROM_GROQ_CONSOLE") return null;
+  return v;
 }
 
 // ─── Constants ─────────────────────────────────────────────────
@@ -41,9 +43,15 @@ export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 // Ollama locale (Hetzner NEXO `diogene`, 168.119.164.92:11434).
 // Usato come fallback L3 quando Groq fallisce.
+//
+// Modello scelto per L3: phi3:mini (Microsoft, 3.8B, ~22GB su CPU EPYC).
+// Benchmark del 28/04: phi3.5/phi3:mini = 4/6 vs qwen2.5:1.5b = 1/6 sui
+// prompt-bug della giornata. Latenza CPU 8-25s ma è OK per fallback raro.
+// qwen2.5:1.5b deprecato: allucina caoticamente sui prompt fuzzy.
 export const OLLAMA_URL = process.env.OLLAMA_URL || "http://168.119.164.92:11434";
-export const OLLAMA_MODEL_FAST = "qwen2.5:1.5b";   // routing single-token (non usato per JSON)
-export const OLLAMA_MODEL_SMART = "qwen2.5:7b";    // intent JSON con parametri
+export const OLLAMA_MODEL_FALLBACK = "phi3:mini";  // L3 fallback router
+export const OLLAMA_MODEL_FAST = "qwen2.5:1.5b";   // legacy, non usato post-Groq
+export const OLLAMA_MODEL_SMART = "qwen2.5:7b";    // legacy, non usato post-Groq
 // Header placeholder finché non c'è reverse proxy con auth vera.
 // Le CF Google non hanno IP fissi → ufw per IP non è praticabile.
 export const OLLAMA_KEY = process.env.OLLAMA_KEY || "nexo-ollama-2026";
