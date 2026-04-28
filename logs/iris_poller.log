@@ -14983,3 +14983,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #30  RISPOSTA_CLIENTE              high    neutro       starvo@tin.it                             → INOLTRA
   #31  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
 [2026-04-28T19:31:33Z] ─── fine ciclo ───
+[2026-04-28T19:36:33Z] ─── inizio ciclo IRIS (limit=50) ───
