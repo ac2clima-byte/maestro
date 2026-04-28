@@ -2478,6 +2478,29 @@ function nexusScheduleAutoSend() {
   }, NEXUS_VOICE_SILENCE_MS);
 }
 
+// Watchdog 8s: se passa molto tempo senza nessun final ma c'è interim
+// corposo (≥6 char), promuove l'interim a final e schedula l'auto-send.
+// Mitiga il caso iOS Safari + continuous=true dove il browser non emette
+// mai final fino alla chiusura della sessione.
+const NEXUS_VOICE_WATCHDOG_MS = 8000;
+function nexusScheduleVoiceWatchdog() {
+  if (nexusVoice.watchdogTimer) clearTimeout(nexusVoice.watchdogTimer);
+  nexusVoice.watchdogTimer = setTimeout(() => {
+    if (!nexusVoice.active || nexusVoice.paused) return;
+    const interim = (nexusVoice.interimText || "").trim();
+    if (interim.length < 6 || NEXUS_PENDING) {
+      nexusScheduleVoiceWatchdog();
+      return;
+    }
+    // Promuovi interim a final → trigger auto-send
+    nexusVoice.finalText = (nexusVoice.finalText + " " + interim).trim() + " ";
+    nexusVoice.interimText = "";
+    const ta = $("#nexusInput");
+    if (ta) ta.value = nexusVoice.finalText.trim();
+    nexusScheduleAutoSend();
+  }, NEXUS_VOICE_WATCHDOG_MS);
+}
+
 // Pre-flight permesso microfono via getUserMedia: dà feedback chiaro
 // (permesso negato / nessun device / errore generico) senza dover
 // aspettare l'errore tardivo da SpeechRecognition.
