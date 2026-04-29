@@ -1,12 +1,12 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-29T07:23:39.933Z
+Ultimo aggiornamento: 2026-04-29T07:25:50.190Z
 
 ## Stato MAESTRO + Claude Code
 Fase: idle
 Task: nessuno
 Dettagli: nessun task in coda
-Uptime: 183372s
-Timestamp Firestore: 2026-04-29T07:23:40.028Z
+Uptime: 183502s
+Timestamp Firestore: 2026-04-29T07:25:50.286Z
 
 <details><summary>Payload JSON</summary>
 
@@ -15,8 +15,8 @@ Timestamp Firestore: 2026-04-29T07:23:40.028Z
   "fase": "idle",
   "task": null,
   "dettagli": "nessun task in coda",
-  "uptime": 183371.757028728,
-  "timestamp": "2026-04-29T07:23:40.028Z"
+  "uptime": 183502.014816368,
+  "timestamp": "2026-04-29T07:25:50.286Z"
 }
 ```
 
@@ -26,8 +26,8 @@ Timestamp Firestore: 2026-04-29T07:23:40.028Z
 Nessuno.
 
 ## Ultimi 5 commit
-- 00d9d9e9 auto: pre-pull commit
-- 5101f44f auto: pre-pull commit
-- 034014d6 auto: pre-pull commit
-- 8969eac2 auto: pre-pull commit
-- 9b8e55e0 auto: pre-pull commit
+- 8c3ef245 auto: pre-pull commit
+- a563995f auto: pre-pull commit
+- fcae0512 auto: pre-pull commit
+- 2d7e9889 auto: pre-pull commit
+- c9fc4a59 auto: pre-pull commit
