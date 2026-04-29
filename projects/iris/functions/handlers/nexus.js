@@ -1330,36 +1330,24 @@ function shouldAnalyzeTextDirectly(userMessage) {
   return false;
 }
 
-async function callHaikuForTextAnalysis(apiKey, userText) {
-  const payload = {
-    model: MODEL,
-    max_tokens: 1500,
+async function callLLMForTextAnalysis(userText) {
+  const r = await callLLM({
     system: ANALYZE_TEXT_SYSTEM,
-    messages: [{ role: "user", content: `Testo da analizzare:\n\n${userText.slice(0, 8000)}` }],
-  };
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
+    user: `Testo da analizzare:\n\n${userText.slice(0, 8000)}`,
+    responseFormatJson: true,
+    maxTokens: 1500,
+    groqTimeoutMs: 20000,
+    ollamaTimeoutMs: 75000,
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const text = String(r.text || "");
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
-  if (s < 0 || e <= s) return { _raw: text, usage: json.usage || {} };
+  if (s < 0 || e <= s) return { _raw: text, usage: r.usage };
   try {
     const parsed = JSON.parse(text.slice(s, e + 1));
-    parsed._usage = json.usage || {};
+    parsed._usage = r.usage;
     return parsed;
   } catch {
-    return { _raw: text, usage: json.usage || {} };
+    return { _raw: text, usage: r.usage };
   }
 }
 
