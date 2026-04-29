@@ -10,22 +10,21 @@
 //
 // Steps:
 //   1. Parsing input (condominio, committente, P.IVA, oggetto, sourceEmailId)
-//   2. Ricerca P.IVA → arricchimento dati azienda (Haiku come fallback)
+//   2. Ricerca P.IVA → arricchimento dati azienda (LLM come fallback)
 //   3. Ricerca condominio nel CRM COSMINA
-//   4. CALLIOPE genera bozza JSON strutturata con Claude Sonnet
+//   4. CALLIOPE genera bozza JSON strutturata via Groq llama-3.3-70b
+//      (fallback Ollama qwen2.5:7b)
 //   5. Salva in calliope_bozze + charta_preventivi (status: da_approvare)
 //   6. Risponde in chat con preview + opzioni "approva/modifica/rifiuta"
 
 import {
   db, FieldValue, logger,
-  ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
+  callLLM, GROQ_MODEL,
   getCosminaDb,
   fetchIrisEmails,
   oggiItalia,
-  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_SMART, extractFirstJSON,
+  callOllamaIntent, isGroqTransientError, OLLAMA_MODEL_SMART, extractFirstJSON,
 } from "./shared.js";
-
-const CALLIOPE_MODEL = "claude-sonnet-4-6";
 
 // Parsing input del messaggio NEXUS
 export function parsePreventivoInput(userMessage, context = {}) {
@@ -66,10 +65,11 @@ export function parsePreventivoInput(userMessage, context = {}) {
   return out;
 }
 
-// Haiku: arricchisci dati azienda a partire da nome + P.IVA
-// (fallback quando non abbiamo accesso a servizi P.IVA esterni)
-async function arricchisciAzienda(apiKey, committente, piva) {
-  if (!apiKey || (!committente && !piva)) return null;
+// LLM: arricchisci dati azienda a partire da nome + P.IVA
+// (fallback quando non abbiamo accesso a servizi P.IVA esterni).
+// Il primo parametro `_legacyApiKey` è ignorato — callLLM gestisce Groq+Ollama.
+async function arricchisciAzienda(_legacyApiKey, committente, piva) {
+  if (!committente && !piva) return null;
 
   // 1. Lookup diretto su piva_XXX (più veloce)
   if (piva) {
