@@ -238,9 +238,6 @@ async function salvaBozza({ tipo, tono, corpo, oggetto, contesto, destinatario, 
 }
 
 async function generaBozzaFromEmail(emailId, tono, note) {
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "CALLIOPE non configurato (ANTHROPIC_API_KEY mancante)." };
-
   let snap;
   try { snap = await db.collection("iris_emails").doc(emailId).get(); }
   catch { return { content: `Email "${emailId}" non leggibile.` }; }
