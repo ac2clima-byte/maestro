@@ -1930,16 +1930,12 @@ export async function tryInterceptPreventivoApproval({ userMessage, sessionId, u
   const modM = /^\s*modific\w*\s*[:,-]?\s*(.+)$/i.exec(t);
   if (modM) {
     const istruzioni = modM[1].trim();
-    // Rigenera usando le istruzioni
-    const apiKey = ANTHROPIC_API_KEY.value();
     try {
       const bozzaSnap = await bozzaRef.get();
       if (!bozzaSnap.exists) return { content: "Bozza non trovata.", _preventivoHandled: true };
       const bozza = bozzaSnap.data();
-      const intest = bozza.intestatario || {};
-      const cond = bozza.condominio || {};
 
-      // Haiku: applica le modifiche al JSON esistente
+      // LLM: applica le modifiche al JSON esistente (Groq + fallback Ollama)
       const updateSystem = `Sei CALLIOPE. Ti viene dato un preventivo JSON e le istruzioni di modifica di Alberto.
 Applica le modifiche e restituisci il NUOVO JSON completo (stesso schema).
 SOLO JSON valido, niente testo extra.`;
@@ -1952,14 +1948,15 @@ SOLO JSON valido, niente testo extra.`;
         ``,
         `Applica le modifiche e ritorna il JSON aggiornato.`,
       ].join("\n");
-      const resp = await fetch(ANTHROPIC_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model: CALLIOPE_MODEL, max_tokens: 2500, system: updateSystem, messages: [{ role: "user", content: updateUser }] }),
+      const r = await callLLM({
+        system: updateSystem,
+        user: updateUser,
+        responseFormatJson: true,
+        maxTokens: 2500,
+        groqTimeoutMs: 25000,
+        ollamaTimeoutMs: 90000,
       });
-      if (!resp.ok) throw new Error(`Sonnet ${resp.status}`);
-      const jj = await resp.json();
-      const text = (jj.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+      const text = String(r.text || "");
       const s = text.indexOf("{"), e = text.lastIndexOf("}");
       if (s < 0 || e <= s) throw new Error("parse_failed");
       const newPrev = JSON.parse(text.slice(s, e + 1));
