@@ -12129,3 +12129,34 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #3  COMUNICAZIONE_INTERNA         high    neutro       lorenzo.dellafiore@acgclimaservice.com    → ARCHIVIA
   #4  COMUNICAZIONE_INTERNA         high    neutro       sara.quagliano@acgclimaservice.com        → PREPARA_PREVENTIVO
   #5  COMUNICAZIONE_INTERNA         high    neutro       raffa.nobili@gmail.com                    → ARCHIVIA
+[2026-04-29T17:02:31Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  FAILED: Expecting ',' delimiter: line 73 column 4 (char 2176)
+  #2  COMUNICAZIONE_INTERNA         high    positivo     lorenzo.dellafiore@acgclimaservice.com    → ARCHIVIA
+  #3  COMUNICAZIONE_INTERNA         high    neutro       lorenzo.dellafiore@acgclimaservice.com    → ARCHIVIA
+  #4  COMUNICAZIONE_INTERNA         high    neutro       sara.quagliano@acgclimaservice.com        → PREPARA_PREVENTIVO
+  #5  COMUNICAZIONE_INTERNA         high    neutro       raffa.nobili@gmail.com                    → ARCHIVIA
+  #6  FATTURA_FORNITORE             medium  neutro       roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
+  #7  COMUNICAZIONE_INTERNA         high    neutro       cerutti.ing@gmail.com                     → ARCHIVIA
+  #8  COMUNICAZIONE_INTERNA         high    neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #9  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #10  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → VERIFICA_PAGAMENTO
+  #11  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #12  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #13  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #14  COMUNICAZIONE_INTERNA         high    neutro       Marco.Cappucci@ista.com                   → ARCHIVIA
+  #15  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #16  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #17  FAILED: Expecting ',' delimiter: line 58 column 6 (char 2740)
+  #18  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #21  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #22  FAILED: Expecting ',' delimiter: line 61 column 4 (char 1837)
+  #23  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → RISPONDI
+  #24  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
