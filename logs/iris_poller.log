@@ -19153,3 +19153,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #33  FAILED: Expecting ',' delimiter: line 66 column 4 (char 2093)
   #34  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
 [2026-04-29T15:05:30Z] ─── fine ciclo ───
+[2026-04-29T15:10:30Z] ─── inizio ciclo IRIS (limit=50) ───
