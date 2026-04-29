@@ -686,8 +686,8 @@ export const nexusRouter = onRequest(
     }
 
     const modelloUsato = llmSource === "ollama"
-      ? `${llmUsage.model || "qwen2.5"}@ollama`
-      : (llmSource === "regex" ? "regex" : MODEL);
+      ? `${llmUsage.model || "qwen2.5:7b"}@ollama`
+      : (llmSource === "regex" ? "regex" : GROQ_MODEL);
     const nexusMessageId = await writeNexusMessage(sessionId, {
       role: "assistant", content: finalContent,
       intent, stato,
