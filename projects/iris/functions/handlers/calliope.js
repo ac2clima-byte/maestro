@@ -193,31 +193,21 @@ async function generaBozzaComunicazione(parametri, ctx) {
   };
 }
 
-async function callSonnet(apiKey, userPrompt) {
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CALLIOPE_MODEL,
-      max_tokens: 1024,
-      system: CALLIOPE_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
+async function callCalliopeLLM(userPrompt) {
+  const r = await callLLM({
+    system: CALLIOPE_SYSTEM_PROMPT,
+    user: userPrompt,
+    responseFormatJson: false,
+    maxTokens: 1024,
+    groqTimeoutMs: 20000,
+    ollamaTimeoutMs: 75000,
   });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Sonnet ${resp.status}: ${text.slice(0, 200)}`);
-  }
-  const json = await resp.json();
-  const corpo = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
-  return { corpo, usage: json.usage || {} };
+  const corpo = String(r.text || "").trim();
+  const modello = r.source === "groq" ? GROQ_MODEL : "qwen2.5:7b";
+  return { corpo, usage: r.usage || {}, modello };
 }
 
-async function salvaBozza({ tipo, tono, corpo, oggetto, contesto, destinatario, usage, ctx }) {
+async function salvaBozza({ tipo, tono, corpo, oggetto, contesto, destinatario, usage, ctx, modello }) {
   const bozzaId = `boz_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
   try {
     await db.collection("calliope_bozze").doc(bozzaId).set({
@@ -229,8 +219,11 @@ async function salvaBozza({ tipo, tono, corpo, oggetto, contesto, destinatario, 
         versione: 1, corpo, oggetto: oggetto.slice(0, 150),
         firma: "Cordiali saluti,\nAlberto Contardi\nACG Clima Service",
         generataIl: new Date().toISOString(),
-        generataDa: "ai", modello: CALLIOPE_MODEL,
-        usage: { inputTokens: usage.input_tokens || 0, outputTokens: usage.output_tokens || 0 },
+        generataDa: "ai", modello: modello || GROQ_MODEL,
+        usage: {
+          inputTokens: usage.input_tokens || usage.prompt_tokens || 0,
+          outputTokens: usage.output_tokens || usage.completion_tokens || 0,
+        },
       },
       contesto: { ...contesto, richiedente: "nexus" },
       destinatario,
