@@ -318,30 +318,20 @@ REGOLE:
     `Genera il preventivo JSON completo e coerente.`,
   ].filter(Boolean).join("\n");
 
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CALLIOPE_MODEL,
-      max_tokens: 2500,
-      system,
-      messages: [{ role: "user", content: user }],
-    }),
+  const r = await callLLM({
+    system, user,
+    responseFormatJson: true,
+    maxTokens: 2500,
+    groqTimeoutMs: 25000,
+    ollamaTimeoutMs: 90000,
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Sonnet ${resp.status}: ${t.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+  const text = String(r.text || "");
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
   if (s < 0 || e <= s) throw new Error("preventivo_parse_failed");
   const parsed = JSON.parse(text.slice(s, e + 1));
-  parsed._usage = json.usage || {};
+  parsed._usage = r.usage || {};
+  parsed._llmSource = r.source;
+  parsed._modello = r.source === "groq" ? GROQ_MODEL : "qwen2.5:7b";
   parsed._numeroProgressivo = numeroProgressivo;
   parsed._dataDoc = dataDoc;
   return parsed;
