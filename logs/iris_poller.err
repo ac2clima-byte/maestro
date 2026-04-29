@@ -11330,3 +11330,34 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
            4 regole in iris_rules (4 attive).
            ✓ rule=rule_newsletter_spam             actions=1  email=815e1f73c9944b9e884b013fce69ead8_acgclimaservice.c
            ✓ rule=rule_newsletter_spam             actions=1  email=DU4PR07MB11575E3E9C62842F394B47C3BFC372_DU4PR07MB1
+[2026-04-29T12:59:29Z] ERR: ciclo FAILED (rc=124): ultime righe:
+  #4  COMUNICAZIONE_INTERNA         high    frustrato    cristina.davi@guazzottienergia.com        → INOLTRA
+  #5  COMUNICAZIONE_INTERNA         medium  neutro       raffa.nobili@gmail.com                    → RISPONDI
+  #6  COMUNICAZIONE_INTERNA         high    neutro       sara.quagliano@acgclimaservice.com        → PREPARA_PREVENTIVO
+  #7  COMUNICAZIONE_INTERNA         high    neutro       raffa.nobili@gmail.com                    → ARCHIVIA
+  #8  NEWSLETTER_SPAM               high    neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #9  FATTURA_FORNITORE             high    neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #10  COMUNICAZIONE_INTERNA         medium  neutro       cerutti.ing@gmail.com                     → ARCHIVIA
+  #11  NEWSLETTER_SPAM               high    neutro       noreply@email.alleanza.it                 → ARCHIVIA
+  #12  COMUNICAZIONE_INTERNA         high    neutro       massimo.poggi@guazzottienergia.com        → RISPONDI
+  #13  COMUNICAZIONE_INTERNA         high    neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #14  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #15  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → RISPONDI
+  #16  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #17  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #18  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #19  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #20  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → RISPONDI
+  #21  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #22  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #23  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → RISPONDI
+  #24  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #25  PREVENTIVO                    high    neutro       andrea.malvicino@guazzottienergia.com     → PREPARA_PREVENTIVO
+  #26  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #27  COMUNICAZIONE_INTERNA         high    frustrato    maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #28  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #29  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → APRI_INTERVENTO
+  #30  COMUNICAZIONE_INTERNA         low     neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #31  FAILED: Expecting ',' delimiter: line 45 column 4 (char 1713)
+  #32  FAILED: Expecting ',' delimiter: line 60 column 4 (char 1831)
+  #33  COMUNICAZIONE_INTERNA         high    neutro       starvo@tin.it                             → INOLTRA
