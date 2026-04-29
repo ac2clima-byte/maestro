@@ -816,7 +816,7 @@ async function getLastAssistantPendingEmails(sessionId) {
   } catch { return null; }
 }
 
-async function callHaikuShortPresent(apiKey, email, mode) {
+async function callLLMShortPresent(email, mode) {
   const who = email.from || "?";
   const subject = email.subject || "";
   const body = (email.body || "").slice(0, 3000);
@@ -830,15 +830,14 @@ REGOLE:
 - Se il mittente è sconosciuto, di' "un certo [nome]" o "tal [nome]".
 - Concludi con una frase che chiede se vuole approfondire, passare alla prossima, o agire.`;
   const user = `Email da: ${who}\nOggetto: ${subject}\nCorpo:\n${body}`;
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 400, system, messages: [{ role: "user", content: user }] }),
+  const r = await callLLM({
+    system, user,
+    responseFormatJson: false,
+    maxTokens: 400,
+    groqTimeoutMs: 12000,
+    ollamaTimeoutMs: 45000,
   });
-  if (!resp.ok) throw new Error(`Haiku ${resp.status}`);
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
-  return text;
+  return String(r.text || "").trim();
 }
 
 export async function tryInterceptEmailQueue({ userMessage, sessionId }) {
