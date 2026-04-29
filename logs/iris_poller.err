@@ -13332,3 +13332,34 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #27  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
   #28  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
   #29  FAILED: Expecting ',' delimiter: line 61 column 4 (char 1966)
+[2026-04-29T22:53:33Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[step 2/6] Classifying with Haiku…
+  #1  FATTURA_FORNITORE             high    neutro       comunicazionicontabili@fidesspa.eu        → VERIFICA_PAGAMENTO
+  #2  RISPOSTA_CLIENTE              high    positivo     gianluca.gualco@gruppo3i.it               → RISPONDI
+  #3  COMUNICAZIONE_INTERNA         high    positivo     lorenzo.dellafiore@acgclimaservice.com    → ARCHIVIA
+  #4  COMUNICAZIONE_INTERNA         high    neutro       sara.quagliano@acgclimaservice.com        → PREPARA_PREVENTIVO
+  #5  COMUNICAZIONE_INTERNA         medium  neutro       raffa.nobili@gmail.com                    → ARCHIVIA
+  #6  FATTURA_FORNITORE             medium  neutro       roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
+  #7  COMUNICAZIONE_INTERNA         high    neutro       cerutti.ing@gmail.com                     → ARCHIVIA
+  #8  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #9  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → RISPONDI
+  #10  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → VERIFICA_PAGAMENTO
+  #11  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #12  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #13  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → ARCHIVIA
+  #14  AMMINISTRATORE_CONDOMINIO     high    positivo     info@acgclimaservice.com                  → RISPONDI
+  #15  ALTRO                         high    positivo     Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #16  PEC_UFFICIALE                 high    neutro       comunicazionicontabili@fidesspa.eu        → VERIFICA_PAGAMENTO
+  #17  FAILED: Expecting ',' delimiter: line 56 column 6 (char 2713)
+  #18  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+  #19  AMMINISTRATORE_CONDOMINIO     high    neutro       sara.quagliano@acgclimaservice.com        → RISPONDI
+  #20  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #21  FAILED: Expecting ',' delimiter: line 48 column 4 (char 1566)
+  #22  FAILED: Expecting ',' delimiter: line 62 column 4 (char 2016)
+  #23  FAILED: Expecting ',' delimiter: line 57 column 4 (char 1924)
+  #24  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
+  #25  AMMINISTRATORE_CONDOMINIO     high    neutro       amministrazione@cima.it                   → RISPONDI
+  #26  RISPOSTA_CLIENTE              high    neutro       studiomdconsulting@gmail.com              → RISPONDI
+  #27  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
+  #28  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #29  FAILED: Expecting ',' delimiter: line 64 column 4 (char 1875)
