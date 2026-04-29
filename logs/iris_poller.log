@@ -20594,3 +20594,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #27  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
   #28  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
 [2026-04-29T21:50:33Z] ─── fine ciclo ───
+[2026-04-29T21:55:33Z] ─── inizio ciclo IRIS (limit=50) ───
