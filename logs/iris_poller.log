@@ -18824,3 +18824,35 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #34  FAILED: Expecting ',' delimiter: line 51 column 4 (char 1718)
 [2026-04-29T13:35:29Z] ─── fine ciclo ───
 [2026-04-29T13:40:29Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-04-29T13:44:29Z] ERR: ciclo FAILED (rc=124): ultime righe:
+  #6  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #7  FAILED: Expecting ',' delimiter: line 72 column 4 (char 2280)
+  #8  COMUNICAZIONE_INTERNA         high    positivo     lorenzo.dellafiore@acgclimaservice.com    → ARCHIVIA
+  #9  COMUNICAZIONE_INTERNA         high    neutro       lorenzo.dellafiore@acgclimaservice.com    → ARCHIVIA
+  #10  COMUNICAZIONE_INTERNA         high    neutro       lorenzo.dellafiore@acgclimaservice.com    → INOLTRA
+  #11  COMUNICAZIONE_INTERNA         high    frustrato    cristina.davi@guazzottienergia.com        → INOLTRA
+  #12  COMUNICAZIONE_INTERNA         low     neutro       raffa.nobili@gmail.com                    → RISPONDI
+  #13  COMUNICAZIONE_INTERNA         medium  neutro       sara.quagliano@acgclimaservice.com        → PREPARA_PREVENTIVO
+  #14  COMUNICAZIONE_INTERNA         medium  neutro       raffa.nobili@gmail.com                    → ARCHIVIA
+  #15  NEWSLETTER_SPAM               high    neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #16  FATTURA_FORNITORE             medium  neutro       roberto.moraschi@cambielli.it             → ARCHIVIA
+  #17  COMUNICAZIONE_INTERNA         high    neutro       cerutti.ing@gmail.com                     → INOLTRA
+  #18  NEWSLETTER_SPAM               high    neutro       noreply@email.alleanza.it                 → ARCHIVIA
+  #19  COMUNICAZIONE_INTERNA         high    neutro       massimo.poggi@guazzottienergia.com        → ARCHIVIA
+  #20  COMUNICAZIONE_INTERNA         medium  neutro       alessandro.lombardi@guazzottienergia.com  → ARCHIVIA
+  #21  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #22  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #23  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → VERIFICA_PAGAMENTO
+  #24  FAILED: HTTP Error 529: <none>
+  #25  COMUNICAZIONE_INTERNA         high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #26  COMUNICAZIONE_INTERNA         high    neutro       fabiola.monnati@guazzottienergia.com      → ARCHIVIA
+  #27  COMUNICAZIONE_INTERNA         high    positivo     Marco.Cappucci@ista.com                   → ARCHIVIA
+  #28  AMMINISTRATORE_CONDOMINIO     high    neutro       info@acgclimaservice.com                  → RISPONDI
+  #29  COMUNICAZIONE_INTERNA         high    positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
+  #30  NEWSLETTER_SPAM               high    neutro       Federico.Preceruti@recaitalia.it          → ARCHIVIA
+  #31  COMUNICAZIONE_INTERNA         high    neutro       claudio.lamarca@gruppobadano.com          → ARCHIVIA
+  #32  FAILED: Expecting ',' delimiter: line 48 column 6 (char 2573)
+  #33  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → RISPONDI
+  #34  COMUNICAZIONE_INTERNA         high    neutro       maurizio.malvicino@guazzottienergia.com   → ARCHIVIA
+  #35  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
+[2026-04-29T13:44:29Z] ─── fine ciclo ───
