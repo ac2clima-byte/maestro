@@ -19835,3 +19835,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #27  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
   #28  FAILED: Invalid control character at: line 29 column 27 (char 1102)
 [2026-04-29T18:23:32Z] ─── fine ciclo ───
+[2026-04-29T18:28:32Z] ─── inizio ciclo IRIS (limit=50) ───
