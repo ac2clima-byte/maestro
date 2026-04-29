@@ -20132,3 +20132,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #27  RISPOSTA_CLIENTE              high    frustrato    info@acgclimaservice.com                  → RISPONDI
   #28  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
 [2026-04-29T19:44:32Z] ─── fine ciclo ───
+[2026-04-29T19:49:32Z] ─── inizio ciclo IRIS (limit=50) ───
