@@ -5,8 +5,9 @@
 //     OpenAI è 25MB).
 //  2. Se OPENAI_API_KEY è configurata → chiama Whisper API
 //     (api.openai.com/v1/audio/transcriptions) → ritorna trascrizione.
-//  3. Chiama Haiku con prompt "analizza questa trascrizione chiamata" →
-//     estrae persone coinvolte, argomento, intent, azioni suggerite.
+//  3. Chiama LLM (Groq llama-3.3-70b primario, Ollama qwen2.5:7b fallback)
+//     con prompt "analizza questa trascrizione chiamata" → estrae persone
+//     coinvolte, argomento, intent, azioni suggerite.
 //  4. Salva trascrizione + analisi in Firestore (nexus_audio_transcripts)
 //     per audit + riuso.
 //  5. Ritorna al client { text, analysis, transcriptId } — il client le
@@ -16,7 +17,7 @@
 
 import {
   db, FieldValue, logger,
-  ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
+  callLLM,
 } from "./shared.js";
 
 // Whisper API key: letta da env variable OPENAI_API_KEY (se configurata).
