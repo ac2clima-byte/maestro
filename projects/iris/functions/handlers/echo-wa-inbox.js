@@ -235,9 +235,6 @@ export async function handleWaInboxList(parametri) {
  */
 export async function handleWaInboxAnalyzeLast(parametri) {
   const cosm = getCosminaDb();
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "Non posso analizzare: ANTHROPIC_API_KEY mancante." };
-
   let snap;
   try {
     // Single-field filter per evitare compound index; ordina/filtra in memoria.
@@ -269,7 +266,7 @@ export async function handleWaInboxAnalyzeLast(parametri) {
 
   let analysis;
   try {
-    analysis = await callHaikuForWa(apiKey, d.body, d.from_name, d.from_number);
+    analysis = await callLLMForWa(d.body, d.from_name, d.from_number);
   } catch (e) {
     return { content: `Errore analisi: ${String(e).slice(0, 200)}` };
   }
@@ -277,8 +274,15 @@ export async function handleWaInboxAnalyzeLast(parametri) {
 
   // Aggiorna il doc
   try {
+    const llmSource = analysis._llmSource || "unknown";
+    delete analysis._llmSource;
     await doc.ref.set({
-      nexo_analysis: { ...analysis, at: FieldValue.serverTimestamp(), model: MODEL },
+      nexo_analysis: {
+        ...analysis,
+        at: FieldValue.serverTimestamp(),
+        model: llmSource === "groq" ? GROQ_MODEL : "qwen2.5:7b",
+        source: llmSource,
+      },
     }, { merge: true });
   } catch {}
 
