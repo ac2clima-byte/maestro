@@ -41,38 +41,28 @@ REGOLE:
 - Ometti campi entita che non riesci a estrarre.
 - SOLO JSON, niente code fence, niente testo extra.`;
 
-async function callHaikuForWa(apiKey, message, senderName, senderNumber) {
-  const payload = {
-    model: MODEL,
-    max_tokens: 600,
+async function callLLMForWa(message, senderName, senderNumber) {
+  const userMsg = [
+    `Da: ${senderName || senderNumber || "?"} (${senderNumber || "?"})`,
+    `Messaggio:`,
+    String(message).slice(0, 3000),
+  ].join("\n");
+  const r = await callLLM({
     system: WA_ANALYSIS_SYSTEM,
-    messages: [{
-      role: "user",
-      content: [
-        `Da: ${senderName || senderNumber || "?"} (${senderNumber || "?"})`,
-        `Messaggio:`,
-        String(message).slice(0, 3000),
-      ].join("\n"),
-    }],
-  };
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
+    user: userMsg,
+    responseFormatJson: true,
+    maxTokens: 600,
+    groqTimeoutMs: 15000,
+    ollamaTimeoutMs: 60000,
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Haiku ${resp.status}: ${t.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const text = String(r.text || "");
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
   if (s < 0 || e <= s) return null;
-  try { return JSON.parse(text.slice(s, e + 1)); } catch { return null; }
+  try {
+    const parsed = JSON.parse(text.slice(s, e + 1));
+    parsed._llmSource = r.source;
+    return parsed;
+  } catch { return null; }
 }
 
 /**
