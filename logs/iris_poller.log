@@ -19736,3 +19736,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #22  FAILED: Expecting ',' delimiter: line 56 column 8 (char 2834)
   #23  FATTURA_FORNITORE             high    neutro       sara.quagliano@acgclimaservice.com        → VERIFICA_PAGAMENTO
 [2026-04-29T17:56:32Z] ─── fine ciclo ───
+[2026-04-29T18:01:32Z] ─── inizio ciclo IRIS (limit=50) ───
