@@ -20099,3 +20099,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #27  FAILED: Expecting ',' delimiter: line 59 column 6 (char 2825)
   #28  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
 [2026-04-29T19:35:32Z] ─── fine ciclo ───
+[2026-04-29T19:40:32Z] ─── inizio ciclo IRIS (limit=50) ───
