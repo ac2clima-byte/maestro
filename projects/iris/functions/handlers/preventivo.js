@@ -144,23 +144,14 @@ REGOLE:
   ].filter(Boolean).join("\n");
 
   try {
-    const resp = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 800,
-        system,
-        messages: [{ role: "user", content: user }],
-      }),
+    const r = await callLLM({
+      system, user,
+      responseFormatJson: true,
+      maxTokens: 800,
+      groqTimeoutMs: 15000,
+      ollamaTimeoutMs: 60000,
     });
-    if (!resp.ok) throw new Error(`Haiku ${resp.status}`);
-    const json = await resp.json();
-    const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+    const text = String(r.text || "");
     const s = text.indexOf("{"), e = text.lastIndexOf("}");
     if (s < 0 || e <= s) return null;
     const parsed = JSON.parse(text.slice(s, e + 1));
@@ -171,7 +162,7 @@ REGOLE:
         await db.collection("memo_aziende").doc(`piva_${piva}`).set({
           ...parsed,
           _createdAt: FieldValue.serverTimestamp(),
-          _source: "haiku_enrichment",
+          _source: `llm_enrichment_${r.source}`,
         });
       } catch {}
     }
@@ -242,10 +233,9 @@ async function cercaCondominio(nome) {
   return out;
 }
 
-// CALLIOPE: genera preventivo JSON strutturato con Claude Sonnet
-async function generaPreventivoJson(apiKey, intestatario, condominio, oggetto) {
-  if (!apiKey) throw new Error("no_anthropic_key");
-
+// CALLIOPE: genera preventivo JSON strutturato via Groq llama-3.3-70b
+// (fallback Ollama qwen2.5:7b). Il primo parametro è ignorato (legacy).
+async function generaPreventivoJson(_legacyApiKey, intestatario, condominio, oggetto) {
   // Numero progressivo
   const now = new Date();
   const year = now.getFullYear();
