@@ -1631,7 +1631,7 @@ export const echoWaInboxPoller = onSchedule(
     timeZone: "Europe/Rome",
     memory: "256MiB",
     timeoutSeconds: 120,
-    secrets: [ANTHROPIC_API_KEY],
+    secrets: [GROQ_API_KEY],
   },
   async () => {
     try {
@@ -1645,7 +1645,7 @@ export const echoWaInboxPoller = onSchedule(
 
 // HTTP trigger manuale per test/debug
 export const echoWaInboxRun = onRequest(
-  { region: REGION, cors: false, timeoutSeconds: 120, memory: "256MiB", secrets: [ANTHROPIC_API_KEY] },
+  { region: REGION, cors: false, timeoutSeconds: 120, memory: "256MiB", secrets: [GROQ_API_KEY] },
   async (req, res) => {
     applyCorsOpen(req, res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
@@ -1716,7 +1716,7 @@ export const nexusTranscribeAudio = onRequest(
     //   firebase functions:secrets:set OPENAI_API_KEY
     // e aggiungi qui `secrets: [ANTHROPIC_API_KEY, defineSecret("OPENAI_API_KEY")]`.
     // Finché non è configurato, l'endpoint risponde 503 con messaggio chiaro.
-    secrets: [ANTHROPIC_API_KEY],
+    secrets: [GROQ_API_KEY],
   },
   async (req, res) => {
     applyCorsOpen(req, res);
@@ -1938,7 +1938,7 @@ export const orchestratorLavagnaListener = onDocumentCreated(
     memory: "512MiB", // serve più memoria per Sonnet calls
     timeoutSeconds: 300, // preventivo sincrono può durare 25-30s
     maxInstances: 5,
-    secrets: [ANTHROPIC_API_KEY], // serve per arricchisciAzienda + CALLIOPE Sonnet
+    secrets: [GROQ_API_KEY], // serve per arricchisciAzienda + CALLIOPE Sonnet
   },
   async (event) => {
     const snap = event.data;
