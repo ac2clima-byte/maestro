@@ -119,7 +119,7 @@ async function fetchLavagnaForEmail(messageId) {
 }
 
 export const suggestReply = onRequest(
-  { region: REGION, cors: false, secrets: [ANTHROPIC_API_KEY], timeoutSeconds: 60, memory: "256MiB", maxInstances: 5 },
+  { region: REGION, cors: false, secrets: [GROQ_API_KEY], timeoutSeconds: 60, memory: "256MiB", maxInstances: 5 },
   async (req, res) => {
     applyCors(req, res);
     if (req.method === "OPTIONS") { res.status(204).send(""); return; }
@@ -148,15 +148,25 @@ export const suggestReply = onRequest(
     const lavagna = await fetchLavagnaForEmail(data.id || raw.message_id);
     const userPrompt = buildUserPrompt({ email: raw, classification, similar, lavagna });
 
-    const apiKey = ANTHROPIC_API_KEY.value();
-    if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
-
     let result;
-    try { result = await callHaiku(apiKey, SYSTEM_PROMPT, userPrompt); }
-    catch (e) { logger.error("anthropic call failed", { error: String(e), docId }); res.status(502).json({ error: "anthropic_failed", detail: String(e).slice(0, 300) }); return; }
+    try {
+      result = await callLLM({
+        system: SYSTEM_PROMPT,
+        user: userPrompt,
+        responseFormatJson: false,
+        maxTokens: 1024,
+        groqTimeoutMs: 20000,
+        ollamaTimeoutMs: 60000,
+      });
+    } catch (e) {
+      logger.error("LLM call failed", { error: String(e), docId });
+      res.status(502).json({ error: "llm_failed", detail: String(e).slice(0, 300) });
+      return;
+    }
 
+    const modello = result.source === "groq" ? GROQ_MODEL : "qwen2.5:7b";
     res.status(200).json({
-      docId, draft: result.text, model: MODEL, usage: result.usage,
+      docId, draft: result.text, model: modello, usage: result.usage,
       contextUsed: { similarCount: similar.length, lavagnaCount: lavagna.length, category: classification.category },
     });
   }
