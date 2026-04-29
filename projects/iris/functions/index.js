@@ -515,8 +515,8 @@ export const nexusRouter = onRequest(
       logger.warn("training intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
-    const apiKey = ANTHROPIC_API_KEY.value();
-    if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
+    // apiKey legacy: callLLM/callIntentRouter gestiscono Groq+Ollama internamente.
+    const apiKey = "legacy_unused";
 
     // Dev request: se l'utente chiede modifiche UI/feature/bug, salva in coda
     try {
@@ -550,13 +550,13 @@ export const nexusRouter = onRequest(
           content: textAnalysis.content,
           direct: { data: textAnalysis.data, failed: false },
           stato: "completata",
-          modello: MODEL,
+          modello: GROQ_MODEL,
         });
         res.status(200).json({
           intent: { collega: "nexus", azione: "analizza_testo", parametri: {}, rispostaUtente: textAnalysis.content, confidenza: 1 },
           nexusMessageId, userMsgId, stato: "completata",
           direct: { data: textAnalysis.data, failed: false },
-          modello: MODEL, usage: {},
+          modello: GROQ_MODEL, usage: {},
         });
         return;
       }
@@ -565,7 +565,7 @@ export const nexusRouter = onRequest(
     }
 
     // Carica gli ultimi 5 scambi della sessione (contesto multi-turno)
-    // per far capire a Haiku riferimenti come "lui", "loro", "quel cliente".
+    // per far capire al LLM riferimenti come "lui", "loro", "quel cliente".
     const sessionContext = await loadConversationContext(sessionId, 5);
 
     const messages = [...sessionContext];
