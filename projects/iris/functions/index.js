@@ -1141,7 +1141,7 @@ export const irisPollScheduled = onSchedule(
 // HTTP trigger manuale: ancora disponibile per debug (richiede admin_key).
 // NON gira in automatico: il polling ora è su Hetzner.
 export const irisPollerRun = onRequest(
-  { region: REGION, secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL], timeoutSeconds: 120, memory: "512MiB", cors: false },
+  { region: REGION, secrets: [GROQ_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL], timeoutSeconds: 120, memory: "512MiB", cors: false },
   async (req, res) => {
     if (req.method !== "POST") { res.status(405).json({ error: "method_not_allowed" }); return; }
     const cfgSnap = await getCosminaDb().collection("cosmina_config").doc("iris_config").get();
