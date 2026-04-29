@@ -12,16 +12,16 @@
 // FORGE separata da quelle utente reali).
 //
 // Riusa la stessa pipeline di nexusRouter:
-//   loadConversationContext → callHaikuForIntent → parseAndValidateIntent
-//   → tryDirectAnswer → writeNexusMessage.
+//   loadConversationContext → callIntentRouter (Groq → Ollama)
+//   → parseAndValidateIntent → tryDirectAnswer → writeNexusMessage.
 // Niente lavagna async (FORGE è sincrono), niente intercept di
 // preventivo/email queue/dev request (non servono al test smoke).
 
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
-import { ANTHROPIC_API_KEY, REGION, MODEL, applyCorsOpen, logger, naturalize } from "./shared.js";
+import { GROQ_API_KEY, GROQ_MODEL, REGION, applyCorsOpen, logger, naturalize } from "./shared.js";
 import {
-  loadConversationContext, callHaikuForIntent, callIntentRouter, parseAndValidateIntent,
+  loadConversationContext, callIntentRouter, parseAndValidateIntent,
   tryDirectAnswer, writeNexusMessage, ensureNexusSession,
   tryInterceptDevRequest,
 } from "./nexus.js";
@@ -53,7 +53,7 @@ export const nexusTestInternal = onRequest(
   {
     region: REGION,
     cors: true,
-    secrets: [ANTHROPIC_API_KEY, FORGE_KEY],
+    secrets: [GROQ_API_KEY, FORGE_KEY],
     timeoutSeconds: 90,
     memory: "256MiB",
     maxInstances: 5,
@@ -86,8 +86,9 @@ export const nexusTestInternal = onRequest(
       ? requestedSession.slice(0, 80)
       : FORGE_SESSION_PREFIX;
 
-    const apiKey = ANTHROPIC_API_KEY.value();
-    if (!apiKey) { res.status(500).json({ error: "missing_anthropic_key" }); return; }
+    // apiKey legacy: callIntentRouter non lo usa più (Groq+Ollama internamente).
+    // Lasciato come stringa non vuota per non rompere la firma.
+    const apiKey = "legacy_unused";
 
     const userId = "forge@nexo.internal";
     const startedAt = Date.now();
