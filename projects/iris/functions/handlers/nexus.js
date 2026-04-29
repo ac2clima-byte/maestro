@@ -1386,12 +1386,14 @@ function formatTextAnalysis(analysis) {
 /**
  * Se applicabile, analizza direttamente il testo (bypassa routing NEXUS).
  * Ritorna { content, data } compatibile con il flow direct handler, o null.
+ *
+ * Nota: il secondo parametro (apiKey legacy) è ignorato — callLLM gestisce
+ * Groq+Ollama in autonomia. Mantenuto per non rompere chiamate esistenti.
  */
-export async function tryAnalyzeLongText(userMessage, apiKey) {
+export async function tryAnalyzeLongText(userMessage, _legacyApiKey) {
   if (!shouldAnalyzeTextDirectly(userMessage)) return null;
-  if (!apiKey) return null;
   try {
-    const analysis = await callHaikuForTextAnalysis(apiKey, userMessage);
+    const analysis = await callLLMForTextAnalysis(userMessage);
     return {
       content: formatTextAnalysis(analysis),
       data: { analysis, kind: "text_analysis" },
@@ -1403,36 +1405,9 @@ export async function tryAnalyzeLongText(userMessage, apiKey) {
   }
 }
 
-// ─── Haiku intent call ─────────────────────────────────────────
-export async function callHaikuForIntent(apiKey, messages) {
-  // Prepend la data/ora corrente in fuso Europe/Rome al system prompt.
-  // Le Cloud Functions girano UTC; senza questo, alle 22-24 italiane Haiku
-  // pensa di essere già "domani" e calcola "oggi/domani" sbagliati.
-  const dateHeader = `OGGI è ${oggiPromptItalia()}. Tutte le date e ore di riferimento sono nel fuso Europe/Rome.\n\n`;
-  const payload = {
-    model: MODEL,
-    max_tokens: 1024,
-    system: dateHeader + NEXUS_SYSTEM_PROMPT,
-    messages,
-  };
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || [])
-    .filter(b => b.type === "text").map(b => b.text).join("\n").trim();
-  return { text, usage: json.usage || {} };
-}
+// callHaikuForIntent rimosso: il routing intent passa SOLO da callIntentRouter
+// (Groq llama-3.3-70b primario + Ollama qwen2.5:7b fallback).
+// Decisione 2026-04-29: Anthropic completamente rimosso da NEXO.
 
 // ─── Intent router — Architettura 3-livelli ────────────────────
 // L1 (regex DIRECT_HANDLERS) gestita upstream in index.js/forge.js.
