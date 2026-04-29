@@ -1537,38 +1537,25 @@ export async function tryInterceptPreventivoHaikuFallback({ userMessage, session
     return null;
   }
 
-  const apiKey = ANTHROPIC_API_KEY.value();
-
+  // callLLM gestisce internamente Groq → fallback Ollama. Niente più
+  // doppia chiamata: il fallback è dentro callLLM stesso.
   let intent;
-  let intentSource = "haiku";
   try {
-    if (apiKey) {
-      intent = await callHaikuPreventivoIntent(apiKey, pendingData, t);
-    }
+    intent = await callLLMPreventivoIntent(pendingData, t);
   } catch (e) {
-    if (!isHaikuTransientError(e)) {
-      logger.warn("Haiku fallback preventivo failed", { error: String(e).slice(0, 150) });
-      return null;
-    }
-    // Cade su Ollama qwen2.5:7b
-    logger.warn("Haiku preventivo transient, falling back to ollama", { error: String(e).slice(0, 150) });
-    intent = null;
-  }
-
-  if (!intent) {
-    // Tenta Ollama come fallback (anche quando apiKey manca)
+    logger.warn("LLM preventivo fallback failed", { error: String(e).slice(0, 150) });
+    // Tentativo extra: Ollama puro (utile se anche Groq è down hardly)
     try {
       intent = await callOllamaPreventivoIntent(pendingData, t);
-      intentSource = "ollama";
     } catch (e2) {
       logger.warn("Ollama fallback preventivo failed", { error: String(e2).slice(0, 150) });
-      return null; // lascia passare al routing standard
+      return null;
     }
   }
 
   if (!intent || !intent.azione) return null;
   // Annota la sorgente per debug
-  intent._source = intentSource;
+  intent._source = intent._llmSource || "ollama_only";
 
   const az = String(intent.azione).toLowerCase();
   const params = intent.parametri || {};
