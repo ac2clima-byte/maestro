@@ -822,17 +822,8 @@ export async function sendPushNotification(title, body, link, userId) {
 }
 
 // ─── Ollama fallback (LLM locale Hetzner NEXO) ─────────────────
-
-// Riconosce errori Haiku per cui ha senso fare fallback su Ollama:
-// 400 (balance esaurito), 401/403 (auth), 429 (rate limit), 5xx (downtime),
-// errori di rete (fetch fallito).
-export function isHaikuTransientError(err) {
-  const msg = String(err?.message || err || "").toLowerCase();
-  if (/anthropic\s+(400|401|403|429|5\d\d)/.test(msg)) return true;
-  if (/balance|insufficient|credit|quota|rate.?limit/.test(msg)) return true;
-  if (/fetch failed|network|timeout|enotfound|econnrefused/.test(msg)) return true;
-  return false;
-}
+// Funzione isHaikuTransientError rimossa con la migrazione Anthropic →
+// Groq+Ollama (2026-04-29). Usare isGroqTransientError (definita sopra).
 
 // Estrae il primo blocco JSON {...} da un testo libero (Ollama spesso
 // avvolge il JSON in code fence ```json o aggiunge prefazione).
