@@ -586,12 +586,12 @@ export const nexusRouter = onRequest(
 
     // ─── LIVELLO 1: regex-first (zero costo, zero latenza) ─────
     // Molti DIRECT_HANDLERS già matchano sul solo userMessage. Proviamo
-    // prima senza chiamare LLM: se uno scatta, salviamo Haiku/Ollama
+    // prima senza chiamare LLM: se uno scatta, salviamo Groq/Ollama
     // del tutto.
     const regexIntent = { collega: "", azione: "", parametri: {}, confidenza: 0 };
     const regexDirectRaw = await tryDirectAnswer(regexIntent, userMessage, sessionId);
     // Considera "regex matchato" SOLO se non è fallito. Se l'handler regex
-    // è fallito (errore Firestore, ecc.) cade su Haiku come prima per non
+    // è fallito (errore Firestore, ecc.) cade su LLM come prima per non
     // restituire un errore muto.
     const regexDirect = (regexDirectRaw && !regexDirectRaw._failed) ? regexDirectRaw : null;
 
