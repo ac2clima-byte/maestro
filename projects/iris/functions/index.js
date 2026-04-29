@@ -1125,7 +1125,7 @@ async function runIrisPoller() {
 // admin_key).
 /*
 export const irisPoller = onSchedule(
-  { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "512MiB", timeoutSeconds: 120, secrets: [ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL] },
+  { region: REGION, schedule: "every 5 minutes", timeZone: "Europe/Rome", memory: "512MiB", timeoutSeconds: 120, secrets: [GROQ_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL] },
   async () => {
     try { const r = await runIrisPoller(); logger.info("irisPoller scheduled complete", r); }
     catch (e) { logger.error("irisPoller scheduled failed", { error: String(e) }); }
