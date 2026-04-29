@@ -72,7 +72,7 @@ REGOLE:
 5. "contesto_thread" spiega la conversazione completa; "prossimo_passo" dà istruzioni operative.
 6. "intents" sempre presente con almeno 1 elemento (replica top-level se l'email ha un solo argomento).`;
 
-export async function classifyEmail(anthropicKey, email) {
+export async function classifyEmail(email) {
   const body = [
     `Da: ${email.sender_name ? `${email.sender_name} <${email.sender}>` : email.sender}`,
     `Oggetto: ${email.subject || "(nessun oggetto)"}`,
@@ -82,26 +82,15 @@ export async function classifyEmail(anthropicKey, email) {
     (email.body_text || "").slice(0, 8000),
   ].join("\n");
 
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLASSIFY_MODEL,
-      max_tokens: 1500, // prompt v2 estrae più dati: persone/aziende/date/thread/next-step
-      system: CLASSIFY_SYSTEM,
-      messages: [{ role: "user", content: body }],
-    }),
+  const r = await callLLM({
+    system: CLASSIFY_SYSTEM,
+    user: body,
+    responseFormatJson: true,
+    maxTokens: 1500,
+    groqTimeoutMs: 20000,
+    ollamaTimeoutMs: 75000,
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 200)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const text = String(r.text || "");
   const jsonStart = text.indexOf("{");
   const jsonEnd = text.lastIndexOf("}");
   let parsed = {};
@@ -125,10 +114,13 @@ export async function classifyEmail(anthropicKey, email) {
       contesto_thread: parsed.contesto_thread || "",
       prossimo_passo: parsed.prossimo_passo || "",
       intents: Array.isArray(parsed.intents) ? parsed.intents : [],
+
+      _llmSource: r.source,
     },
     usage: {
-      input_tokens: json.usage?.input_tokens || 0,
-      output_tokens: json.usage?.output_tokens || 0,
+      input_tokens: r.usage?.prompt_tokens || 0,
+      output_tokens: r.usage?.completion_tokens || 0,
+      source: r.source,
     },
   };
 }
