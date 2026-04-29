@@ -2,7 +2,7 @@
 import {
   fetchIrisEmails, emailLine, isToday, fmtDataOra,
   CATEGORIE_URGENTI_SET,
-  ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
+  callLLM,
   db, FieldValue, logger,
 } from "./shared.js";
 
