@@ -1365,7 +1365,7 @@ async function approvaEGeneraPdf(pendingDoc, pendingData, sessionId, options = {
 //   approva        → marca pending come approvato (TODO step PDF)
 //   annulla        → cancella il pending
 //   chiarimento    → chiede chiarimento all'utente con la domanda generata
-async function callHaikuPreventivoIntent(apiKey, pendingData, userMessage) {
+async function callLLMPreventivoIntent(pendingData, userMessage) {
   const intestatario = pendingData.intestatario || {};
   const condominio = pendingData.condominio || {};
   const voci = Array.isArray(pendingData.voci) ? pendingData.voci : [];
@@ -1427,22 +1427,22 @@ REGOLE GENERALI
 - Se proprio non capisci, usa "chiarimento" con una domanda specifica.
 - Importi: numeri decimali con punto (50.00), niente € o "euro".`;
 
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 400,
-      system,
-      messages: [{ role: "user", content: userMessage }],
-    }),
+  const r = await callLLM({
+    system,
+    user: userMessage,
+    responseFormatJson: true,
+    maxTokens: 400,
+    groqTimeoutMs: 12000,
+    ollamaTimeoutMs: 50000,
   });
-  if (!resp.ok) throw new Error(`Anthropic ${resp.status}`);
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("").trim();
+  const text = String(r.text || "");
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
   if (s < 0 || e <= s) return null;
-  return JSON.parse(text.slice(s, e + 1));
+  try {
+    const parsed = JSON.parse(text.slice(s, e + 1));
+    parsed._llmSource = r.source;
+    return parsed;
+  } catch { return null; }
 }
 
 // Versione Ollama qwen2.5:7b dello stesso prompt — usata come fallback
