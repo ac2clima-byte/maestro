@@ -8,7 +8,7 @@
 // NON gestisce FCM background (quello resta in firebase-messaging-sw.js,
 // che è registrato separatamente con scope diverso quando FCM sarà attivo).
 
-const CACHE_NAME = "nexo-shell-v6";
+const CACHE_NAME = "nexo-shell-v7";
 const SHARE_CACHE_NAME = "nexo-share-v1";
 const PRECACHE = ["/", "/index.html", "/manifest.json"];
 

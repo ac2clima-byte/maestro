@@ -1631,6 +1631,58 @@
   .nexus-btn-send:hover { background: var(--nexus-accent-dark); color: #fff; }
   .nexus-btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
+  /* Bottone Claude Code Max — viola, più piccolo, intelligente */
+  .nexus-btn-claude {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #c4b5fd;
+    font-size: 1rem;
+  }
+  .nexus-btn-claude:hover {
+    background: #ddd6fe;
+    color: #5b21b6;
+    border-color: #8b5cf6;
+  }
+  .nexus-btn-claude:disabled { opacity: 0.5; cursor: not-allowed; }
+  .nexus-btn-claude.thinking {
+    animation: nexus-claude-thinking 1.4s ease-in-out infinite;
+    background: #ddd6fe;
+    color: #5b21b6;
+  }
+  @keyframes nexus-claude-thinking {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(139, 92, 246, 0); }
+  }
+  /* Bubble messaggi da Claude Code: bordo viola, badge 🧠 */
+  .nexus-bubble.from-claude {
+    border-left: 3px solid #8b5cf6;
+    background: #faf5ff;
+  }
+  .nexus-bubble.from-claude::before {
+    content: "🧠 Claude";
+    display: inline-block;
+    font-size: 0.7rem;
+    color: #6d28d9;
+    background: #ede9fe;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  /* Bubble di attesa "Claude sta pensando..." */
+  .nexus-bubble.claude-pending {
+    border-left: 3px dashed #a78bfa;
+    background: #faf5ff;
+    color: #6d28d9;
+    font-style: italic;
+  }
+  .nexus-bubble.claude-pending::before {
+    content: "🧠";
+    margin-right: 6px;
+    animation: nexus-claude-thinking 1.4s ease-in-out infinite;
+    display: inline-block;
+  }
+
   .nexus-voice-status {
     padding: 4px 12px;
     font-size: 0.78rem;

@@ -233,13 +233,85 @@ export const nexusRouter = onRequest(
     const userMessage = String(body.userMessage || "").trim();
     const sessionId = String(body.sessionId || "").trim();
     const userId = authUser.email || authUser.uid;
-    const history = Array.isArray(body.history) ? body.history.slice(-10) : [];
+    const engine = body.engine === "claude_code" ? "claude_code" : "groq";
+    const histLimit = engine === "claude_code" ? 20 : 10;
+    const history = Array.isArray(body.history) ? body.history.slice(-histLimit) : [];
 
     if (!userMessage || !sessionId) { res.status(400).json({ error: "missing_userMessage_or_sessionId" }); return; }
     if (userMessage.length > 2000) { res.status(400).json({ error: "userMessage_too_long" }); return; }
 
     await ensureNexusSession(sessionId, userId, userMessage);
-    const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage });
+    const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: userMessage, engine });
+
+    // ─── Engine: Claude Code Max ──────────────────────────────────
+    // Se l'utente ha cliccato il bottone 🧠, NON instradare via Groq/Ollama.
+    // Salva la richiesta in nexo_claude_requests (status=pending). MAESTRO
+    // (poller su WSL Alberto) la prende, la manda a Claude Code via tmux,
+    // e scrive la risposta in nexus_chat con source="claude_code".
+    if (engine === "claude_code") {
+      const RATE_LIMIT_PER_DAY = 20;
+      // Check rate limit: max RATE_LIMIT_PER_DAY claude_code request per userId nelle ultime 24h
+      try {
+        const since = new Date(Date.now() - 86400_000);
+        const rateSnap = await db.collection("nexo_claude_requests")
+          .where("userId", "==", userId)
+          .where("createdAt", ">", since)
+          .limit(RATE_LIMIT_PER_DAY + 1)
+          .get();
+        if (rateSnap.size >= RATE_LIMIT_PER_DAY) {
+          const limitContent = `Hai raggiunto il limite di ${RATE_LIMIT_PER_DAY} richieste a Claude oggi. Riprova domani o usa il bottone ⚡ (Groq).`;
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: limitContent,
+            stato: "claude_rate_limit", source: "claude_code",
+          });
+          res.status(200).json({
+            intent: { collega: "claude_code", azione: "rate_limit", parametri: {}, rispostaUtente: limitContent, confidenza: 1 },
+            nexusMessageId, userMsgId, stato: "claude_rate_limit",
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("claude_code rate limit check failed, continuing", { error: String(e).slice(0, 200) });
+      }
+
+      // Crea richiesta pending
+      const reqRef = db.collection("nexo_claude_requests").doc();
+      const reqId = reqRef.id;
+      try {
+        await reqRef.set({
+          id: reqId,
+          sessionId,
+          userId,
+          userMessage,
+          conversation: history,
+          status: "pending",
+          engine: "claude_code",
+          userMsgId,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        logger.error("claude_code request write failed", { error: String(e).slice(0, 200) });
+        res.status(500).json({ error: "claude_request_write_failed", detail: String(e).slice(0, 200) });
+        return;
+      }
+
+      // Risposta inline "Claude sta pensando..." (placeholder, MAESTRO la sostituirà)
+      const pendingContent = "🧠 Claude sta pensando… (può impiegare fino a 60 secondi)";
+      const nexusMessageId = await writeNexusMessage(sessionId, {
+        role: "assistant",
+        content: pendingContent,
+        stato: "claude_pending",
+        source: "claude_code",
+        claudeRequestId: reqId,
+      });
+      res.status(200).json({
+        intent: { collega: "claude_code", azione: "pending", parametri: {}, rispostaUtente: pendingContent, confidenza: 1 },
+        nexusMessageId, userMsgId, stato: "claude_pending",
+        claudeRequestId: reqId,
+      });
+      return;
+    }
 
     // Preventivo IVA: se nel pending in attesa_approvazione l'utente cita un
     // regime IVA (reverse charge, split, esente, "iva N%") ricalcoliamo IVA

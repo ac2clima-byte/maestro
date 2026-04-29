@@ -1595,21 +1595,35 @@ async function nexusEnsureSubscribed() {
       fsMod.limit(200),
     );
     NEXUS_UNSUBSCRIBE = fsMod.onSnapshot(q, (snap) => {
-      const msgs = [];
+      const rawMsgs = [];
       snap.forEach(doc => {
         const d = doc.data();
-        msgs.push({
+        rawMsgs.push({
           id: doc.id,
           role: d.role,
           content: d.content,
           collegaCoinvolto: d.collegaCoinvolto,
           lavagnaMessageId: d.lavagnaMessageId,
+          claudeRequestId: d.claudeRequestId || null,
           azione: d.azione,
           stato: d.stato,
           source: d.source || null,
+          engine: d.engine || null,
           timestamp: d.timestamp && d.timestamp.toDate ? d.timestamp.toDate() : null,
         });
       });
+      // Per ogni claudeRequestId, se esiste sia un placeholder
+      // (stato="claude_pending") sia una risposta finale (qualsiasi altro
+      // stato), nascondi il placeholder. Mostra solo la risposta finale.
+      const finalByReqId = new Set();
+      for (const m of rawMsgs) {
+        if (m.claudeRequestId && m.role === "assistant" && m.stato !== "claude_pending") {
+          finalByReqId.add(m.claudeRequestId);
+        }
+      }
+      const msgs = rawMsgs.filter(m =>
+        !(m.claudeRequestId && m.stato === "claude_pending" && finalByReqId.has(m.claudeRequestId))
+      );
       NEXUS_MESSAGES = msgs;
       nexusRenderMessages();
       // hook per ogni lavagna message che stiamo aspettando
@@ -2210,9 +2224,13 @@ function escapeHtmlAndAutolink(text) {
 
 function nexusRenderBubble(m, consecutive) {
   const isForge = m.source === "forge";
+  const isClaude = m.source === "claude_code";
+  const isClaudePending = m.stato === "claude_pending";
   const meta = [];
   if (isForge) {
     meta.push(`<span class="nexus-badge-col nexus-badge-forge">forge</span>`);
+  } else if (isClaude) {
+    meta.push(`<span class="nexus-badge-col" style="background:#ede9fe;color:#6d28d9;">claude</span>`);
   } else if (m.collegaCoinvolto && m.collegaCoinvolto !== "nessuno" && m.collegaCoinvolto !== "multi" && m.collegaCoinvolto !== "forge") {
     meta.push(`<span class="nexus-badge-col">${escapeHtml(m.collegaCoinvolto.toLowerCase())}</span>`);
   }
@@ -2223,6 +2241,8 @@ function nexusRenderBubble(m, consecutive) {
       collega_inattivo: "collega non ancora attivo",
       timeout: "timeout",
       errore: "errore",
+      claude_pending: "Claude sta pensando…",
+      claude_timeout: "timeout Claude",
     })[m.stato] || m.stato;
     meta.push(`<span class="nexus-badge-stato ${escapeHtml(m.stato)}">${escapeHtml(label)}</span>`);
   }
@@ -2235,9 +2255,10 @@ function nexusRenderBubble(m, consecutive) {
     : "";
   const timeHtml = m.timestamp ? `<span class="time">${escapeHtml(nexusBubbleTime(m.timestamp))}</span>` : "";
   const forgeClass = isForge ? "forge" : "";
+  const claudeClass = isClaude ? "from-claude" : (isClaudePending ? "claude-pending" : "");
   const forgePrefix = isForge ? `<span class="nexus-bubble-forge-tag" aria-hidden="true">🔧 FORGE</span> ` : "";
   return `
-    <div class="nexus-bubble ${escapeHtml(m.role)} ${forgeClass} ${consecutive ? "consecutive" : ""} ${isSpeaking ? "is-speaking" : ""}" data-bubble-id="${escapeHtml(m.id || "")}">
+    <div class="nexus-bubble ${escapeHtml(m.role)} ${forgeClass} ${claudeClass} ${consecutive ? "consecutive" : ""} ${isSpeaking ? "is-speaking" : ""}" data-bubble-id="${escapeHtml(m.id || "")}">
       ${forgePrefix}${escapeHtmlAndAutolink(m.content)}${timeHtml}
       ${waveIndicator}
       ${(meta.length || speakBtn) ? `<div class="nexus-bubble-meta">${meta.join("")}${speakBtn}</div>` : ""}
@@ -2245,7 +2266,9 @@ function nexusRenderBubble(m, consecutive) {
   `;
 }
 
-async function nexusSend() {
+async function nexusSend(opts) {
+  // opts = { engine: "groq" | "claude_code" }. Default "groq" (routing veloce).
+  const engine = (opts && opts.engine) === "claude_code" ? "claude_code" : "groq";
   if (NEXUS_PENDING) return;
   const input = $("#nexusInput");
   const text = (input.value || "").trim();
@@ -2253,12 +2276,19 @@ async function nexusSend() {
   input.value = "";
   nexusAutoResize();
   NEXUS_PENDING = true;
+  // Indicatore visuale sul bottone Claude se è il flusso 🧠
+  if (engine === "claude_code") {
+    const btn = $("#nexusSendClaudeBtn");
+    if (btn) btn.classList.add("thinking");
+  }
   nexusRenderMessages();
 
-  // Costruisco history (ultimi 10 dalla lista corrente).
+  // Costruisco history. Per Claude Code passo 20 turni (Opus 1M context),
+  // per Groq 10 (più snello → meno token, latenza minore).
+  const histLimit = engine === "claude_code" ? 20 : 10;
   const history = NEXUS_MESSAGES
     .filter(m => !m._local && (m.role === "user" || m.role === "assistant"))
-    .slice(-10)
+    .slice(-histLimit)
     .map(m => ({ role: m.role, content: m.content }));
 
   try {
@@ -2273,6 +2303,7 @@ async function nexusSend() {
         userMessage: text,
         userId: (CURRENT_USER && CURRENT_USER.email) || "alberto",
         history,
+        engine,
       }),
     });
     if (!resp.ok) {
@@ -2293,6 +2324,8 @@ async function nexusSend() {
     });
   } finally {
     NEXUS_PENDING = false;
+    const btn = $("#nexusSendClaudeBtn");
+    if (btn) btn.classList.remove("thinking");
     nexusRenderMessages();
   }
 }
@@ -2731,7 +2764,8 @@ function nexusWire() {
   });
   $("#nexusClearBtn")?.addEventListener("click", nexusClear);
   nexusBugWire();
-  $("#nexusSendBtn").addEventListener("click", nexusSend);
+  $("#nexusSendBtn").addEventListener("click", () => nexusSend({ engine: "groq" }));
+  $("#nexusSendClaudeBtn")?.addEventListener("click", () => nexusSend({ engine: "claude_code" }));
   // Il bottone mic è wirato in nexusMicWireWhenReady() su DOMContentLoaded
   // (sempre visibile, gestisce browser non supportato con feedback chiaro).
   // Qui non aggiungiamo nulla per evitare doppio listener.

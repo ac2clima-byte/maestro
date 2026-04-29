@@ -892,6 +892,244 @@ async function postForgeFixToChat(taskId, taskContent, completed) {
   }
 }
 
+// === CLAUDE-CODE REQUESTS (chat NEXUS bottone 🧠) ===
+//
+// Flusso:
+//   1. Utente clicca 🧠 in PWA NEXUS → Cloud Function nexusRouter scrive
+//      in nexo_claude_requests con status="pending".
+//   2. MAESTRO (questo poller) prende la richiesta più vecchia pending,
+//      manda il prompt a Claude Code via tmux, aspetta che scriva la
+//      risposta in tasks/claude-response-{reqId}.md.
+//   3. MAESTRO legge il file, scrive il content in nexus_chat con
+//      source="claude_code", marca la richiesta completed.
+//   4. Timeout: se Claude Code non risponde entro CLAUDE_REQUEST_TIMEOUT,
+//      scrive un messaggio di timeout nella chat e marca status=timeout.
+
+const CLAUDE_REQ_TIMEOUT = 300_000; // 5 minuti
+const CLAUDE_REQ_COLLECTION = 'nexo_claude_requests';
+
+function buildClaudeRequestPrompt(reqId, userMessage, conversation, sessionId) {
+  const convoLines = [];
+  if (Array.isArray(conversation) && conversation.length) {
+    convoLines.push('## Contesto conversazione (ultimi turni della sessione)');
+    convoLines.push('');
+    for (const m of conversation) {
+      const role = m && m.role === 'assistant' ? 'NEXUS' : 'ALBERTO';
+      const body = String(m && m.content || '').slice(0, 1500);
+      convoLines.push(`### ${role}`);
+      convoLines.push('');
+      convoLines.push('> ' + body.replace(/\n/g, '\n> '));
+      convoLines.push('');
+    }
+  }
+  return [
+    `Sei NEXUS, l'assistente AI di Alberto Contardi (ACG Clima Service S.R.L., manutenzione HVAC, Piemonte).`,
+    `Alberto ti ha chiesto qualcosa dalla chat NEXUS (bottone 🧠 Claude — analisi profonda, non routing veloce).`,
+    `NON fare analisi del codice, NON modificare file di produzione. Rispondi alla domanda di Alberto come un collega esperto, in italiano naturale, conciso (5-15 frasi tipiche).`,
+    `Se serve, puoi cercare dati in Firestore (progetti: nexo-hub-15f2d, garbymobile-f89ac, guazzotti-tec) — ma solo letture, niente scritture.`,
+    ``,
+    `## Domanda di Alberto`,
+    ``,
+    '> ' + String(userMessage).slice(0, 4000).replace(/\n/g, '\n> '),
+    ``,
+    ...convoLines,
+    `## Cosa devi fare (importante)`,
+    ``,
+    `1. Pensa alla risposta e scrivila in un file: \`tasks/claude-response-${reqId}.md\``,
+    `2. Il contenuto del file = SOLO il testo della risposta (italiano, naturale, niente markdown elaborato, niente sezioni "## Risposta", solo le frasi che diresti ad Alberto).`,
+    `3. Massimo 1500 caratteri per restare leggibile in chat.`,
+    `4. Niente git commit/push (MAESTRO se ne occupa).`,
+    `5. Quando hai finito di scrivere il file, **fermati e torna al prompt** — non fare altro.`,
+    ``,
+    `Session: ${sessionId}`,
+    `Request ID: ${reqId}`,
+  ].join('\n');
+}
+
+async function pollClaudeRequests() {
+  let snap;
+  try {
+    snap = await getDb().collection(CLAUDE_REQ_COLLECTION)
+      .where('status', '==', 'pending')
+      .orderBy('createdAt', 'asc')
+      .limit(5)
+      .get();
+  } catch (e) {
+    // Se manca l'indice composito, fallback a query semplice
+    if (/index/i.test(e.message || '')) {
+      try {
+        snap = await getDb().collection(CLAUDE_REQ_COLLECTION)
+          .where('status', '==', 'pending')
+          .limit(5)
+          .get();
+      } catch (e2) {
+        console.error(`[CLAUDE-POLL] read failed: ${e2.message}`);
+        return 0;
+      }
+    } else {
+      console.error(`[CLAUDE-POLL] read failed: ${e.message}`);
+      return 0;
+    }
+  }
+  if (snap.empty) return 0;
+  // Prendi la più vecchia (gestione manuale se l'orderBy non era applicabile)
+  const docs = snap.docs.slice().sort((a, b) => {
+    const ta = a.data().createdAt?.toMillis?.() || 0;
+    const tb = b.data().createdAt?.toMillis?.() || 0;
+    return ta - tb;
+  });
+  return await processClaudeRequest(docs[0]);
+}
+
+async function processClaudeRequest(doc) {
+  const reqId = doc.id;
+  const data = doc.data() || {};
+  const sessionId = data.sessionId;
+  const userMessage = data.userMessage || '';
+  const conversation = Array.isArray(data.conversation) ? data.conversation : [];
+  const userMsgId = data.userMsgId || null;
+
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`[CLAUDE-REQ] ${reqId}`);
+  console.log('='.repeat(60));
+  console.log(`Session: ${sessionId}`);
+  console.log(`User msg: ${userMessage.slice(0, 100)}${userMessage.length > 100 ? '...' : ''}`);
+
+  // Marca in_progress
+  try {
+    await doc.ref.update({
+      status: 'in_progress',
+      startedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.error(`[CLAUDE-REQ] update in_progress failed: ${e.message}`);
+  }
+
+  // Verifica Claude Code al prompt
+  const ready = await waitForPrompt();
+  if (!ready) {
+    console.log(`[CLAUDE-REQ] Claude Code non al prompt, marco timeout`);
+    return await failClaudeRequest(doc, sessionId, 'Claude non disponibile al momento, riprova tra qualche minuto.');
+  }
+
+  // Pulisci eventuale file precedente (nel caso di retry)
+  const responseFile = join(TASKS_DIR, `claude-response-${reqId}.md`);
+  try { execSync(`rm -f ${responseFile}`); } catch {}
+
+  // Manda prompt
+  const prompt = buildClaudeRequestPrompt(reqId, userMessage, conversation, sessionId);
+  console.log(`[CLAUDE-REQ] Mando prompt a Claude Code (${prompt.length} char)`);
+  try {
+    sendToTmux(prompt);
+  } catch (e) {
+    console.error(`[CLAUDE-REQ] sendToTmux failed: ${e.message}`);
+    return await failClaudeRequest(doc, sessionId, 'Errore tecnico nell\'invio a Claude. Riprova.');
+  }
+
+  // Aspetta che il file di risposta venga creato (polling 3s, max 5min)
+  const start = Date.now();
+  let responseContent = null;
+  while (Date.now() - start < CLAUDE_REQ_TIMEOUT) {
+    if (existsSync(responseFile)) {
+      try {
+        responseContent = readFileSync(responseFile, 'utf-8').trim();
+        if (responseContent) break;
+      } catch {}
+    }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+
+  if (!responseContent) {
+    console.log(`[CLAUDE-REQ] timeout ${CLAUDE_REQ_TIMEOUT/1000}s senza risposta`);
+    return await failClaudeRequest(doc, sessionId,
+      `Claude non ha risposto entro ${Math.floor(CLAUDE_REQ_TIMEOUT/60000)} minuti. Riprova oppure usa il bottone ⚡ (Groq).`);
+  }
+
+  // Tronca se troppo lungo per Firestore message
+  const truncated = responseContent.slice(0, 1800);
+  console.log(`[CLAUDE-REQ] risposta letta (${responseContent.length} char), scrivo in nexus_chat`);
+
+  // Scrivi risposta in nexus_chat
+  let nexusMessageId = null;
+  try {
+    const db = getDb();
+    const msgRef = db.collection('nexus_chat').doc();
+    nexusMessageId = msgRef.id;
+    await msgRef.set({
+      id: msgRef.id,
+      sessionId,
+      role: 'assistant',
+      content: truncated,
+      source: 'claude_code',
+      stato: 'completata',
+      claudeRequestId: reqId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    try {
+      await db.collection('nexus_sessions').doc(sessionId).update({
+        messageCount: admin.firestore.FieldValue.increment(1),
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch {}
+  } catch (e) {
+    console.error(`[CLAUDE-REQ] write nexus_chat failed: ${e.message}`);
+    return await failClaudeRequest(doc, sessionId, 'Errore scrittura risposta. Riprova.');
+  }
+
+  // Marca completed
+  try {
+    await doc.ref.update({
+      status: 'completed',
+      nexusMessageId,
+      responseLength: responseContent.length,
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.error(`[CLAUDE-REQ] update completed failed: ${e.message}`);
+  }
+
+  // Pulisci il file di risposta (commit-safe)
+  try { execSync(`rm -f ${responseFile}`); } catch {}
+
+  console.log(`[CLAUDE-REQ] ${reqId} completed → nexus_chat ${nexusMessageId}`);
+  return 1;
+}
+
+async function failClaudeRequest(doc, sessionId, errorMessage) {
+  // Scrivi messaggio di errore in chat
+  try {
+    const db = getDb();
+    const msgRef = db.collection('nexus_chat').doc();
+    await msgRef.set({
+      id: msgRef.id,
+      sessionId,
+      role: 'assistant',
+      content: errorMessage,
+      source: 'claude_code',
+      stato: 'claude_timeout',
+      claudeRequestId: doc.id,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    console.error(`[CLAUDE-REQ FAIL] write fail msg failed: ${e.message}`);
+  }
+  // Marca status=timeout/failed
+  try {
+    await doc.ref.update({
+      status: 'timeout',
+      error: errorMessage,
+      failedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch {}
+  return 0;
+}
+
 // === MAIN LOOP ===
 async function main() {
   console.log('╔══════════════════════════════════════════════════╗');
@@ -912,20 +1150,36 @@ async function main() {
   // Primo poll dev-requests + report subito allo startup (utile per
   // Claude Chat e per recuperare richieste pendenti pre-restart).
   await pollDevRequests();
+  await pollClaudeRequests();
   writeAndPushStatusReport();
 
   let ciclo = 0;
   while (true) {
     await pull();
 
-    const pending = getPendingTasks();
-    if (pending.length > 0) {
-      console.log(`[FOUND] ${pending.length} task in attesa`);
-      for (const task of pending) {
-        await processTask(task);
+    // Priorità 1: claude-requests (utente in chat aspetta risposta).
+    // Una alla volta — ne processa al massimo 1 per ciclo per non
+    // monopolizzare tmux.
+    let claudeProcessed = 0;
+    try {
+      claudeProcessed = await pollClaudeRequests();
+    } catch (e) {
+      console.error(`[CLAUDE-POLL] errore: ${e.message}`);
+    }
+
+    // Priorità 2: tasks/dev-requests SOLO se non c'è una claude-request
+    // appena lavorata (così il prossimo ciclo controlla altre claude-requests
+    // pendenti prima di partire con dev-requests che possono durare minuti).
+    if (claudeProcessed === 0) {
+      const pending = getPendingTasks();
+      if (pending.length > 0) {
+        console.log(`[FOUND] ${pending.length} task in attesa`);
+        for (const task of pending) {
+          await processTask(task);
+        }
+      } else {
+        await updateStatus('idle', { msg: 'nessun task in coda' });
       }
-    } else {
-      await updateStatus('idle', { msg: 'nessun task in coda' });
     }
 
     ciclo++;
