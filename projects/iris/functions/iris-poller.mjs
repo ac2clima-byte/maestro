@@ -1,5 +1,5 @@
 /**
- * IRIS EWS poller — fetch nuove email Exchange e classifica con Haiku.
+ * IRIS EWS poller — fetch nuove email Exchange e classifica con Groq+Ollama.
  *
  * Chiamato da irisPollScheduled (onSchedule 5min). Idempotente:
  * persiste watermark (timestamp ultima email) e skip di email già presenti
@@ -9,11 +9,15 @@
  *   { auth: "basic", server, user, password, mailbox? }
  *   (OAuth token: v0.2)
  *
+ * Decisione 2026-04-29: Anthropic rimosso. Classificazione su Groq
+ * llama-3.3-70b primario, fallback Ollama qwen2.5:7b via callLLM (shared.js).
+ *
  * Il pacchetto ews-javascript-api è CommonJS, uso createRequire.
  */
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const ews = require("ews-javascript-api");
+import { callLLM } from "./handlers/shared.js";
 
 const {
   ExchangeService,
@@ -29,9 +33,6 @@ const {
   SearchFilter,
   LogicalOperator,
 } = ews;
-
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const CLASSIFY_MODEL = "claude-haiku-4-5";
 
 // Prompt v2 "intent recognition avanzato" — estrae anche intent, dati_estratti,
 // contesto_thread, prossimo_passo. Legge l'intero thread (email quotate in cascata).
