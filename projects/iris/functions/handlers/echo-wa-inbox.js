@@ -13,7 +13,7 @@
 
 import {
   getCosminaDb, db, FieldValue, logger,
-  ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
+  GROQ_MODEL, getGroqApiKey, callLLM,
   sendPushNotification, fmtDataOra,
 } from "./shared.js";
 
