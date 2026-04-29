@@ -514,41 +514,31 @@ Leggi l'INTERO thread (email quotate sotto) e rispondi SOLO con JSON valido:
 }
 Ometti campi che non puoi estrarre — non inventare. SOLO JSON.`;
 
-async function classifyEmailV2(apiKey, email) {
-  const payload = {
-    model: MODEL,
-    max_tokens: 1500,
+async function classifyEmailV2(email) {
+  const userMsg = [
+    `Da: ${email.senderName || email.sender_name || ""} <${email.sender || ""}>`,
+    `Oggetto: ${email.subject || ""}`,
+    `Ricevuta: ${email.received_time || ""}`,
+    ``,
+    `Corpo (thread completo — email quotate in fondo):`,
+    String(email.body_text || "").slice(0, 8000),
+  ].join("\n");
+  const r = await callLLM({
     system: CLASSIFY_SYSTEM_V2,
-    messages: [{
-      role: "user",
-      content: [
-        `Da: ${email.senderName || email.sender_name || ""} <${email.sender || ""}>`,
-        `Oggetto: ${email.subject || ""}`,
-        `Ricevuta: ${email.received_time || ""}`,
-        ``,
-        `Corpo (thread completo — email quotate in fondo):`,
-        String(email.body_text || "").slice(0, 8000),
-      ].join("\n"),
-    }],
-  };
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
+    user: userMsg,
+    responseFormatJson: true,
+    maxTokens: 1500,
+    groqTimeoutMs: 20000,
+    ollamaTimeoutMs: 75000,
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Anthropic ${resp.status}: ${t.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const text = String(r.text || "");
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
   if (s < 0 || e <= s) return null;
-  try { return JSON.parse(text.slice(s, e + 1)); } catch { return null; }
+  try {
+    const parsed = JSON.parse(text.slice(s, e + 1));
+    parsed._llmSource = r.source;
+    return parsed;
+  } catch { return null; }
 }
 
 // Primo nome (per indicare chi ha scritto in modo naturale)
@@ -693,16 +683,13 @@ export async function handleIrisAnalizzaEmail(parametri, ctx) {
     };
   }
 
-  // Altrimenti chiama Haiku con prompt v2
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "Non posso analizzare: ANTHROPIC_API_KEY mancante." };
-
+  // Altrimenti chiama LLM (Groq + fallback Ollama)
   let cls;
   try {
-    cls = await classifyEmailV2(apiKey, email);
+    cls = await classifyEmailV2(email);
   } catch (e) {
-    logger.warn("handleIrisAnalizzaEmail: Haiku failed", { error: String(e).slice(0, 200) });
-    return { content: `Errore chiamata Haiku: ${String(e).slice(0, 150)}` };
+    logger.warn("handleIrisAnalizzaEmail: LLM failed", { error: String(e).slice(0, 200) });
+    return { content: `Errore chiamata LLM: ${String(e).slice(0, 150)}` };
   }
   if (!cls) return { content: "Non sono riuscito a parsare la risposta del modello. Riprova." };
 
