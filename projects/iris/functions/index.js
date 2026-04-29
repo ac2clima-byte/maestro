@@ -20,7 +20,7 @@ import {
 
 import {
   tryDirectAnswer, ensureNexusSession, writeNexusMessage, postLavagnaFromNexus,
-  parseAndValidateIntent, callHaikuForIntent, callIntentRouter, loadConversationContext,
+  parseAndValidateIntent, callIntentRouter, loadConversationContext,
   tryInterceptPatternConfirmation, tryAnalyzeLongText, tryInterceptEmailQueue,
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
