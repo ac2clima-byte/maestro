@@ -1,12 +1,12 @@
-// handlers/nexus.js — router principale (Haiku intent parsing + DIRECT_HANDLERS dispatch).
+// handlers/nexus.js — router principale (intent parsing Groq+Ollama + DIRECT_HANDLERS dispatch).
 import {
   db, FieldValue, logger,
-  ANTHROPIC_API_KEY, ANTHROPIC_URL, MODEL,
   GROQ_MODEL, getGroqApiKey,
   naturalize,
   oggiPromptItalia,
-  callOllamaIntent, isHaikuTransientError, OLLAMA_MODEL_FALLBACK,
+  callOllamaIntent, OLLAMA_MODEL_FALLBACK,
   callGroqIntent, isGroqTransientError,
+  callLLM,
 } from "./shared.js";
 
 // Import dei 10 Colleghi
