@@ -614,14 +614,14 @@ export const nexusRouter = onRequest(
       };
       direct = regexDirect;
     } else {
-      // ─── LIVELLO 2: Haiku con fallback Ollama (callIntentRouter) ─
+      // ─── LIVELLO 2: Groq llama-3.3-70b con fallback Ollama qwen2.5:7b
       let llm;
       try {
         llm = await callIntentRouter(apiKey, messages);
       } catch (e) {
-        logger.error("nexus router (haiku+ollama) failed", { error: String(e).slice(0, 200) });
+        logger.error("nexus router (groq+ollama) failed", { error: String(e).slice(0, 200) });
         const fallback = { collega: "nessuno", azione: "errore", parametri: {}, confidenza: 0, rispostaUtente: `Errore interpretazione: ${String(e).slice(0, 120)}` };
-        const nexusMessageId = await writeNexusMessage(sessionId, { role: "assistant", content: fallback.rispostaUtente, intent: fallback, stato: "errore_modello", modello: MODEL });
+        const nexusMessageId = await writeNexusMessage(sessionId, { role: "assistant", content: fallback.rispostaUtente, intent: fallback, stato: "errore_modello", modello: GROQ_MODEL });
         res.status(200).json({ intent: fallback, nexusMessageId, userMsgId, stato: "errore_modello" });
         return;
       }
