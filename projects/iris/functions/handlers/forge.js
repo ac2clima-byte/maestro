@@ -390,7 +390,7 @@ export const nexusTestInternal = onRequest(
           const cleaned = naturalize(fallback.rispostaUtente);
           const nexusMessageId = await writeNexusMessage(sessionId, {
             role: "assistant", content: cleaned, intent: fallback,
-            stato: "errore_modello", modello: MODEL,
+            stato: "errore_modello", modello: GROQ_MODEL,
           });
           res.status(200).json({
             query: message, reply: cleaned, collega: "nessuno", azione: "errore",
@@ -418,8 +418,8 @@ export const nexusTestInternal = onRequest(
       }
 
       const modelloUsato = llmSource === "ollama"
-        ? `${llmUsage.model || "qwen2.5"}@ollama`
-        : (llmSource === "regex" ? "regex" : MODEL);
+        ? `${llmUsage.model || "qwen2.5:7b"}@ollama`
+        : (llmSource === "regex" ? "regex" : GROQ_MODEL);
       const cleaned = naturalize(finalContent || "");
       const nexusMessageId = await writeNexusMessage(sessionId, {
         role: "assistant", content: cleaned, intent, stato,
