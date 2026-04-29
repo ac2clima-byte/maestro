@@ -158,8 +158,6 @@ async function generaBozzaSollecito(parametri, ctx) {
 }
 
 async function generaBozzaComunicazione(parametri, ctx) {
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "CALLIOPE non configurato." };
   const condominio = String(parametri.condominio || parametri.cliente || "").trim();
   const oggetto = String(parametri.oggetto || parametri.argomento || "").trim();
 
@@ -182,9 +180,9 @@ async function generaBozzaComunicazione(parametri, ctx) {
     `Tono formale, lineare. Firma ACG Clima Service.`,
   ].join("\n");
 
-  const { corpo, usage } = await callSonnet(apiKey, userPrompt);
+  const { corpo, usage, modello } = await callCalliopeLLM(userPrompt);
   const bozzaId = await salvaBozza({
-    tipo: "comunicazione_condominio", tono: "formale", corpo,
+    tipo: "comunicazione_condominio", tono: "formale", corpo, modello,
     oggetto: `${oggetto} — ${condominio}`,
     contesto: { condominio, oggetto, dossierUsed: !!dossier },
     destinatario: null, usage, ctx,
