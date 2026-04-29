@@ -266,29 +266,12 @@ async function generaBozzaFromEmail(emailId, tono, note) {
     `Scrivi ora la bozza di risposta.`,
   ].filter(Boolean).join("\n");
 
-  let corpo, usage;
+  let corpo, usage, modello;
   try {
-    const resp = await fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: CALLIOPE_MODEL,
-        max_tokens: 1024,
-        system: CALLIOPE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-    if (!resp.ok) {
-      const text = await resp.text();
-      return { content: `CALLIOPE: errore modello (${resp.status}): ${text.slice(0, 200)}` };
-    }
-    const json = await resp.json();
-    corpo = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
-    usage = json.usage || {};
+    const r = await callCalliopeLLM(userPrompt);
+    corpo = r.corpo;
+    usage = r.usage || {};
+    modello = r.modello;
   } catch (e) {
     return { content: `CALLIOPE: chiamata fallita — ${String(e).slice(0, 200)}` };
   }
@@ -308,10 +291,10 @@ async function generaBozzaFromEmail(emailId, tono, note) {
         firma: "Cordiali saluti,\nAlberto Contardi\nACG Clima Service",
         generataIl: new Date().toISOString(),
         generataDa: "ai",
-        modello: CALLIOPE_MODEL,
+        modello,
         usage: {
-          inputTokens: usage.input_tokens || 0,
-          outputTokens: usage.output_tokens || 0,
+          inputTokens: usage.input_tokens || usage.prompt_tokens || 0,
+          outputTokens: usage.output_tokens || usage.completion_tokens || 0,
         },
       },
       contesto: { richiedente: "nexus", sourceEmailId: emailId, note },
@@ -333,6 +316,6 @@ async function generaBozzaFromEmail(emailId, tono, note) {
       `**Oggetto:** Re: ${raw.subject || ""}\n\n` +
       `---\n${corpo}\n---\n\n` +
       `_⚠️ DRY-RUN: la bozza NON è stata inviata. Rivedila e approva quando sei pronto._`,
-    data: { bozzaId, modello: CALLIOPE_MODEL, usage },
+    data: { bozzaId, modello, usage },
   };
 }
