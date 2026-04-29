@@ -393,9 +393,9 @@ function formatPreventivoChat(prev) {
  * Ritorna { content, data: { bozzaId, preventivoId, pendingApproval } }.
  */
 export async function runPreventivoWorkflow({ userMessage, context = {}, userId, sessionId }) {
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "Servizio CALLIOPE non disponibile (ANTHROPIC_API_KEY mancante)." };
-
+  // apiKey legacy: callLLM gestisce Groq+Ollama internamente. Manteniamo
+  // la variabile per non rompere le firme dei sub-step (verrà ignorata).
+  const apiKey = "legacy_unused";
   const steps = [];
   const input = parsePreventivoInput(userMessage, context);
 
