@@ -70,31 +70,23 @@ async function callWhisper(openaiKey, audioBuffer, fileName, mimeType) {
   return String(json.text || "").trim();
 }
 
-async function analyzeTranscript(anthropicKey, transcript) {
-  const payload = {
-    model: MODEL,
-    max_tokens: 1000,
+async function analyzeTranscript(transcript) {
+  const r = await callLLM({
     system: AUDIO_ANALYSIS_SYSTEM,
-    messages: [{ role: "user", content: `Trascrizione chiamata:\n\n${transcript.slice(0, 8000)}` }],
-  };
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
+    user: `Trascrizione chiamata:\n\n${transcript.slice(0, 8000)}`,
+    responseFormatJson: true,
+    maxTokens: 1000,
+    groqTimeoutMs: 20000,
+    ollamaTimeoutMs: 75000,
   });
-  if (!resp.ok) {
-    const t = await resp.text();
-    throw new Error(`Haiku ${resp.status}: ${t.slice(0, 300)}`);
-  }
-  const json = await resp.json();
-  const text = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("\n").trim();
+  const text = String(r.text || "");
   const s = text.indexOf("{"), e = text.lastIndexOf("}");
-  if (s < 0 || e <= s) return { _raw: text };
-  try { return JSON.parse(text.slice(s, e + 1)); } catch { return { _raw: text }; }
+  if (s < 0 || e <= s) return { _raw: text, _llmSource: r.source };
+  try {
+    const parsed = JSON.parse(text.slice(s, e + 1));
+    parsed._llmSource = r.source;
+    return parsed;
+  } catch { return { _raw: text, _llmSource: r.source }; }
 }
 
 function formatAnalysis(transcript, analysis, transcriptId) {
@@ -162,18 +154,13 @@ export async function handleNexusTranscribeAudio({ audioBuffer, fileName, mimeTy
   }
   if (!transcript) return { ok: false, error: "empty_transcript" };
 
-  // 2. Analyze with Haiku
-  const anthropicKey = ANTHROPIC_API_KEY.value();
+  // 2. Analyze con LLM (Groq + fallback Ollama, callLLM gestisce internamente)
   let analysis = {};
-  if (anthropicKey) {
-    try {
-      analysis = await analyzeTranscript(anthropicKey, transcript);
-    } catch (e) {
-      logger.warn("analysis failed", { error: String(e).slice(0, 200) });
-      analysis = { riepilogo: transcript.slice(0, 200), _analysisError: String(e).slice(0, 200) };
-    }
-  } else {
-    analysis = { riepilogo: transcript.slice(0, 200), _analysisError: "no_anthropic_key" };
+  try {
+    analysis = await analyzeTranscript(transcript);
+  } catch (e) {
+    logger.warn("analysis failed", { error: String(e).slice(0, 200) });
+    analysis = { riepilogo: transcript.slice(0, 200), _analysisError: String(e).slice(0, 200) };
   }
 
   // 3. Salva in Firestore
