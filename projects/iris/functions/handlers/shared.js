@@ -9,37 +9,32 @@ import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { getMessaging } from "firebase-admin/messaging";
 
 // ─── Secrets ───────────────────────────────────────────────────
-export const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+// Decisione 2026-04-29 (Alberto): rimossa dipendenza da Anthropic.
+// Tutti i flussi LLM (routing intent, classificazione email/WA,
+// generazione preventivi CALLIOPE, analisi audio post-Whisper) girano su
+// Groq llama-3.3-70b come primario, Ollama qwen2.5:7b come fallback.
+export const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
 export const EWS_USERNAME = defineSecret("EWS_USERNAME");
 export const EWS_PASSWORD = defineSecret("EWS_PASSWORD");
 export const EWS_URL = defineSecret("EWS_URL");
 
-// Groq API key — letta come env var, NON come Firebase Secret.
-// Motivo: defineSecret("GROQ_API_KEY") obbliga il deploy a valorizzarla,
-// e finché Alberto non ha creato l'account Groq la secret resta vuota
-// e il deploy fallisce. Pattern alternativo: leggi da process.env.
-//
-// Per attivare Groq:
-//   1. Alberto registra account su https://console.groq.com (gratis)
-//   2. Crea API key
-//   3. firebase functions:secrets:set GROQ_API_KEY  (paste della key)
-//   4. Aggiungi `GROQ_API_KEY = defineSecret("GROQ_API_KEY")` qui sopra
-//   5. Aggiungi GROQ_API_KEY ai secrets:[] di nexusRouter e nexusTestInternal
-//   6. Re-deploy. Il router L2 inizierà a usare Groq automaticamente.
-//
-// Finché GROQ_API_KEY non è disponibile, getGroqApiKey() ritorna null →
-// callIntentRouter cade direttamente su Ollama L3 (qwen2.5:7b).
+// Restituisce la GROQ API key se disponibile (secret o env), null altrimenti.
+// Quando null, callLLM cade direttamente su Ollama (qwen2.5:7b).
 export function getGroqApiKey() {
-  const v = process.env.GROQ_API_KEY;
-  if (!v) return null;
-  if (v === "PLACEHOLDER_NOT_VALID_KEY_REPLACE_FROM_GROQ_CONSOLE") return null;
-  return v;
+  // Prova prima la secret (presente quando deploy è valorizzato)
+  try {
+    const v = GROQ_API_KEY.value();
+    if (v && v !== "PLACEHOLDER_NOT_VALID_KEY_REPLACE_FROM_GROQ_CONSOLE") return v;
+  } catch {}
+  // Fallback env (utile per `firebase emulators` o run locale)
+  const env = process.env.GROQ_API_KEY;
+  if (!env) return null;
+  if (env === "PLACEHOLDER_NOT_VALID_KEY_REPLACE_FROM_GROQ_CONSOLE") return null;
+  return env;
 }
 
 // ─── Constants ─────────────────────────────────────────────────
 export const REGION = "europe-west1";
-export const MODEL = "claude-haiku-4-5";
-export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 // Ollama locale (Hetzner NEXO `diogene`, 168.119.164.92:11434).
 // Usato come fallback L3 quando Groq L2 fallisce.
