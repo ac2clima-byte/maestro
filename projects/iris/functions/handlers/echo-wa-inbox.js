@@ -70,9 +70,7 @@ async function callLLMForWa(message, senderName, senderNumber) {
  * Eseguito da scheduler ogni 5 minuti.
  */
 export async function runWaInboxPoller({ limit = 20 } = {}) {
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { skipped: "no_anthropic_key" };
-
+  // Niente check API key: callLLM gestisce Groq + fallback Ollama in autonomia.
   const cosm = getCosminaDb();
   // Ultimi messaggi WA in entrata NON ancora analizzati da NEXO
   let snap;
@@ -112,21 +110,24 @@ export async function runWaInboxPoller({ limit = 20 } = {}) {
 
     let analysis = null;
     try {
-      analysis = await callHaikuForWa(apiKey, d.body, d.from_name, d.from_number);
+      analysis = await callLLMForWa(d.body, d.from_name, d.from_number);
     } catch (e) {
       errors++;
-      logger.warn("waInboxPoller: Haiku failed", { msgId: doc.id, error: String(e).slice(0, 200) });
+      logger.warn("waInboxPoller: LLM failed", { msgId: doc.id, error: String(e).slice(0, 200) });
       continue;
     }
     if (!analysis) { errors++; continue; }
 
     // Scrivi nexo_analysis nel doc (cross-project)
     try {
+      const llmSource = analysis._llmSource || "unknown";
+      delete analysis._llmSource;
       await doc.ref.set({
         nexo_analysis: {
           ...analysis,
           at: FieldValue.serverTimestamp(),
-          model: MODEL,
+          model: llmSource === "groq" ? GROQ_MODEL : "qwen2.5:7b",
+          source: llmSource,
         },
       }, { merge: true });
       analyzed++;
