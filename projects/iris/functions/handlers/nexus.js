@@ -878,7 +878,6 @@ export async function tryInterceptEmailQueue({ userMessage, sessionId }) {
   }
 
   // Altrimenti: presenta l'email corrente (read full) o avanza alla prossima
-  const apiKey = ANTHROPIC_API_KEY.value();
   let curEmail, mode;
   if (wantsFull) {
     curEmail = pe.emails[cursor];
@@ -892,8 +891,8 @@ export async function tryInterceptEmailQueue({ userMessage, sessionId }) {
 
   let presented = "";
   try {
-    if (apiKey) presented = await callHaikuShortPresent(apiKey, curEmail, mode);
-  } catch (e) { logger.warn("email present Haiku failed", { error: String(e).slice(0, 150) }); }
+    presented = await callLLMShortPresent(curEmail, mode);
+  } catch (e) { logger.warn("email present LLM failed", { error: String(e).slice(0, 150) }); }
   if (!presented) {
     presented = `${curEmail.from} ti scrive: "${(curEmail.summary || curEmail.subject || "").slice(0, 200)}". Vuoi approfondire?`;
   }
