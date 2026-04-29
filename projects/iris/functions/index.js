@@ -7,13 +7,13 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 
 import {
-  REGION, MODEL, ANTHROPIC_URL, ANTHROPIC_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL,
+  REGION, GROQ_MODEL, GROQ_API_KEY, EWS_USERNAME, EWS_PASSWORD, EWS_URL,
   db, FieldValue, logger,
   getCosminaDb,
   applyCors, applyCorsOpen,
   checkRateLimit, checkNexusRateLimit,
   verifyAcgIdToken,
-  callHaiku,
+  callLLM,
   fetchIrisEmails,
   sendPushNotification,
 } from "./handlers/shared.js";
