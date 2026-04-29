@@ -493,34 +493,73 @@ export async function checkNexusRateLimit(ip) {
   return { ok: true };
 }
 
-// ─── Anthropic Haiku helper ────────────────────────────────────
-export async function callHaiku(apiKey, system, user) {
-  const payload = {
-    model: MODEL,
-    max_tokens: 1024,
-    system,
-    messages: [{ role: "user", content: user }],
-  };
-  const resp = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Anthropic ${resp.status}: ${text.slice(0, 300)}`);
+// ─── LLM helper (Groq primario, Ollama fallback) ───────────────
+// Sostituisce il vecchio callHaiku. Tutti i call site LLM passano per
+// questa funzione: routing intent, classificazione email/WA, generazione
+// testo CALLIOPE, analisi audio post-Whisper.
+//
+// Comportamento:
+//   1. Se GROQ_API_KEY è disponibile → callGroqIntent (llama-3.3-70b).
+//   2. Su errore transient (429/5xx/rete/timeout) → fallback callOllamaIntent
+//      (qwen2.5:7b su Hetzner 168.119.164.92).
+//   3. Su errore permanent (400/401) → rilancia (configurazione errata).
+//
+// Parametri:
+//   system, user — prompt
+//   responseFormatJson (default false) — forza JSON valido lato Groq
+//   maxTokens (default 1024) — stesso limite per Groq e Ollama
+//   groqTimeoutMs (default 15000) — timeout primario
+//   ollamaTimeoutMs (default 60000) — fallback può essere lento (CPU EPYC)
+//   groqModel / ollamaModel — override per call site speciali
+//
+// Ritorna { text, usage, source } con source ∈ {"groq","ollama"}.
+export async function callLLM({
+  system,
+  user,
+  responseFormatJson = false,
+  maxTokens = 1024,
+  groqTimeoutMs = 15000,
+  ollamaTimeoutMs = 60000,
+  groqModel,
+  ollamaModel,
+} = {}) {
+  const groqKey = getGroqApiKey();
+  if (groqKey) {
+    try {
+      const r = await callGroqIntent({
+        apiKey: groqKey,
+        system,
+        user,
+        model: groqModel || GROQ_MODEL,
+        maxTokens,
+        timeoutMs: groqTimeoutMs,
+        responseFormatJson,
+      });
+      return { text: r.text, usage: { ...r.usage, source: "groq" }, source: "groq" };
+    } catch (e) {
+      if (!isGroqTransientError(e)) {
+        logger.error("callLLM groq permanent error", { error: String(e).slice(0, 200) });
+        throw e;
+      }
+      logger.warn("callLLM groq transient, falling back to ollama", { error: String(e).slice(0, 200) });
+    }
   }
-  const json = await resp.json();
-  const text = (json.content || [])
-    .filter((b) => b.type === "text")
-    .map((b) => b.text)
-    .join("\n")
-    .trim();
-  return { text, usage: json.usage || {} };
+  // L3 Ollama. Per JSON, hint nel prompt user (Ollama non ha response_format).
+  const userOllama = responseFormatJson
+    ? `${user}\n\nRispondi SOLO con un oggetto JSON valido. Niente prosa, niente code fence.`
+    : user;
+  const r = await callOllamaIntent({
+    system,
+    user: userOllama,
+    model: ollamaModel || OLLAMA_MODEL_FALLBACK,
+    maxTokens,
+    timeoutMs: ollamaTimeoutMs,
+  });
+  return {
+    text: r.text,
+    usage: { ollama_duration_ms: Math.round((r.durationNs || 0) / 1e6), model: r.model, source: "ollama" },
+    source: "ollama",
+  };
 }
 
 // ─── Date utilities ────────────────────────────────────────────
