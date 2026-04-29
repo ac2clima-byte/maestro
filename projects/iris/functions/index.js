@@ -1072,9 +1072,7 @@ async function runIrisPoller() {
 
   if (!emails.length) { logger.info("irisPoller: no new emails", { from: lastProcessedIso }); return { processed: 0, skipped_existing: 0 }; }
 
-  const anthropicKey = ANTHROPIC_API_KEY.value();
-  if (!anthropicKey) { logger.error("irisPoller: ANTHROPIC_API_KEY missing"); return { error: "no_api_key" }; }
-
+  // classifyEmail (in iris-poller.mjs) usa ora callLLM internamente: niente apiKey.
   let processed = 0, skippedExisting = 0, classifyErrors = 0;
   let latestReceivedIso = lastProcessedIso;
 
@@ -1084,7 +1082,7 @@ async function runIrisPoller() {
     if (existing.exists) { skippedExisting++; continue; }
 
     let classification;
-    try { const r = await classifyEmail(anthropicKey, email); classification = r.classification; }
+    try { const r = await classifyEmail(email); classification = r.classification; }
     catch (e) {
       classifyErrors++;
       logger.warn("irisPoller: classify failed", { error: String(e), msgId: email.message_id });
