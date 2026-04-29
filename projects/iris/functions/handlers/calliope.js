@@ -123,8 +123,6 @@ async function generaBozzaPreventivo(parametri, ctx) {
 }
 
 async function generaBozzaSollecito(parametri, ctx) {
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "CALLIOPE non configurato." };
   const cliente = String(parametri.cliente || parametri.a || "").trim();
   const livello = /(ultim|ultimatum|finale)/i.test(String(ctx?.userMessage || ""))
     ? "ultimo_avviso"
@@ -146,9 +144,9 @@ async function generaBozzaSollecito(parametri, ctx) {
     `Genera sollecito in italiano. Firma ACG Clima Service.`,
   ].filter(Boolean).join("\n");
 
-  const { corpo, usage } = await callSonnet(apiKey, userPrompt);
+  const { corpo, usage, modello } = await callCalliopeLLM(userPrompt);
   const bozzaId = await salvaBozza({
-    tipo: "sollecito", tono: livello, corpo,
+    tipo: "sollecito", tono: livello, corpo, modello,
     oggetto: `Sollecito pagamento — ${cliente}`,
     contesto: { cliente, importo, riferimento, livello },
     destinatario: null, usage, ctx,
