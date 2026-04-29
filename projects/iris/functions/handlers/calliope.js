@@ -1,11 +1,14 @@
-// handlers/calliope.js — bozze via Claude Sonnet (DRY-RUN).
+// handlers/calliope.js — bozze via LLM Groq (DRY-RUN).
+// Decisione 2026-04-29 (Alberto): Sonnet 4.6 sostituito da llama-3.3-70b
+// su Groq, fallback Ollama qwen2.5:7b. Downgrade qualità accettato —
+// il workflow approvazione (`stato: in_revisione`) resta intatto e
+// Alberto rivede SEMPRE le bozze prima dell'invio.
 import {
-  ANTHROPIC_API_KEY, ANTHROPIC_URL, db, FieldValue, logger,
+  callLLM, GROQ_MODEL, db, FieldValue, logger,
   fetchIrisEmails,
 } from "./shared.js";
 import { handleMemoDossier } from "./memo.js";
 
-const CALLIOPE_MODEL = "claude-sonnet-4-6";
 const CALLIOPE_SYSTEM_PROMPT = `Sei l'assistente di Alberto Contardi, titolare di ACG Clima Service (manutenzione HVAC, Piemonte). Scrivi bozze email professionali in italiano.
 
 REGOLE:
@@ -61,8 +64,6 @@ export async function handleCalliopeBozza(parametri, ctx) {
 
 // ─── Preventivo contestualizzato (integra MEMO dossier) ────────
 async function generaBozzaPreventivo(parametri, ctx) {
-  const apiKey = ANTHROPIC_API_KEY.value();
-  if (!apiKey) return { content: "CALLIOPE non configurato (ANTHROPIC_API_KEY mancante)." };
   const tono = String(parametri.tono || "formale").trim();
   const oggettoLavoro = String(parametri.oggetto || parametri.intervento || parametri.note || "").trim();
 
@@ -102,10 +103,10 @@ async function generaBozzaPreventivo(parametri, ctx) {
     `- Firma ACG Clima Service`,
   ].filter(Boolean).join("\n");
 
-  const { corpo, usage } = await callSonnet(apiKey, userPrompt);
+  const { corpo, usage, modello } = await callCalliopeLLM(userPrompt);
   const bozzaId = await salvaBozza({
     tipo: "preventivo", tono,
-    corpo,
+    corpo, modello,
     oggetto: `Preventivo — ${cliente}`,
     contesto: { cliente, oggettoLavoro, dossierUsed: !!dossier },
     destinatario: null,
