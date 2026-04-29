@@ -1420,12 +1420,11 @@ export async function tryAnalyzeLongText(userMessage, _legacyApiKey) {
 // qwen2.5:1.5b primario (allucinazioni caotiche su prompt fuzzy). Modello
 // 70B su TPU Groq dà routing di qualità Haiku-like a costo zero.
 //
-// Mantengo `apiKey` (Anthropic) come parametro per compatibilità firma —
-// non viene più usato dal router. Idem, ANTHROPIC_API_KEY resta come secret
-// perché altri moduli (calliope sonnet) ne fanno uso.
+// Il primo parametro `apiKey` è legacy (compatibilità firma con i caller
+// esistenti) e viene ignorato — la chiave Groq si legge da getGroqApiKey().
 //
 // Restituisce { text, usage, source } con source ∈ {"groq","ollama"}.
-export async function callIntentRouter(apiKey, messages) {
+export async function callIntentRouter(_legacyApiKey, messages) {
   // Ricostruisci system + user concatenando l'ultimo turno utente.
   const lastUser = [...messages].reverse().find(m => m.role === "user");
   const userText = lastUser ? String(lastUser.content || "") : "";
