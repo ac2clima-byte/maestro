@@ -16831,3 +16831,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #31  FAILED: Expecting ',' delimiter: line 64 column 4 (char 2037)
   #32  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
 [2026-04-29T03:55:35Z] ─── fine ciclo ───
+[2026-04-29T04:00:35Z] ─── inizio ciclo IRIS (limit=50) ───
