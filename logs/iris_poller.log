@@ -19054,3 +19054,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #31  COMUNICAZIONE_INTERNA         high    neutro       Francesca.vanzillotta@guazzottienergia.c  → INOLTRA
   #32  FAILED: Expecting ',' delimiter: line 62 column 4 (char 1911)
 [2026-04-29T14:38:30Z] ─── fine ciclo ───
+[2026-04-29T14:43:30Z] ─── inizio ciclo IRIS (limit=50) ───
