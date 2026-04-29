@@ -1714,7 +1714,7 @@ export const nexusTranscribeAudio = onRequest(
     maxInstances: 5,
     // NOTA: per abilitare Whisper, aggiungi OPENAI_API_KEY via:
     //   firebase functions:secrets:set OPENAI_API_KEY
-    // e aggiungi qui `secrets: [ANTHROPIC_API_KEY, defineSecret("OPENAI_API_KEY")]`.
+    // e aggiungi qui `secrets: [GROQ_API_KEY, defineSecret("OPENAI_API_KEY")]`.
     // Finché non è configurato, l'endpoint risponde 503 con messaggio chiaro.
     secrets: [GROQ_API_KEY],
   },
