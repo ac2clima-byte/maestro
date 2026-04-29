@@ -17162,3 +17162,35 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #32  PEC_UFFICIALE                 high    neutro       acquisti@nannetti.it                      → ARCHIVIA
 [2026-04-29T05:25:35Z] ─── fine ciclo ───
 [2026-04-29T05:30:35Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-04-29T05:34:35Z] ERR: ciclo FAILED (rc=124): ultime righe:
+           ✓ iris_emails/DU4PR07MB11575E3E9C62842F394B47C3BFC372_DU4PR07MB11575.eurprd07.prod.o
+           ✓ iris_emails/DU4PR07MB11575E088BFDE90CB518F5B3BFC362_DU4PR07MB11575.eurprd07.prod.o
+           ✓ iris_emails/79031E01-2D42-485F-8C6D-39629C056F5C_gmail.com                        
+           ✓ iris_emails/deliver.55c.21ba1.19dceeb0568_mme02.eu.unicadeliver.net               
+           ✓ iris_emails/7aa38d20d3374c5786c7e6b7d43a7860_guazzottienergia.com                 
+           ✓ iris_emails/d7a03c8133bd4f74995b252bc774c672_guazzottienergia.com                 
+           ✓ iris_emails/8e428e31ad1c438fa037a17bb4b8521f_guazzottienergia.com                 
+           ✓ iris_emails/590690e8-d372-4528-83e2-b236f7c480d1_GBExchange2016.gruppobadano.local 🔄
+           ✓ iris_emails/a6168f5f-6fba-4172-bad6-59e6faa6da9c_GBExchange2016.gruppobadano.local ⏰2d 🔄
+           ✓ iris_emails/99bec653-30f3-4bf4-b497-7bf824cbddab_GBExchange2016.gruppobadano.local ⏰2d 🔄
+           ✓ iris_emails/9e34ccc6-2f05-4009-98bc-66f49eec1122_GBExchange2016.gruppobadano.local
+           ✓ iris_emails/a0e9f843-ae2b-4cff-93aa-dfed58aa1eee_GBExchange2016.gruppobadano.local
+
+           ✓ iris_threads/pianificazione_giornaliera_di_mercoled__29_aprile_2026__albe  msgs=1  sent=neutro
+           ✓ iris_threads/villageoklima__alberto.contardi_acgclimaservice.com_raffa.no  msgs=1  sent=neutro
+           ✓ iris_threads/verifica_riscaldamento_condominio_de_amicis__alberto.contard  msgs=1  sent=neutro
+           ✓ iris_threads/ordine_victor__alberto.contardi_acgclimaservice.com_roberto.  msgs=1  sent=neutro
+           ✓ iris_threads/perduca_cond.duomo__info_acgclimaservice.com_roberto.morasch  msgs=1  sent=neutro
+           ✓ iris_threads/valvole_di_sicurezza-michelangelo__alberto.contardi_acgclima  msgs=1  sent=neutro
+           ✓ iris_threads/posizione_assicurativa_ai_fini_isee__alberto.contardi_acgcli  msgs=1  sent=neutro
+           ✓ iris_threads/preventivo_residenza_anthony__spinetta_marengo__al___alberto  msgs=1  sent=positivo
+           ✓ iris_threads/condominio_sole_via_genova___30_pavia_preventivo_vendita_lav  msgs=1  sent=neutro
+           ✓ iris_threads/message_from__300i__alberto.contardi_acgclimaservice.com_ale  msgs=1  sent=neutro
+           ✓ iris_threads/richiesta_di_giustificativo_da_marco.piparo__alberto.contard  msgs=4  sent=neutro→neutro→neutro→neutro
+           ✓ iris_threads/richiesta_di_giustificativo_da_federico.tosca__alberto.conta  msgs=1  sent=neutro
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           ✓ rule=rule_newsletter_spam             actions=1  email=815e1f73c9944b9e884b013fce69ead8_acgclimaservice.c
+           ✓ rule=rule_newsletter_spam             actions=1  email=DU4PR07MB11575E3E9C62842F394B47C3BFC372_DU4PR07MB1
+[2026-04-29T05:34:35Z] ─── fine ciclo ───
