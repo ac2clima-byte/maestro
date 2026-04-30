@@ -1442,11 +1442,25 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
   };
 }
 
-// Pattern di richiesta cancellazione referenziale: "cancellalo, annullalo,
-// eliminalo, rimuovilo, toglilo" oppure "cancella/annulla/elimina/rimuovi/togli
-// (l') intervento/appuntamento/ultimo/quello/card" (riferito all'ultimo creato
-// in sessione).
-const CANCELLA_REF_RE = /^\s*(?:cancell|annull|elimin|rimuov|togli|disdic)(?:a|ami|alo|amelo|atelo|atemelo|i|ilo|imelo)?(?:\s+(?:l['’]?\s*|la\s+|il\s+|lo\s+|un['’]?\s*)?(?:intervento|appuntament|lavoro|ultim[oa]|quello|quella|questo|questa|cosa|card))?\s*[.!?]?\s*$/i;
+// Pattern di richiesta cancellazione referenziale.
+// Singolare: "cancellalo, annullalo, eliminalo, rimuovilo, toglilo"
+//   oppure "cancella/annulla/elimina/rimuovi/togli (l') intervento/...".
+// Plurale: "cancellali/cancellale, eliminali/eliminale, rimuovili/rimuovile,
+//   annullali/annullale, toglili/toglile" oppure "cancella tutti/entrambi".
+// NB: alternative ordinate per LUNGHEZZA decrescente — JavaScript regex
+// alternation è left-to-right e prende la PRIMA che matcha (no longest-match).
+// Quindi "ili" deve venire prima di "i", "ilo" prima di "i", ecc.
+const CANCELLA_REF_RE = /^\s*(?:cancell|annull|elimin|rimuov|togli|disdic)(?:atemelo|atemele|amelo|atelo|amele|ameli|atele|ateli|imelo|imele|ameli|ameli|ami|alo|ilo|ali|ale|ile|ili|ele|eli|elo|li|le|lo|i|a)?(?:\s+(?:l['’]?\s*|la\s+|il\s+|lo\s+|le\s+|i\s+|gli\s+|un['’]?\s*|tutt[ie]\s*(?:gli\s+|le\s+|i\s+)?|entramb[ie]\s*(?:le\s+|gli\s+|i\s+)?|i\s+due\s+|le\s+due\s+|i\s+\d+\s+|le\s+\d+\s+)?(?:intervento|interventi|appuntament[oi]?|lavor[oi]|ultim[oaie]|quell[oaie]|quest[oaie]|cosa|card|tutto|tutti|tutte|entrambi|entrambe|due))?\s*[.!?]?\s*$/i;
+
+// Detect plurale: token finisce in -li/-le/-ali/-ale/-eli/-ele
+// oppure contiene "tutti/tutte/entrambi/entrambe/interventi".
+function _isCancellaPlural(text) {
+  const t = String(text || "").trim().toLowerCase();
+  if (/\b(?:tutti|tutte|entrambi|entrambe|interventi|appuntamenti|lavori)\b/.test(t)) return true;
+  // Suffissi plurali sui verbi cancellativi: cancellali, eliminile, ecc.
+  if (/^(?:cancell|annull|elimin|rimuov|togli|disdic)(?:al[ie]|el[ie]|il[ie])\b/i.test(t)) return true;
+  return false;
+}
 
 // Intercept "cancellalo / annullalo / eliminalo" → cerca l'ultimo intervento
 // creato in questa sessione (ares_interventi where sessionId == sessionId,
@@ -1468,24 +1482,33 @@ export async function tryInterceptAresCancellaIntervento({ userMessage, sessionI
     if (pendDoc.exists && pendDoc.data().kind === "ares_crea_intervento") return null;
   } catch {}
 
-  // Cerca ultimo intervento creato in questa sessione. NB: senza orderBy
-  // per evitare di richiedere index composito (sessionId+createdAt). Sort
-  // lato client. Ipotesi: pochi interventi per sessione (~max 5-10).
+  // Plurale ("cancellali", "cancella tutti gli interventi") → batch:
+  // recupera TUTTI gli interventi attivi in sessione. Singolare → solo l'ultimo.
+  const isPlural = _isCancellaPlural(t);
+
+  // Cerca interventi della sessione. NB: senza orderBy per evitare di
+  // richiedere index composito (sessionId+createdAt). Sort lato client.
   let target = null;
+  let targets = []; // batch (plurale)
   try {
     const snap = await db.collection("ares_interventi")
       .where("sessionId", "==", sessionId)
       .limit(50).get();
     if (!snap.empty) {
       const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      // Ordina per createdAt desc; gestisce sia Timestamp che secondi.
       docs.sort((a, b) => {
         const ta = (a.createdAt && (a.createdAt._seconds ?? a.createdAt.seconds)) || 0;
         const tb = (b.createdAt && (b.createdAt._seconds ?? b.createdAt.seconds)) || 0;
         return tb - ta;
       });
-      // Skippa interventi già archiviati/cancellati
-      target = docs.find(d => !d.archiviato && d.stato !== "chiuso") || docs[0];
+      const attivi = docs.filter(d => !d.archiviato && d.stato !== "chiuso");
+      if (isPlural) {
+        // Batch: tutti gli attivi della sessione (massimo 20 per safety)
+        targets = attivi.slice(0, 20);
+        target = targets[0] || docs[0] || null;
+      } else {
+        target = attivi[0] || docs[0];
+      }
     }
   } catch (e) {
     logger.warn("ares cancella lookup failed", { error: String(e).slice(0, 120) });
@@ -1533,22 +1556,65 @@ export async function tryInterceptAresCancellaIntervento({ userMessage, sessionI
     };
   }
 
-  const cardId = target.cosmina_doc_id || target.id;
-  const tecLabel = (target.techNames && target.techNames.length)
-    ? (target.techNames.length === 1 ? target.techNames[0] : target.techNames.slice(0, -1).join(", ") + " e " + target.techNames[target.techNames.length - 1])
-    : (target.techName || "(tecnico?)");
-  const dataLabel = target.due
-    ? new Date(target.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
-        + " alle " + new Date(target.due).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false })
-    : "(data?)";
-  const luogoLabel = target.boardName || "(luogo?)";
-  const descLabel = target.workDescription || target.descrizione || target.desc || target.name || "intervento";
+  // Costruisce riepilogo per UN intervento
+  function _riepilogoTarget(it) {
+    const tecLabel = (it.techNames && it.techNames.length)
+      ? (it.techNames.length === 1 ? it.techNames[0] : it.techNames.slice(0, -1).join(", ") + " e " + it.techNames[it.techNames.length - 1])
+      : (it.techName || "(tecnico?)");
+    const dataLabel = it.due
+      ? new Date(it.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
+          + " alle " + new Date(it.due).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false })
+      : "(data?)";
+    const luogoLabel = it.boardName || "(luogo?)";
+    const descLabel = it.workDescription || it.descrizione || it.desc || it.name || "intervento";
+    return { tec: tecLabel, data: dataLabel, luogo: luogoLabel, desc: descLabel };
+  }
 
-  // Salva pending cancellazione per conferma
+  // Plurale batch: pending include array di targetCardIds e riepiloghi.
+  if (isPlural && targets.length > 1) {
+    const targetCardIds = targets.map(it => it.cosmina_doc_id || it.id);
+    const riepiloghi = targets.map(_riepilogoTarget);
+    const pending = {
+      kind: "ares_cancella_intervento",
+      targetCardIds,
+      riepiloghi,
+      sessionId,
+      createdAt: FieldValue.serverTimestamp(),
+    };
+    try {
+      await db.collection("nexo_ares_pending").doc(sessionId).set(pending, { merge: false });
+    } catch (e) {
+      logger.warn("ares cancella pending save failed", { error: String(e).slice(0, 120) });
+    }
+    // Riepilogo unico: stesso tec/luogo se condivisi, date elencate
+    const allSameTec = riepiloghi.every(r => r.tec === riepiloghi[0].tec);
+    const allSameLuogo = riepiloghi.every(r => r.luogo === riepiloghi[0].luogo);
+    const dateLabels = riepiloghi.map(r => r.data);
+    const dateJoined = dateLabels.length === 2
+      ? `${dateLabels[0]} e ${dateLabels[1]}`
+      : dateLabels.slice(0, -1).join(", ") + " e " + dateLabels[dateLabels.length - 1];
+    let summary;
+    if (allSameTec && allSameLuogo) {
+      summary = `${riepiloghi[0].tec}, ${dateJoined}, presso ${riepiloghi[0].luogo}: ${riepiloghi[0].desc}`;
+    } else {
+      summary = riepiloghi.map(r => `${r.tec}, ${r.data}, presso ${r.luogo}`).join("; ");
+    }
+    return {
+      content: `Cancello ${targets.length} interventi: ${summary}. Confermi?`,
+      data: { pendingApproval: { kind: "ares_cancella_intervento", sessionId }, pending },
+      _aresCancellaHandled: true,
+    };
+  }
+
+  // Singolare: cancellazione di un solo intervento (back-compat)
+  const cardId = target.cosmina_doc_id || target.id;
+  const r = _riepilogoTarget(target);
   const pending = {
     kind: "ares_cancella_intervento",
     targetCardId: cardId,
-    riepilogo: { tec: tecLabel, data: dataLabel, luogo: luogoLabel, desc: descLabel },
+    targetCardIds: [cardId],
+    riepilogo: r,
+    riepiloghi: [r],
     sessionId,
     createdAt: FieldValue.serverTimestamp(),
   };
@@ -1559,7 +1625,7 @@ export async function tryInterceptAresCancellaIntervento({ userMessage, sessionI
   }
 
   return {
-    content: `Cancello l'intervento di ${tecLabel}, ${dataLabel}, presso ${luogoLabel}: ${descLabel}. Confermi?`,
+    content: `Cancello l'intervento di ${r.tec}, ${r.data}, presso ${r.luogo}: ${r.desc}. Confermi?`,
     data: { pendingApproval: { kind: "ares_cancella_intervento", sessionId }, pending },
     _aresCancellaHandled: true,
   };
@@ -1595,50 +1661,77 @@ export async function tryInterceptAresConfermaCancellaIntervento({ userMessage, 
     };
   }
 
-  const cardId = pendingData.targetCardId;
-  const r = pendingData.riepilogo || {};
+  // Lista di card da cancellare (back-compat: targetCardId singolo
+  // → array di 1 elemento).
+  const targetIds = Array.isArray(pendingData.targetCardIds) && pendingData.targetCardIds.length
+    ? pendingData.targetCardIds
+    : (pendingData.targetCardId ? [pendingData.targetCardId] : []);
+  const riepiloghi = Array.isArray(pendingData.riepiloghi) && pendingData.riepiloghi.length
+    ? pendingData.riepiloghi
+    : (pendingData.riepilogo ? [pendingData.riepilogo] : []);
+  const isMulti = targetIds.length > 1;
+  const r0 = riepiloghi[0] || {};
 
   // FORGE: skip scrittura
   if (_isForgeSession(sessionId)) {
     try { await pendingDoc.ref.delete(); } catch {}
+    const summary = isMulti
+      ? `${targetIds.length} interventi: ${riepiloghi.map(r => `${r.tec}, ${r.data}`).join("; ")}`
+      : `${r0.tec || "?"}, ${r0.data || "?"}, presso ${r0.luogo || "?"}: ${r0.desc || "?"}`;
     return {
-      content: `Test FORGE: cancellazione skipped per sicurezza. Riepilogo: ${r.tec || "?"}, ${r.data || "?"}, presso ${r.luogo || "?"}: ${r.desc || "?"}.`,
-      data: { forgeTest: true, ...pendingData },
+      content: `Test FORGE: cancellazione skipped per sicurezza. Riepilogo: ${summary}.`,
+      data: { forgeTest: true, count: targetIds.length, ...pendingData },
       _aresConfermaHandled: true,
     };
   }
 
-  // Soft-delete: archivia su bacheca_cards COSMINA
-  try {
-    const cosm = getCosminaDb();
-    const cardRef = cosm.collection("bacheca_cards").doc(cardId);
-    await cardRef.update({
-      stato: "chiuso",
-      archiviato: true,
-      inBacheca: false,
-      _cancelledBy: "NEXUS",
-      _cancelledAt: FieldValue.serverTimestamp(),
-      updated_at: FieldValue.serverTimestamp(),
-    });
+  // Soft-delete: archivia tutte le card su bacheca_cards COSMINA
+  const cosm = getCosminaDb();
+  const cancelled = [];
+  const failed = [];
+  for (const cardId of targetIds) {
     try {
-      await db.collection("ares_interventi").doc(cardId).update({
+      const cardRef = cosm.collection("bacheca_cards").doc(cardId);
+      await cardRef.update({
         stato: "chiuso",
         archiviato: true,
-        cancelledAt: FieldValue.serverTimestamp(),
+        inBacheca: false,
+        _cancelledBy: "NEXUS",
+        _cancelledAt: FieldValue.serverTimestamp(),
+        updated_at: FieldValue.serverTimestamp(),
       });
-    } catch {}
-    try { await pendingDoc.ref.delete(); } catch {}
+      try {
+        await db.collection("ares_interventi").doc(cardId).update({
+          stato: "chiuso",
+          archiviato: true,
+          cancelledAt: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+      cancelled.push(cardId);
+    } catch (e) {
+      failed.push({ cardId, error: String(e && e.message || e).slice(0, 100) });
+    }
+  }
+  try { await pendingDoc.ref.delete(); } catch {}
+
+  if (cancelled.length === 0) {
+    const errMsg = failed.length ? failed[0].error : "errore sconosciuto";
     return {
-      content: `Cancellato. Intervento di ${r.tec || "?"}, ${r.data || "?"}, presso ${r.luogo || "?"} rimosso dalla bacheca.`,
-      data: { kind: "ares_cancellato", cardId },
-      _aresConfermaHandled: true,
-    };
-  } catch (e) {
-    const msg = String(e && e.message || e).slice(0, 200);
-    return {
-      content: `Non sono riuscito a cancellare l'intervento: ${msg}.`,
+      content: `Non sono riuscito a cancellare ${isMulti ? "gli interventi" : "l'intervento"}: ${errMsg}.`,
       _aresConfermaHandled: true,
       _failed: true,
     };
   }
+  let content;
+  if (isMulti) {
+    const tail = failed.length ? ` (${failed.length} non riuscit${failed.length === 1 ? "o" : "i"})` : "";
+    content = `Cancellati. ${cancelled.length} interventi rimossi dalla bacheca${tail}.`;
+  } else {
+    content = `Cancellato. Intervento di ${r0.tec || "?"}, ${r0.data || "?"}, presso ${r0.luogo || "?"} rimosso dalla bacheca.`;
+  }
+  return {
+    content,
+    data: { kind: "ares_cancellato", cardIds: cancelled, count: cancelled.length, failed: failed.length ? failed : undefined },
+    _aresConfermaHandled: true,
+  };
 }
