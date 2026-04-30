@@ -10,9 +10,11 @@ import { getMessaging } from "firebase-admin/messaging";
 
 // ─── Secrets ───────────────────────────────────────────────────
 // Decisione 2026-04-29 (Alberto): rimossa dipendenza da Anthropic.
+// Decisione 2026-04-30 (Alberto): passaggio modello primario da
+// llama-3.3-70b-versatile a openai/gpt-oss-120b dopo benchmark.
 // Tutti i flussi LLM (routing intent, classificazione email/WA,
 // generazione preventivi CALLIOPE, analisi audio post-Whisper) girano su
-// Groq llama-3.3-70b come primario, Ollama qwen2.5:7b come fallback.
+// Groq gpt-oss-120b come primario, Ollama qwen2.5:7b come fallback.
 export const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
 export const EWS_USERNAME = defineSecret("EWS_USERNAME");
 export const EWS_PASSWORD = defineSecret("EWS_PASSWORD");

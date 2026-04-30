@@ -1420,19 +1420,21 @@ export async function tryAnalyzeLongText(userMessage, _legacyApiKey) {
 }
 
 // callHaikuForIntent rimosso: il routing intent passa SOLO da callIntentRouter
-// (Groq llama-3.3-70b primario + Ollama qwen2.5:7b fallback).
+// (Groq openai/gpt-oss-120b primario + Ollama qwen2.5:7b fallback).
 // Decisione 2026-04-29: Anthropic completamente rimosso da NEXO.
+// Decisione 2026-04-30: passaggio a gpt-oss-120b dopo benchmark che mostrava
+// llama-3.3-70b errato sul "collega" in 4 test su 5.
 
 // ─── Intent router — Architettura 3-livelli ────────────────────
 // L1 (regex DIRECT_HANDLERS) gestita upstream in index.js/forge.js.
 // Quando il messaggio arriva qui, L1 ha già fallito. Tentativo:
 //
-//   L2 — Groq API (llama-3.3-70b, ~200-500ms, 14400 req/giorno gratis)
+//   L2 — Groq API (openai/gpt-oss-120b, ~700-1200ms, 14400 req/giorno gratis)
 //   L3 — Ollama qwen2.5:7b fallback (locale, latente ma sempre disponibile)
 //
-// Decisione 2026-04-28: Groq sostituisce sia Haiku (balance esaurito) sia
-// qwen2.5:1.5b primario (allucinazioni caotiche su prompt fuzzy). Modello
-// 70B su TPU Groq dà routing di qualità Haiku-like a costo zero.
+// Decisione 2026-04-30: gpt-oss-120b sostituisce llama-3.3-70b. Trade-off:
+// +500ms latenza ma routing sostanzialmente più affidabile (compound intent
+// e multi-data corretti, no hallucination su nome collega). Sempre gratis.
 //
 // Il primo parametro `apiKey` è legacy (compatibilità firma con i caller
 // esistenti) e viene ignorato — la chiave Groq si legge da getGroqApiKey().
