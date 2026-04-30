@@ -1323,15 +1323,24 @@ export async function tryInterceptAresCancellaIntervento({ userMessage, sessionI
     if (pendDoc.exists && pendDoc.data().kind === "ares_crea_intervento") return null;
   } catch {}
 
-  // Cerca ultimo intervento creato in questa sessione
+  // Cerca ultimo intervento creato in questa sessione. NB: senza orderBy
+  // per evitare di richiedere index composito (sessionId+createdAt). Sort
+  // lato client. Ipotesi: pochi interventi per sessione (~max 5-10).
   let target = null;
   try {
     const snap = await db.collection("ares_interventi")
       .where("sessionId", "==", sessionId)
-      .orderBy("createdAt", "desc")
-      .limit(1).get();
+      .limit(50).get();
     if (!snap.empty) {
-      target = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Ordina per createdAt desc; gestisce sia Timestamp che secondi.
+      docs.sort((a, b) => {
+        const ta = (a.createdAt && (a.createdAt._seconds ?? a.createdAt.seconds)) || 0;
+        const tb = (b.createdAt && (b.createdAt._seconds ?? b.createdAt.seconds)) || 0;
+        return tb - ta;
+      });
+      // Skippa interventi già archiviati/cancellati
+      target = docs.find(d => !d.archiviato && d.stato !== "chiuso") || docs[0];
     }
   } catch (e) {
     logger.warn("ares cancella lookup failed", { error: String(e).slice(0, 120) });
@@ -1388,7 +1397,7 @@ export async function tryInterceptAresCancellaIntervento({ userMessage, sessionI
         + " alle " + new Date(target.due).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false })
     : "(data?)";
   const luogoLabel = target.boardName || "(luogo?)";
-  const descLabel = target.descrizione || "intervento";
+  const descLabel = target.workDescription || target.descrizione || target.desc || target.name || "intervento";
 
   // Salva pending cancellazione per conferma
   const pending = {

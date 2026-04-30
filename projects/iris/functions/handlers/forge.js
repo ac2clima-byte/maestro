@@ -26,7 +26,7 @@ import {
   tryInterceptDevRequest,
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
-import { tryInterceptAresConfermaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
+import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -259,6 +259,62 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: preventivo haiku fallback failed", { error: String(e).slice(0, 150) });
+      }
+
+      // ARES conferma cancellazione (PRIMA di conferma creazione: entrambe
+      // accettano "sì" ma ognuna controlla pending.kind).
+      try {
+        const cancOk = await tryInterceptAresConfermaCancellaIntervento({ userMessage: message, sessionId });
+        if (cancOk && cancOk._aresConfermaHandled) {
+          const cleaned = naturalize(cancOk.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: cancOk.data || null, failed: !!cancOk._failed },
+            stato: cancOk._failed ? "errore_handler" : "completata",
+            modello: "ares_conferma_cancella",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "ares", azione: "conferma_cancella_intervento",
+            stato: cancOk._failed ? "errore_handler" : "completata",
+            natural: isNatural(cleaned),
+            direct: { ok: !cancOk._failed, data: cancOk.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "ares_conferma_cancella",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: ares conferma_cancella intercept failed", { error: String(e).slice(0, 150) });
+      }
+
+      // ARES richiesta cancellazione: "cancellalo / annullalo / eliminalo"
+      try {
+        const reqCanc = await tryInterceptAresCancellaIntervento({ userMessage: message, sessionId, userId });
+        if (reqCanc && reqCanc._aresCancellaHandled) {
+          const cleaned = naturalize(reqCanc.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: reqCanc.data || null, failed: false },
+            stato: "completata",
+            modello: "ares_cancella_richiesta",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "ares", azione: "cancella_intervento",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: reqCanc.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "ares_cancella_richiesta",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: ares cancella richiesta intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // ARES conferma intervento: scrive su bacheca_cards (DRY_RUN automatico
