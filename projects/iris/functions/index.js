@@ -28,7 +28,7 @@ import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPrev
 import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./handlers/ares.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
-import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
+import { handlePharoRtiMonitoring, writePharoAlert, tryInterceptPharoOfferConferma } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
 import { tryInterceptEchoPending, tryInterceptEchoContextualSend } from "./handlers/echo.js";
@@ -513,6 +513,31 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("echo contextual send intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // PHARO offer conferma: dopo "Vuoi pulire i pending?" l'utente risponde
+    // "si/no/dopo". Senza pending il "si" cadeva su Groq come saluto.
+    try {
+      const pharoOff = await tryInterceptPharoOfferConferma({ userMessage, sessionId });
+      if (pharoOff && pharoOff._pharoOfferHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: pharoOff.content,
+          direct: { data: pharoOff.data || null, failed: false },
+          stato: "completata",
+          modello: "pharo_offer",
+        });
+        res.status(200).json({
+          intent: { collega: "pharo", azione: "offer_conferma", parametri: {}, rispostaUtente: pharoOff.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: "completata",
+          direct: { data: pharoOff.data || null, failed: false },
+          modello: "pharo_offer", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("pharo offer intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // ARES conferma cancellazione: PRIMA della conferma creazione perché

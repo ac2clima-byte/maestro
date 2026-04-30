@@ -28,6 +28,7 @@ import {
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
 import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
 import { tryInterceptEchoPending, tryInterceptEchoContextualSend } from "./echo.js";
+import { tryInterceptPharoOfferConferma } from "./pharo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -154,6 +155,34 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: echo contextual send intercept failed", { error: String(e).slice(0, 150) });
+      }
+
+      // PHARO offer conferma: dopo "vuoi pulire i pending?" il "si" deve
+      // cadere qui invece che su Groq.
+      try {
+        const pharoOff = await tryInterceptPharoOfferConferma({ userMessage: message, sessionId });
+        if (pharoOff && pharoOff._pharoOfferHandled) {
+          const cleaned = naturalize(pharoOff.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: pharoOff.data || null, failed: false },
+            stato: "completata",
+            modello: "pharo_offer",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "pharo", azione: "offer_conferma",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: pharoOff.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "pharo_offer",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: pharo offer intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // Intercept dev request: lamentele "non funziona X", "vorrei", "aggiungi",

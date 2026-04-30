@@ -5,7 +5,7 @@ import {
 } from "./shared.js";
 
 // Stato suite NEXO (non RTI).
-export async function handlePharoStatoSuite() {
+export async function handlePharoStatoSuite(_parametri, ctx) {
   let pending = 0, errori = 0, emailAttesa = 0, emails = 0, firestoreOk = true;
 
   try {
@@ -62,14 +62,87 @@ export async function handlePharoStatoSuite() {
   if (errori) bits.push(`${errori} in errore`);
   if (bits.length) parts.push(bits.join(", ") + ".");
 
+  let offerKind = null;
   if (punteggio < 80 && (pending > 10 || emailAttesa > 10)) {
     const cosa = pending > 10 ? "i messaggi pending" : "le email arretrate";
+    offerKind = pending > 10 ? "pulisci_pending" : "pulisci_email";
     parts.push(`Vuoi che proviamo a ripulire ${cosa}?`);
+  }
+
+  // Salva pending leggero per intercettare "si/no" del turno successivo.
+  // NON eseguiamo la pulizia in autonomia: è una cancellazione massiva di
+  // dati produzione (rule CLAUDE.md). Quando l'utente conferma diamo
+  // istruzioni e forniamo il link admin.
+  const sessionId = ctx?.sessionId;
+  if (sessionId && offerKind) {
+    try {
+      await db.collection("nexo_pharo_pending").doc(sessionId).set({
+        kind: "pharo_offer_pulisci",
+        offerKind,
+        counts: { pending, errori, emailAttesa, emails },
+        sessionId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn("pharo offer pending save failed", { error: String(e).slice(0, 100) });
+    }
   }
 
   return {
     content: parts.join(" "),
-    data: { punteggio, pending, errori, emailAttesa, emails, firestoreOk },
+    data: { punteggio, pending, errori, emailAttesa, emails, firestoreOk, offerKind },
+  };
+}
+
+// Intercept turno successivo: se l'utente dopo "Vuoi che ripulisco i pending?"
+// risponde "si/ok/procedi" → istruzioni + link admin. Niente cancellazione
+// autonoma (rispetto eccezione CLAUDE.md "cancellazione massiva produzione").
+// "no/lascia stare" → annulla pending pulito.
+export async function tryInterceptPharoOfferConferma({ userMessage, sessionId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+  // Quick test sì/no per evitare cost lookup su ogni messaggio
+  if (!/^\s*(?:s[iì]|ok|va\s+bene|conferm|procedi|fallo|pulis|sì|no|annull|lascia\s+stare|stop|basta|dopo|più\s+tardi|non\s+ora)/i.test(t)) {
+    return null;
+  }
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_pharo_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (pendingData.kind !== "pharo_offer_pulisci") return null;
+  } catch {
+    return null;
+  }
+
+  // Annullamento o "dopo"
+  if (/^\s*(no|annull|lascia\s+stare|stop|basta|dopo|più\s+tardi|non\s+ora)/i.test(t)) {
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: "Ok, lascio stare. Quando vuoi rivedere lo stato chiedimi \"come va la suite\".",
+      _pharoOfferHandled: true,
+    };
+  }
+
+  // Conferma → istruzioni manuali (NIENTE cancellazione autonoma)
+  const counts = pendingData.counts || {};
+  const offerKind = pendingData.offerKind;
+  try { await pendingDoc.ref.delete(); } catch {}
+
+  let content;
+  if (offerKind === "pulisci_pending") {
+    content = `Per pulire i ${counts.pending || "?"} messaggi pending sulla lavagna serve una scrittura massiva su Firestore (collection nexo_lavagna), e non posso farla io in autonomia — è cancellazione di dati di produzione. Tre opzioni: 1) chiamata manuale all'endpoint admin pharo/cleanLavagna se esiste; 2) script scripts/cleanLavagna.js da terminale con DRY_RUN=false; 3) console Firebase, query nexo_lavagna where status in [old, processed, failed] older than 7 giorni → batch delete. Se vuoi ti apro una dev-request per uno script semi-automatico con conferma esplicita.`;
+  } else if (offerKind === "pulisci_email") {
+    content = `Per pulire le ${counts.emailAttesa || "?"} email arretrate ti rispondi tu o le marchi come read in Outlook. NEXUS oggi non manda risposte automatiche a clienti reali (è una modifica di sicurezza). Se vuoi ti faccio un digest delle 10 più vecchie senza risposta da inoltrare in WhatsApp.`;
+  } else {
+    content = "Ok, ma non ho ben chiaro cosa pulire. Chiedimi di nuovo \"come va la suite\" e dimmi quale parte ripulire.";
+  }
+  return {
+    content,
+    data: { kind: "pharo_offer_help", offerKind, counts },
+    _pharoOfferHandled: true,
   };
 }
 
