@@ -27,7 +27,7 @@ import {
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
 import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
-import { tryInterceptEchoPending } from "./echo.js";
+import { tryInterceptEchoPending, tryInterceptEchoContextualSend } from "./echo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -126,6 +126,34 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: echo pending intercept failed (pre-dev)", { error: String(e).slice(0, 150) });
+      }
+
+      // ECHO contextual send (mandalo/mandali via wa, riferito a query
+      // precedente). Compound intent leggero senza orchestratore generico.
+      try {
+        const echoCtx = await tryInterceptEchoContextualSend({ userMessage: message, sessionId, userId });
+        if (echoCtx && echoCtx._contextualSend) {
+          const cleaned = naturalize(echoCtx.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: echoCtx.data || null, failed: false },
+            stato: "completata",
+            modello: "echo_contextual_send",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "echo", azione: "send_whatsapp_contextual",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: echoCtx.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "echo_contextual_send",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: echo contextual send intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // Intercept dev request: lamentele "non funziona X", "vorrei", "aggiungi",

@@ -31,7 +31,7 @@ import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
-import { tryInterceptEchoPending } from "./handlers/echo.js";
+import { tryInterceptEchoPending, tryInterceptEchoContextualSend } from "./handlers/echo.js";
 import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
 import { handleChronosCampagne, handleChronosListaCampagne, buildCampagneDashboard, buildAgendaDashboard, buildScadenzeDashboard } from "./handlers/chronos.js";
 
@@ -486,6 +486,33 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("echo pending intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ECHO contextual send: "mandalo / mandali / mandami questo via wa"
+    // riferito alla risposta precedente di NEXUS (es. lista interventi).
+    // Risolve il compound intent ARES+ECHO recuperando l'ultimo
+    // assistant message con direct.data.items[] e mandandolo via WA.
+    try {
+      const echoCtx = await tryInterceptEchoContextualSend({ userMessage, sessionId, userId });
+      if (echoCtx && echoCtx._contextualSend) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: echoCtx.content,
+          direct: { data: echoCtx.data || null, failed: false },
+          stato: "completata",
+          modello: "echo_contextual_send",
+        });
+        res.status(200).json({
+          intent: { collega: "echo", azione: "send_whatsapp_contextual", parametri: {}, rispostaUtente: echoCtx.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: "completata",
+          direct: { data: echoCtx.data || null, failed: false },
+          modello: "echo_contextual_send", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("echo contextual send intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // ARES conferma cancellazione: PRIMA della conferma creazione perché

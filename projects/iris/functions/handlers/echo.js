@@ -489,3 +489,145 @@ export async function tryInterceptEchoPending({ userMessage, sessionId }) {
   return { ...result, _echoPendingHandled: true };
 }
 
+// Mappa userId (email Firebase Auth o uid) al nome interno rubrica.
+// Usato dai pattern self-recipient ("mandami / mandamela / scrivimi").
+// Cerca in cosmina_contatti_interni per email matching, fallback su
+// "Alberto Contardi" (owner storico del sistema).
+async function _resolveSelfFromUserId(userId) {
+  const fallback = "Alberto Contardi";
+  if (!userId) return fallback;
+  const email = String(userId).toLowerCase().trim();
+  if (!email.includes("@")) return fallback;
+  try {
+    const snap = await getCosminaDb().collection("cosmina_contatti_interni").limit(500).get();
+    let match = null;
+    snap.forEach(doc => {
+      if (match) return;
+      const d = doc.data() || {};
+      const emails = [d.email, d.email_personale, d.email_lavoro]
+        .filter(Boolean).map(e => String(e).toLowerCase().trim());
+      if (emails.includes(email) && d.nome) match = d.nome;
+    });
+    return match || fallback;
+  } catch (e) {
+    logger.warn("self-resolve failed", { error: String(e).slice(0, 100) });
+    return fallback;
+  }
+}
+
+// ─── Contextual send ───────────────────────────────────────────
+// Risolve compound intent "manda(lo|li|melo) [via wa] [a X]" che
+// dipende dalla risposta precedente di NEXUS (es. lista interventi
+// query da ARES). Strategia:
+//   1. Match regex pattern referenziale
+//   2. Recupera ultimo messaggio assistant della sessione con
+//      direct.data.items[] o content "ricco" (>= 100 char)
+//   3. Estrae dest dal messaggio attuale: "a X" → X; "mandami" → utente
+//   4. Formatta items in testo WA conciso (max 1500 char)
+//   5. Chiama handleEchoWhatsApp({ to: dest, body: testo })
+
+const CONTEXTUAL_SEND_RE = /^\s*(?:e\s+)?manda(?:lo|li|le|lo|melo|tela|telo|teli|cele)?\s*(?:la|li|le|il|lo|gli|questo|questi|queste|questa|tutto|tutti|tutte|cose|elenco|lista|riepilog\w+)?\s*(?:via|tramite|su|in|per|con)?\s*(?:wa|whatsapp|messaggio|mess|sms)?\s*(?:a(?:l|lla|llo|d)?|per)\s+([A-Za-zÀ-ÿ][\w\sÀ-ÿ.'\-]{1,60})\s*[.!?]?\s*$/i;
+const CONTEXTUAL_SEND_SELF_RE = /^\s*(?:e\s+)?manda(?:mela|melo|meli|mele|mi)\s*(?:la|li|le|il|lo|gli|questo|questi|queste|questa|tutto|tutti|tutte|cose|elenco|lista|riepilog\w+)?\s*(?:via|tramite|su|in|per|con)?\s*(?:wa|whatsapp|messaggio|mess|sms)?\s*[.!?]?\s*$/i;
+
+// Formatta una risposta ARES con items in testo WA conciso
+function _formatItemsForWhatsApp(items, maxLen = 1500) {
+  if (!Array.isArray(items) || !items.length) return null;
+  const lines = items.slice(0, 25).map((it, i) => {
+    const data = it.due
+      ? new Date(it.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" })
+      : (it.data || "");
+    const board = (it.boardName || it.condominio || it.name || "").replace(/\s*-\s*VIA.*$/i, "").trim().slice(0, 60);
+    const tec = (Array.isArray(it.techNames) && it.techNames.length)
+      ? it.techNames.join("+")
+      : (it.techName || "");
+    const bits = [data, board, tec ? `(${tec})` : ""].filter(Boolean);
+    return `${i + 1}. ${bits.join(" — ")}`;
+  });
+  let txt = lines.join("\n");
+  if (txt.length > maxLen) txt = txt.slice(0, maxLen - 12) + "\n... [+altri]";
+  return txt;
+}
+
+export async function tryInterceptEchoContextualSend({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+
+  // Match: o pattern dest esplicito "manda...a X", o pattern self "mandami..."
+  let dest = null;
+  let isSelf = false;
+  const mDest = CONTEXTUAL_SEND_RE.exec(t);
+  const mSelf = CONTEXTUAL_SEND_SELF_RE.exec(t);
+  if (mDest) {
+    dest = mDest[1].trim();
+    // Filtra dest che sono parole comuni o stop-word ("tutti", "lista", ecc.)
+    if (/^(tutti|tutte|tutto|cose|lista|elenco|loro)$/i.test(dest)) return null;
+  } else if (mSelf) {
+    isSelf = true;
+  } else {
+    return null;
+  }
+
+  // Recupera ultimo messaggio assistant con contenuto ricco
+  let context = null;
+  try {
+    const snap = await db.collection("nexus_chat")
+      .where("sessionId", "==", sessionId)
+      .limit(50).get();
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => {
+      const ta = (a.createdAt && (a.createdAt._seconds ?? a.createdAt.seconds)) || 0;
+      const tb = (b.createdAt && (b.createdAt._seconds ?? b.createdAt.seconds)) || 0;
+      return tb - ta;
+    });
+    for (const d of docs) {
+      if (d.role !== "assistant") continue;
+      // Skippa il messaggio "🧠 Claude sta pensando..." e simili placeholder
+      if (/Claude sta pensando|sto verificando/i.test(d.content || "")) continue;
+      const items = d.direct?.data?.items;
+      if (Array.isArray(items) && items.length) {
+        context = { kind: "items", items, originalContent: d.content };
+        break;
+      }
+      if (d.content && d.content.length >= 80) {
+        context = { kind: "text", text: d.content, originalContent: d.content };
+        break;
+      }
+    }
+  } catch (e) {
+    logger.warn("contextual send: chat lookup failed", { error: String(e).slice(0, 120) });
+  }
+
+  if (!context) {
+    return {
+      content: "Non trovo niente da inoltrare. Fai prima la query (es. \"interventi di Marco domani\") e poi dimmi \"mandalo a X\".",
+      _echoPendingHandled: true,
+    };
+  }
+
+  // Costruisci body
+  let body = "";
+  if (context.kind === "items") {
+    body = _formatItemsForWhatsApp(context.items);
+  }
+  if (!body) {
+    // Fallback: usa il content originale (testo già formattato)
+    body = String(context.originalContent || "").trim().slice(0, 1500);
+  }
+  if (!body) {
+    return {
+      content: "Non sono riuscito a estrarre il testo da inoltrare.",
+      _echoPendingHandled: true,
+    };
+  }
+
+  // Risolvi dest: self → mappa email/userId al nome rubrica
+  if (isSelf) {
+    dest = await _resolveSelfFromUserId(userId);
+  }
+
+  const result = await handleEchoWhatsApp({ to: dest, body }, { userMessage: t, sessionId });
+  return { ...result, _echoPendingHandled: true, _contextualSend: true };
+}
+
+

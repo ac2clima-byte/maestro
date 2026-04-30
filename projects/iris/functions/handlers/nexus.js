@@ -20,7 +20,7 @@ import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js"
 import { handleBozzePendenti, handleApriBozza, handlePreventiviEmessi } from "./preventivo.js";
 import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE, handleMemoCercaCondominio } from "./memo.js";
 import { handleAresInterventiAperti, handleAresApriIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
-import { handleEchoWhatsApp } from "./echo.js";
+import { handleEchoWhatsApp, tryInterceptEchoContextualSend } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
 import {
   handleChartaRegistraIncasso, handleFattureScadute,
