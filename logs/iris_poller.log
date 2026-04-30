@@ -21221,3 +21221,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #28  COMUNICAZIONE_INTERNA         medium  positivo     roberto.moraschi@cambielli.it             → ARCHIVIA
   #29  FAILED: Expecting ',' delimiter: line 64 column 4 (char 1986)
 [2026-04-30T00:41:34Z] ─── fine ciclo ───
+[2026-04-30T00:46:34Z] ─── inizio ciclo IRIS (limit=50) ───
