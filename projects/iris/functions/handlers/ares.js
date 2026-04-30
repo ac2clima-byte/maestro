@@ -93,13 +93,14 @@ export function parseRangeDataInterventi(text) {
       delta = (todayDow - idx + 7) % 7;
       if (delta === 0) delta = 7;
       delta = -delta;
-    } else if (wantFuture) {
-      delta = (idx - todayDow + 7) % 7;
-      if (delta === 0) delta = 7;
     } else {
-      delta = (todayDow - idx + 7) % 7;
-      if (delta === 0) delta = 0;
-      else delta = -delta;
+      // DEFAULT = FUTURO. Decisione Alberto 2026-04-30: "se chiedo
+      // lunedì intendo lunedì prossimo" anche senza marker esplicito.
+      // Se idx > todayDow → giorno di questa settimana (es. oggi gio,
+      // venerdì = domani). Se idx <= todayDow → prossima settimana
+      // (es. oggi gio, lunedì = lunedì prossimo, +4gg).
+      delta = (idx - todayDow + 7) % 7;
+      if (delta === 0) delta = 7; // "oggi è lunedì" + "lunedì" → prossimo lunedì
     }
     const day = _addDays(today, delta);
     // Label leggibile: lunedì/martedì… (mappa nome canonico)
