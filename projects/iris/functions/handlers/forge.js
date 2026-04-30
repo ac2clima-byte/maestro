@@ -27,7 +27,7 @@ import {
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
 import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
-import { tryInterceptEchoPending, tryInterceptEchoContextualSend } from "./echo.js";
+import { tryInterceptEchoPending, tryInterceptEchoContextualSend, tryInterceptEchoRepeatLast } from "./echo.js";
 import { tryInterceptPharoOfferConferma } from "./pharo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
@@ -155,6 +155,33 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: echo contextual send intercept failed", { error: String(e).slice(0, 150) });
+      }
+
+      // ECHO repeat-last
+      try {
+        const echoRep = await tryInterceptEchoRepeatLast({ userMessage: message, sessionId });
+        if (echoRep && echoRep._echoPendingHandled) {
+          const cleaned = naturalize(echoRep.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: echoRep.data || null, failed: false },
+            stato: "completata",
+            modello: "echo_repeat_last",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "echo", azione: "repeat_last_whatsapp",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: echoRep.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "echo_repeat_last",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: echo repeat-last intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // PHARO offer conferma: dopo "vuoi pulire i pending?" il "si" deve

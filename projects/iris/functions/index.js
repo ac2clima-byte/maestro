@@ -31,7 +31,7 @@ import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert, tryInterceptPharoOfferConferma } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
-import { tryInterceptEchoPending, tryInterceptEchoContextualSend } from "./handlers/echo.js";
+import { tryInterceptEchoPending, tryInterceptEchoContextualSend, tryInterceptEchoRepeatLast } from "./handlers/echo.js";
 import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
 import { handleChronosCampagne, handleChronosListaCampagne, buildCampagneDashboard, buildAgendaDashboard, buildScadenzeDashboard } from "./handlers/chronos.js";
 
@@ -513,6 +513,31 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("echo contextual send intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ECHO repeat-last: "mandalo ancora / mandane un altro / rimandalo /
+    // ripeti" → trova ultimo echo_message sent della sessione e re-invia.
+    try {
+      const echoRep = await tryInterceptEchoRepeatLast({ userMessage, sessionId });
+      if (echoRep && echoRep._echoPendingHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: echoRep.content,
+          direct: { data: echoRep.data || null, failed: false },
+          stato: "completata",
+          modello: "echo_repeat_last",
+        });
+        res.status(200).json({
+          intent: { collega: "echo", azione: "repeat_last_whatsapp", parametri: {}, rispostaUtente: echoRep.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: "completata",
+          direct: { data: echoRep.data || null, failed: false },
+          modello: "echo_repeat_last", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("echo repeat-last intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // PHARO offer conferma: dopo "Vuoi pulire i pending?" l'utente risponde

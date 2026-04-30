@@ -680,4 +680,71 @@ export async function tryInterceptEchoContextualSend({ userMessage, sessionId, u
   return { ...result, _echoPendingHandled: true, _contextualSend: true };
 }
 
+// ─── Repeat last ───────────────────────────────────────────────
+// "mandalo ancora / di nuovo / nuovamente / un'altra volta / rimandalo"
+// → ripete l'ultimo invio WhatsApp riuscito della sessione (stesso
+// destinatario, stesso body). Cerca echo_messages where sessionId e
+// status:sent, prende il più recente.
+
+const REPEAT_LAST_RE = new RegExp(
+  // Forma 1: verbo + suffisso "ancora/di nuovo/nuovamente/un'altra volta"
+  "^\\s*(?:e\\s+)?(?:" +
+    "(?:manda(?:lo|li|melo|cele)?|invia(?:lo|li)?|spedisci(?:lo|li)?|rimanda(?:lo|li)?)\\s+" +
+    "(?:di\\s+nuovo|ancora(?:\\s+una\\s+volta|\\s+uno)?|nuovamente|un['’]?altra\\s+volta|un['’]?altra)" +
+  // Forma 2: "rimandalo" / "mandane un altro" come comando standalone
+    "|rimanda(?:lo|li)?" +
+    "|manda(?:ne|n[oae])\\s+un[oa]?(?:\\s+altr[oa])?" +
+    "|ripeti(?:\\s+l['’]?invio|\\s+il\\s+messaggio)?" +
+  ")\\s*[.!?]?\\s*$",
+  "i"
+);
+
+export async function tryInterceptEchoRepeatLast({ userMessage, sessionId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+  if (!REPEAT_LAST_RE.test(t)) return null;
+
+  let last = null;
+  try {
+    const snap = await db.collection("echo_messages")
+      .where("sessionId", "==", sessionId)
+      .limit(20).get();
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Prendi il più recente con status:sent (o skipped per FORGE)
+    docs.sort((a, b) => {
+      const ta = (a._serverTime && a._serverTime._seconds) || 0;
+      const tb = (b._serverTime && b._serverTime._seconds) || 0;
+      return tb - ta;
+    });
+    last = docs.find(d => d.status === "sent" || d.status === "skipped") || null;
+  } catch (e) {
+    logger.warn("echo repeat-last lookup failed", { error: String(e).slice(0, 120) });
+  }
+
+  if (!last || !last.body) {
+    return {
+      content: "Non trovo un messaggio recente da rinviare. Dimmi a chi e cosa.",
+      _echoPendingHandled: true,
+    };
+  }
+
+  // Re-invia: usa il displayName risolto se presente, altrimenti il chatId.
+  // Passiamo dest = displayName così handleEchoWhatsApp lo cerca di nuovo
+  // in rubrica e non si affida al chatId raw (più safe).
+  const dest = last.destDisplayName || last.to || "";
+  if (!dest) {
+    return {
+      content: "L'ultimo invio non aveva un destinatario tracciato. Dimmi a chi mandare.",
+      _echoPendingHandled: true,
+    };
+  }
+  const result = await handleEchoWhatsApp(
+    { to: dest, body: last.body, sessionId },
+    { userMessage: t, sessionId }
+  );
+  return { ...result, _echoPendingHandled: true, _repeatLast: true };
+}
+
+
 
