@@ -53,9 +53,12 @@ export const OLLAMA_KEY = process.env.OLLAMA_KEY || "nexo-ollama-2026";
 
 // Groq API endpoint (piano gratuito).
 export const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-// Modello router: llama-3.3-70b-versatile è il più recente disponibile su Groq
-// (sostituisce llama-3.1-70b-versatile deprecato). Latenza tipica 200-500ms.
-export const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Modello router: openai/gpt-oss-120b. Migrazione 2026-04-30 da
+// llama-3.3-70b-versatile dopo benchmark che mostrava 4/5 errori di routing
+// di llama (allucinava "collega" inventando nomi di tecnici come collega).
+// gpt-oss-120b: latenza ~700-1200ms (vs ~300ms di llama), ma routing affidabile,
+// gestisce compound intent e multi-data correttamente. Sempre gratis su Groq.
+export const GROQ_MODEL = "openai/gpt-oss-120b";
 
 // ─── Primary Firebase app (nexo-hub-15f2d) ─────────────────────
 if (!getApps().length) initializeApp();
