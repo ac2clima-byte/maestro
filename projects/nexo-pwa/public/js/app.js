@@ -2426,6 +2426,11 @@ async function nexusUploadAudio(file) {
 //   - Pausa (TTS): 🔵 + "sta parlando..."
 //   - Idle (tra turni): 🟢 + "pronto"
 const NEXUS_SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+// Detect iOS / Safari: Web Speech API ha gotchas note (continuous=true non
+// emette mai final, onend ravvicinati, audio cut-off). Usiamo flag per
+// adattare il comportamento.
+const NEXUS_IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const NEXUS_IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const nexusVoice = {
   recognition: null,
   active: false,         // modalità conversazione attiva
@@ -2433,11 +2438,17 @@ const nexusVoice = {
   interimText: "",
   finalText: "",
   silenceTimer: null,
-  watchdogTimer: null,   // watchdog 8s per browser che non emettono final
+  watchdogTimer: null,   // watchdog per browser che non emettono final
   paused: false,         // true quando NEXUS sta parlando
+  // Anti-loop: se onend rilancia troppo spesso (es. iOS rejecta SR in
+  // <500ms), interrompi la modalità invece di restartare all'infinito.
+  restartCount: 0,
+  restartWindowStart: 0,
 };
 const NEXUS_VOICE_SILENCE_MS = 1500; // 1.5s di silenzio → auto-invio
 const NEXUS_VOICE_STOP_WORDS = /\b(stop|basta|zitto|fermati|fine)\b/i;
+const NEXUS_VOICE_MAX_RESTARTS = 6;     // max restart in finestra
+const NEXUS_VOICE_RESTART_WINDOW = 20000; // 20s
 
 // Merge finalChunk con finalText difendendo da motori SR che emettono
 // final cumulativi. Se il nuovo chunk inizia con l'ultimo segmento (parole
@@ -2496,7 +2507,14 @@ function nexusScheduleAutoSend() {
   nexusVoice.silenceTimer = setTimeout(() => {
     const ta = $("#nexusInput");
     const text = (nexusVoice.finalText + " " + nexusVoice.interimText).trim();
-    if (!text || NEXUS_PENDING) return;
+    if (!text) return;
+    // Se NEXUS sta ancora processando il messaggio precedente, ri-schedula
+    // tra 1s invece di abbandonare il testo (era un bug: testo perso).
+    if (NEXUS_PENDING) {
+      console.log("[nexus-voice] auto-send rinviato, NEXUS_PENDING attivo");
+      nexusScheduleAutoSend();
+      return;
+    }
     // Check stop words
     if (NEXUS_VOICE_STOP_WORDS.test(text)) {
       nexusVoiceStop();
@@ -2512,11 +2530,12 @@ function nexusScheduleAutoSend() {
   }, NEXUS_VOICE_SILENCE_MS);
 }
 
-// Watchdog 8s: se passa molto tempo senza nessun final ma c'è interim
+// Watchdog: se passa molto tempo senza nessun final ma c'è interim
 // corposo (≥6 char), promuove l'interim a final e schedula l'auto-send.
 // Mitiga il caso iOS Safari + continuous=true dove il browser non emette
-// mai final fino alla chiusura della sessione.
-const NEXUS_VOICE_WATCHDOG_MS = 8000;
+// mai final fino alla chiusura della sessione. Su iOS usiamo finestra
+// più corta (4s) perché il problema è più frequente.
+const NEXUS_VOICE_WATCHDOG_MS = (NEXUS_IS_IOS || NEXUS_IS_SAFARI) ? 4000 : 8000;
 function nexusScheduleVoiceWatchdog() {
   if (nexusVoice.watchdogTimer) clearTimeout(nexusVoice.watchdogTimer);
   nexusVoice.watchdogTimer = setTimeout(() => {
@@ -2591,14 +2610,35 @@ async function nexusVoiceStart() {
 function nexusVoiceResume() {
   if (!nexusVoice.active || nexusVoice.listening) return;
   nexusVoice.paused = false;
+
+  // Anti-loop: counter restart in finestra. Se troppi restart troppo
+  // velocemente (sintomo iOS Safari che rejecta SR appena startato),
+  // interrompi e mostra errore chiaro invece di loopare.
+  const now = Date.now();
+  if (now - nexusVoice.restartWindowStart > NEXUS_VOICE_RESTART_WINDOW) {
+    nexusVoice.restartWindowStart = now;
+    nexusVoice.restartCount = 0;
+  }
+  nexusVoice.restartCount++;
+  if (nexusVoice.restartCount > NEXUS_VOICE_MAX_RESTARTS) {
+    console.warn("[nexus-voice] anti-loop tripped: troppi restart in", NEXUS_VOICE_RESTART_WINDOW, "ms — uscita modalità");
+    nexusSetVoiceStatus("Dettatura instabile su questo browser. Prova Chrome desktop o riavvia.", "error");
+    nexusVoiceStop();
+    return;
+  }
+
   try {
     const rec = new NEXUS_SR();
     rec.lang = "it-IT";
-    rec.continuous = true;
+    // iOS Safari + continuous=true è notoriamente rotto: non emette mai
+    // final e a volte chiude SR in <500ms. Usiamo single-shot con
+    // ri-arming gestito da onend.
+    rec.continuous = !(NEXUS_IS_IOS || NEXUS_IS_SAFARI);
     // interimResults=true: feedback visivo live durante la dettatura.
     // CRUCIALE: gli interim NON entrano in finalText e NON triggerano
     // l'auto-send. Solo i final lo fanno → niente accumulo cumulativo.
     rec.interimResults = true;
+    console.log("[nexus-voice] start SR", { iOS: NEXUS_IS_IOS, safari: NEXUS_IS_SAFARI, continuous: rec.continuous, restartCount: nexusVoice.restartCount });
     rec.onstart = () => {
       nexusVoice.listening = true;
       nexusSetMicState("listening");
@@ -2616,6 +2656,8 @@ function nexusVoiceResume() {
       // Final: dedup difensiva contro motori SR che emettono final cumulativi.
       if (finalChunk) {
         nexusVoice.finalText = _mergeFinalChunk(nexusVoice.finalText, finalChunk) + " ";
+        // Reset anti-loop counter: SR sta funzionando, non è in loop di reject.
+        nexusVoice.restartCount = 0;
       }
       const ta = $("#nexusInput");
       if (ta) {
@@ -2632,6 +2674,7 @@ function nexusVoiceResume() {
     };
     rec.onerror = (ev) => {
       const err = ev.error || "unknown";
+      console.warn("[nexus-voice] onerror", err);
       if (err === "no-speech" && nexusVoice.active && !nexusVoice.paused) {
         // Non uscire dalla modalità: ri-avvia
         setTimeout(() => { nexusVoice.listening = false; nexusVoiceResume(); }, 300);
@@ -2651,9 +2694,12 @@ function nexusVoiceResume() {
       }
     };
     rec.onend = () => {
+      console.log("[nexus-voice] onend", { active: nexusVoice.active, paused: nexusVoice.paused, restartCount: nexusVoice.restartCount });
       nexusVoice.listening = false;
       if (nexusVoice.active && !nexusVoice.paused) {
-        // Ri-avvia in modalità continua (il browser chiude periodicamente SR)
+        // Ri-avvia (su iOS continuous=false → ri-arming necessario;
+        // su Chrome il browser chiude periodicamente SR anche con
+        // continuous=true). nexusVoiceResume() ha l'anti-loop counter.
         setTimeout(() => nexusVoiceResume(), 200);
       }
     };
