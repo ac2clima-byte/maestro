@@ -1228,7 +1228,11 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
     boardName: pendingData.condominio || "",
     desc: pendingData.descrizione || "",
     workDescription: pendingData.descrizione || "",
-    listName: "INTERVENTI DA ESEGUIRE",
+    // listName "INTERVENTI" = card programmata su data specifica (visibile in
+    // PWA Tecnici, LISTE_AMMESSE in agenda.js). "INTERVENTI DA ESEGUIRE" è
+    // la lista di smistamento che la PWA NON include — usarla nasconde la
+    // card all'agenda dei tecnici.
+    listName: "INTERVENTI",
     inBacheca: true,
     archiviato: false,
     stato: "aperto",
