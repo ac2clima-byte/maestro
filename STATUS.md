@@ -1,5 +1,5 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-04-30T17:53:42.505Z
+Ultimo aggiornamento: 2026-04-30T17:56:00.508Z
 
 ## Stato MAESTRO + Claude Code
 Errore lettura codeStatus: Command failed: curl -fsS --max-time 8 https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
@@ -10,8 +10,8 @@ curl: (22) The requested URL returned error: 500
 Nessuno.
 
 ## Ultimi 5 commit
-- b035e36d auto: pre-pull commit
-- 471aa7dc auto: pre-pull commit
-- 909fbbc5 auto: pre-pull commit
-- aa7a3771 auto: pre-pull commit
-- 6c8c01d5 auto: pre-pull commit
+- b1b006e0 auto: pre-pull commit
+- d1db1d1d auto: pre-pull commit
+- 0b2e5ffa auto: pre-pull commit
+- 38310154 auto: pre-pull commit
+- a77cee17 auto: pre-pull commit
