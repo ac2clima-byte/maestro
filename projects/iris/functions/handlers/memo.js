@@ -65,12 +65,26 @@ function memoFormatDate(v) {
 }
 
 export async function handleMemoDossier(parametri, ctx) {
-  const candidate =
+  // Whitelist campi che possono contenere il NOME del soggetto cercato.
+  // NON usare Object.values() come fallback: pesca anche sessionId/userId/
+  // forgeKey/forceDryRun ecc. che il dispatcher inietta nei parametri,
+  // facendo cercare "nx_aim98clbmoluqb7g" come se fosse un cliente.
+  let candidate =
     parametri.cliente || parametri.condominio || parametri.nome ||
     parametri.query || parametri.soggetto || parametri.target ||
     parametri.entita || parametri.entityName || parametri.name ||
-    Object.values(parametri || {}).find(v => typeof v === "string" && v.trim().length > 0) ||
+    parametri.persona || parametri.contatto ||
     "";
+
+  // Fallback robusto: se Groq non ha estratto il nome nei parametri,
+  // estrailo dal userMessage cercando il pattern "su X" / "di X" /
+  // "tutto su X" / "dossier X" / "chi è X" alla fine della frase.
+  if (!candidate && ctx && typeof ctx.userMessage === "string") {
+    const m = ctx.userMessage.trim();
+    const re = /(?:dimmi\s+tutto\s+(?:quello\s+che\s+sai\s+)?(?:su|di|sul|sulla|sullo|sui|sulle)\s+|tutto\s+(?:su|di|sul|sulla|sullo|sui|sulle)\s+|dossier\s+(?:su|di|del|della|dello|dei|delle)?\s*|chi\s+(?:è|e)\s+|chi\s+sono\s+|cerca(?:mi)?\s+(?:su|di|il|la|lo|gli|le|i)?\s*|info\s+(?:su|di|sul|sulla)\s+)([A-Za-zÀ-ÿ][\w\s'À-ÿ.\-]{1,80})\s*[.!?]?\s*$/i;
+    const mt = re.exec(m);
+    if (mt && mt[1]) candidate = mt[1].trim();
+  }
   let q = String(candidate).trim().toLowerCase();
   q = q.replace(/^(il|la|lo|gli|le|i|condominio)\s+/, "").trim();
   if (!q) return { content: "Su quale cliente cerco? Dammi un nome." };
