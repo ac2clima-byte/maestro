@@ -528,16 +528,44 @@ async function _resolveSelfFromUserId(userId) {
 
 // Pattern dest esplicito: "manda[lo|li|...] [qualsiasi parole intermedie]
 // (a|ad|al|alla|per) X". L'ultima clausola "a X" è il dest.
+// Cattura dest come max 3 parole inizianti con lettera (no stop-word
+// italiane), così "manda ad alberto anche i dettagli" → dest "alberto"
+// e non "alberto anche i dettagli degli interventi".
 // Esempi che devono matchare:
 //   "mandali via wa ad alberto"
 //   "manda la lista di interventi ad alberto"
 //   "mandalo a Federico"
 //   "manda il riepilogo a Lorenzo"
-//   "manda questo a Marco"
-// NON deve matchare i comandi di creazione iniziali ("manda whatsapp a X: testo"):
-// quelli hanno ":" che li distingue, e finiscono in handleEchoWhatsApp via
-// regex creazione standard prima di noi.
-const CONTEXTUAL_SEND_RE = /^\s*(?:e\s+)?manda(?:lo|li|le|melo|tela|telo|teli|cele)?\s+(?:.{1,120}?\s+)?(?:a(?:l|lla|llo|d)?|per)\s+([A-Za-zÀ-ÿ][\w\sÀ-ÿ.'\-]{1,60}?)\s*[.!?]?\s*$/i;
+//   "manda questo a Marco Piparo"
+//   "manda a Maria Teresa Bianchi"
+// NON deve catturare frasi continuanti dopo il nome:
+//   "manda ad alberto anche i dettagli" → dest = "alberto"
+const CONTEXTUAL_SEND_RE = /^\s*(?:e\s+)?manda(?:lo|li|le|melo|tela|telo|teli|cele)?\s+(?:.{1,120}?\s+)?(?:a(?:l|lla|llo|d)?|per)\s+([A-Za-zÀ-ÿ][\w'À-ÿ\-]{0,40}(?:\s+[A-Za-zÀ-ÿ][\w'À-ÿ\-]{0,40}){0,2})\b/i;
+// Stop-word italiane che NON sono parte del nome destinatario. Se
+// compaiono nel match, taglia dest prima della stop-word.
+const DEST_STOP_WORDS = new Set([
+  "anche", "pure", "poi", "dopo", "subito", "ora", "ora,",
+  "il", "lo", "la", "i", "gli", "le", "un", "una", "uno",
+  "del", "dello", "della", "dei", "degli", "delle",
+  "con", "per", "fra", "tra", "su", "in", "da", "di", "a", "ad",
+  "e", "o", "ma", "ed", "od",
+  "che", "questo", "questi", "queste", "questa",
+  "interventi", "intervento", "lista", "messaggio", "testo", "dettagli",
+  "appuntamento", "appuntamenti", "wa", "whatsapp", "via", "tramite",
+]);
+
+// Tronca il match dest alla prima stop-word, ritornando solo il nome reale.
+function _trimDestStopWords(raw) {
+  if (!raw) return "";
+  const tokens = String(raw).trim().split(/\s+/);
+  const clean = [];
+  for (const tok of tokens) {
+    if (DEST_STOP_WORDS.has(tok.toLowerCase())) break;
+    clean.push(tok);
+    if (clean.length >= 3) break; // max 3 parole nome
+  }
+  return clean.join(" ").trim();
+}
 // Pattern self: "mandami / mandamela / mandamelo [qualsiasi cosa]"
 //   "mandami questo via wa"
 //   "mandami la lista"
@@ -603,9 +631,10 @@ export async function tryInterceptEchoContextualSend({ userMessage, sessionId, u
   const mDest = CONTEXTUAL_SEND_RE.exec(t);
   const mSelf = CONTEXTUAL_SEND_SELF_RE.exec(t);
   if (mDest) {
-    dest = mDest[1].trim();
+    dest = _trimDestStopWords(mDest[1]);
     // Filtra dest che sono parole comuni o stop-word ("tutti", "lista", ecc.)
-    if (/^(tutti|tutte|tutto|cose|lista|elenco|loro)$/i.test(dest)) return null;
+    // o vuoti dopo il trim.
+    if (!dest || /^(tutti|tutte|tutto|cose|lista|elenco|loro)$/i.test(dest)) return null;
   } else if (mSelf) {
     isSelf = true;
   } else {
