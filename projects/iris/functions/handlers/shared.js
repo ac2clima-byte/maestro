@@ -852,13 +852,23 @@ export function isGroqTransientError(err) {
   if (/rate.?limit|quota|insufficient/.test(msg)) return true;
   if (/fetch failed|network|timeout|enotfound|econnrefused|aborterror|aborted/.test(msg)) return true;
   if (/no_groq_key/.test(msg)) return true;
+  // 400 "failed to validate JSON" è transient: il modello può aver troncato
+  // il JSON per max_tokens. Lascia cadere su Ollama L3 invece di crashare.
+  if (/groq\s+400.*(?:failed to validate json|invalid json|json[_\s]validate)/i.test(msg)) return true;
   return false;
 }
 
 // Chiama Groq (piano gratuito) con chat completion API OpenAI-compatible.
 // Ritorna { text, usage, model } analogo a callOllamaIntent.
 // `responseFormatJson=true` forza il modello a produrre JSON valido.
-export async function callGroqIntent({ apiKey, system, user, model = GROQ_MODEL, maxTokens = 400, timeoutMs = 15000, responseFormatJson = true }) {
+//
+// NB modelli reasoning (gpt-oss-*): consumano molti token in reasoning prima
+// del JSON. Senza reasoning_effort=low o max_tokens generoso il completion
+// arriva troncato → Groq risponde 400 "Failed to validate JSON". Il default
+// di maxTokens è alto (1500) per coprire il reasoning, e per i modelli
+// gpt-oss aggiungiamo reasoning_effort=low che taglia il pensiero da
+// ~250 token a ~50.
+export async function callGroqIntent({ apiKey, system, user, model = GROQ_MODEL, maxTokens = 1500, timeoutMs = 15000, responseFormatJson = true }) {
   if (!apiKey) throw new Error("no_groq_key");
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -872,6 +882,10 @@ export async function callGroqIntent({ apiKey, system, user, model = GROQ_MODEL,
     max_tokens: maxTokens,
   };
   if (responseFormatJson) body.response_format = { type: "json_object" };
+  // Reasoning-capable models (gpt-oss-*): cap reasoning a "low" per evitare
+  // che spendano la quasi-totalità di max_tokens in chain-of-thought interna
+  // prima di emettere il JSON, troncandolo.
+  if (/gpt-oss/i.test(model)) body.reasoning_effort = "low";
   try {
     const resp = await fetch(GROQ_URL, {
       method: "POST",

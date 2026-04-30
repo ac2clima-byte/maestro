@@ -1456,7 +1456,9 @@ export async function callIntentRouter(_legacyApiKey, messages) {
         system: systemCompact,
         user: userText,
         model: GROQ_MODEL,
-        maxTokens: 300,
+        // 1500 = JSON router (~80 tok) + reasoning gpt-oss (~50-200 tok con
+        // reasoning_effort=low) + margine. Llama-3.3-70b ne userebbe ~80.
+        maxTokens: 1500,
         timeoutMs: 15000,
         responseFormatJson: true,
       });
