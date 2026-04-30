@@ -285,8 +285,23 @@ export async function handleEchoWhatsApp(parametri, ctx) {
 
   if (isEchoDryRun(cfg, parametri)) {
     await persistEchoMessage({ ...baseMsg, status: "skipped", failedReason: "ECHO_DRY_RUN attivo" });
+    // Salva pending leggero così se Alberto risponde "si/ok/grazie" il
+    // turno successivo non cade su Haiku (che genererebbe un saluto
+    // generico). Non disabilita DRY_RUN: per gli invii reali serve cambio
+    // manuale in cosmina_config/echo_config (modifica di sicurezza).
+    if (sessionId) {
+      try {
+        await db.collection("nexo_echo_pending").doc(sessionId).set({
+          kind: "echo_wa_dryrun_info",
+          dryRunAck: true,
+          destDisplay: resolved.displayName || "?",
+          sessionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+    }
     return {
-      content: `Non ho mandato il messaggio a ${resolved.displayName} perché il dry-run è attivo. Vuoi che lo attivi?`,
+      content: `Modalità test attiva: il messaggio a ${resolved.displayName} è stato preparato ma non spedito. Per abilitare gli invii reali bisogna togliere il dry-run da cosmina_config/echo_config (è una modifica di sicurezza, va fatta manualmente).`,
       data: { dryRun: true, id, resolvedFrom: resolved.resolvedFrom },
     };
   }
@@ -368,6 +383,24 @@ export async function tryInterceptEchoPending({ userMessage, sessionId }) {
       content: "Ok, lascio perdere il messaggio WhatsApp.",
       _echoPendingHandled: true,
     };
+  }
+
+  // kind=echo_wa_dryrun_info: pending puramente informativo dopo dry-run.
+  // Se l'utente conferma con "si/ok/grazie" significa "ho capito" → risposta
+  // neutra senza azione. Per qualsiasi altro msg pulisco il pending e lascio
+  // passare al routing standard (l'utente sta cambiando argomento).
+  if (pendingData.kind === "echo_wa_dryrun_info") {
+    if (/^\s*(?:s[iì]|ok|d['’]?\s*accordo|va\s+bene|capito|grazie|perfetto|chiaro)\b/i.test(t)) {
+      try { await pendingDoc.ref.delete(); } catch {}
+      return {
+        content: "Ok. Quando vuoi togliere il dry-run, fammi sapere e ti dico dove cambiarlo in console Firebase.",
+        _echoPendingHandled: true,
+      };
+    }
+    // Altri messaggi: pulisco il pending e lascio fluire al routing standard
+    // (l'utente sta facendo un'altra richiesta).
+    try { await pendingDoc.ref.delete(); } catch {}
+    return null;
   }
 
   let dest = "";
