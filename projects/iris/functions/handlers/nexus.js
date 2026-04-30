@@ -550,6 +550,20 @@ export const DIRECT_HANDLERS = [
     if (/\bintervent[io]\b.*\b(?:ad|a|in)\s+(?:alessandria|voghera|tortona|novi|casale|valenza|asti|pavia|milano|torino|genova|stradella|broni|rivanazzano|ovada|acqui)\b/i.test(m)) return true;
     return false;
   }, fn: handleAresInterventiAperti },
+  // ECHO — istruzioni "togli dry run / abilita invii reali". Handler
+  // puramente informativo: NON modifica la config, dice come fare.
+  // Disattivare DRY_RUN è un cambio di sicurezza che resta manuale.
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    return /(?:togli|toglil[oa]|disattiv|spegni|disabil)\s*(?:il\s+|la\s+)?(?:dry[\s\-]?run|test|modal)/.test(m)
+      || /abilit\w+\s+(?:invii|wa|whatsapp|reali)/.test(m)
+      || /manda(?:lo)?\s+(?:davvero|comunque|reale|in\s+production|sul\s+serio)\s*(?:i\s+)?(?:wa|whatsapp|messaggi)?/.test(m)
+      || /metti(?:lo)?\s+(?:live|in\s+produzione|reale)\s*(?:i\s+)?(?:wa|whatsapp)?/.test(m)
+      || /come\s+(?:si\s+)?(?:toglie|disattiv\w+)\s+(?:il\s+|la\s+)?dry[\s\-]?run/.test(m);
+  }, fn: async () => ({
+    content: "Per togliere il dry-run devi cambiarlo a mano in console Firebase: vai su https://console.firebase.google.com/project/garbymobile-f89ac/firestore/data/cosmina_config/echo_config , clicca il campo dry_run e cambia il valore da true a false. Da quel momento i WhatsApp partono davvero via Waha (server Hetzner 178.104.88.86, già attivo). Suggerimento: prima testa con un destinatario interno (te stesso o Federico), poi passa ai clienti. È una modifica di sicurezza, non posso farla io.",
+    data: { kind: "echo_dryrun_help" },
+  }) },
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
     return (col === "echo" && /(whatsapp|wa|send_whatsapp|send_wa|send_message|invia)/.test(az))
