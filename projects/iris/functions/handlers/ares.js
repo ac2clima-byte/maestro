@@ -1046,6 +1046,31 @@ async function _extractCondominio(userMessage, parametri, sessionId) {
     }
   }
 
+  // 3c. Pattern CORTO "al/alla/allo [Nome]" SENZA "condominio" davanti.
+  // Es. "metti intervento a Federico al Kristal alle 9" → "Kristal".
+  // Sicuro contro falsi positivi: scarta se il nome è in TECNICI_ACG
+  // (es. "al Federico" = tecnico, non condominio). Verifica che il nome
+  // matchi un boardName reale via _lookupBoardCanonical (async) — solo
+  // se trova match accetta. Questo previene "al medico", "alla nonna" ecc.
+  const reCorto = /(?:^|[^a-zà-ÿ])(?:al|alla|allo)\s+([A-Za-zÀ-ÿ][\w\sÀ-ÿ.'\-]{2,60}?)(?=\s+(?:urgente|normale|subito|alle?|domani|oggi|per|con|entro|mattina|pomerigg|sera)\b|[,.!?]|$)/i;
+  const foundCorto = reCorto.exec(m);
+  if (foundCorto) {
+    const v = foundCorto[1].trim();
+    const vLow = v.toLowerCase();
+    // Scarta nomi-tecnici e parole di città già coperte da parseCittaIntervento
+    const isTecnico = TECNICI_ACG.includes(vLow) || vLow.split(/\s+/).every(w => TECNICI_ACG.includes(w));
+    if (v && !isTecnico) {
+      // Verifica che esista un board reale che lo contiene (filtro
+      // anti-falso-positivo). _lookupBoardCanonical fa fuzzy-match
+      // su parole chiave; se ritorna un board, "al [Nome]" è un
+      // condominio plausibile.
+      try {
+        const can = await _lookupBoardCanonical(v);
+        if (can) return { value: v, source: "messaggio_corto" };
+      } catch {}
+    }
+  }
+
   // 3. Pronome "ci/lì" → ultima query ARES nella stessa sessione
   if (sessionId && /\b(ci|l[iì])\s+(?:deve|dovr|va\b)/i.test(m)) {
     try {
