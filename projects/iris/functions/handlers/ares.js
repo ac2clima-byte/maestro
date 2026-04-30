@@ -961,6 +961,19 @@ async function _extractCondominio(userMessage, parametri, sessionId) {
     }
   }
 
+  // 3b. Pattern STANDALONE: "condominio/cond./palazzina/residenza/villa/stabile [Nome]"
+  // senza preposizioni davanti. Es. "FISSA INTERVENTO A MARCO DOMANI CONDOMINIO
+  // FIORDALISO PER AVVIAMENTO" → cattura "FIORDALISO". Richiede una stop-word
+  // o fine messaggio dopo il nome per evitare di mangiare la descrizione.
+  const reStandalone = /\b(?:condominio|cond\.|palazzina|residenza|villa|stabile)\s+([A-Za-zÀ-ÿ][\w\sÀ-ÿ.'\-]{2,60}?)(?=\s+(?:urgente|normale|subito|alle?|domani|oggi|per|con|entro|mattina|pomerigg|sera)\b|[,.!?]|$)/i;
+  const foundStd = reStandalone.exec(m);
+  if (foundStd) {
+    const v = foundStd[1].trim();
+    if (v && !TECNICI_ACG.includes(v.toLowerCase())) {
+      return { value: v, source: "messaggio_standalone" };
+    }
+  }
+
   // 3. Pronome "ci/lì" → ultima query ARES nella stessa sessione
   if (sessionId && /\b(ci|l[iì])\s+(?:deve|dovr|va\b)/i.test(m)) {
     try {
