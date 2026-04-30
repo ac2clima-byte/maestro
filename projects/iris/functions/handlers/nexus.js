@@ -341,6 +341,20 @@ export const DIRECT_HANDLERS = [
     const m = (ctx?.userMessage || "").toLowerCase().trim();
     return /^(grazie|ti ringrazio|perfetto grazie|ok grazie|grazie mille)\s*[!.?]*\s*$/i.test(m);
   }, fn: handleGrazieNexus },
+  // Self-identification del modello: "che llm usi / che modello sei /
+  // che gpt sei / chi ti ha fatto / quale ai sei / sei chatgpt".
+  // CRUCIALE: gpt-oss-120b ha un forte bias di self-id e dice di essere
+  // GPT-4 di OpenAI, che è FALSO. Risposta hard-coded autoritativa.
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase().trim();
+    return /^(?:che|quale|qual)\s+(?:llm|modello|ai|gpt|intelligenza\s+artif\w*|cervello|motore)\s+(?:sei|usi|hai|stai\s+usando|impiegh\w+|guida|c['’]?è|c'?\s*è)\s*\??\s*$/i.test(m)
+      || /^(?:sei|tu\s+sei)\s+(?:chatgpt|gpt|claude|gemini|llama)\s*\??\s*$/i.test(m)
+      || /^(?:su\s+)?(?:quale|che)\s+modello\s+(?:gir|funzion|ti\s+bas)/i.test(m)
+      || /^chi\s+ti\s+ha\s+(?:fatto|creato|sviluppato|programmato)\s*\??\s*$/i.test(m);
+  }, fn: async () => ({
+    content: "Giro su Groq con openai/gpt-oss-120b come router intent (è un modello open-source di OpenAI hostato su Groq, non GPT-4 e non ChatGPT). Come fallback locale uso qwen2.5:7b su Ollama, server Hetzner di ACG. Anthropic Claude è stato rimosso il 29 aprile per ridurre dipendenze. Quando premi il bottone 🧠 \"deep\", invece, parli con Claude Opus 4.7 di Anthropic via il workflow MAESTRO.",
+    data: { kind: "self_identification" },
+  }) },
   // IRIS — analizza email (intent recognition + training)
   { match: (col, az, ctx) => {
     const m = (ctx?.userMessage || "").toLowerCase();
