@@ -21287,3 +21287,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #28  FATTURA_FORNITORE             medium  positivo     roberto.moraschi@cambielli.it             → VERIFICA_PAGAMENTO
   #29  FAILED: Expecting ',' delimiter: line 62 column 4 (char 1858)
 [2026-04-30T00:59:34Z] ─── fine ciclo ───
+[2026-04-30T01:04:34Z] ─── inizio ciclo IRIS (limit=50) ───
