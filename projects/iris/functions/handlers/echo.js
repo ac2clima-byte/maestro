@@ -526,20 +526,64 @@ async function _resolveSelfFromUserId(userId) {
 //   4. Formatta items in testo WA conciso (max 1500 char)
 //   5. Chiama handleEchoWhatsApp({ to: dest, body: testo })
 
-const CONTEXTUAL_SEND_RE = /^\s*(?:e\s+)?manda(?:lo|li|le|lo|melo|tela|telo|teli|cele)?\s*(?:la|li|le|il|lo|gli|questo|questi|queste|questa|tutto|tutti|tutte|cose|elenco|lista|riepilog\w+)?\s*(?:via|tramite|su|in|per|con)?\s*(?:wa|whatsapp|messaggio|mess|sms)?\s*(?:a(?:l|lla|llo|d)?|per)\s+([A-Za-zÀ-ÿ][\w\sÀ-ÿ.'\-]{1,60})\s*[.!?]?\s*$/i;
-const CONTEXTUAL_SEND_SELF_RE = /^\s*(?:e\s+)?manda(?:mela|melo|meli|mele|mi)\s*(?:la|li|le|il|lo|gli|questo|questi|queste|questa|tutto|tutti|tutte|cose|elenco|lista|riepilog\w+)?\s*(?:via|tramite|su|in|per|con)?\s*(?:wa|whatsapp|messaggio|mess|sms)?\s*[.!?]?\s*$/i;
+// Pattern dest esplicito: "manda[lo|li|...] [qualsiasi parole intermedie]
+// (a|ad|al|alla|per) X". L'ultima clausola "a X" è il dest.
+// Esempi che devono matchare:
+//   "mandali via wa ad alberto"
+//   "manda la lista di interventi ad alberto"
+//   "mandalo a Federico"
+//   "manda il riepilogo a Lorenzo"
+//   "manda questo a Marco"
+// NON deve matchare i comandi di creazione iniziali ("manda whatsapp a X: testo"):
+// quelli hanno ":" che li distingue, e finiscono in handleEchoWhatsApp via
+// regex creazione standard prima di noi.
+const CONTEXTUAL_SEND_RE = /^\s*(?:e\s+)?manda(?:lo|li|le|melo|tela|telo|teli|cele)?\s+(?:.{1,120}?\s+)?(?:a(?:l|lla|llo|d)?|per)\s+([A-Za-zÀ-ÿ][\w\sÀ-ÿ.'\-]{1,60}?)\s*[.!?]?\s*$/i;
+// Pattern self: "mandami / mandamela / mandamelo [qualsiasi cosa]"
+//   "mandami questo via wa"
+//   "mandami la lista"
+//   "mandamela"
+//   "scrivimi il riepilogo"
+const CONTEXTUAL_SEND_SELF_RE = /^\s*(?:e\s+)?(?:manda|scriv|mand|invi)(?:amela|amelo|ameli|amele|ami|imi|amelo|imelo|imela|imeli|imele)\s*.*$/i;
+
+// Converte un valore "due" eterogeneo in Date. Gestisce:
+// - ISO string ("2026-05-01T07:00:00.000Z")
+// - Firestore Timestamp serialized ({_seconds, _nanoseconds})
+// - millisecondi
+// - Date già istanziato
+function _parseDueToDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === "string") {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof v === "number") return new Date(v);
+  if (typeof v === "object") {
+    if (typeof v._seconds === "number") return new Date(v._seconds * 1000);
+    if (typeof v.seconds === "number") return new Date(v.seconds * 1000);
+    if (typeof v.toDate === "function") return v.toDate();
+  }
+  return null;
+}
 
 // Formatta una risposta ARES con items in testo WA conciso
 function _formatItemsForWhatsApp(items, maxLen = 1500) {
   if (!Array.isArray(items) || !items.length) return null;
   const lines = items.slice(0, 25).map((it, i) => {
-    const data = it.due
-      ? new Date(it.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" })
+    const dt = _parseDueToDate(it.due);
+    const data = dt
+      ? dt.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", day: "2-digit", month: "2-digit" })
       : (it.data || "");
-    const board = (it.boardName || it.condominio || it.name || "").replace(/\s*-\s*VIA.*$/i, "").trim().slice(0, 60);
-    const tec = (Array.isArray(it.techNames) && it.techNames.length)
-      ? it.techNames.join("+")
-      : (it.techName || "");
+    // condominio (usato da ARES interventi_aperti) ha già il formato pieno;
+    // altrimenti fallback su boardName/name. Strip "VIA ..." per compattezza WA.
+    const fullName = it.condominio || it.boardName || it.name || "";
+    const board = fullName.replace(/\s*-\s*VIA.*$/i, "").trim().slice(0, 60);
+    // Tecnico: techPrimary > techNames > techName > tecnico
+    let tec = "";
+    if (it.techPrimary) tec = it.techPrimary;
+    else if (Array.isArray(it.techNames) && it.techNames.length) tec = it.techNames.join("+");
+    else if (it.techName) tec = it.techName;
+    else if (it.tecnico) tec = it.tecnico;
     const bits = [data, board, tec ? `(${tec})` : ""].filter(Boolean);
     return `${i + 1}. ${bits.join(" — ")}`;
   });
@@ -626,7 +670,13 @@ export async function tryInterceptEchoContextualSend({ userMessage, sessionId, u
     dest = await _resolveSelfFromUserId(userId);
   }
 
-  const result = await handleEchoWhatsApp({ to: dest, body }, { userMessage: t, sessionId });
+  // CRITICO: passa sessionId nei parametri così isEchoDryRun riconosce
+  // forge-test-* e applica DRY_RUN automatico anche per le chiamate
+  // intercept (altrimenti il flag forge non si propaga).
+  const result = await handleEchoWhatsApp(
+    { to: dest, body, sessionId },
+    { userMessage: t, sessionId }
+  );
   return { ...result, _echoPendingHandled: true, _contextualSend: true };
 }
 
