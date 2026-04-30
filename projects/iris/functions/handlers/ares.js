@@ -870,6 +870,72 @@ function _extractTecniciCrea(userMessage, parametri) {
 
 // Parse data + ora colloquiale. Ritorna Date oppure null.
 // Riusa parseRangeDataInterventi per la data, poi imposta l'ora.
+// Estrae UNA O PIÙ date dal messaggio. Riconosce pattern multi-data
+// connettivi: "e (anche|pure) [giorno]", ", e [giorno]", "+ [giorno]",
+// "sia X (sia|che) Y", "il [data1] e il [data2]". Cerca token-data noti
+// (giorni settimana, oggi/domani/dopodomani, "il GG/MM"). Se trova >1
+// → ritorna l'array di Date applicando la stessa ora a tutte. Se trova
+// 0 o 1 → ritorna [parsedSingle] (o [] se nessuna data).
+function _parseDataOraMulti(userMessage, parametri) {
+  const m = String(userMessage || "");
+  const lower = m.toLowerCase();
+
+  // Token-data riconosciuti (regex pattern, non singole stringhe)
+  const DATE_TOKENS = [
+    /\boggi\b/g, /\bdomani\b/g, /\bdopodomani\b/g, /\bieri\b/g,
+    /\b(?:lunedì|lunedi|martedì|martedi|mercoledì|mercoledi|giovedì|giovedi|venerdì|venerdi|sabato|domenica)\b/g,
+    /\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g, // 04/05 o 04/05/2026
+    /\b\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+\d{4})?\b/g,
+  ];
+
+  // Trova tutti i match con offset (posizione nel messaggio)
+  const hits = [];
+  for (const re of DATE_TOKENS) {
+    let mt;
+    while ((mt = re.exec(lower)) !== null) {
+      hits.push({ idx: mt.index, len: mt[0].length, token: mt[0] });
+    }
+  }
+  hits.sort((a, b) => a.idx - b.idx);
+
+  // Dedup per offset (evita doppio match dello stesso punto)
+  const dedup = [];
+  for (const h of hits) {
+    if (dedup.some(d => d.idx === h.idx)) continue;
+    dedup.push(h);
+  }
+
+  if (dedup.length === 0) {
+    const single = _parseDataOra(userMessage, parametri);
+    return single ? [single] : [];
+  }
+
+  if (dedup.length === 1) {
+    const single = _parseDataOra(userMessage, parametri);
+    return single ? [single] : [];
+  }
+
+  // Multi-data: per ognuno costruiamo una sotto-stringa "[token] [contesto ora]"
+  // e la diamo in pasto a _parseDataOra che gestisce ora "mattina"/"alle X".
+  // L'ora la prendiamo da una porzione vicina al token (±40 char) oppure
+  // dall'ora del messaggio principale come fallback.
+  const dates = [];
+  const seen = new Set();
+  for (const h of dedup) {
+    const around = m.slice(Math.max(0, h.idx - 40), Math.min(m.length, h.idx + h.len + 40));
+    // Prova prima con la sotto-stringa locale
+    let dt = _parseDataOra(around, {});
+    // Fallback: token isolato + slice ora dal messaggio intero
+    if (!dt) dt = _parseDataOra(h.token + " " + m, parametri);
+    if (!dt) continue;
+    const key = dt.toISOString();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dates.push(dt);
+  }
+  return dates;
+}
+
 function _parseDataOra(userMessage, parametri) {
   const m = String(userMessage || "").toLowerCase();
   // Data: priorità a parametri.data ma SEMPRE concateno il userMessage per
@@ -1059,7 +1125,12 @@ async function _lookupBoardCanonical(rawName) {
 function _extractDescrizione(userMessage, parametri) {
   const fromParam = String(parametri.descrizione || parametri.note || parametri.problema || parametri.testo || parametri.lavoro || "").trim();
   if (fromParam) return fromParam.slice(0, 120);
-  const m = String(userMessage || "");
+  let m = String(userMessage || "");
+  // Multi-data: tronca al connettore "e (anche|pure)? metti(lo|li)?/fallo/
+  // mettigli/aggiungi(lo)?" così la descrizione non include la coda
+  // "e mettilo anche a mercoledì mattina".
+  const cutMulti = m.match(/\b\s+e\s+(?:anche\s+|pure\s+|poi\s+)?(?:metti(?:lo|li|gli|tegli)?|fall?o|aggiungi(?:lo)?|programmagli|prenota(?:lo|gli)?|inseriscilo|inserisci|fissa(?:gli|lo)?)\b/i);
+  if (cutMulti) m = m.slice(0, cutMulti.index);
   // Strategia 1: dopo virgola finale (",controllo impianto solare")
   // L'utente tipicamente separa la descrizione da virgola dopo il luogo.
   const commaTail = m.match(/,\s*([a-zà-ÿ\s\d.,'\-]{4,120})$/i);
@@ -1094,17 +1165,34 @@ function _isForgeSession(sessionId) {
   return String(sessionId || "").startsWith("forge-test");
 }
 
+// Formatta una singola data ISO in stringa italiana "lunedì 04/05/2026 alle 09:00".
+function _fmtDataIta(iso) {
+  if (!iso) return "(data non specificata)";
+  const d = new Date(iso);
+  return d.toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
+    + " alle " + d.toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 // Costruisce il riepilogo discorsivo del pending (riusato per preview e conferma).
+// Supporta multi-data (pending.dueList[]): se >1 date, ritorna riepilogo unico
+// "TEC, [data1] e [data2], presso LUOGO: DESC".
 function _riepilogoCrea(p) {
   const tecLabel = p.tecnici && p.tecnici.length
     ? (p.tecnici.length === 1 ? p.tecnici[0] : p.tecnici.slice(0, -1).join(", ") + " e " + p.tecnici[p.tecnici.length - 1])
     : "(nessun tecnico)";
-  const dataLabel = p.due
-    ? new Date(p.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
-        + " alle " + new Date(p.due).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false })
-    : "(data non specificata)";
   const luogoLabel = p.condominio || "(luogo non specificato)";
   const descLabel = p.descrizione || "manutenzione";
+
+  // Multi-data
+  if (Array.isArray(p.dueList) && p.dueList.length > 1) {
+    const labels = p.dueList.map(_fmtDataIta);
+    const dataJoined = labels.length === 2
+      ? `${labels[0]} e ${labels[1]}`
+      : labels.slice(0, -1).join(", ") + " e " + labels[labels.length - 1];
+    return `${tecLabel}, ${dataJoined}, presso ${luogoLabel}: ${descLabel}`;
+  }
+
+  const dataLabel = _fmtDataIta(p.due);
   return `${tecLabel}, ${dataLabel}, presso ${luogoLabel}: ${descLabel}`;
 }
 
@@ -1113,7 +1201,9 @@ export async function handleAresCreaIntervento(parametri = {}, ctx = {}) {
   const sessionId = ctx.sessionId || parametri.sessionId || null;
 
   const tecnici = _extractTecniciCrea(userMessage, parametri);
-  const due = _parseDataOra(userMessage, parametri);
+  // Multi-data: estrae 1+ date dal messaggio. dues[0] è la prima.
+  const dues = _parseDataOraMulti(userMessage, parametri);
+  const due = dues.length ? dues[0] : null;
   const cond = await _extractCondominio(userMessage, parametri, sessionId);
   const descrizione = _extractDescrizione(userMessage, parametri);
   // Lookup canonico boardName: cerca nei board esistenti se Alberto ha
@@ -1130,6 +1220,7 @@ export async function handleAresCreaIntervento(parametri = {}, ctx = {}) {
     kind: "ares_crea_intervento",
     tecnici,
     due: due ? due.toISOString() : null,
+    dueList: dues.map(d => d.toISOString()),
     condominio: condCanonical || "",
     condominioInput: cond.value || "",
     condominioSource: cond.source || null,
@@ -1161,8 +1252,10 @@ export async function handleAresCreaIntervento(parametri = {}, ctx = {}) {
 
   // Riepilogo + richiesta conferma. Niente "DRY_RUN" o "modalità test"
   // nel testo all'utente: solo la frase chiara "Confermi?".
+  const nDates = Array.isArray(pending.dueList) ? pending.dueList.length : 1;
+  const verbo = nDates > 1 ? `Creo ${nDates} interventi per` : "Creo un intervento per";
   return {
-    content: `Creo un intervento per ${_riepilogoCrea(pending)}. Confermi?`,
+    content: `${verbo} ${_riepilogoCrea(pending)}. Confermi?`,
     data: {
       pendingApproval: { kind: "ares_crea_intervento", sessionId },
       pending,
@@ -1206,96 +1299,117 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
   }
 
   // Conferma → scrittura reale su bacheca_cards COSMINA
-  const dueIso = pendingData.due || null;
+  // Multi-data: pendingData.dueList[] è la lista ISO date. Se assente,
+  // fallback a [pendingData.due] (back-compat).
   const tecnici = Array.isArray(pendingData.tecnici) ? pendingData.tecnici : [];
-  // Determina label fascia oraria dall'ora del due
-  let fasciaLabel = null;
-  if (dueIso) {
-    try {
-      const oreIta = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", hour12: false }).format(new Date(dueIso));
-      const ore = Number(oreIta);
-      if (ore < 12) fasciaLabel = { name: "MATTINO", color: "yellow" };
-      else if (ore < 17) fasciaLabel = { name: "POMERIGGIO", color: "red" };
-      else fasciaLabel = { name: "SERA", color: "red" };
-    } catch {}
+  const dueListIso = Array.isArray(pendingData.dueList) && pendingData.dueList.length
+    ? pendingData.dueList
+    : (pendingData.due ? [pendingData.due] : []);
+
+  // Costruisce cardData per una specifica data ISO.
+  function _buildCardData(dueIso) {
+    let fasciaLabel = null;
+    if (dueIso) {
+      try {
+        const oreIta = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", hour12: false }).format(new Date(dueIso));
+        const ore = Number(oreIta);
+        if (ore < 12) fasciaLabel = { name: "MATTINO", color: "yellow" };
+        else if (ore < 17) fasciaLabel = { name: "POMERIGGIO", color: "red" };
+        else fasciaLabel = { name: "SERA", color: "red" };
+      } catch {}
+    }
+    const labels = [];
+    for (const t of tecnici) labels.push({ name: String(t).toUpperCase(), color: "sky" });
+    if (fasciaLabel) labels.push(fasciaLabel);
+    return {
+      name: (pendingData.descrizione || "intervento da NEXUS").slice(0, 120),
+      boardName: pendingData.condominio || "",
+      desc: pendingData.descrizione || "",
+      workDescription: pendingData.descrizione || "",
+      // listName "INTERVENTI" = card programmata su data specifica (visibile
+      // in PWA Tecnici, LISTE_AMMESSE in agenda.js).
+      listName: "INTERVENTI",
+      inBacheca: true,
+      archiviato: false,
+      stato: "aperto",
+      labels,
+      source: "nexus_ares",
+      techName: tecnici[0] || null,
+      techNames: tecnici.length ? tecnici : null,
+      due: dueIso,
+      createdBy: "NEXUS",
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    };
   }
-  // Costruisce labels[]: tecnici (color sky) + fascia oraria
-  const labels = [];
-  for (const t of tecnici) labels.push({ name: String(t).toUpperCase(), color: "sky" });
-  if (fasciaLabel) labels.push(fasciaLabel);
 
-  const cardData = {
-    name: (pendingData.descrizione || "intervento da NEXUS").slice(0, 120),
-    boardName: pendingData.condominio || "",
-    desc: pendingData.descrizione || "",
-    workDescription: pendingData.descrizione || "",
-    // listName "INTERVENTI" = card programmata su data specifica (visibile in
-    // PWA Tecnici, LISTE_AMMESSE in agenda.js). "INTERVENTI DA ESEGUIRE" è
-    // la lista di smistamento che la PWA NON include — usarla nasconde la
-    // card all'agenda dei tecnici.
-    listName: "INTERVENTI",
-    inBacheca: true,
-    archiviato: false,
-    stato: "aperto",
-    labels,
-    source: "nexus_ares",
-    techName: tecnici[0] || null,
-    techNames: tecnici.length ? tecnici : null,
-    due: dueIso,
-    createdBy: "NEXUS",
-    created_at: FieldValue.serverTimestamp(),
-    updated_at: FieldValue.serverTimestamp(),
-  };
-
-  // Sessione FORGE: non scrive su bacheca COSMINA (per evitare card spurie
-  // dai test E2E) ma traccia un "fake intervento" in ares_interventi così
-  // i flow downstream (cancellazione) possono testarlo end-to-end.
+  // Sessione FORGE: non scrive su bacheca COSMINA. Traccia N fake interventi
+  // in ares_interventi (uno per data) per testabilità end-to-end.
   if (_isForgeSession(sessionId)) {
     try { await pendingDoc.ref.delete(); } catch {}
-    const cardId = aresIntId();
-    try {
-      await db.collection("ares_interventi").doc(cardId).set({
-        id: cardId, cosmina_doc_id: cardId, ...cardData,
-        sessionId: sessionId,
-        forgeTest: true,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-    } catch {}
+    const ids = [];
+    for (const dueIso of dueListIso) {
+      const cardId = aresIntId();
+      ids.push(cardId);
+      try {
+        await db.collection("ares_interventi").doc(cardId).set({
+          id: cardId, cosmina_doc_id: cardId, ..._buildCardData(dueIso),
+          sessionId: sessionId,
+          forgeTest: true,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+    }
+    const verbo = dueListIso.length > 1 ? `Test FORGE: scrittura su bacheca skipped per sicurezza. Riepilogo ${dueListIso.length} interventi:` : "Test FORGE: scrittura su bacheca skipped per sicurezza. Riepilogo intervento:";
     return {
-      content: `Test FORGE: scrittura su bacheca skipped per sicurezza. Riepilogo intervento: ${_riepilogoCrea(pendingData)}.`,
-      data: { id: cardId, cosmina_doc_id: cardId, forgeTest: true, ...pendingData },
+      content: `${verbo} ${_riepilogoCrea(pendingData)}.`,
+      data: { ids, id: ids[0], cosmina_doc_id: ids[0], forgeTest: true, ...pendingData },
       _aresConfermaHandled: true,
     };
   }
 
-  // Scrittura reale su bacheca COSMINA (anche se isAresDryRun() era true:
-  // l'utente ha confermato esplicitamente). Il config dry_run resta come
-  // kill-switch documentato ma non lo esponiamo all'utente nel testo.
-  try {
-    const cosm = getCosminaDb();
-    const ref = cosm.collection("bacheca_cards").doc();
-    await ref.set(cardData);
+  // Scrittura reale su bacheca COSMINA. Se multi-data, scrive N card.
+  // In caso di errore parziale (alcune scritte e altre falliscono), ritorna
+  // riepilogo onesto con count successo/fallimento.
+  const cosm = getCosminaDb();
+  const writtenIds = [];
+  const failed = [];
+  for (const dueIso of dueListIso) {
     try {
-      await db.collection("ares_interventi").doc(ref.id).set({
-        id: ref.id, cosmina_doc_id: ref.id, ...cardData,
-        sessionId: sessionId || null,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-    } catch {}
-    try { await pendingDoc.ref.delete(); } catch {}
+      const ref = cosm.collection("bacheca_cards").doc();
+      const cardData = _buildCardData(dueIso);
+      await ref.set(cardData);
+      writtenIds.push(ref.id);
+      try {
+        await db.collection("ares_interventi").doc(ref.id).set({
+          id: ref.id, cosmina_doc_id: ref.id, ...cardData,
+          sessionId: sessionId || null,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+    } catch (e) {
+      failed.push({ due: dueIso, error: String(e && e.message || e).slice(0, 100) });
+    }
+  }
+  try { await pendingDoc.ref.delete(); } catch {}
+
+  if (writtenIds.length === 0) {
+    const errMsg = failed.length ? failed[0].error : "errore sconosciuto";
     return {
-      content: `Fatto. Intervento creato su bacheca COSMINA: ${_riepilogoCrea(pendingData)}.`,
-      data: { id: ref.id, forgeTest: false, cosmina_doc_id: ref.id, ...pendingData },
-      _aresConfermaHandled: true,
-    };
-  } catch (e) {
-    const msg = String(e && e.message || e).slice(0, 200);
-    return {
-      content: `Non sono riuscito a scrivere in bacheca COSMINA: ${msg}.`,
+      content: `Non sono riuscito a scrivere in bacheca COSMINA: ${errMsg}.`,
       _aresConfermaHandled: true,
       _failed: true,
     };
   }
+  const verbo = writtenIds.length > 1
+    ? `Fatto. ${writtenIds.length} interventi creati su bacheca COSMINA:`
+    : "Fatto. Intervento creato su bacheca COSMINA:";
+  const tail = failed.length ? ` (${failed.length} non riuscit${failed.length === 1 ? "o" : "i"})` : "";
+  return {
+    content: `${verbo} ${_riepilogoCrea(pendingData)}${tail}.`,
+    data: { ids: writtenIds, id: writtenIds[0], cosmina_doc_id: writtenIds[0], forgeTest: false, failed: failed.length ? failed : undefined, ...pendingData },
+    _aresConfermaHandled: true,
+  };
 }
 
 // Pattern di richiesta cancellazione referenziale: "cancellalo, annullalo,
