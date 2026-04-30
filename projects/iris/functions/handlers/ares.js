@@ -880,20 +880,25 @@ function _parseDataOraMulti(userMessage, parametri) {
   const m = String(userMessage || "");
   const lower = m.toLowerCase();
 
-  // Token-data riconosciuti (regex pattern, non singole stringhe)
+  // Token-data riconosciuti. NB: \b in JS NON funziona accanto a
+  // caratteri accentati (es. "mercoledì" con ì finale): \b dopo "ì" non
+  // matcha mai. Uso lookaround manuali su [^a-zà-ÿ] per i token con
+  // accenti. Capturing group [1] è il token effettivo (senza il prefisso
+  // di lookbehind manuale).
   const DATE_TOKENS = [
-    /\boggi\b/g, /\bdomani\b/g, /\bdopodomani\b/g, /\bieri\b/g,
-    /\b(?:lunedì|lunedi|martedì|martedi|mercoledì|mercoledi|giovedì|giovedi|venerdì|venerdi|sabato|domenica)\b/g,
-    /\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g, // 04/05 o 04/05/2026
-    /\b\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+\d{4})?\b/g,
+    /(?:^|[^a-zà-ÿ])(oggi|domani|dopodomani|ieri)(?=[^a-zà-ÿ]|$)/gi,
+    /(?:^|[^a-zà-ÿ])(lunedì|lunedi|martedì|martedi|mercoledì|mercoledi|giovedì|giovedi|venerdì|venerdi|sabato|domenica)(?=[^a-zà-ÿ]|$)/gi,
+    /(?:^|[^a-zà-ÿ0-9])(\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?)(?=[^a-zà-ÿ0-9]|$)/gi, // 04/05
+    /(?:^|[^a-zà-ÿ])(\d{1,2}\s+(?:gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s+\d{4})?)(?=[^a-zà-ÿ]|$)/gi,
   ];
 
-  // Trova tutti i match con offset (posizione nel messaggio)
+  // Trova tutti i match con offset del CAPTURING GROUP (token effettivo)
   const hits = [];
   for (const re of DATE_TOKENS) {
     let mt;
     while ((mt = re.exec(lower)) !== null) {
-      hits.push({ idx: mt.index, len: mt[0].length, token: mt[0] });
+      const tokIdx = mt.index + (mt[0].length - mt[1].length);
+      hits.push({ idx: tokIdx, len: mt[1].length, token: mt[1] });
     }
   }
   hits.sort((a, b) => a.idx - b.idx);
