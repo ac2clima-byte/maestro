@@ -386,14 +386,24 @@ export async function tryInterceptEchoPending({ userMessage, sessionId }) {
   }
 
   // kind=echo_wa_dryrun_info: pending puramente informativo dopo dry-run.
-  // Se l'utente conferma con "si/ok/grazie" significa "ho capito" → risposta
-  // neutra senza azione. Per qualsiasi altro msg pulisco il pending e lascio
-  // passare al routing standard (l'utente sta cambiando argomento).
+  // Riconosce 3 famiglie di follow-up:
+  //   1. "togli/disattiva/spegni dry run" / "abilita reali" / "manda davvero"
+  //      → istruzioni passo-passo per cambio manuale (non lo facciamo noi, è
+  //      un cambio di sicurezza)
+  //   2. "si/ok/grazie/capito" → ack semplice
+  //   3. altro → pulisce pending, lascia fluire al routing standard
   if (pendingData.kind === "echo_wa_dryrun_info") {
+    if (/(?:togli|toglil[oa]|disattiv|spegni|disabil)\s*(?:il\s+|la\s+)?(?:dry[\s\-]?run|test|modal)|abilit\w+\s+(?:invii|wa|whatsapp|reali)|manda(?:lo)?\s+(?:davvero|comunque|reale|in\s+production|sul\s+serio)|metti(?:lo)?\s+(?:live|in\s+produzione|reale)/i.test(t)) {
+      try { await pendingDoc.ref.delete(); } catch {}
+      return {
+        content: "Per togliere il dry-run devi cambiarlo a mano in console Firebase: vai su https://console.firebase.google.com/project/garbymobile-f89ac/firestore/data/cosmina_config/echo_config , clicca il campo dry_run e cambia il valore da true a false. Da quel momento i WA partono per davvero (server Waha su Hetzner 178.104.88.86 è attivo). Suggerimento: testa prima con un destinatario interno come te stesso o Federico, poi passa ai clienti. È una modifica di sicurezza, non posso farla io in autonomia.",
+        _echoPendingHandled: true,
+      };
+    }
     if (/^\s*(?:s[iì]|ok|d['’]?\s*accordo|va\s+bene|capito|grazie|perfetto|chiaro)\b/i.test(t)) {
       try { await pendingDoc.ref.delete(); } catch {}
       return {
-        content: "Ok. Quando vuoi togliere il dry-run, fammi sapere e ti dico dove cambiarlo in console Firebase.",
+        content: "Ok. Quando vuoi togliere il dry-run dimmelo (\"togli dry run\") e ti spiego dove cambiarlo.",
         _echoPendingHandled: true,
       };
     }
