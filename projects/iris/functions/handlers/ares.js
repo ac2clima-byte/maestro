@@ -1247,13 +1247,22 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
   };
 
   // Sessione FORGE: non scrive su bacheca COSMINA (per evitare card spurie
-  // dai test E2E). Rispondi con messaggio neutro senza menzionare DRY_RUN.
+  // dai test E2E) ma traccia un "fake intervento" in ares_interventi così
+  // i flow downstream (cancellazione) possono testarlo end-to-end.
   if (_isForgeSession(sessionId)) {
     try { await pendingDoc.ref.delete(); } catch {}
     const cardId = aresIntId();
+    try {
+      await db.collection("ares_interventi").doc(cardId).set({
+        id: cardId, cosmina_doc_id: cardId, ...cardData,
+        sessionId: sessionId,
+        forgeTest: true,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch {}
     return {
       content: `Test FORGE: scrittura su bacheca skipped per sicurezza. Riepilogo intervento: ${_riepilogoCrea(pendingData)}.`,
-      data: { id: cardId, forgeTest: true, ...pendingData },
+      data: { id: cardId, cosmina_doc_id: cardId, forgeTest: true, ...pendingData },
       _aresConfermaHandled: true,
     };
   }
@@ -1268,19 +1277,212 @@ export async function tryInterceptAresConfermaIntervento({ userMessage, sessionI
     try {
       await db.collection("ares_interventi").doc(ref.id).set({
         id: ref.id, cosmina_doc_id: ref.id, ...cardData,
+        sessionId: sessionId || null,
         createdAt: FieldValue.serverTimestamp(),
       });
     } catch {}
     try { await pendingDoc.ref.delete(); } catch {}
     return {
       content: `Fatto. Intervento creato su bacheca COSMINA: ${_riepilogoCrea(pendingData)}.`,
-      data: { id: ref.id, forgeTest: false, ...pendingData },
+      data: { id: ref.id, forgeTest: false, cosmina_doc_id: ref.id, ...pendingData },
       _aresConfermaHandled: true,
     };
   } catch (e) {
     const msg = String(e && e.message || e).slice(0, 200);
     return {
       content: `Non sono riuscito a scrivere in bacheca COSMINA: ${msg}.`,
+      _aresConfermaHandled: true,
+      _failed: true,
+    };
+  }
+}
+
+// Pattern di richiesta cancellazione referenziale: "cancellalo, annullalo,
+// eliminalo, rimuovilo, toglilo" oppure "cancella/annulla/elimina/rimuovi/togli
+// (l') intervento/appuntamento/ultimo/quello/card" (riferito all'ultimo creato
+// in sessione).
+const CANCELLA_REF_RE = /^\s*(?:cancell|annull|elimin|rimuov|togli|disdic)(?:a|ami|alo|amelo|atelo|atemelo|i|ilo|imelo)?(?:\s+(?:l['’]?\s*|la\s+|il\s+|lo\s+|un['’]?\s*)?(?:intervento|appuntament|lavoro|ultim[oa]|quello|quella|questo|questa|cosa|card))?\s*[.!?]?\s*$/i;
+
+// Intercept "cancellalo / annullalo / eliminalo" → cerca l'ultimo intervento
+// creato in questa sessione (ares_interventi where sessionId == sessionId,
+// orderBy createdAt desc, limit 1) e propone preview cancellazione.
+// Alla conferma successiva, archivia (stato:chiuso, archiviato:true, inBacheca:false).
+// Soft-delete (mantiene audit trail), NON delete fisica.
+export async function tryInterceptAresCancellaIntervento({ userMessage, sessionId, userId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+  if (!CANCELLA_REF_RE.test(t)) return null;
+
+  // Guard: se c'è un pending kind:ares_crea_intervento in attesa di
+  // conferma, l'utente sta annullando IL PENDING (non un intervento già
+  // confermato). Lascia passare al flow tryInterceptAresConfermaIntervento
+  // che gestisce annullamento del pending.
+  try {
+    const pendDoc = await db.collection("nexo_ares_pending").doc(sessionId).get();
+    if (pendDoc.exists && pendDoc.data().kind === "ares_crea_intervento") return null;
+  } catch {}
+
+  // Cerca ultimo intervento creato in questa sessione
+  let target = null;
+  try {
+    const snap = await db.collection("ares_interventi")
+      .where("sessionId", "==", sessionId)
+      .orderBy("createdAt", "desc")
+      .limit(1).get();
+    if (!snap.empty) {
+      target = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    }
+  } catch (e) {
+    logger.warn("ares cancella lookup failed", { error: String(e).slice(0, 120) });
+  }
+
+  // Fallback: se non trovo per sessionId (es. interventi vecchi pre-fix
+  // sessionId), cerco nei messaggi della sessione l'ultimo nexusMessage
+  // con direct.data.id (cosmina_doc_id) creato dall'handler conferma.
+  if (!target) {
+    try {
+      const chatSnap = await db.collection("nexus_chat")
+        .where("sessionId", "==", sessionId)
+        .orderBy("createdAt", "desc")
+        .limit(20).get();
+      for (const d of chatSnap.docs) {
+        const v = d.data() || {};
+        if (v.role !== "assistant") continue;
+        const id = v.direct?.data?.cosmina_doc_id || v.direct?.data?.id;
+        if (id && /^[a-zA-Z0-9]{15,}$/.test(id) && !/^int_|^dryrun_/.test(id) && !v.direct?.data?.forgeTest) {
+          // Recupera la card da bacheca_cards COSMINA per riepilogo
+          try {
+            const cardDoc = await getCosminaDb().collection("bacheca_cards").doc(id).get();
+            if (cardDoc.exists) {
+              const cd = cardDoc.data();
+              target = {
+                id, cosmina_doc_id: id,
+                techName: cd.techName, techNames: cd.techNames,
+                boardName: cd.boardName, due: cd.due,
+                descrizione: cd.workDescription || cd.desc || cd.name,
+              };
+              break;
+            }
+          } catch {}
+        }
+      }
+    } catch (e) {
+      logger.warn("ares cancella chat fallback failed", { error: String(e).slice(0, 120) });
+    }
+  }
+
+  if (!target) {
+    return {
+      content: "Non trovo nessun intervento recente da cancellare in questa sessione. Se vuoi cancellarne uno specifico dimmi tecnico, condominio e data.",
+      _aresCancellaHandled: true,
+    };
+  }
+
+  const cardId = target.cosmina_doc_id || target.id;
+  const tecLabel = (target.techNames && target.techNames.length)
+    ? (target.techNames.length === 1 ? target.techNames[0] : target.techNames.slice(0, -1).join(", ") + " e " + target.techNames[target.techNames.length - 1])
+    : (target.techName || "(tecnico?)");
+  const dataLabel = target.due
+    ? new Date(target.due).toLocaleDateString("it-IT", { timeZone: "Europe/Rome", weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
+        + " alle " + new Date(target.due).toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false })
+    : "(data?)";
+  const luogoLabel = target.boardName || "(luogo?)";
+  const descLabel = target.descrizione || "intervento";
+
+  // Salva pending cancellazione per conferma
+  const pending = {
+    kind: "ares_cancella_intervento",
+    targetCardId: cardId,
+    riepilogo: { tec: tecLabel, data: dataLabel, luogo: luogoLabel, desc: descLabel },
+    sessionId,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+  try {
+    await db.collection("nexo_ares_pending").doc(sessionId).set(pending, { merge: false });
+  } catch (e) {
+    logger.warn("ares cancella pending save failed", { error: String(e).slice(0, 120) });
+  }
+
+  return {
+    content: `Cancello l'intervento di ${tecLabel}, ${dataLabel}, presso ${luogoLabel}: ${descLabel}. Confermi?`,
+    data: { pendingApproval: { kind: "ares_cancella_intervento", sessionId }, pending },
+    _aresCancellaHandled: true,
+  };
+}
+
+// Conferma cancellazione: se in nexo_ares_pending c'è un pending
+// kind:ares_cancella_intervento e l'utente dice sì → archivia la card.
+export async function tryInterceptAresConfermaCancellaIntervento({ userMessage, sessionId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+  if (!/^\s*(s[iì](?:\s|$|[,.!?])|ok|va\s+bene|conferm|procedi|fallo|cancellalo|cancella|elimina|annull|no(?:\s|$|[,.!?])|stop|basta)/i.test(t)) {
+    return null;
+  }
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_ares_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (pendingData.kind !== "ares_cancella_intervento") return null;
+  } catch {
+    return null;
+  }
+
+  // Annullamento (no/stop)
+  if (/^\s*(no\b|stop|basta|annull)/i.test(t) && !/conferm|procedi|fallo/i.test(t)) {
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: "Ok, lascio l'intervento dov'è.",
+      data: { kind: "ares_cancella_annullato" },
+      _aresConfermaHandled: true,
+    };
+  }
+
+  const cardId = pendingData.targetCardId;
+  const r = pendingData.riepilogo || {};
+
+  // FORGE: skip scrittura
+  if (_isForgeSession(sessionId)) {
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: `Test FORGE: cancellazione skipped per sicurezza. Riepilogo: ${r.tec || "?"}, ${r.data || "?"}, presso ${r.luogo || "?"}: ${r.desc || "?"}.`,
+      data: { forgeTest: true, ...pendingData },
+      _aresConfermaHandled: true,
+    };
+  }
+
+  // Soft-delete: archivia su bacheca_cards COSMINA
+  try {
+    const cosm = getCosminaDb();
+    const cardRef = cosm.collection("bacheca_cards").doc(cardId);
+    await cardRef.update({
+      stato: "chiuso",
+      archiviato: true,
+      inBacheca: false,
+      _cancelledBy: "NEXUS",
+      _cancelledAt: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    try {
+      await db.collection("ares_interventi").doc(cardId).update({
+        stato: "chiuso",
+        archiviato: true,
+        cancelledAt: FieldValue.serverTimestamp(),
+      });
+    } catch {}
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: `Cancellato. Intervento di ${r.tec || "?"}, ${r.data || "?"}, presso ${r.luogo || "?"} rimosso dalla bacheca.`,
+      data: { kind: "ares_cancellato", cardId },
+      _aresConfermaHandled: true,
+    };
+  } catch (e) {
+    const msg = String(e && e.message || e).slice(0, 200);
+    return {
+      content: `Non sono riuscito a cancellare l'intervento: ${msg}.`,
       _aresConfermaHandled: true,
       _failed: true,
     };

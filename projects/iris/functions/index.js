@@ -25,7 +25,7 @@ import {
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./handlers/preventivo.js";
-import { tryInterceptAresConfermaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./handlers/ares.js";
+import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./handlers/ares.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
@@ -459,6 +459,58 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("preventivo haiku fallback failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ARES conferma cancellazione: PRIMA della conferma creazione perché
+    // entrambe accettano "sì/ok"; ognuna controlla il pending.kind e
+    // ritorna null se non è il proprio.
+    try {
+      const cancOk = await tryInterceptAresConfermaCancellaIntervento({ userMessage, sessionId });
+      if (cancOk && cancOk._aresConfermaHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: cancOk.content,
+          direct: { data: cancOk.data || null, failed: !!cancOk._failed },
+          stato: cancOk._failed ? "errore_handler" : "completata",
+          modello: "ares_conferma_cancella",
+        });
+        res.status(200).json({
+          intent: { collega: "ares", azione: "conferma_cancella_intervento", parametri: {}, rispostaUtente: cancOk.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: cancOk._failed ? "errore_handler" : "completata",
+          direct: { data: cancOk.data || null, failed: !!cancOk._failed },
+          modello: "ares_conferma_cancella", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("ares conferma_cancella intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ARES richiesta cancellazione: "cancellalo / annullalo / eliminalo" →
+    // recupera ultimo intervento creato in sessione, propone preview, salva
+    // pending kind:ares_cancella_intervento.
+    try {
+      const reqCanc = await tryInterceptAresCancellaIntervento({ userMessage, sessionId, userId });
+      if (reqCanc && reqCanc._aresCancellaHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: reqCanc.content,
+          direct: { data: reqCanc.data || null, failed: false },
+          stato: "completata",
+          modello: "ares_cancella_richiesta",
+        });
+        res.status(200).json({
+          intent: { collega: "ares", azione: "cancella_intervento", parametri: {}, rispostaUtente: reqCanc.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: "completata",
+          direct: { data: reqCanc.data || null, failed: false },
+          modello: "ares_cancella_richiesta", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("ares cancella richiesta intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // ARES conferma intervento: se per la sessione c'è un pending in
