@@ -21386,3 +21386,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #29  FAILED: Expecting ',' delimiter: line 66 column 4 (char 2068)
   #30  COMUNICAZIONE_INTERNA         high    positivo     sara.quagliano@acgclimaservice.com        → ARCHIVIA
 [2026-04-30T01:26:34Z] ─── fine ciclo ───
+[2026-04-30T01:31:34Z] ─── inizio ciclo IRIS (limit=50) ───
