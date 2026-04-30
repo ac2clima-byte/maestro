@@ -174,6 +174,7 @@ function echoMsgId() {
 
 export async function handleEchoWhatsApp(parametri, ctx) {
   const msg = (ctx?.userMessage || "").trim();
+  const sessionId = ctx?.sessionId || null;
   let dest = String(parametri.to || parametri.destinatario || parametri.a || parametri.numero || "").trim();
   let body = String(parametri.body || parametri.testo || parametri.messaggio || parametri.text || "").trim();
 
@@ -191,8 +192,37 @@ export async function handleEchoWhatsApp(parametri, ctx) {
     }
   }
 
-  if (!dest) return { content: "Mi manca il destinatario. Prova: 'manda whatsapp a Malvicino: testo'." };
-  if (!body) return { content: "Mi manca il testo del messaggio." };
+  if (!dest) {
+    // Salva pending per intercettare il turno successivo: utente
+    // tipicamente risponde "[Nome Cognome] [testo]" → tryInterceptEchoPending
+    // ricostruirà la chiamata.
+    if (sessionId) {
+      try {
+        await db.collection("nexo_echo_pending").doc(sessionId).set({
+          kind: "echo_wa_destinatario",
+          have: { dest: false, body: !!body },
+          partialBody: body || null,
+          sessionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+    }
+    return { content: "A chi mando il messaggio? Dimmi nome e cognome (es. \"Andrea Malvicino\"), poi il testo." };
+  }
+  if (!body) {
+    if (sessionId) {
+      try {
+        await db.collection("nexo_echo_pending").doc(sessionId).set({
+          kind: "echo_wa_testo",
+          have: { dest: true, body: false },
+          partialDest: dest,
+          sessionId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch {}
+    }
+    return { content: `Cosa scrivo a ${dest}?` };
+  }
   if (body.length > 2000) return { content: "Testo troppo lungo (max 2000 caratteri)." };
 
   if (/^\+?\d{9,15}$/.test(dest.replace(/[\s\-()]/g, ""))) {
@@ -304,3 +334,115 @@ export async function handleEchoWhatsApp(parametri, ctx) {
   await persistEchoMessage({ ...baseMsg, status: "failed", failedReason: lastErr });
   return { content: `Non sono riuscito a inviare il messaggio. ${lastErr || "Errore sconosciuto"}.` };
 }
+
+// Intercept del turno successivo: se in nexo_echo_pending c'è un pending
+// (kind echo_wa_destinatario o echo_wa_testo), parsa il messaggio utente
+// per completare destinatario+testo e chiama handleEchoWhatsApp.
+//
+// Pattern parsing per kind=echo_wa_destinatario (manca dest):
+//   "Victor dellafiore lavoro" → dest="Victor dellafiore", body="lavoro"
+//   "andrea malvicino: ciao come va" → dest="andrea malvicino", body="ciao come va"
+//   "Marco" → solo dest, manca body → ri-prompta per il testo
+// Per kind=echo_wa_testo (ha dest, manca body): tutto il messaggio = body.
+//
+// Se l'utente risponde con annullo ("no", "lascia stare", "annulla"), cancella pending.
+export async function tryInterceptEchoPending({ userMessage, sessionId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+
+  let pendingDoc, pendingData;
+  try {
+    pendingDoc = await db.collection("nexo_echo_pending").doc(sessionId).get();
+    if (!pendingDoc.exists) return null;
+    pendingData = pendingDoc.data() || {};
+    if (!pendingData.kind || !String(pendingData.kind).startsWith("echo_wa_")) return null;
+  } catch {
+    return null;
+  }
+
+  // Annullamento esplicito
+  if (/^\s*(?:lascia\s+stare|annull|no\b|stop|basta|fa\s+nulla|niente)/i.test(t)) {
+    try { await pendingDoc.ref.delete(); } catch {}
+    return {
+      content: "Ok, lascio perdere il messaggio WhatsApp.",
+      _echoPendingHandled: true,
+    };
+  }
+
+  let dest = "";
+  let body = "";
+
+  if (pendingData.kind === "echo_wa_testo") {
+    // Ha dest, l'utente sta dando il testo
+    dest = pendingData.partialDest || "";
+    body = t;
+  } else {
+    // echo_wa_destinatario: parse "[Nome Cognome] [testo opzionale]"
+    // Strategie:
+    //   1. Se contiene ":" → split su ":" (dest:body)
+    //   2. Else: prime 1-2 parole con iniziale maiuscola = dest, resto = body
+    //      (fallback: prime 2 parole = dest, resto = body)
+    const colonSplit = t.match(/^([^:]{2,80}?)\s*:\s*(.+)$/);
+    if (colonSplit) {
+      dest = colonSplit[1].trim();
+      body = colonSplit[2].trim();
+    } else {
+      const tokens = t.split(/\s+/);
+      // Heuristica per separare nome+cognome dal body:
+      // - 1 token totale → tutto nome (manca body, lo chiedo dopo)
+      // - 2 token → tutto nome (nome+cognome, body lo chiedo dopo)
+      // - 3+ token → contiamo i token "nome-like": maiuscola iniziale
+      //   o parola breve che può essere cognome minuscolo (es.
+      //   "dellafiore"). Limite max 3 parole nome ("Maria Teresa
+      //   Bianchi"). Resto = body.
+      if (tokens.length <= 2) {
+        dest = t.trim();
+        body = "";
+      } else {
+        // 3+ parole: i primi 2 token sono SEMPRE nome (nome+cognome
+        // di default). Il 3° è nome solo se maiuscolo (es. "Maria
+        // Teresa Bianchi"); altrimenti è inizio del body.
+        let nameTokens = 2;
+        if (tokens[2] && /^[A-ZÀ-Ý][\w'À-ÿ\-]*$/.test(tokens[2])) {
+          nameTokens = 3;
+        }
+        dest = tokens.slice(0, nameTokens).join(" ").trim();
+        body = tokens.slice(nameTokens).join(" ").trim();
+      }
+    }
+    // Se aveva già un partialBody dal turno precedente, concatena
+    if (!body && pendingData.partialBody) body = pendingData.partialBody;
+  }
+
+  if (!dest) {
+    return {
+      content: "Non ho capito il destinatario. Dimmi nome e cognome (es. \"Andrea Malvicino\") seguito dal testo.",
+      _echoPendingHandled: true,
+    };
+  }
+
+  // Body opzionale al primo round se kind=echo_wa_destinatario:
+  // se manca, salva pending kind=echo_wa_testo e chiedi solo il testo
+  if (!body) {
+    try {
+      await db.collection("nexo_echo_pending").doc(sessionId).set({
+        kind: "echo_wa_testo",
+        have: { dest: true, body: false },
+        partialDest: dest,
+        sessionId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch {}
+    return {
+      content: `Cosa scrivo a ${dest}?`,
+      _echoPendingHandled: true,
+    };
+  }
+
+  // Pulisci pending e procedi all'invio
+  try { await pendingDoc.ref.delete(); } catch {}
+  const result = await handleEchoWhatsApp({ to: dest, body }, { userMessage: t, sessionId });
+  return { ...result, _echoPendingHandled: true };
+}
+

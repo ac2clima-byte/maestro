@@ -31,6 +31,7 @@ import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert } from "./handlers/pharo.js";
 import { runDigestMattutino } from "./handlers/echo-digest.js";
 import { handleEchoInboundWebhook } from "./handlers/echo-inbound.js";
+import { tryInterceptEchoPending } from "./handlers/echo.js";
 import { runOrchestratorWorkflow } from "./handlers/orchestrator.js";
 import { handleChronosCampagne, handleChronosListaCampagne, buildCampagneDashboard, buildAgendaDashboard, buildScadenzeDashboard } from "./handlers/chronos.js";
 
@@ -459,6 +460,32 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("preventivo haiku fallback failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ECHO pending destinatario/testo WhatsApp: priorità alta perché
+    // l'utente sta rispondendo a una domanda diretta ("a chi mando?"
+    // / "cosa scrivo a X?"). Prima di tutti i pending ARES e di Haiku.
+    try {
+      const echoP = await tryInterceptEchoPending({ userMessage, sessionId });
+      if (echoP && echoP._echoPendingHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: echoP.content,
+          direct: { data: echoP.data || null, failed: false },
+          stato: "completata",
+          modello: "echo_pending",
+        });
+        res.status(200).json({
+          intent: { collega: "echo", azione: "send_whatsapp_continua", parametri: {}, rispostaUtente: echoP.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: "completata",
+          direct: { data: echoP.data || null, failed: false },
+          modello: "echo_pending", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("echo pending intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // ARES conferma cancellazione: PRIMA della conferma creazione perché

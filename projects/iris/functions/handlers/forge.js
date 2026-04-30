@@ -27,6 +27,7 @@ import {
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
 import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
+import { tryInterceptEchoPending } from "./echo.js";
 
 // Secret opzionale — se non definito, fallback a "nexo-forge-2026" via env.
 export const FORGE_KEY = defineSecret("FORGE_KEY");
@@ -96,6 +97,36 @@ export const nexusTestInternal = onRequest(
     try {
       await ensureNexusSession(sessionId, userId, message);
       const userMsgId = await writeNexusMessage(sessionId, { role: "user", content: message });
+
+      // ECHO pending destinatario/testo WhatsApp: PRIMA di tutto perché
+      // l'utente sta completando una conversazione multi-turno (es. risposta
+      // a "A chi mando?" o "Cosa scrivo a X?"). Senza questa priorità il
+      // messaggio cade su dev_request o Haiku.
+      try {
+        const echoP = await tryInterceptEchoPending({ userMessage: message, sessionId });
+        if (echoP && echoP._echoPendingHandled) {
+          const cleaned = naturalize(echoP.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: echoP.data || null, failed: false },
+            stato: "completata",
+            modello: "echo_pending",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "echo", azione: "send_whatsapp_continua",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: echoP.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "echo_pending",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: echo pending intercept failed (pre-dev)", { error: String(e).slice(0, 150) });
+      }
 
       // Intercept dev request: lamentele "non funziona X", "vorrei", "aggiungi",
       // ecc. vanno salvate in nexo_dev_requests, NON instradate ai colleghi.
