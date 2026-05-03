@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import admin from 'firebase-admin';
 
@@ -441,33 +441,14 @@ function tmuxSessionExists() {
 }
 
 function sendToTmux(text) {
-  // Per testi piccoli (<8KB) usa send-keys -l: più veloce e affidabile.
-  // Per testi >=8KB usa load-buffer + paste-buffer per evitare l'errore
-  // "command too long" di execSync (quoting '\'' triplica i bytes,
-  // ARG_MAX ~128KB diventa ~40KB effettivi).
-  const SMALL_THRESHOLD = 8000;
-
-  if (text.length < SMALL_THRESHOLD) {
-    const escaped = text.replace(/'/g, "'\\''");
-    execSync(`tmux send-keys -t ${TMUX_SESSION} -l '${escaped}'`);
-    execSync('sleep 1');
-    execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
-    return;
-  }
-
-  // Path "grande": file temp + load-buffer + paste-buffer.
-  // tmux load-buffer legge dal file direttamente, niente argv limit.
-  const tmpFile = `/tmp/nexo-maestro-prompt-${Date.now()}-${process.pid}.txt`;
-  try {
-    writeFileSync(tmpFile, text, { encoding: 'utf-8' });
-    execSync(`tmux load-buffer -b nexo-prompt ${tmpFile}`);
-    execSync(`tmux paste-buffer -b nexo-prompt -t ${TMUX_SESSION}`);
-    try { execSync(`tmux delete-buffer -b nexo-prompt`); } catch {}
-    execSync('sleep 1');
-    execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
-  } finally {
-    try { unlinkSync(tmpFile); } catch {}
-  }
+  // NB: per task grandi (>8KB), il caller (processTask) costruisce un
+  // prompt corto "leggi tasks/X.md" invece di passare il contenuto del
+  // task qui. Quindi `text` qui è sempre piccolo. Versione semplice e
+  // affidabile: send-keys -l + sleep + C-m.
+  const escaped = text.replace(/'/g, "'\\''");
+  execSync(`tmux send-keys -t ${TMUX_SESSION} -l '${escaped}'`);
+  execSync('sleep 1');
+  execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
 }
 
 function getTmuxPane() {
@@ -619,9 +600,31 @@ async function processTask(task) {
     return;
   }
 
-  const promptText = kind === 'dev-request'
-    ? buildDevRequestPrompt(taskId, devId, originalContent)
-    : originalContent;
+  // Costruzione promptText:
+  // - dev-request: sempre buildDevRequestPrompt (già breve, contiene
+  //   riferimento al file ma non il contenuto intero)
+  // - task piccolo (<8KB): incolla direttamente il contenuto
+  // - task grande (>=8KB): manda solo "leggi tasks/X.md ed esegui",
+  //   Code legge il file con il proprio Read tool. Evita problemi di
+  //   paste-buffer + C-m che non sveglia l'esecuzione.
+  const SHORT_LIMIT = 8000;
+  let promptText;
+  if (kind === 'dev-request') {
+    promptText = buildDevRequestPrompt(taskId, devId, originalContent);
+  } else if (originalContent.length < SHORT_LIMIT) {
+    promptText = originalContent;
+  } else {
+    promptText = [
+      `Esegui il task definito in \`tasks/${taskId}.md\`.`,
+      ``,
+      `Leggilo con il tuo tool Read e seguine le istruzioni alla lettera.`,
+      `È un task self-contained: contiene root cause, codice da modificare,`,
+      `step di test, output atteso. Non ti serve altro contesto da me.`,
+      ``,
+      `Quando hai finito, scrivi il result in \`results/${taskId}.md\` come`,
+      `richiesto dal task, committa e pusha.`,
+    ].join('\n');
+  }
 
   console.log(`[INVIO] Mando a Claude Code via tmux...`);
   await updateStatus('sending_to_code', { task: taskId, msg: 'invio a Claude Code' });
