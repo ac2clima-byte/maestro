@@ -22605,3 +22605,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #19  NEWSLETTER_SPAM               high    neutro       support@services.ovhcloud.com             → ARCHIVIA
   #20  NEWSLETTER_SPAM               high    neutro       email.campaign@sg.booking.com             → ARCHIVIA
 [2026-05-03T11:49:32Z] ─── fine ciclo ───
+[2026-05-03T11:50:32Z] ─── inizio ciclo IRIS (limit=50) ───
