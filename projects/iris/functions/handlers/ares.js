@@ -1735,3 +1735,86 @@ export async function tryInterceptAresConfermaCancellaIntervento({ userMessage, 
     _aresConfermaHandled: true,
   };
 }
+
+// ─── Time follow-up ───────────────────────────────────────────
+// "e domani?" / "e ieri?" / "e lunedì?" / "domani?" / "per domani" dopo
+// una query interventi precedente → ri-eseguire la stessa query con
+// range temporale aggiornato. Risolve la mancanza di contesto cross-turn
+// senza orchestratore generico.
+//
+// Pattern accettati (corti, referenziali):
+//   "e domani?", "e ieri", "e dopodomani"
+//   "e lunedì?", "e martedì?", ...
+//   "domani?", "ieri?", "lunedì prossimo?"
+//   "e questa settimana?", "e settimana prossima?"
+//   "e oggi?"
+const TIME_TOKENS_RE = /^(?:oggi|domani|ieri|dopodomani|lunedì|lunedi|martedì|martedi|mercoledì|mercoledi|giovedì|giovedi|venerdì|venerdi|sabato|domenica|questa\s+settimana|settimana\s+prossima|settimana\s+scorsa|prossima\s+settimana|scorsa\s+settimana|lunedì\s+prossimo|martedì\s+prossimo|mercoledì\s+prossimo|giovedì\s+prossimo|venerdì\s+prossimo|sabato\s+prossimo|domenica\s+prossima)$/i;
+const TIME_FOLLOWUP_RE = /^\s*(?:e\s+|per\s+|allora\s+|ok\s+e\s+|invece\s+)?((?:oggi|domani|ieri|dopodomani|lunedì|lunedi|martedì|martedi|mercoledì|mercoledi|giovedì|giovedi|venerdì|venerdi|sabato|domenica|questa\s+settimana|settimana\s+prossima|settimana\s+scorsa|prossima\s+settimana|scorsa\s+settimana|(?:lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica)\s+prossim[oa]))\s*\??\s*$/i;
+
+export async function tryInterceptAresTimeFollowUp({ userMessage, sessionId }) {
+  if (!sessionId) return null;
+  const t = String(userMessage || "").trim();
+  if (!t) return null;
+  const m = TIME_FOLLOWUP_RE.exec(t);
+  if (!m) return null;
+  const newRange = m[1].trim();
+
+  // Recupera ultimo intent ARES interventi della sessione
+  let lastIntent = null;
+  try {
+    const snap = await db.collection("nexus_chat")
+      .where("sessionId", "==", sessionId)
+      .limit(50).get();
+    const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => {
+      const ta = (a.createdAt && (a.createdAt._seconds ?? a.createdAt.seconds)) || 0;
+      const tb = (b.createdAt && (b.createdAt._seconds ?? b.createdAt.seconds)) || 0;
+      return tb - ta;
+    });
+    for (const d of docs) {
+      if (d.role !== "assistant") continue;
+      // Cerca un messaggio con direct.data.items[] e modello regex/ares
+      // (= intent ARES interventi_aperti già eseguito).
+      const items = d.direct?.data?.items;
+      const stats = d.direct?.data?.stats;
+      if (Array.isArray(items) || stats) {
+        // Ricostruisci tecnico dall'ultimo userMessage di interesse.
+        // Cerchiamo il messaggio user IMMEDIATAMENTE PRECEDENTE a questo
+        // assistant per estrarre il tecnico via _extractTecnico.
+        let lastUserMsg = "";
+        for (const u of docs) {
+          if (u.role !== "user") continue;
+          const ut = (u.createdAt && (u.createdAt._seconds ?? u.createdAt.seconds)) || 0;
+          const at = (d.createdAt && (d.createdAt._seconds ?? d.createdAt.seconds)) || 0;
+          if (ut < at) { lastUserMsg = u.content || ""; break; }
+        }
+        lastIntent = {
+          tecnico: _extractTecnico(lastUserMsg),
+          citta: parseCittaIntervento(lastUserMsg),
+          assistantMsg: d.content,
+          userMsg: lastUserMsg,
+        };
+        break;
+      }
+    }
+  } catch (e) {
+    logger.warn("ares time follow-up lookup failed", { error: String(e).slice(0, 120) });
+  }
+
+  if (!lastIntent) return null;
+
+  // Re-invoca con nuovo range. Manda un userMessage sintetico che include
+  // il tecnico originale così _extractTecnico lo ritrova (gestione
+  // robusta del tense via parseRangeDataInterventi).
+  const synthMsg = `interventi di ${lastIntent.tecnico || ""} ${newRange}`.replace(/\s+/g, " ").trim();
+  const result = await handleAresInterventiAperti(
+    {
+      tecnico: lastIntent.tecnico || undefined,
+      data: newRange,
+      citta: lastIntent.citta || undefined,
+    },
+    { userMessage: synthMsg, sessionId }
+  );
+  return { ...result, _aresFollowUpHandled: true };
+}
+

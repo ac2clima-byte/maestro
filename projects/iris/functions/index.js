@@ -25,7 +25,7 @@ import {
   tryInterceptDevRequest,
 } from "./handlers/nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoApproval, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./handlers/preventivo.js";
-import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./handlers/ares.js";
+import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, tryInterceptAresTimeFollowUp, handleAresCreaIntervento, isCreaInterventoCommand } from "./handlers/ares.js";
 
 import { handleAresApriIntervento } from "./handlers/ares.js";
 import { handlePharoRtiMonitoring, writePharoAlert, tryInterceptPharoOfferConferma } from "./handlers/pharo.js";
@@ -563,6 +563,31 @@ export const nexusRouter = onRequest(
       }
     } catch (e) {
       logger.warn("pharo offer intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
+    }
+
+    // ARES time follow-up: "e domani?" / "e ieri?" / "lunedì?" dopo
+    // una query interventi → ri-eseguire con range temporale aggiornato.
+    try {
+      const timeFu = await tryInterceptAresTimeFollowUp({ userMessage, sessionId });
+      if (timeFu && timeFu._aresFollowUpHandled) {
+        const nexusMessageId = await writeNexusMessage(sessionId, {
+          role: "assistant",
+          content: timeFu.content,
+          direct: { data: timeFu.data || null, failed: false },
+          stato: "completata",
+          modello: "ares_time_followup",
+        });
+        res.status(200).json({
+          intent: { collega: "ares", azione: "interventi_aperti_followup", parametri: {}, rispostaUtente: timeFu.content, confidenza: 1 },
+          nexusMessageId, userMsgId,
+          stato: "completata",
+          direct: { data: timeFu.data || null, failed: false },
+          modello: "ares_time_followup", usage: {},
+        });
+        return;
+      }
+    } catch (e) {
+      logger.warn("ares time follow-up intercept failed, continuing normal flow", { error: String(e).slice(0, 200) });
     }
 
     // ARES conferma cancellazione: PRIMA della conferma creazione perché

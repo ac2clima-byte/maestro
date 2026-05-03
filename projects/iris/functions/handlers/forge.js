@@ -26,7 +26,7 @@ import {
   tryInterceptDevRequest,
 } from "./nexus.js";
 import { runPreventivoWorkflow, tryInterceptPreventivoVoci, tryInterceptPreventivoIva, tryInterceptPreventivoHaikuFallback, tryInterceptPreventivoSi, tryInterceptPreventivoModifica } from "./preventivo.js";
-import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
+import { tryInterceptAresConfermaIntervento, tryInterceptAresCancellaIntervento, tryInterceptAresConfermaCancellaIntervento, tryInterceptAresTimeFollowUp, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
 import { tryInterceptEchoPending, tryInterceptEchoContextualSend, tryInterceptEchoRepeatLast } from "./echo.js";
 import { tryInterceptPharoOfferConferma } from "./pharo.js";
 
@@ -210,6 +210,33 @@ export const nexusTestInternal = onRequest(
         }
       } catch (e) {
         logger.warn("forge: pharo offer intercept failed", { error: String(e).slice(0, 150) });
+      }
+
+      // ARES time follow-up: "e domani?" / "e ieri?" dopo query interventi
+      try {
+        const timeFu = await tryInterceptAresTimeFollowUp({ userMessage: message, sessionId });
+        if (timeFu && timeFu._aresFollowUpHandled) {
+          const cleaned = naturalize(timeFu.content || "");
+          const nexusMessageId = await writeNexusMessage(sessionId, {
+            role: "assistant", content: cleaned,
+            direct: { data: timeFu.data || null, failed: false },
+            stato: "completata",
+            modello: "ares_time_followup",
+          });
+          res.status(200).json({
+            query: message, reply: cleaned,
+            collega: "ares", azione: "interventi_aperti_followup",
+            stato: "completata", natural: isNatural(cleaned),
+            direct: { ok: true, data: timeFu.data || null },
+            sessionId, userMsgId, nexusMessageId,
+            modello: "ares_time_followup",
+            tookMs: Date.now() - startedAt,
+            timestamp: new Date().toISOString(),
+          });
+          return;
+        }
+      } catch (e) {
+        logger.warn("forge: ares time follow-up intercept failed", { error: String(e).slice(0, 150) });
       }
 
       // Intercept dev request: lamentele "non funziona X", "vorrei", "aggiungi",
