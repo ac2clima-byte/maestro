@@ -22918,3 +22918,35 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #21  NEWSLETTER_SPAM               high    neutro       accountsteam@bentleytelecom.com           → ARCHIVIA
 [2026-05-03T12:45:20Z] ─── fine ciclo ───
 [2026-05-03T12:46:20Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-03T12:50:20Z] ERR: ciclo FAILED (rc=124): ultime righe:
+  #10  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #11  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #12  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #13  NEWSLETTER_SPAM               high    neutro       noreply@happily-welfare.it                → ARCHIVIA
+  #14  PEC_UFFICIALE                 high    neutro       posta-certificata@legalmail.it            → ARCHIVIA
+  #15  FAILED: HTTP Error 400: Bad Request
+  #16  FAILED: HTTP Error 400: Bad Request
+  #17  FAILED: HTTP Error 400: Bad Request
+  #18  FAILED: HTTP Error 400: Bad Request
+  #19  FAILED: HTTP Error 400: Bad Request
+  #20  FAILED: HTTP Error 400: Bad Request
+  #21  FAILED: HTTP Error 400: Bad Request
+  #22  FAILED: HTTP Error 400: Bad Request
+  #23  FAILED: HTTP Error 400: Bad Request
+  #24  FAILED: HTTP Error 400: Bad Request
+  #25  FAILED: HTTP Error 400: Bad Request
+  #26  FAILED: HTTP Error 400: Bad Request
+  #27  FAILED: HTTP Error 400: Bad Request
+  #28  FAILED: HTTP Error 400: Bad Request
+  #29  FAILED: HTTP Error 400: Bad Request
+  #30  FAILED: HTTP Error 400: Bad Request
+  #31  FAILED: HTTP Error 400: Bad Request
+  #32  FAILED: HTTP Error 400: Bad Request
+  #33  FAILED: HTTP Error 400: Bad Request
+  #34  FAILED: HTTP Error 400: Bad Request
+  #35  FAILED: HTTP Error 400: Bad Request
+  #36  FAILED: HTTP Error 400: Bad Request
+  #37  FAILED: HTTP Error 400: Bad Request
+  #38  FAILED: HTTP Error 400: Bad Request
+  #39  FAILED: HTTP Error 400: Bad Request
+[2026-05-03T12:50:24Z] ─── fine ciclo ───
