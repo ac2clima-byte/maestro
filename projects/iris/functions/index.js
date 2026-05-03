@@ -2215,3 +2215,7 @@ export const orchestratorLavagnaListener = onDocumentCreated(
     }
   }
 );
+
+// ─── nexoForgeTask: bridge Claude Chat → GitHub ────────────────
+// Vedi nexoForgeTask.js. Re-export ESM-style.
+export { nexoForgeTask } from "./nexoForgeTask.js";
