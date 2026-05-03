@@ -441,11 +441,33 @@ function tmuxSessionExists() {
 }
 
 function sendToTmux(text) {
-  const escaped = text.replace(/'/g, "'\\''");
-  // Manda testo literal, pausa, poi C-m separato
-  execSync(`tmux send-keys -t ${TMUX_SESSION} -l '${escaped}'`);
-  execSync('sleep 1');
-  execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
+  // Per testi piccoli (<8KB) usa send-keys -l: più veloce e affidabile.
+  // Per testi >=8KB usa load-buffer + paste-buffer per evitare l'errore
+  // "command too long" di execSync (quoting '\'' triplica i bytes,
+  // ARG_MAX ~128KB diventa ~40KB effettivi).
+  const SMALL_THRESHOLD = 8000;
+
+  if (text.length < SMALL_THRESHOLD) {
+    const escaped = text.replace(/'/g, "'\\''");
+    execSync(`tmux send-keys -t ${TMUX_SESSION} -l '${escaped}'`);
+    execSync('sleep 1');
+    execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
+    return;
+  }
+
+  // Path "grande": file temp + load-buffer + paste-buffer.
+  // tmux load-buffer legge dal file direttamente, niente argv limit.
+  const tmpFile = `/tmp/nexo-maestro-prompt-${Date.now()}-${process.pid}.txt`;
+  try {
+    writeFileSync(tmpFile, text, { encoding: 'utf-8' });
+    execSync(`tmux load-buffer -b nexo-prompt ${tmpFile}`);
+    execSync(`tmux paste-buffer -b nexo-prompt -t ${TMUX_SESSION}`);
+    try { execSync(`tmux delete-buffer -b nexo-prompt`); } catch {}
+    execSync('sleep 1');
+    execSync(`tmux send-keys -t ${TMUX_SESSION} C-m`);
+  } finally {
+    try { unlinkSync(tmpFile); } catch {}
+  }
 }
 
 function getTmuxPane() {
