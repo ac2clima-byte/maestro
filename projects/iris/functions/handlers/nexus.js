@@ -19,8 +19,8 @@ import {
 import { handleWaInboxList, handleWaInboxAnalyzeLast } from "./echo-wa-inbox.js";
 import { handleBozzePendenti, handleApriBozza, handlePreventiviEmessi } from "./preventivo.js";
 import { handleMemoDossier, handleMemoTotaliClienti, handleMemoTopClienti, handleMemoRicercaIndirizzo, handleListaTecnici, handleMemoChiE, handleMemoCercaCondominio } from "./memo.js";
-import { handleAresInterventiAperti, handleAresApriIntervento, handleAresCreaIntervento, isCreaInterventoCommand } from "./ares.js";
-import { handleEchoWhatsApp, tryInterceptEchoContextualSend } from "./echo.js";
+import { handleAresInterventiAperti, handleAresApriIntervento, handleAresCreaIntervento, isCreaInterventoCommand, extractTecnicoFromMessage } from "./ares.js";
+import { handleEchoWhatsApp, tryInterceptEchoContextualSend, formatItemsForWhatsApp } from "./echo.js";
 import { handleCalliopeBozza } from "./calliope.js";
 import {
   handleChartaRegistraIncasso, handleFattureScadute,
@@ -329,6 +329,91 @@ async function handleGrazieNexus() {
   return { content: "Figurati, sono qui." };
 }
 
+// ─── Compound: ARES interventi + ECHO WhatsApp ─────────────────
+// Pattern single-shot: "manda (wa|whatsapp|messaggio) (a|al|per) X
+// con (sintesi|riepilogo|elenco) (interventi|agenda|lavoro) [oggi|domani|...]"
+// Esegue lo step ARES (lista interventi del tecnico per il range) e
+// poi lo step ECHO (WA con il riepilogo formattato come body).
+//
+// Gate sicurezza: SEMPRE conferma esplicita prima dell'invio reale.
+// Salva pending kind=echo_wa_compound_confirm in nexo_echo_pending,
+// l'utente deve dire "sì manda" per inviare davvero. Sessioni FORGE
+// sandbox (handleEchoWhatsApp gestisce DRY_RUN automaticamente).
+export async function handleCompoundAresEchoWaInterventi({ userMessage, userId, sessionId, context } = {}) {
+  const m = String(userMessage || "");
+
+  // Tecnico: usa l'estrattore canonico ARES che riconosce la whitelist
+  // dei 9 tecnici ACG. Più robusto del regex generico ([a-z]+).
+  const tecnico = extractTecnicoFromMessage(m);
+  if (!tecnico) {
+    return {
+      content: "Non ho capito a quale tecnico mandare il messaggio. I tecnici ACG sono: Alberto, Marco, Federico, David, Victor, Lorenzo, Ergest, Antonio, Gianluca.",
+      data: null, _failed: true,
+    };
+  }
+  const tecnicoUpper = String(tecnico).toUpperCase();
+
+  // Range temporale (default: domani perché è il caso d'uso tipico)
+  let range = "domani";
+  if (/\boggi\b/i.test(m)) range = "oggi";
+  else if (/\bdomani\b/i.test(m)) range = "domani";
+  else if (/\bdopodomani\b/i.test(m)) range = "dopodomani";
+
+  // Step 1: lista interventi del tecnico per il range
+  const interventi = await handleAresInterventiAperti(
+    { tecnico: tecnicoUpper, data: range },
+    { userMessage: `interventi di ${tecnicoUpper} ${range}`, sessionId, userId }
+  );
+  const items = (interventi?.data?.items || []);
+
+  // Caso vuoto: NON mandare WA, rispondi direttamente
+  if (items.length === 0) {
+    return {
+      content: `${tecnicoUpper} ${range} non ha interventi. Non ho mandato nulla.`,
+      data: { tecnico: tecnicoUpper, range, count: 0 },
+      _failed: false,
+    };
+  }
+
+  // Step 2: formatta testo WA conciso usando l'helper esportato da echo.js
+  // (stesso formato del contextual send, già testato).
+  const dataLabel = range === "oggi" ? "oggi" : range === "dopodomani" ? "dopodomani" : "domani";
+  const itemsBody = formatItemsForWhatsApp(items, 1400) || `${items.length} interventi`;
+  const header = `Ciao ${tecnicoUpper.split(" ")[0]}, ${dataLabel} hai ${items.length} interventi:`;
+  let wabody = `${header}\n${itemsBody}`;
+  if (wabody.length > 1500) wabody = wabody.slice(0, 1497) + "...";
+
+  // Step 3: GATE SICUREZZA — salva pending di conferma esplicita.
+  // L'utente deve dire "sì manda" per inviare davvero. Questo evita
+  // che il primo bug del compound mandi messaggi sbagliati ai tecnici
+  // reali. tryInterceptEchoPending riconoscerà kind=echo_wa_compound_confirm.
+  if (sessionId) {
+    try {
+      await db.collection("nexo_echo_pending").doc(sessionId).set({
+        kind: "echo_wa_compound_confirm",
+        compoundDest: tecnicoUpper,
+        compoundBody: wabody,
+        compoundCount: items.length,
+        compoundRange: dataLabel,
+        sessionId,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn("compound pending save failed", { error: String(e).slice(0, 120) });
+    }
+  }
+
+  return {
+    content: `Ho preparato il messaggio per ${tecnicoUpper} con i ${items.length} interventi di ${dataLabel}. Anteprima:\n\n${wabody}\n\nConfermi? Rispondi "sì manda" per inviare davvero.`,
+    data: {
+      tecnico: tecnicoUpper, range, count: items.length, body: wabody,
+      pendingApproval: { kind: "echo_wa_compound_confirm", sessionId },
+    },
+    _failed: false,
+    _compoundPending: true,
+  };
+}
+
 // ─── DIRECT_HANDLERS: mappa (collega, azione) → handler ─────────
 export const DIRECT_HANDLERS = [
   // Saluti basici (zero LLM): "ciao", "hey", "buongiorno", "salve"
@@ -341,6 +426,26 @@ export const DIRECT_HANDLERS = [
     const m = (ctx?.userMessage || "").toLowerCase().trim();
     return /^(grazie|ti ringrazio|perfetto grazie|ok grazie|grazie mille)\s*[!.?]*\s*$/i.test(m);
   }, fn: handleGrazieNexus },
+  // Compound ARES+ECHO: "manda WA a X con sintesi/riepilogo/elenco
+  // (interventi|agenda|lavoro|impegni) [oggi|domani|...]". DEVE venire
+  // prima degli handler ECHO singoli (così non lo intercettano come
+  // "manda whatsapp" generico) e prima degli ARES (così non riduce
+  // a "interventi di X").
+  { match: (col, az, ctx) => {
+    const m = (ctx?.userMessage || "").toLowerCase();
+    if (!/\b(?:manda|mandami|invia|inviami|scriv\w+)\b/i.test(m)) return false;
+    if (!/\b(?:wa|whatsapp|messaggio|mess|sms)\b/i.test(m)) return false;
+    if (!/\b(?:a|ad|al|alla|per)\s+[a-zà-ÿ]+/i.test(m)) return false;
+    if (!/\b(?:sintesi|riepilog\w+|elenco|cosa\s+(?:fa|ha)|lista|punto)\b/i.test(m)) return false;
+    if (!/\b(?:intervent\w+|agenda|lavoro|lavori|impegn\w+|giornata)\b/i.test(m)) return false;
+    return true;
+  }, fn: async (parametri, ctx) => {
+    return handleCompoundAresEchoWaInterventi({
+      userMessage: ctx?.userMessage || "",
+      sessionId: ctx?.sessionId || parametri?.sessionId || null,
+      userId: parametri?.userId || null,
+    });
+  } },
   // Self-identification del modello: "che llm usi / che modello sei /
   // che gpt sei / chi ti ha fatto / quale ai sei / sei chatgpt".
   // CRUCIALE: gpt-oss-120b ha un forte bias di self-id e dice di essere

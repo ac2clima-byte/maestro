@@ -385,6 +385,58 @@ export async function tryInterceptEchoPending({ userMessage, sessionId }) {
     };
   }
 
+  // kind=echo_wa_compound_confirm: dopo handleCompoundAresEchoWaInterventi
+  // l'utente vede l'anteprima e deve confermare con "sì manda" / "sì" / "ok"
+  // / "manda" per inviare davvero. "no/annulla" → cancella senza inviare.
+  if (pendingData.kind === "echo_wa_compound_confirm") {
+    // Annullamento
+    if (/^\s*(?:no\b|annull|lascia\s+stare|stop|basta|cancell)/i.test(t)) {
+      try { await pendingDoc.ref.delete(); } catch {}
+      return {
+        content: `Ok, non mando niente a ${pendingData.compoundDest || "?"}.`,
+        _echoPendingHandled: true,
+      };
+    }
+    // Conferma
+    if (/^\s*(?:s[iì](?:\s+(?:manda|mandalo|invia|invialo|fallo))?|ok|va\s+bene|conferm|procedi|fallo|mandalo|manda(?:lo)?(?:\s+pure)?|invia(?:lo)?|invia\s+pure|spedisci(?:lo)?|fai\s+pure)\b/i.test(t)) {
+      const dest = pendingData.compoundDest;
+      const body = pendingData.compoundBody;
+      const range = pendingData.compoundRange;
+      const count = pendingData.compoundCount;
+      try { await pendingDoc.ref.delete(); } catch {}
+      if (!dest || !body) {
+        return {
+          content: "Manca qualche dato per inviare. Fai di nuovo la richiesta.",
+          _echoPendingHandled: true,
+        };
+      }
+      const result = await handleEchoWhatsApp(
+        { to: dest, body, sessionId },
+        { userMessage: t, sessionId }
+      );
+      // Sovrascrivi il content per renderlo più naturale al contesto compound
+      const success = !(result && result._failed);
+      const isDry = !!(result?.data?.dryRun);
+      let content;
+      if (!success) {
+        content = `Non sono riuscito a mandare il messaggio a ${dest}: ${result?.content || "errore"}`;
+      } else if (isDry) {
+        content = `${result?.content || `Modalità test: messaggio per ${dest} preparato ma non spedito.`}`;
+      } else {
+        content = `Fatto. Mandato a ${dest} il riepilogo dei ${count} interventi di ${range}.`;
+      }
+      return {
+        content,
+        data: { kind: "echo_wa_compound_sent", dest, count, range, ...((result && result.data) || {}) },
+        _echoPendingHandled: true,
+        _failed: !!(result && result._failed),
+      };
+    }
+    // Altro messaggio: pulisco pending (l'utente cambia argomento)
+    try { await pendingDoc.ref.delete(); } catch {}
+    return null;
+  }
+
   // kind=echo_wa_dryrun_info: pending puramente informativo dopo dry-run.
   // Riconosce 3 famiglie di follow-up:
   //   1. "togli/disattiva/spegni dry run" / "abilita reali" / "manda davvero"
@@ -594,7 +646,11 @@ function _parseDueToDate(v) {
   return null;
 }
 
-// Formatta una risposta ARES con items in testo WA conciso
+// Formatta una risposta ARES con items in testo WA conciso.
+// Esportato perché usato anche dal compound handler in nexus.js.
+export function formatItemsForWhatsApp(items, maxLen = 1500) {
+  return _formatItemsForWhatsApp(items, maxLen);
+}
 function _formatItemsForWhatsApp(items, maxLen = 1500) {
   if (!Array.isArray(items) || !items.length) return null;
   const lines = items.slice(0, 25).map((it, i) => {

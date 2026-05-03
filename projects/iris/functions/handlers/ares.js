@@ -174,6 +174,7 @@ const STATI_TERMINALI_RE = /\b(complet|chius|annul|terminat|cancel|risolt|finit)
 // Whitelist 9 tecnici ACG per estrazione robusta (no falsi positivi su città/giorni).
 const TECNICI_ACG = ["aime","david","albanesi","gianluca","contardi","alberto","dellafiore","lorenzo","victor","leshi","ergest","piparo","marco","tosca","federico","troise","antonio","malvicino"];
 
+export function extractTecnicoFromMessage(userMessage) { return _extractTecnico(userMessage); }
 function _extractTecnico(userMessage) {
   const m = String(userMessage || "").toLowerCase();
   for (const nome of TECNICI_ACG) {
