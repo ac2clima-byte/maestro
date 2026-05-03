@@ -22950,3 +22950,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #38  FAILED: HTTP Error 400: Bad Request
   #39  FAILED: HTTP Error 400: Bad Request
 [2026-05-03T12:50:24Z] ─── fine ciclo ───
+[2026-05-03T12:51:24Z] ─── inizio ciclo IRIS (limit=50) ───
