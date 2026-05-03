@@ -25392,3 +25392,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
 
 [step 3/6] Fetching Sent Items from EWS (reply oracle)…
 [2026-05-03T19:04:20Z] ─── fine ciclo ───
+[2026-05-03T19:05:20Z] ─── inizio ciclo IRIS (limit=50) ───
