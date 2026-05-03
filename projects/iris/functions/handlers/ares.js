@@ -59,6 +59,23 @@ export function parseRangeDataInterventi(text) {
   if (!m) return null;
   const today = _midnight(new Date());
 
+  // Data assoluta DD/MM/YYYY o DD-MM-YYYY ha PRIORITÀ MASSIMA: se l'utente
+  // ha scritto "giovedì 23/04/2026" la data è esplicita e va usata, non il
+  // giorno-settimana (che il default-futuro porterebbe a 30/04 o 07/05).
+  // Anno opzionale: se mancante usa quello corrente.
+  const assTop = m.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/);
+  if (assTop) {
+    const dd = Number(assTop[1]), mm = Number(assTop[2]);
+    let yy = assTop[3] ? Number(assTop[3]) : Number(oggiItalia(today).slice(0, 4));
+    if (yy < 100) yy += 2000;
+    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+      const d = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+      if (!Number.isNaN(d.getTime())) {
+        return { from: d, to: _addDays(d, 1), label: `il ${_formatDateIt(d)}` };
+      }
+    }
+  }
+
   if (/\boggi\b/.test(m)) return { from: today, to: _addDays(today, 1), label: "oggi" };
   if (/\bieri\b/.test(m)) return { from: _addDays(today, -1), to: today, label: "ieri" };
   if (/\bdomani\b/.test(m)) return { from: _addDays(today, 1), to: _addDays(today, 2), label: "domani" };
