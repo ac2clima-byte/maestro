@@ -25,7 +25,7 @@ LOG_DIR="$REPO_DIR/logs"
 PID_FILE="$LOG_DIR/iris_poller.pid"
 LOG_FILE="$LOG_DIR/iris_poller.log"
 ERR_FILE="$LOG_DIR/iris_poller.err"
-POLL_INTERVAL="${IRIS_POLL_INTERVAL:-300}"   # default 5 min
+POLL_INTERVAL="${IRIS_POLL_INTERVAL:-60}"    # default 60s (era 300s)
 CYCLE_TIMEOUT="${IRIS_CYCLE_TIMEOUT:-240}"    # max 4 min per ciclo
 EMAIL_LIMIT="${IRIS_EMAIL_LIMIT:-50}"
 
@@ -89,6 +89,35 @@ run_cycle() {
     tail -n 30 "$cycle_log" | tee -a "$LOG_FILE" "$ERR_FILE"
   fi
   rm -f "$cycle_log"
+
+  # Heartbeat: scrive in pharo_heartbeat/iris_poller (nexo-hub-15f2d)
+  # un timestamp + host/pid/intervallo. PHARO può controllare se il
+  # poller sta girando (alert se stale > 10 min, da implementare in
+  # task separato). Usa lo script Node con firebase-admin già installato
+  # nel sotto-progetto functions/.
+  local hb_script="/tmp/iris_heartbeat_$$.js"
+  cat > "$hb_script" <<'NODEHB'
+const admin = require(process.env.HB_ADMIN_PATH);
+admin.initializeApp({ projectId: 'nexo-hub-15f2d' });
+const db = admin.firestore();
+db.collection('pharo_heartbeat').doc('iris_poller').set({
+  lastBeat: admin.firestore.FieldValue.serverTimestamp(),
+  host: process.env.HB_HOST || 'unknown',
+  pid: Number(process.env.HB_PID) || null,
+  poll_interval_sec: Number(process.env.HB_INTERVAL) || null,
+  version: 'iris-poller-v1.1',
+  source: 'iris_local_poller.sh',
+}, { merge: true })
+  .then(() => process.exit(0))
+  .catch(e => { console.error('hb failed:', e.message); process.exit(1); });
+NODEHB
+  HB_ADMIN_PATH="$IRIS_DIR/functions/node_modules/firebase-admin" \
+  HB_HOST="$(hostname)" \
+  HB_PID="$$" \
+  HB_INTERVAL="$POLL_INTERVAL" \
+    timeout 10 node "$hb_script" 2>>"$ERR_FILE" || true
+  rm -f "$hb_script"
+
   log "─── fine ciclo ───"
   rm -f "$PID_FILE"
 }
