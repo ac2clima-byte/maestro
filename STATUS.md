@@ -1,33 +1,33 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-05-03T14:55:13.464Z
+Ultimo aggiornamento: 2026-05-03T15:02:12.556Z
 
 ## Stato MAESTRO + Claude Code
-Fase: waiting_result
-Task: setup-nexo-forge
-Dettagli: Claude Code sta lavorando
-Uptime: 407s
-Timestamp Firestore: 2026-05-03T14:53:17.579Z
+Fase: idle
+Task: nessuno
+Dettagli: nessun task in coda
+Uptime: 423s
+Timestamp Firestore: 2026-05-03T15:02:08.681Z
 
 <details><summary>Payload JSON</summary>
 
 ```json
 {
-  "fase": "waiting_result",
-  "task": "setup-nexo-forge",
-  "dettagli": "Claude Code sta lavorando",
-  "uptime": 406.734637949,
-  "timestamp": "2026-05-03T14:53:17.579Z"
+  "fase": "idle",
+  "task": null,
+  "dettagli": "nessun task in coda",
+  "uptime": 423.207492669,
+  "timestamp": "2026-05-03T15:02:08.681Z"
 }
 ```
 
 </details>
 
 ## Task pending
-- setup-nexo-forge
+Nessuno.
 
 ## Ultimi 5 commit
-- e34d1a70 auto: pre-pull commit
-- 49889c28 auto: pre-pull commit
-- dee492ea result: fix-maestro-short-prompt
-- b651603c fix(maestro): per task >8KB manda prompt corto "leggi file" invece di paste-buffer
-- 2a2baa24 auto: pre-pull commit
+- 2973a7ab auto: pre-pull commit
+- 8b7a97ff auto: pre-pull commit
+- e935b00c auto: pre-pull commit
+- 0793a8b6 auto: pre-pull commit
+- e7dbfafd auto: pre-pull commit
