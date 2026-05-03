@@ -1,33 +1,17 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-05-03T08:57:35.765Z
+Ultimo aggiornamento: 2026-05-03T09:00:57.207Z
 
 ## Stato MAESTRO + Claude Code
-Fase: sending_to_code
-Task: setup-nexo-forge
-Dettagli: invio a Claude Code
-Uptime: 78s
-Timestamp Firestore: 2026-05-03T08:47:25.609Z
+Errore lettura codeStatus: Command failed: curl -fsS --max-time 8 https://europe-west1-nexo-hub-15f2d.cloudfunctions.net/codeStatus
+curl: (22) The requested URL returned error: 500
 
-<details><summary>Payload JSON</summary>
-
-```json
-{
-  "fase": "sending_to_code",
-  "task": "setup-nexo-forge",
-  "dettagli": "invio a Claude Code",
-  "uptime": 77.890080542,
-  "timestamp": "2026-05-03T08:47:25.609Z"
-}
-```
-
-</details>
 
 ## Task pending
-- setup-nexo-forge
+Nessuno.
 
 ## Ultimi 5 commit
-- 5ac4484b auto: pre-pull commit
-- a84edc62 analysis-stub: 7D9LB0oU4iuD0IeMMuda (autonomous fix)
-- 835c36c6 auto: pre-pull commit
-- 962816ef auto: pre-pull commit
-- 16c5d9ba auto: pre-pull commit
+- f771aec3 auto: pre-pull commit
+- e3259452 auto: pre-pull commit
+- 06636566 auto: pre-pull commit
+- f1073292 auto: pre-pull commit
+- e7481dca auto: pre-pull commit
