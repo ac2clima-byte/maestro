@@ -14811,3 +14811,31 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #19  NEWSLETTER_SPAM               high    neutro       support@services.ovhcloud.com             → ARCHIVIA
   #20  NEWSLETTER_SPAM               high    neutro       email.campaign@sg.booking.com             → ARCHIVIA
   #21  NEWSLETTER_SPAM               high    neutro       accountsteam@bentleytelecom.com           → ARCHIVIA
+[2026-05-03T11:24:07Z] ERR: ciclo FAILED (rc=124): ultime righe:
+[pipeline] project=nexo-hub-15f2d model=claude-haiku-4-5 n=50
+
+[step 1/6] Fetching inbox emails from EWS…
+           OK, 50 emails.
+
+[step 2/6] Classifying with Haiku…
+  #1  NEWSLETTER_SPAM               high    neutro       information@loyalty.email.ikea.com        → ARCHIVIA
+  #2  NEWSLETTER_SPAM               high    neutro       no.reply@ikea.com                         → ARCHIVIA
+  #3  NEWSLETTER_SPAM               high    neutro       accountsteam@bentleytelecom.com           → ARCHIVIA
+  #4  NEWSLETTER_SPAM               high    neutro       no-reply@mycicero.it                      → ARCHIVIA
+  #5  NEWSLETTER_SPAM               high    neutro       MicrosoftExchange329e71ec88ae4615bbc36ab  → ARCHIVIA
+  #6  PEC_UFFICIALE                 high    neutro       posta-certificata@pec.aruba.it            → ARCHIVIA
+  #7  PEC_UFFICIALE                 high    neutro       posta-certificata@pec.aruba.it            → VERIFICA_PAGAMENTO
+  #8  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #9  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #10  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #11  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #12  NEWSLETTER_SPAM               high    neutro       ne@centropaghe.it                         → ARCHIVIA
+  #13  NEWSLETTER_SPAM               high    neutro       noreply@happily-welfare.it                → ARCHIVIA
+  #14  PEC_UFFICIALE                 high    neutro       posta-certificata@legalmail.it            → ARCHIVIA
+  #15  NEWSLETTER_SPAM               high    neutro       accountsteam@bentleytelecom.com           → ARCHIVIA
+  #16  PEC_UFFICIALE                 high    neutro       posta-certificata@pec.aruba.it            → ARCHIVIA
+  #17  PEC_UFFICIALE                 high    neutro       posta-certificata@pec.aruba.it            → ARCHIVIA
+  #18  NEWSLETTER_SPAM               high    neutro       info@mpvoip.eu                            → ARCHIVIA
+  #19  NEWSLETTER_SPAM               high    neutro       support@services.ovhcloud.com             → ARCHIVIA
+  #20  NEWSLETTER_SPAM               high    neutro       email.campaign@sg.booking.com             → ARCHIVIA
+  #21  NEWSLETTER_SPAM               high    neutro       accountsteam@bentleytelecom.com           → ARCHIVIA
