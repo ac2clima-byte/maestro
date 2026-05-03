@@ -22111,3 +22111,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
   #20  NEWSLETTER_SPAM               high    neutro       email.campaign@sg.booking.com             → ARCHIVIA
   #21  NEWSLETTER_SPAM               high    neutro       accountsteam@bentleytelecom.com           → ARCHIVIA
 [2026-05-03T10:23:20Z] ─── fine ciclo ───
+[2026-05-03T10:24:20Z] ─── inizio ciclo IRIS (limit=50) ───
