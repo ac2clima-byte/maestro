@@ -25556,3 +25556,4 @@ exchangelib.errors.TransportError: HTTPSConnectionPool(host='remote.gruppobadano
   #50  FAILED: HTTP Error 400: Bad Request
 
 [step 3/6] Fetching Sent Items from EWS (reply oracle)…
+[2026-05-03T19:29:43Z] ─── fine ciclo ───
