@@ -27258,3 +27258,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
 
 [step 5/6] Writing emails + threads to Firestore…
 [2026-05-04T09:39:04Z] ─── fine ciclo ───
+[2026-05-04T09:40:04Z] ─── inizio ciclo IRIS (limit=50) ───
