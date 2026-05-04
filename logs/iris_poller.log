@@ -27324,3 +27324,4 @@ Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
 
 [step 3/6] Fetching Sent Items from EWS (reply oracle)…
 [2026-05-04T09:49:13Z] ─── fine ciclo ───
+[2026-05-04T09:50:13Z] ─── inizio ciclo IRIS (limit=50) ───
