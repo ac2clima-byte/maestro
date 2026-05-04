@@ -25728,3 +25728,316 @@ Tokens:  input=0  output=0
 Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
 ============================================================
 [2026-05-04T05:51:00Z] ─── fine ciclo ───
+[2026-05-04T05:52:00Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T05:53:58Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.LorIOAdrnd)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T05:53:58Z] ─── fine ciclo ───
+[2026-05-04T05:54:58Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T05:56:51Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.HKLYOpqGV9)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T05:56:52Z] ─── fine ciclo ───
+[2026-05-04T05:57:52Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:00:05Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.qjKKP7k2lT)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:00:06Z] ─── fine ciclo ───
+[2026-05-04T06:01:06Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:03:29Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.4BmqKPAMki)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:03:30Z] ─── fine ciclo ───
+[2026-05-04T06:04:30Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:06:53Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.PDauuhm4CX)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:06:55Z] ─── fine ciclo ───
+[2026-05-04T06:07:55Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:10:17Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.DbFpCr9qkL)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:10:18Z] ─── fine ciclo ───
+[2026-05-04T06:11:18Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:13:51Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.zJv7pbsUkx)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:13:53Z] ─── fine ciclo ───
+[2026-05-04T06:14:53Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:17:16Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.NIEhkDfmuF)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:17:17Z] ─── fine ciclo ───
+[2026-05-04T06:18:17Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:20:37Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.GkWZbOC2BO)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:20:38Z] ─── fine ciclo ───
+[2026-05-04T06:21:38Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:24:05Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.AnHQT6fUQ8)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:24:06Z] ─── fine ciclo ───
+[2026-05-04T06:25:06Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:27:24Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.2xdiInsrsA)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:27:24Z] ─── fine ciclo ───
+[2026-05-04T06:28:24Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:30:50Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.CDwRdWAdRQ)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:30:51Z] ─── fine ciclo ───
+[2026-05-04T06:31:51Z] ─── inizio ciclo IRIS (limit=50) ───
+[2026-05-04T06:34:15Z] ciclo OK, 0
+0 eventi (log: /tmp/tmp.FGjnfKMn3Z)
+
+[step 3/6] Fetching Sent Items from EWS (reply oracle)…
+           OK, 200 sent items.
+
+[step 4/6] Computing follow-up / needs-attention…
+           0 follow-up rilevati, 0 email senza risposta (>48h).
+
+[step 5/6] Writing emails + threads to Firestore…
+
+
+[step 6/6] Esecuzione RuleEngine…
+           4 regole in iris_rules (4 attive).
+           0 email matchate da una regola.
+
+============================================================
+Summary: 50 read, 0 classified, 0 email docs, 0 threads (0 multi-msg).
+         Follow-up: 0   Senza risposta (>48h): 0   Rules matched: 0
+Tokens:  input=0  output=0
+Console: https://console.firebase.google.com/project/nexo-hub-15f2d/firestore
+============================================================
+[2026-05-04T06:34:17Z] ─── fine ciclo ───
+[2026-05-04T06:35:17Z] ─── inizio ciclo IRIS (limit=50) ───
