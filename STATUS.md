@@ -1,33 +1,33 @@
 # NEXO Code Status
-Ultimo aggiornamento: 2026-05-04T05:48:24.367Z
+Ultimo aggiornamento: 2026-05-04T06:37:15.098Z
 
 ## Stato MAESTRO + Claude Code
-Fase: idle
+Fase: polling
 Task: nessuno
-Dettagli: nessun task in coda
-Uptime: 17874s
-Timestamp Firestore: 2026-05-04T05:47:44.275Z
+Dettagli: git pull in corso
+Uptime: 173s
+Timestamp Firestore: 2026-05-04T05:51:11.819Z
 
 <details><summary>Payload JSON</summary>
 
 ```json
 {
-  "fase": "idle",
+  "fase": "polling",
   "task": null,
-  "dettagli": "nessun task in coda",
-  "uptime": 17873.833335344,
-  "timestamp": "2026-05-04T05:47:44.275Z"
+  "dettagli": "git pull in corso",
+  "uptime": 173.17258266,
+  "timestamp": "2026-05-04T05:51:11.819Z"
 }
 ```
 
 </details>
 
 ## Task pending
-- setup-nexo-forge-creds
+Nessuno.
 
 ## Ultimi 5 commit
-- 36cb7485 task: setup-nexo-forge-creds (Fase B → trigger Fase C)
-- cb8ca12b auto: pre-pull commit
-- ab2fc258 auto: pre-pull commit
-- 35807621 auto: pre-pull commit
-- b9cd424d status update
+- bc557577 auto: pre-pull commit
+- 0899d95e auto: pre-pull commit
+- c765afe6 auto: pre-pull commit
+- 99c9678b auto: pre-pull commit
+- 880efd2f auto: pre-pull commit
