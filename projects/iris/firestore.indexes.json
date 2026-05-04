@@ -23,6 +23,15 @@
         { "fieldPath": "enabled", "order": "ASCENDING" },
         { "fieldPath": "priority", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "nexo_forge_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "actor", "order": "ASCENDING" },
+        { "fieldPath": "ok", "order": "ASCENDING" },
+        { "fieldPath": "ts", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
